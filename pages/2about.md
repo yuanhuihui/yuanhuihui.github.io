@@ -5,11 +5,13 @@ permalink: /about/
 icon: glyphicon-heart
 ---
 
+>  天行健，君子以自强不息；地势坤，君子以厚德载物。
+
 ### 关于我
 
-> 软件工程师一枚, 喜欢coding, 热爱架构, 喜欢思考, 更愿意通过coding将创意实践化,这就是我.
+* 软件工程师一枚, 喜欢coding, 热爱架构, 喜欢创造，将创意化身为产品，Just do it!
 
-主要关注领域是Android开发, web开发.
+* 主要专注领域是Android开发, web开发.
 
 
 ### 联系我

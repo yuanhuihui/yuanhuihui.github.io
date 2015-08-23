@@ -15,6 +15,14 @@ excerpt:  记录在使用Markdown过程中，需要注意的地方
 - <https://help.github.com/articles/markdown-basics>
 - <https://help.github.com/articles/github-flavored-markdown>
 
+
+
+## Markdown工具
+
+- [StackEdit](https://stackedit.io) 非常适合github用户，提供直接publish到github的功能;
+尤其是windows再也不用担心中文乱码的问题.
+
+
 ## 遇到的问题
 
 - 在所有标记符号之后，要记得**加空格**，否则在markdown的编辑器显示可能正常，当发布到blog时会出现非预期的格式。
