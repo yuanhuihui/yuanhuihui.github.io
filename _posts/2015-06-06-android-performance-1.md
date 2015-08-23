@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Android 性能优化(一)"
-date:   2015-08-08 15:14:54
+date:   2015-06-06 22:10:10
 categories: Android
 excerpt:  android渲染原理的详细讲解
 ---
