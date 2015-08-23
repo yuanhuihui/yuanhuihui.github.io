@@ -1,0 +1,75 @@
+---
+layout: default
+---
+<div id="index" class="row">
+  <div class="col-sm-9">
+    <div class="post-area">
+      <!-- small button -->
+     <!--  <p class="pull-right visible-xs">
+       <button>toggle</button>
+     </p> -->
+      <div class="post-list-header">
+        文章
+      </div>
+      <div class="post-list-body">
+        
+        <div class="all-posts" post-cate="All">
+          {% for post in site.posts %}
+            <a class="post-list-item" href="{{ post.url | prepend: site.baseurl }}">
+              <h2>
+              {{ post.title }}
+              </h2>
+              <span class="">{{ post.date | date: "%b %-d, %Y" }}</span>
+            </a>
+          {% endfor %}
+        </div>
+        <!-- <div class="posts-in-categories"> -->
+        {% for category in site.categories %}
+          <div post-cate="{{category | first}}">
+            {% for posts in category  %}
+              {% for post in posts %}
+                {% if post.url %}
+                  <a href="{{ post.url }}" class="post-list-item">
+                    <h2>
+                    {{ post.title }}
+                    </h2>
+                    <span class="">{{ post.date | date: "%b %-d, %Y" }}</span>
+                  </a>
+                {% endif %}
+              {% endfor %}
+            {% endfor %}
+          </div>
+        {% endfor %}
+        
+        <!-- </div> -->
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="shadow-corner-curl hidden-xs">
+      <div class="categories-list-header">
+        分类
+      </div>
+      
+      <a href="javascript:;" class="categories-list-item" cate="All">
+        All<span class="my-badge"> {{site.posts | size}}</span>
+      </a>
+      {% for category in site.categories order:ascending %}
+        <a href="javascript:;" class="categories-list-item" cate="{{ category | first }}">
+          {{ category | first }} <span class="my-badge">{{ category | last | size }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+
+<script src="jquery.js" type="text/javascript"></script>
+<script src="jquery-migrate-1.2.1.min.js" type="text/javascript"></script>
+<script src="iealert.js" type="text/javascript"></script>
+<link rel="stylesheet" type="text/css" href="iealert/style.css" />
+<script type="text/javascript">
+	$(document).ready(function() {
+		$("body").iealert();
+	});
+</script>

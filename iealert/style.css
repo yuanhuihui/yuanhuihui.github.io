@@ -1,0 +1,147 @@
+/*
+	CSS Stylesheet for IE Alert! plugin.
+*/
+
+
+/*
+
+	Overlay Background
+
+*/
+
+#ie-alert-overlay {
+width:100%;
+height:100%;
+background-image:url(bg.png);
+position: fixed; 
+top: 0; 
+left: 0;
+z-index:9999;
+
+}
+
+* html #ie-alert-overlay {   /* fixed position hack for IE6 */
+	position: absolute;
+	z-index:9999;
+	
+}
+
+/*
+
+	Pop Up Panel
+
+*/
+
+#ie-alert-panel {
+	width:600px;
+	height:420px;
+	position:fixed;
+	background: url(iealertsprite.png) no-repeat;
+	background-position: -1px -109px ;
+	top:50%;
+	left:50%;
+	margin:-201px 0 0 -296px;
+	padding:72px 0 0 72px;
+	_position:absolute;  /* fixed position hack for IE6 */
+    _top:expression(300+((e=document.documentElement.scrollTop)?e:document.body.scrollTop)+'px');  /* top:300px hack for IE6 */
+    
+    /* font settings */
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+	font-weight:bold;
+	color:#333;
+	line-height:1.5em;
+	z-index:10000;
+}
+
+#ie-alert-panel p {
+	font-size:14px;
+	width:486px;
+	text-align:justify;
+}
+
+#ie-alert-panel img {
+	border:0;
+}
+
+
+#ie-alert-panel span {
+	font-size:18px;
+	margin: 0 0 20px 0;
+	display:block;
+	padding:0;
+}
+
+#ie-alert-panel ul {
+	list-style: none;
+	margin:0;
+	padding:0;	
+}
+
+#ie-alert-panel li {
+	float:left;
+	margin:0 22px 0 0;
+		
+}
+
+#ie-alert-panel li.last {
+	margin-right:0;
+}
+
+
+#ie-alert-panel a {
+	display:inline-block;
+		
+}
+
+.browser {
+	position: absolute;
+	bottom:60px;	
+}
+
+.chrome, .firefox, .ie9, .opera, .safari {
+	background: url(iealertsprite.png) no-repeat;
+}
+
+/*
+
+	browsers
+
+*/
+
+
+.chrome {
+	background-position: 0 0;
+	width: 73px;
+	height: 96px;
+	margin:0 4px 0 0;
+}
+
+.firefox {
+	background-position: -292px 0;
+	width: 73px;
+	height: 98px;
+}
+
+.ie9 {
+	background-position: -179px 0;
+	width: 95px;
+	height: 98px;
+}
+
+.opera {
+	background-position: -90px 0;
+	width: 73px;
+	height: 98px;
+}
+
+.safari {
+	background-position: -387px 0;
+	width: 73px;
+	height: 98px;
+	margin:0 4px 0 0;
+}
+
+
+ 
+
+
