@@ -16,7 +16,7 @@ excerpt:  android渲染原理的详细讲解
 
 ---
 
-## 一. Render Performance(渲染性能）
+## 一. Render Performance
 渲染问题是开发App遇到的最常见的问题，设计师总是希望界面能有更多的动画，特效，图片等时尚的素材能融入到APP中，但另一方面这些复杂的图形和动画却不一定能流畅地运行在所有设备上。那么我们需要了解渲染是怎么样的过程，从而在尽最大可能来兼容两者。
 
 * Android系统每隔16ms发出VSYNC信号，触发UI进行渲染，达到我们常说的60fps。 为了能实现流畅的画面，程序必须在16ms内完成渲染操作。
@@ -42,7 +42,7 @@ excerpt:  android渲染原理的详细讲解
 
 ---
 
-## 二. Understanding Overdraw（过度绘制）
+## 二. Overdraw
 
 *  Overdraw(过度绘制)描述的是屏幕上的某个像素在同一帧的时间内被绘制了多次。在多层次的UI结构里面，如果不可见的UI也在做绘制的操作，这就会导致某些像素区域被绘制了多次。这就浪费大量的CPU以及GPU资源。
 
@@ -58,7 +58,7 @@ excerpt:  android渲染原理的详细讲解
 
 ---
 
-## 三. Understanding VSYNC（垂直同步）
+## 三. VSYNC
 
  >刷新频率：屏幕在一秒内刷新频幕的次数，由硬件的固定参数决定，比如60HZ。
  帧率：GPU在一秒内绘制的帧数，比如60fps，30fps。
@@ -69,6 +69,7 @@ excerpt:  android渲染原理的详细讲解
 ![vsync1](/images/android-studio-performance-1/vsync1.jpg)
 
 * 帧率与刷新频率不一致时，就会容易出现断裂的画面，往往是上下两部分内容，一部分来自上一帧，另一个部分来自新的一帧，不同帧的数据发生重叠。VSYNC告诉GPU装载新帧之前，必须等到屏幕完成前一帧的显示操作，从而可以避免画面断裂。
+
 ![vsync2](/images/android-studio-performance-1/vsync2.jpg)
 
 * 帧率超过刷新频率只是一种理想的状况，在超过60fps的情况下，GPU所产生的帧数据会因为等待VSYNC的刷新信息而被Hold住，这样能够保持每次刷新都有实际的新的数据可以显示。
@@ -91,7 +92,7 @@ excerpt:  android渲染原理的详细讲解
 
 ---
 
-## 四. Tool:Profile GPU Rendering（GPU渲染分析工具）
+## 四. Profile GPU Rendering
 > 打开方式：设置-->开发者模式-->GPU呈现模式分析(Profile GPU Rendering) -->
 >在屏幕上显示为条形图
 
@@ -134,7 +135,7 @@ excerpt:  android渲染原理的详细讲解
 
 ---
 
-## 六. Android, UI and the GPU（GPU机制）
+## 六. Android, UI and the GPU
 
 对于android程序，复杂的XML布局文件是如何被识别而绘制出来？activity的画面是如何绘制到屏幕上的？
 
