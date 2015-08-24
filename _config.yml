@@ -1,6 +1,6 @@
 # Site settings
-title: Yuanhuihui
-email: yuanhuihui208@163.com
+title: Yuanhh
+email: gityuan@gmail.com
 description: 天道酬勤
 # > # this means to ignore newlines until "baseurl:"
 #   Write an awesome description for your new site here. You can edit this
@@ -9,7 +9,7 @@ description: 天道酬勤
 
 # baseurl: "" # the subpath of your site, e.g. /blog/
 # url: "http://yourdomain.com" # the base hostname & protocol for your site
-# twitter_username: jekyllrb
+# twitter_username: yuanhuihui
 github_username:  yuanhuihui
 permalink: /:year/:month/:day/:title/
 
