@@ -16,5 +16,5 @@ icon: glyphicon-heart
 
 ### 联系我
 
-* email：[yuanhuihui208@163.com](mailto:{{ site.email }})
+* email：[gityuan@gmail.com](mailto:{{ site.email }})
 

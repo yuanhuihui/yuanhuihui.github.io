@@ -48,7 +48,7 @@ Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby�
 		
 ###  安装Jekyll
 
-#### 1. 更换源
+#### 1. 更换源 （翻墙软件，推荐[云梯](http://hidewall.com/?r=1e46f8e05a50bf4c)）
 
 *  国内源
 	
@@ -83,3 +83,4 @@ Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby�
 		jekyll serve --watch
 		
 *  浏览：[http://localhost:4000/index.html](http://localhost:4000/index.html)
+
