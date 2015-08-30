@@ -19,8 +19,11 @@ excerpt:  各种技术博客，开源库等整理
 - 网站：<https://github.com/Trinea/android-open-project>  
 描述：作者[Trinea](https://github.com/Trinea)，是目前国内整理最全面的库，没有之一。
 
-- 网站：<http://blog.csdn.net/caoyouxing/article/details/42418591>  
-描述：这是CSDN的一篇博客整理的开源库。
+- 网站：<https://github.com/Trinea/android-open-project>  
+描述：作者[Trinea](https://github.com/Trinea)，是目前国内整理最全面的库，没有之一。
+
+- 网站：<http://www.23code.com>  
+描述：Android经典源代码库
 
 - 网站： <http://www.codota.com/>  
 描述：codota，主要收集的是一些优秀代码的片段示例。
@@ -52,16 +55,15 @@ excerpt:  各种技术博客，开源库等整理
 - greenrobot: <http://greenrobot.me>
 - csdn: <http://blog.csdn.net/xyz_lmn/article/details/17575709>  
 
--  <https://github.com/bboyfeiyu/android-tech-frontier/tree/master/the-bad-guys>  
-描述：国内优秀Android学习资源
-
 ## 技术网站
 - <http://www.codekk.com/>
 - <http://androidweekly.net/>
 - <http://www.importnew.com/>
 - <http://blog.jobbole.com/category/android/>
-- <http://www.androidchina.net/>
-- <http://www.devtf.cn/>
+- <http://www.androidchina.net/>  
+
+- <http://www.devtf.cn/>  
+描述：开发技术前线，[github链接](https://github.com/bboyfeiyu/android-tech-frontier).
 
 
 
