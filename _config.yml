@@ -16,6 +16,8 @@ permalink: /:year/:month/:day/:title/
 # Build settings
 markdown: kramdown
 
+paginate: 10
+paginate_path: "page:num"
 # highlight
 # 本地用rouge, github上用pygments
 # highlighter: pygments
