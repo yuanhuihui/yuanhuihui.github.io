@@ -201,9 +201,62 @@ view缩写如下：
 
 ---
 
-## 注释规范
+## 代码风格
 
-### 1.类注释
+### 原则
+
+- 不要直接忽略Exceptions  
+
+	例如下面的示例，永远不要这样做，无法预测未来可能的变化
+
+		void setServerPort(String value) {  
+		    try {  
+		        serverPort = Integer.parseInt(value);  
+		    } catch (NumberFormatException e) { }  
+		}  
+
+	正确的做法应该如下：
+
+		void setServerPort(String value) throws ConfigurationException {
+		    try {
+		        serverPort = Integer.parseInt(value);
+		    } catch (NumberFormatException e) {
+		        throw new ConfigurationException("Port " + value + " is not valid.");
+		    }
+		}
+
+- import采用完全限定名  
+
+	不提倡：
+  
+		import foo.*;   
+
+	正确做法：
+  
+		import foo.Bar;  
+
+- 括号风格：  
+
+	不提倡：
+
+		if (condition)
+		    body(); 
+
+	正确做法：
+
+		if (condition) {
+		    body(); 
+		}
+
+
+- 使用空格来缩进  
+
+	使用4个空格缩进来代表块，而绝不使用tab键；  
+	使用8个空格来代表行包裹，包括函数调用。
+
+### 注释
+
+- 1.类注释
 每个类完成后应该有作者姓名和联系方式的注释，对自己的代码负责
 
 	/**
@@ -217,7 +270,7 @@ view缩写如下：
 	}
 
 
-### 2.方法注释
+- 2.方法注释
 每一个成员方法（包括自定义成员方法、覆盖方法、属性方法）的方法头都必须做方法头注释
 
 	/*
@@ -228,7 +281,7 @@ view缩写如下：
 	 */
 
 
-### 3.快注释
+- 3.快注释
 
 	private class MessageObserver extends ContentObserver {
 		public MessageObserver() {
@@ -242,7 +295,7 @@ view缩写如下：
 	}
 
 
-### 4.资源文件注释
+- 4.资源文件注释
 
     <!--红色  -->
     <color name="red">#FF0000</color>

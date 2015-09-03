@@ -2,7 +2,7 @@
 layout: post
 title:  "Android Studio 快捷键"
 date:   2015-08-08 20:10:10
-categories: Android-Studio
+categories: Android
 excerpt: Android 快捷键说明。
 ---
 

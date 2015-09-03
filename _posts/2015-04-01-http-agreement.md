@@ -2,7 +2,7 @@
 layout: post
 title:  "浅谈HTTP协议"
 date:   2015-04-01 22:10:54
-categories: http
+categories: web
 excerpt:  浅谈HTTP协议的基本内容
 ---
 

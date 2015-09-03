@@ -2,7 +2,7 @@
 layout: post
 title:  "算法优化--排序与未排序效率问题"
 date:   2015-8-30 0:52:30
-categories: github
+categories: algorithm
 excerpt:  详细分析为什么处理已排序的数组比未排序的数组要快的底层机理
 ---
 
