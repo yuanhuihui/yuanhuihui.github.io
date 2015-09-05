@@ -13,6 +13,7 @@ excerpt:  记录在使用Markdown过程中，需要注意的地方
 语法方面的文章有很多，这里就不详细说明
 
 
+- <http://www.appinn.com/markdown/>
 - <https://help.github.com/articles/markdown-basics>
 - <https://help.github.com/articles/github-flavored-markdown>
 - <http://wowubuntu.com/markdown>
