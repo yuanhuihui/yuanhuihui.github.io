@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "Android动画系列（三）"
-date:   2015-9-4 22:20:00
+title:  "Android动画之原理篇（三）"
+date:   2015-9-5 22:20:00
 categories: android
 excerpt:  Android属性动画
 ---
@@ -13,12 +13,12 @@ excerpt:  Android属性动画
 
 ----------
 
- >本文从源码的角度，来展开对动画的深入解析，关于动画基本用法，可查看[**Android动画入门（一）**](http://yuanhuihui.github.io/2015/09/03/android-anaimator-1/)，[**Android动画入门（二）**](http://yuanhuihui.github.io/2015/09/03/android-anaimator-2/)。 
+ >本文从源码的角度，来展开对动画的深入解析，关于动画基本用法，可查看[**Android动画之入门篇(一）**](http://yuanhuihui.github.io/2015/09/03/android-anaimator-1/)，[**Android动画之入门篇（二）**](http://yuanhuihui.github.io/2015/09/04/android-anaimator-2/)。 
    
 
 关于动画有两个非常重要的类，那就是插值器(Interpolators)与 估值器（Evaluators），下面将详细讲解。
 
-## 1.1 插值器
+## 一、 插值器
 时间插值器，定义了一个时间的函数：y = f(t),其中t=`elapsed time` / `duration`.  
 
 每个插值器的源码流程都相同，下面以AccelerateInterpolator为例，说明插值器的内部原理：
@@ -110,7 +110,7 @@ excerpt:  Android属性动画
 
 通过分析每一个插值器的插值方法的源码，下面总结了所有插值器的插值函数：  
 
-### 1.1.1 Linear
+### 1.1 Linear
 - 资源ID: @android:anim/linear_interpolator
 - 构造方法：  
 	- `public LinearInterpolator()`; //没有任何可调参数 
@@ -120,7 +120,7 @@ excerpt:  Android属性动画
 - 插值曲线：  
 [Linear Interpolator]()
 
-### 1.1.2 Accelerate 
+### 1.2 Accelerate 
 - 资源ID: @android:anim/accelerate_interpolator
 - 构造方法：  
 	- `public AccelerateInterpolator()`；//默认factor=1  
@@ -133,7 +133,7 @@ excerpt:  Android属性动画
 - 插值曲线：  
 [Accelerate Interpolator]()
 
-### 1.1.3 Decelerate
+### 1.3 Decelerate
 - 资源ID: @android:anim/decelerate_interpolator
 - 构造方法：  
 	- `public AccelerateInterpolator()`；//默认factor=1  
@@ -146,7 +146,7 @@ excerpt:  Android属性动画
 - 插值曲线：  
 [Decelerate Interpolator]()
 
-### 1.1.4 AccelerateDecelerate
+### 1.4 AccelerateDecelerate
 - 资源ID: @android:anim/accelerate_decelerate_interpolator
 - 构造方法：  
 	- `public AccelerateDecelerateInterpolator()`；  //没有任何可调参数  
@@ -158,7 +158,7 @@ excerpt:  Android属性动画
 [AccelerateDecelerate Interpolator]()
 
 
-### 1.1.5 Anticipate
+### 1.5 Anticipate
 - 资源ID: @android:anim/anticipate_interpolator
 - 构造方法：  
 	- `public AnticipateInterpolator()`；//默认tension=2
@@ -172,7 +172,7 @@ excerpt:  Android属性动画
 [Anticipate Interpolator]()
 
 
-### 1.1.6 Overshoot
+### 1.6 Overshoot
 - 资源ID: @android:anim/overshoot_interpolator
 - 构造方法：  
 	- `public OvershootInterpolator()`；//默认tension=2
@@ -185,7 +185,7 @@ excerpt:  Android属性动画
 - 插值曲线：  
 [ Overshoot Interpolator]()
 
-### 1.1.7 AnticipateOvershoot
+### 1.7 AnticipateOvershoot
 - 资源ID: @android:anim/anticipate_overshoot_interpolator
 - 构造方法：  
 	- `public AnticipateOvershootInterpolator()`；//默认tension=3
@@ -205,7 +205,7 @@ excerpt:  Android属性动画
 [ AnticipateOvershoot Interpolator]()
 
 
-### 1.1.8 Bounce
+### 1.8 Bounce
 - 资源ID: @android:anim/bounce_interpolator
 - 构造方法：  
 	- `public BounceInterpolator()`；//没有任何可调参数  
@@ -219,7 +219,7 @@ excerpt:  Android属性动画
 - 插值曲线：  
 [Bounce Interpolator]()
 
-### 1.1.9 Cycle
+### 1.9 Cycle
 - 资源ID: @android:anim/cycle_interpolator
 - 构造方法：  
 	- `public CycleInterpolator(float cycles)`；    
@@ -231,8 +231,10 @@ excerpt:  Android属性动画
 - 插值曲线：  
 [ Cycle Interpolator]()
 
+----------
 
-## 1.2 估值器
+
+## 二、 估值器
 估值器，用于计算属性动画的给定属性的取值，与属性的起始值，结束值，`fraction`三个值相关。
 
 每个估值器的源码流程都相似，所有的估值器都实现了TypeEvaluator接口，接口采用泛型，可自定义各种类型的估值器，只需实现如下接口即可：
@@ -249,7 +251,7 @@ excerpt:  Android属性动画
 	}
 
 
-### 1.2.1 IntEvaluator  
+### 2.1 IntEvaluator  
 用于评估Integer型的属性值，起始值与结束值，以及evaluate返回值都是Integer类型。评估的返回值与fraction成一次函数，即线性关系。
 
 	public class IntEvaluator implements TypeEvaluator<Integer> {
@@ -269,7 +271,7 @@ excerpt:  Android属性动画
 	}
 
 
-### 1.2.2 FloatEvaluator
+### 2.2 FloatEvaluator
 用于评估Float型的属性值，起始值与结束值，以及evaluate返回值都是Float类型，同样也是线程关系。
 
 	public class FloatEvaluator implements TypeEvaluator<Number> {
@@ -286,7 +288,7 @@ excerpt:  Android属性动画
     }
 	}
 
-### 1.2.3 ArgbEvaluator
+### 2.3 ArgbEvaluator
 用于评估颜色的属性值，采用16进制。将ARGB四个量，同步进行动画渐变，同样也是采用线性的。
 
 	public class ArgbEvaluator implements TypeEvaluator {
@@ -322,5 +324,7 @@ excerpt:  Android属性动画
 	    }
 	}
 
-
 ----------
+
+## 三、小结
+本文主要分两部分，插值器与估值器。通过源码方式概括性分析插值器的代码实现方式；再从数学角度，逐一进行剖析系统自带的9种插值器的插值函数以及其插值曲线。对于3种Evaluators，通过分析源码，其方式较为简单，需要注意的一点是evaluate中的fraction是插值器转换后的值，而不是`elapsed time`。
