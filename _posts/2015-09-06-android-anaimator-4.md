@@ -540,3 +540,8 @@ excerpt:  Android属性动画原理篇
 ----------
 
 ## 总结
+动画主线流程：  ObjectAnimator.start() -> ValueAnimator.start()  
+-> animationHandler.start() -> AnimationHandler.scheduleAnimation()   
+-> Choreographer.postCallback() -> postCallbackDelayed() -> postCallbackDelayedInternal() -> scheduleFrameLocked() -> scheduleVsyncLocked() -> DisplayEventReceiver.scheduleVsync() -> onVsync() -> doFrame(）-> doCallbacks()  
+-> animationHandler.run() ->doAnimationFrame() -> animationFrame() -> animateValue()
+目前先文字叙述，后面有空再画详细流程图。

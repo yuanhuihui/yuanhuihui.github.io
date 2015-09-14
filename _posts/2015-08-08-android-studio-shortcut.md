@@ -26,6 +26,12 @@ excerpt: Android 快捷键说明。
 
 | 功能   |  快捷键组合        |
 | --------   | :-----  | 
+|前进|Ctrl + Alt + ←|
+|后退|Ctrl + Alt + →|
+|跳转到大括号开头|Ctrl + [ |
+|跳转到大括号结尾|Ctrl + ] |
+| 跳转上一次编辑的位置|  Ctrl + Shift +　Backspace     |
+|关闭当前Tabs|Ctrl + F4|
 | 跳转至某个Class |  Ctrl + N     |
 | 跳转至某个文件 |  Ctrl + + Shift + N     |
 | 跳转至某一行 |  Ctrl + G     |
@@ -34,10 +40,7 @@ excerpt: Android 快捷键说明。
 |跳转至实现|Ctrl + Alt + B|
 |跳转至超类的方法|Ctrl + U|
 |跳转至测试|Ctrl + Shift + T|
-|前进|Ctrl + Alt + ←|
-|后退|Ctrl + Alt + →|
-| 跳转上一次编辑的位置|  Ctrl + Shift +　Backspace     |
-|关闭当前Tabs|Ctrl + F4|
+
 
 ## 二、搜索
 
