@@ -91,7 +91,8 @@ excerpt:  Activity与Service生命周期
 ##二. Service
 
   
-先展示一张Activity的生命周期图：  
+先展示一张Service的生命周期图：  
+  
 
 ![service lifecycle](/images/lifecycle/service.png)
   

@@ -19,9 +19,6 @@ excerpt:  各种技术博客，开源库等整理
 - 网站：<https://github.com/Trinea/android-open-project>  
 描述：作者[Trinea](https://github.com/Trinea)，是目前国内整理最全面的库，没有之一。
 
-- 网站：<https://github.com/Trinea/android-open-project>  
-描述：作者[Trinea](https://github.com/Trinea)，是目前国内整理最全面的库，没有之一。
-
 - 网站：<http://www.23code.com>  
 描述：Android经典源代码库
 
