@@ -2,7 +2,7 @@
 layout: post
 title:  "Android强弱引用"
 date:   2015-12-05 15:10:50
-categories: android binder
+categories: android
 excerpt:  Android强弱引用
 ---
 

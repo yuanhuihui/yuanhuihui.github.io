@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Class结构"
+title:  "虚拟机系列1-Class结构"
 date:   2015-10-24 19:16:10
 categories: Java
-excerpt:  Class结构
+excerpt:  虚拟机系列1-Class结构
 ---
 
 * content

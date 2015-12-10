@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "APP优化(一)"
-date:   2015-12-01 21:21:50
+date:   2015-09-26 21:21:50
 categories: android performance
 excerpt:  APP优化
 ---
@@ -214,19 +214,14 @@ Enum比静态常量，至少需要多过于2倍以上的内存空间，应该在
 ## 9. onDraw()
 由于onDraw方法调用比较频繁，需避免对象创建操作，因为迅速增加内存，同样引起频繁的gc，甚至内存抖动。
 
-## 10. 
+## 10. 其他
 
 - 内部类引用导致Activity的泄漏，尤其是Handler
 - 监听器即使注销
 - 考虑使用Application Context而不是Activity Context
 - onLowMemory()与onTrimMemory()
 - 使用nano protobufs序列化数据
-- IntentService
-
-
-
-## 11
-
+- 使用IntentService
 - Adapter 利用convertView.getTag()与 ViewHolder
 - 窗口默认有一个不透明的背景，可以去掉的： getWindow().setBackground(null),或者修改xml
 - UI局部刷新

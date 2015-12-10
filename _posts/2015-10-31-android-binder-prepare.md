@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列—提纲"
-date:   2015-11-01 15:20:30
+title:  "Binder系列-开篇"
+date:   2015-10-31 15:20:30
 categories: android binder
-excerpt: Binder系列—提纲
+excerpt: Binder系列—开篇
 ---
 
 * content

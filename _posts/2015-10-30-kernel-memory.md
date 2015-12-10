@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Linux内存管理"
-date:   2015-10-31 21:20:50
+date:   2015-10-30 21:20:50
 categories: android linux
 excerpt:  Linux内存管理
 ---

@@ -12,8 +12,9 @@ excerpt:  Java设计模式
 
 ---
 
-## 1
+暂时先推荐一篇写得不错的，后续有时间，博主自己写
+
+[设计模式参考](http://design-patterns.readthedocs.org/zh_CN/latest/read_uml.html)
 
 
-## 4
-[设计模式http://design-patterns.readthedocs.org/zh_CN/latest/read_uml.html](http://design-patterns.readthedocs.org/zh_CN/latest/read_uml.html)
+
