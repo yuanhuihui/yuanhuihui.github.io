@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Android架构之编码规范"
-date:   2015-08-10 22:14:54
+title:  "Android开发规范"
+date:   2015-08-10 21:14:54
 categories: Android
-excerpt:  Android编码规范
+excerpt:  Android开发规范
 ---
 
 * content

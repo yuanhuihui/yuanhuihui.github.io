@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "APP优化(一)"
-date:   2015-11-14 21:21:50
+date:   2015-12-01 21:21:50
 categories: android performance
 excerpt:  APP优化
 ---
@@ -43,18 +43,19 @@ excerpt:  APP优化
 	//创建广播接收者
 	AppBroadcastReceiver appReceiver = new AppBroadcastReceiver();
 
-**(2) 注册/取消注册**
+**(2) 注册广播**
 
-	//注册广播接收者，LocalBroadcastManager注册广播只能通过代码注册的方式
-	LocalBroadcastManager.getInstance(context).registerReceiver(appReceiver, 
-		new IntentFilter(ACTION_SEND));
+	LocalBroadcastManager.getInstance(context).registerReceiver(appReceiver, new IntentFilter(ACTION_SEND));
 
-	//取消注册广播接收者
-	LocalBroadcastManager.getInstance(context).unregisterReceiver(appReceiver);
+注：LocalBroadcastManager注册广播只能通过代码注册的方式，而不能通过xml中静态配置，本地广播并没有走系统广播的流程。
 
 **(3) 发送广播**
 
 	LocalBroadcastManager.getInstance(context).sendBroadcast(new Intent(ACTION_SEND));
+
+**(4) 取消广播**
+
+	LocalBroadcastManager.getInstance(context).unregisterReceiver(appReceiver);
 
 
 ## 2.  线程池
@@ -62,7 +63,7 @@ excerpt:  APP优化
 线程创建优先采用线程池`ThreadPoolExecutor`，而不是`new Thread()`；
 另外设置线程优先级为后台运行优先级，能有效减少Runnable创建的线程和和UI线程之间的资源竞争。
 
-**优势：** 通过`new Thread()`来创建线程是比较常用的方式，而使用线程池的方式有不少优势如下：  
+**优势：** 通过`new Thread()`来创建线程是比较常用的方式，而使用线程池的方式有不少优势如下 
 
 - 线程可重复利用，节省线程的创建与销毁开销，性能有所提升；
 - 方便控制并发线程数，提高资源的利用率，减少过多的资源竞争；

@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Dalvik与ART的GC调试"
-date:   2015-11-07 22:10:54
+date:   2015-10-03 22:10:54
 categories: android
 excerpt:  Dalvik GC vs ART GC
 ---
