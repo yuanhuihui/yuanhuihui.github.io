@@ -735,12 +735,3 @@ handle的值用来标识目的端，其中0是ServiceManager的标志。
 	    return result;
 	}
 
-
-----------
-
-## 思考
-- binder分配的默认内存大小为 1M-8k， 内存大小的设置依据？
-- binder默认的最大可并发访问的线程数为15，为什么不是2^4=16？
-- defaultServiceManager中，获取server，失败后sleep 1s，建议可以缩短，提升响应速度。
-- IPCThreadState，用来接收/发送来自Binder设备的数据mIn=256，mOut=256。mIn, mOut都是Parcel类型。每一次talkWithDriver,当mIn,mOut占满时，总512字节。每个线程拥有一个IPCThreadState，最大15个线程。
-- binder_stats,trace_binder_command这些是否对性能产生影响，能否去掉。
