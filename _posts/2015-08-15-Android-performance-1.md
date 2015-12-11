@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android 性能优化(一)"
+title:  "Performance Patterns(一)"
 date:   2015-08-15 22:10:10
 categories: Android performance
 excerpt:  android渲染原理的详细讲解

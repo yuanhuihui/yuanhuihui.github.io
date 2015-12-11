@@ -3,7 +3,7 @@ layout: post
 title:  "Binder系列2—创建Service Manager"
 date:   2015-11-07 21:11:50
 categories: android binder
-excerpt: Binder系列2—创建Service Manager
+excerpt:  Binder系列2—创建Service Manager
 ---
 
 * content
@@ -12,6 +12,13 @@ excerpt: Binder系列2—创建Service Manager
 
 ---
 > 基于Android 6.0的源码剖析， 本文详细地讲解了Service Manager如何产生
+
+## 类关系图
+
+先来一张整个native层中所涉及类的关系图，本文以及[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/android-binder-3/)，[Binder系列4 —— 注册服务(addService)](http://www.yuanhh.com/2015/11/14/android-binder-4/)，[Binder系列5 —— 获取服务(getService)](http://www.yuanhh.com/2015/11/15/android-binder-5/)共四篇文章会详细介绍下图中相关类。
+
+![class_relation](/images/binder/binder_classes.jpg)
+
 
 ## 源码分析
 

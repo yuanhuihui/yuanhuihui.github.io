@@ -156,7 +156,7 @@ binder进程
 		return kmalloc(size, flags | __GFP_ZERO); //通过或标志位__GFP_ZERO，初始化元素为0
 	}
 
-kmalloc用于在物理页上分配连续的空间。更多关于kernel内存，可以查看文章[Linux内存管理]()。
+kmalloc用于在物理页上分配连续的空间。更多关于kernel内存，可以查看文章[Linux内存管理](http://www.yuanhh.com/2015/10/30/kernel-memory/)。
 
 
 ## 三、 binder_mmap

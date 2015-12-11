@@ -20,11 +20,15 @@ excerpt: Binder系列6—framework层分析
 
 binder在framework层，采用JNI技术来调用native(C/C++)层的binder架构，从而为上层应用程序提供服务。 看过binder系列之前的文章，我们知道native层中，binder是C/S架构，分为Bn端(Server)和Bp端(Client)。对于java层在命名与架构上非常相近，同样实现了一套IPC通信架构。
 
-[java_binder_class](images\binder\java_binder\java_binder_class.jpg)
 
-- Binder类代表Server端，BinderProxy类代码Client端；
-- Binder类中mObject和execTransact用于JNI调用过程的native代码；
-- FLAG_ONEWAY：客户端利用binder跟服务端通信是阻塞式的，但如果设置了FLAG_ONEWAY，这成为非阻塞的调用方式，客户端能立即返回，服务端采用回调方式来通知客户端完成情况。
+framework Binder架构图：
+
+![java_binder](\images\binder\java_binder\java_binder.jpg)
+
+- 图中红色代表整个framework层 binder架构相关组件；
+	- Binder类代表Server端，BinderProxy类代码Client端；
+- 图中蓝色代表native层 binder架构相关组件；
+- 上层framework层的binder逻辑，都是建立在native层架构的基础之上的，核心逻辑都是交予native层方法来处理。
 
 ### 1.2 相关源码
 
@@ -59,6 +63,7 @@ ServiceManagerNative类与ServiceManagerProxy类 都位于 ServiceManagerNative.
 3. **ServiceManagerProxy**的成员变量mRemote指向BinderProxy对象；
 4. **Binder**的成员变量mObject和成员方法execTransact()用于native方法
 4. **BinderInternal**内部有一个GcWatcher类，用于处理和调试与Binder相关的垃圾回收。
+6. **IBinder**接口中常量FLAG_ONEWAY：客户端利用binder跟服务端通信是阻塞式的，但如果设置了FLAG_ONEWAY，这成为非阻塞的调用方式，客户端能立即返回，服务端采用回调方式来通知客户端完成情况。
 
 
 ## 一、初始化
@@ -630,12 +635,5 @@ javaObjectForIBinder作用是 创建BinderProxy对象，并将BpBinder对象的�
 
 总结之，请求获取就是通过BpBinder来发送`ADD_SERVICE_TRANSACTION`命令，与实现与binder驱动进行数据交互。
 
-## 总结
 
-最后以一幅图来总结整个framework层的Binder架构图
 
-![java_binder](\images\binder\java_binder\java_binder.jpg)
-
-- 图中红色代表整个framework层 binder架构相关组件；
-- 图中蓝色代表native层 binder架构相关组件；
-- 上层framework层的binder逻辑，都是建立在native层架构的基础之上的，核心逻辑都是交予native层方法来处理。

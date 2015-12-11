@@ -14,6 +14,11 @@ excerpt:  Binder系列4—注册服务(addService)
 > 基于Android 6.0的源码剖析， 本文讲解如何向ServiceManager注册服务的过程。
 
 
+## 类关系图
+在Native层中，我们以media为例，来展开讲解，先来看看media的类关系图。
+
+![class_media_relation](/images/binder/binder_media_classes.jpg)
+
 ## 源码分析
 
 

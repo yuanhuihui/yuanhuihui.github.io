@@ -12,28 +12,22 @@ excerpt:  Binder系列9—总结
 
 ---
 
-关系图
+## 一、概括
 
-![class_relation](/images/binder/binder_classes.jpg)
-
-
-## 一、概述
-
-
-what, why, how， 三圆图。
-
-了解事物之前，一定是带着一定的疑问。
+![java_binder](\images\binder\java_binder\java_binder.jpg)
 
 
 ### 1.什么是Binder？
 
-1. 直观来说，Binder是Android中的一个类，它继承了IBinder接口
+1. 从IPC角度来说，Binder是Android中的一种跨进程通信方式，该通信方式在linux中没有，是Android独有
 
-2. 从IPC角度来说，Binder是Android中的一种跨进程通信方式，Binder还可以理解为一种虚拟的物理设备，它的设备驱动是/dev/binder，该通信方式在linux中没有.
+2. 从Android Driver层：Binder还可以理解为一种虚拟的物理设备，它的设备驱动是/dev/binder
 
-3. 从Android Framework角度来说，Binder是ServiceManager连接各种Manager（ActivityManager、WindowManager，etc）和相应ManagerService的桥梁
+3. 从Android Native层：Binder是创建Service Manager以及BpBinder/BBinder模型，搭建与binder驱动的桥梁
 
-4. 从Android应用层来说，Binder是客户端和服务端进行通信的媒介，当你bindService的时候，服务端会返回一个包含了服务端业务调用的 Binder对象，通过这个Binder对象，客户端就可以获取服务端提供的服务或者数据，这里的服务包括普通服务和基于AIDL的服务
+4. 从Android Framework层：Binder是各种Manager（ActivityManager、WindowManager等）和相应xxxManagerService的桥梁
+
+5. 从Android APP层：Binder是客户端和服务端进行通信的媒介，当bindService的时候，服务端会返回一个包含了服务端业务调用的 Binder对象，通过这个Binder对象，客户端就可以获取服务端提供的服务或者数据，这里的服务包括普通服务和基于AIDL的服务
 
 
 ### 2.为什么Android内核要使用Binder
@@ -46,18 +40,17 @@ Android中有大量的CS（Client-Server）应用方式，这就要求Android内
 基于以上原 因，Android需要建立一套新的IPC机制来满足系统对通信方式，传输性能和安全性的要求，这就是Binder。Binder基于 Client-Server通信模式，传输过程只需一次拷贝，为发送发添加UID/PID身份，既支持实名Binder也支持匿名Binder，安全性 高。下图为Binder通信过程示例：
 
 
-### 3.Binder的内部原理？
 
-- Server、client端获取Service Manager途径： defaultServiceManager
-- Server提供服务的途径： addService
-- Client获取服务的途径： getService
-- Service Manager的守护进程途径： 
-
-
-### 4.如何自己实现跨进程通信？
 
 ### 5.关于binder的一些思考
 ## 思考
+
+创建Service Manager过程：
+
+- Service Manager大小为128k
+- binder驱动中，还有 binder_set_nice方法，能否调整nice优化binder
+
+获取Service Manager过程：
 
 - binder分配的默认内存大小为 1M-8k， 内存大小的设置依据？
 - binder默认的最大可并发访问的线程数为15，为什么不是2^4=16？
