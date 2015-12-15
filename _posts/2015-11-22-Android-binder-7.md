@@ -78,13 +78,13 @@ excerpt: Binder系列7—Binder用法
 	    	virtual void sayHello();
 	    };
 	
-		//申明服务端BnMyService
-		class BnMyService: public BnInterface<IMyService> {
-		public:
-			virtual status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
-					uint32_t flags = 0);
-			virtual void sayHello();
-		};
+	    //申明服务端BnMyService
+	    class BnMyService: public BnInterface<IMyService> {
+	    public:
+	    	virtual status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
+	    			uint32_t flags = 0);
+	    	virtual void sayHello();
+	    };
 	}
 
 主要功能：
@@ -181,6 +181,7 @@ Client端
 1. ClientDemo.java：可执行程序
 2. IMyService.java: 与Server端完全一致
 3. MyServiceProxy.java：定义MyServiceProxy
+
 
 ### 2.1 Server端
 
@@ -317,7 +318,11 @@ public class ClientDemo {
 		}
 	}
 
-### 2.3 运行
+### 2.3 原理图
+
+![framework_binder](\images\binder\binderSimple\MyServer_framework_binder.jpg)
+
+### 2.4 运行
 
 首先将ServerDemo，ClientDemo可执行文件，以及ServerDemo.jar，ClientDemo.jar都push到手机
 

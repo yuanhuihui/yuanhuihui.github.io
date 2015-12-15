@@ -591,11 +591,3 @@ Service Manger意义：
 2. ServiceManager支持通过字符串名称来查找对应的Service。这个功能很像DNS；
 3. Server进程随时可能会挂了，如果让每个Client都去检测会导致负载过重。但有了ServiceManager，Client只需要查询ServiceManager，就能把握动向，得到最新信息。
 
-
-## 思考
-- Service Manager大小为128k
-- binder驱动中，还有 binder_set_nice方法，能否调整nice优化binder
-
-## 参考
-
-1. <http://blog.csdn.net/dlutbrucezhang/article/details/9168255>

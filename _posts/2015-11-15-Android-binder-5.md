@@ -92,8 +92,3 @@ excerpt: Binder系列5—获取服务(getService)
     }
 
 这里调用BpBinder->transact()，再调用到IPCThreadState->transact()，再调用到IPCThreadState->waitForResponse，再调用。这个流程与[Binder系列4 —— 注册服务(addService)](http://www.yuanhh.com/2015/11/14/android-binder-4/)中的【流程4到流程10】基本一致。此处不再重复,最后reply里面会返回IBinder对象。
-
-
-
-## 思考
-- 循环获取过程中，通过休眠0.5s的方法，是否有优化方案；

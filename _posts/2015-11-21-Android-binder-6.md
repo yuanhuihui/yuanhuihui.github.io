@@ -559,7 +559,7 @@ BinderProxy.transact()，最终核心逻辑是交给BpBinder::transact()完成�
 		...
     }
 
-总结之，注册服务就是通过BpBinder来发送`ADD_SERVICE_TRANSACTION`命令，与实现与binder驱动进行数据交互。
+注册服务过程就是通过BpBinder来发送`ADD_SERVICE_TRANSACTION`命令，与实现与binder驱动进行数据交互。
 
 ## 四、获取服务
 
@@ -632,8 +632,7 @@ javaObjectForIBinder在第`2.3小节`中已经介绍，javaObjectForIBinder(env,
 
 javaObjectForIBinder作用是 创建BinderProxy对象，并将BpBinder对象的地址保存到BinderProxy对象的mObjects中。
 
-
-总结之，请求获取就是通过BpBinder来发送`ADD_SERVICE_TRANSACTION`命令，与实现与binder驱动进行数据交互。
+获取服务过程就是通过BpBinder来发送`ADD_SERVICE_TRANSACTION`命令，与实现与binder驱动进行数据交互。
 
 
 

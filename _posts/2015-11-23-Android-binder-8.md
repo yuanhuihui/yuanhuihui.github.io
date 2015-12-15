@@ -295,6 +295,149 @@ MyData.java
 
 ![apk](\images\binder\AIDL\logcat_BinderSimple.png)
 
+
+## 二、原理分析
+
+调用图：
+
+![aidl image](\images\binder\AIDL\MyServer_java_binder.jpg)
+
+
+采用AIDL技术，是原理还是利用framework binder的架构。本文的实例AIDL会自动生成一个与之相对应的IRemoteService.java文件，如下：
+
+	package com.yuanhh.appbinderdemo;	
+	public interface IRemoteService extends android.os.IInterface {
+	    /**
+	     * Local-side IPC implementation stub class.
+	     */
+	    public static abstract class Stub extends android.os.Binder implements com.yuanhh.appbinderdemo.IRemoteService {
+	        private static final java.lang.String DESCRIPTOR = "com.yuanhh.appbinderdemo.IRemoteService";
+	
+	        /**
+	         * Stub构造函数
+	         */
+	        public Stub() {
+	            this.attachInterface(this, DESCRIPTOR);
+	        }
+	
+	        /**
+	         * 将IBinder 转换为IRemoteService interface
+	         */
+	        public static com.yuanhh.appbinderdemo.IRemoteService asInterface(android.os.IBinder obj) {
+	            if ((obj == null)) {
+	                return null;
+	            }
+	            android.os.IInterface iin = obj.queryLocalInterface(DESCRIPTOR);
+	            if (((iin != null) && (iin instanceof com.yuanhh.appbinderdemo.IRemoteService))) {
+	                return ((com.yuanhh.appbinderdemo.IRemoteService) iin);
+	            }
+	            return new com.yuanhh.appbinderdemo.IRemoteService.Stub.Proxy(obj);
+	        }
+	
+	        @Override
+	        public android.os.IBinder asBinder() {
+	            return this;
+	        }
+	
+	        @Override
+	        public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException {
+	            switch (code) {
+	                case INTERFACE_TRANSACTION: {
+	                    reply.writeString(DESCRIPTOR);
+	                    return true;
+	                }
+	                case TRANSACTION_getPid: {
+	                    data.enforceInterface(DESCRIPTOR);
+	                    int _result = this.getPid();
+	                    reply.writeNoException();
+	                    reply.writeInt(_result);
+	                    return true;
+	                }
+	                case TRANSACTION_getMyData: {
+	                    data.enforceInterface(DESCRIPTOR);
+	                    com.yuanhh.appbinderdemo.MyData _result = this.getMyData();
+	                    reply.writeNoException();
+	                    if ((_result != null)) {
+	                        reply.writeInt(1);
+	                        _result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+	                    } else {
+	                        reply.writeInt(0);
+	                    }
+	                    return true;
+	                }
+	            }
+	            return super.onTransact(code, data, reply, flags);
+	        }
+	
+	        private static class Proxy implements com.yuanhh.appbinderdemo.IRemoteService {
+	            private android.os.IBinder mRemote;
+	
+	            /**
+	             * Proxy构造函数
+	             */
+	            Proxy(android.os.IBinder remote) {
+	                mRemote = remote;
+	            }
+	
+	            @Override
+	            public android.os.IBinder asBinder() {
+	                return mRemote;
+	            }
+	
+	            public java.lang.String getInterfaceDescriptor() {
+	                return DESCRIPTOR;
+	            }
+	
+	            @Override
+	            public int getPid() throws android.os.RemoteException {
+	                android.os.Parcel _data = android.os.Parcel.obtain();
+	                android.os.Parcel _reply = android.os.Parcel.obtain();
+	                int _result;
+	                try {
+	                    _data.writeInterfaceToken(DESCRIPTOR);
+	                    mRemote.transact(Stub.TRANSACTION_getPid, _data, _reply, 0);
+	                    _reply.readException();
+	                    _result = _reply.readInt();
+	                } finally {
+	                    _reply.recycle();
+	                    _data.recycle();
+	                }
+	                return _result;
+	            }
+	
+	            @Override
+	            public com.yuanhh.appbinderdemo.MyData getMyData() throws android.os.RemoteException {
+	                android.os.Parcel _data = android.os.Parcel.obtain();
+	                android.os.Parcel _reply = android.os.Parcel.obtain();
+	                com.yuanhh.appbinderdemo.MyData _result;
+	                try {
+	                    _data.writeInterfaceToken(DESCRIPTOR);
+	                    mRemote.transact(Stub.TRANSACTION_getMyData, _data, _reply, 0);
+	                    _reply.readException();
+	                    if ((0 != _reply.readInt())) {
+	                        _result = com.yuanhh.appbinderdemo.MyData.CREATOR.createFromParcel(_reply);
+	                    } else {
+	                        _result = null;
+	                    }
+	                } finally {
+	                    _reply.recycle();
+	                    _data.recycle();
+	                }
+	                return _result;
+	            }
+	        }
+	
+	        static final int TRANSACTION_getPid = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+	        static final int TRANSACTION_getMyData = (android.os.IBinder.FIRST_CALL_TRANSACTION + 1);
+	    }
+	
+	    public int getPid() throws android.os.RemoteException;
+	
+	    public com.yuanhh.appbinderdemo.MyData getMyData() throws android.os.RemoteException;
+	}
+
+
+
 ## 参考
 
 - <http://developer.android.com/intl/zh-cn/guide/components/aidl.html>
