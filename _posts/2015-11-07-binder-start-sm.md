@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列2—创建Service Manager"
+title:  "Binder系列2—启动Service Manager"
 date:   2015-11-07 21:11:50
 categories: android binder
-excerpt:  Binder系列2—创建Service Manager
+excerpt:  Binder系列2—启动Service Manager
 ---
 
 * content
@@ -15,7 +15,7 @@ excerpt:  Binder系列2—创建Service Manager
 
 ## 类关系图
 
-先来一张整个native层中所涉及类的关系图，本文以及[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/android-binder-3/)，[Binder系列4 —— 注册服务(addService)](http://www.yuanhh.com/2015/11/14/android-binder-4/)，[Binder系列5 —— 获取服务(getService)](http://www.yuanhh.com/2015/11/15/android-binder-5/)共四篇文章会详细介绍下图中相关类。
+先来一张整个native层中所涉及类的关系图，接下来几篇文章会详细介绍下图中相关类。
 
 ![class_relation](/images/binder/binder_classes.jpg)
 
@@ -128,7 +128,7 @@ service manager的主方法入口
 	    return NULL;
 	}
 
-binder_open功能是打开binder设备，并把binder内存映射，fd记录binder设备描述符。对于流程图中的2、3、、4步骤，都是通过系统调用，最后是调用Binder驱动方法，关于binder驱动，[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/android-binder-1/)中有详细说明。
+binder_open功能是打开binder设备，并把binder内存映射，fd记录binder设备描述符。对于流程图中的2、3、、4步骤，都是通过系统调用，最后是调用Binder驱动方法，关于binder驱动，[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)中有详细说明。
 
 ### [5] binder_become_context_manager
 ==> `/framework/native/cmds/servicemanager/binder.c`
@@ -181,7 +181,7 @@ binder驱动操作
 ### [8] binder_new_node 
 ==> `kernel/drivers/android/binder.c` 
 
-创建一个binder_node，binder_node结构体见[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/android-binder-1/)中3.2小节。
+创建一个binder_node，binder_node结构体见[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)中3.2小节。
 
 	static struct binder_node *binder_new_node(struct binder_proc *proc,
 						   binder_uintptr_t ptr,
@@ -321,7 +321,7 @@ binder驱动操作
 	
 	                bio_init(&reply, rdata, sizeof(rdata), 4);
 	                bio_init_from_txn(&msg, txn);
-	                res = func(bs, txn, &msg, &reply); //【见流程14】
+	                res = func(bs, txn, &msg, &reply); // 收到Binder事务【见流程14】
 	                binder_send_reply(bs, &reply, txn->data.ptr.buffer, res);
 	            }
 	            ptr += sizeof(*txn);
@@ -499,9 +499,9 @@ service manager操作的真正处理函数
 	        svclist = si;
 	    }
 	
-		//以BC_ACQUIRE命令，handle为目标的信息，通过ioctl发送给binder驱动
+	    //以BC_ACQUIRE命令，handle为目标的信息，通过ioctl发送给binder驱动
 	    binder_acquire(bs, handle); 
-		//以BC_REQUEST_DEATH_NOTIFICATION命令的信息，通过ioctl发送给binder驱动，主要用于清理内存等收尾工作。
+	    //以BC_REQUEST_DEATH_NOTIFICATION命令的信息，通过ioctl发送给binder驱动，主要用于清理内存等收尾工作。
 	    binder_link_to_death(bs, handle, &si->death); 
 	    return 0;
 	}

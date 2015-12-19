@@ -48,4 +48,5 @@ excerpt:  Binder系列9—总结
 - binder设备是支持多线程操作，那有binder同步方面是否与死锁，或者锁的粒度问题？
 - IPCThreadState，用来接收/发送来自Binder设备的数据mIn=256，mOut=256。mIn, mOut都是Parcel类型。每一次talkWithDriver,当mIn,mOut占满时，总512字节。
 - ServiceManager申请的binder大小为128k。
+- 进程中开启的线程个数的确定？
 

@@ -23,9 +23,9 @@ excerpt: Binder系列5—获取服务(getService)
 	/framework/native/libs/binder/IServiceManager.cpp
 
 
-下面开始讲解每一个流程：
+继续以Media为例，开始讲解获取服务的流程：
 
-### [1] IMediaDeathNotifier::getMediaPlayerService
+### [1] getMediaPlayerService
 ==> `/framework/av/media/libmedia/IMediaDeathNotifier.cpp`
 
 获取服务MediaPlayerService
@@ -49,8 +49,8 @@ excerpt: Binder系列5—获取服务(getService)
 	        if (sDeathNotifier == NULL) {
 	            sDeathNotifier = new DeathNotifier(); //创建死亡通知
 	        }
-	        binder->linkToDeath(sDeathNotifier); //将死亡通知连接到binder
-	        sMediaPlayerService = interface_cast<IMediaPlayerService>(binder); //【见流程】
+	        binder->linkToDeath(sDeathNotifier); //将死亡通知连接到binder  【见流程4】
+	        sMediaPlayerService = interface_cast<IMediaPlayerService>(binder); 
 	    }
 	    return sMediaPlayerService;
 	}
@@ -91,4 +91,61 @@ excerpt: Binder系列5—获取服务(getService)
         return reply.readStrongBinder();
     }
 
-这里调用BpBinder->transact()，再调用到IPCThreadState->transact()，再调用到IPCThreadState->waitForResponse，再调用。这个流程与[Binder系列4 —— 注册服务(addService)](http://www.yuanhh.com/2015/11/14/android-binder-4/)中的【流程4到流程10】基本一致。此处不再重复,最后reply里面会返回IBinder对象。
+这里调用BpBinder->transact()，再调用到IPCThreadState->transact()，再调用到IPCThreadState->waitForResponse，再调用。这个流程与[Binder系列4 —— 注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)中的【流程4到流程10】基本一致。此处不再重复,最后reply
+里面会返回IBinder对象。
+
+
+### [4]死亡通知
+
+
+死亡通知是为了让Bp端能知道Bn端的生死情况。
+
+- 定义：DeathNotifier是继承IBinder::DeathRecipient类，主要需要实现其binderDied()来进行死亡通告。
+- 注册：binder->linkToDeath(sDeathNotifier)是为了将sDeathNotifier死亡通知注册到Binder上。
+
+Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，则在Bn端死掉后，会回调binderDied()进行相应处理。
+
+#### 4.1 注册
+
+注册用该方法：
+
+	binder->linkToDeath(sDeathNotifier);
+
+覆写binderDied方法，主要是实现收尾清除类的工作，比如
+	
+	void IMediaDeathNotifier::DeathNotifier::binderDied(const wp<IBinder>& who __unused) {
+	    SortedVector< wp<IMediaDeathNotifier> > list;
+	    {
+	        Mutex::Autolock _l(sServiceLock);
+	        sMediaPlayerService.clear();   //把Bp端的MediaPlayerService清除掉
+	        list = sObitRecipients;
+	    }
+
+	    size_t count = list.size();
+	    for (size_t iter = 0; iter < count; ++iter) {
+	        sp<IMediaDeathNotifier> notifier = list[iter].promote();
+	        if (notifier != 0) {
+	            notifier->died();  //当media server挂了，通知应用程序。应用程序回调该方法
+	        }
+	    }
+	}
+
+#### 4.2 取消注册
+
+当Bp在收到服务端的死亡通知之前先挂了，那么需要在对象的销毁方法内，调用`unlinkToDeath()`来取消死亡通知；
+
+	IMediaDeathNotifier::DeathNotifier::~DeathNotifier()
+	{
+	    Mutex::Autolock _l(sServiceLock);
+	    sObitRecipients.clear();
+	    if (sMediaPlayerService != 0) {
+	        IInterface::asBinder(sMediaPlayerService)->unlinkToDeath(this);
+	    }
+	}
+
+### 4.3 调用机制
+
+每当service进程退出时，service manager会收到来自Binder设备的死亡通知。
+这项工作是在Service Manager创建的时候[Binder系列2 —— 启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)，通过`binder_link_to_death(bs, ptr, &si->death)`完成。
+
+另外，每个Bp端，也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。

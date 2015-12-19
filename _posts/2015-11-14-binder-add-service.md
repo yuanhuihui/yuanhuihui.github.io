@@ -63,7 +63,7 @@ main_mediaserver.cpp是可执行程序，入口函数main代码如下：
 这个过程主要分下面5个步骤：  
 ![workflow](/images/binder/addService/workflow.jpg)
   
-上面的main方法，对于`defaultServiceManager()`，在前一篇文章[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/android-binder-3/)已经介绍，下面主要讲，后三步如下图：
+上面的main方法，对于`defaultServiceManager()`，在前一篇文章[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)已经介绍，下面主要讲，后三步如下图：
 
 
 ## 源码分析
@@ -78,7 +78,7 @@ main_mediaserver.cpp是可执行程序，入口函数main代码如下：
 	           String16("media.player"), new MediaPlayerService()); 【见流程3】
 	}
 
-由[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/android-binder-3/)分析，可知defaultServiceManager()返回的是BpServiceManager。故此处等价于调用BpServiceManager->addService。  
+由[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)分析，可知defaultServiceManager()返回的是BpServiceManager。故此处等价于调用BpServiceManager->addService。  
 关于MediaPlayerService的初始化过程，此处就省略，后面有时间会单独介绍。
 
 ### [3] addService

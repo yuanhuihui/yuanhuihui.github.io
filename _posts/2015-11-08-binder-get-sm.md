@@ -145,7 +145,7 @@ excerpt:  Binder系列3—获取Service Manager
 	    return fd;
 	}
 
-open_driver作用是打开/dev/binder设备，binder支持的最大线程数默认是15。关于binder驱动操作，详细见[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/android-binder-1/)
+open_driver作用是打开/dev/binder设备，binder支持的最大线程数默认是15。关于binder驱动操作，详细见[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)
 
 
 ### [8] getContextObject

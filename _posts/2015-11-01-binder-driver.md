@@ -112,8 +112,8 @@ binder进程
 		struct hlist_node proc_node;
 		struct rb_root threads;  //记录用户请求binder_thread的红黑树
 		struct rb_root nodes;    //记录实体节点binder_node的红黑树
-		struct rb_root refs_by_desc; //binder实体的引用(以句柄为key)
-		struct rb_root refs_by_node; //binder实体的引用（以节点地址为key）
+		struct rb_root refs_by_desc; //binder实体的引用(以handle为key)
+		struct rb_root refs_by_node; //binder实体的引用（以ptr为key）
 		int pid;                     //进程id
 		struct vm_area_struct *vma;  //指向进程空间的指针
 		struct mm_struct *vma_vm_mm;
@@ -146,6 +146,8 @@ binder进程
 
 
 - 其中rb_root是一种红黑树结构，红黑树作为自平衡的二叉树树便于查询和维护。
+	- `refs_by_desc` 记录的是`binder_transaction_data`结构体中target的 `handle`;
+	- `refs_by_node` 记录的是`binder_transaction_data`结构体中target的 `ptr`;
 - `user_buffer_offset`是虚拟进程地址与虚拟内核地址的差值，也就是说同一物理地址，当内核地址为kernel_addr，则进程地址为proc_addr = kernel_addr + user_buffer_offset。
 
 ### 2.2 内存分配 
@@ -1022,9 +1024,9 @@ binder线程的读操作，下面只列举部分cmd命令相应的操作方法
 		union {
 			__u32	handle;	   //binder实体的引用
 			binder_uintptr_t ptr;	 //Binder实体在当前进程的地址
-		} target;
+		} target;  //RPC目标
 		binder_uintptr_t	cookie;	
-		__u32		code;		
+		__u32		code;		//RPC代码
 	
 		__u32	        flags;
 		pid_t		sender_pid;  //发送者进程的pid
@@ -1038,7 +1040,7 @@ binder线程的读操作，下面只列举部分cmd命令相应的操作方法
 				binder_uintptr_t	offsets;
 			} ptr;
 			__u8	buf[8];
-		} data;
+		} data;   //RPC数据
 	};
 
 ### 5.3  binder_state
