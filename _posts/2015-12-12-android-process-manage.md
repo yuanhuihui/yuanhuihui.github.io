@@ -18,7 +18,7 @@ excerpt:  进程的状态转换
 
 进程的生命周期内，有5种状态，分别为new, runnable, running, blocked, dead共5种状态，进程所处的状态，会随着系统负载以及运行环境的变化而不断发生改变(由一个状态切换到另一个状态)。
 
-![process_status](\images\process\process_status.jpg)
+![process_status](\images\android-process\process_manage1.jpg)
 
 - 创建状态(new)：进程正在被创建，仅仅在堆上分配内存，尚未进入就绪状态；
  
@@ -38,7 +38,7 @@ excerpt:  进程的状态转换
 
 ### 2. 状态转移
 
-![process_status](\images\process\process_status_2.jpg)
+![process_status](\images\android-process\process_manage2.jpg)
 
 1. Runnable -> Running： 就绪态的进程获得了CPU的时间片，进入运行态；
 2. Running  -> Runnable: 运行态的进程在时间片用完后，必须出让CPU，进入就绪态；

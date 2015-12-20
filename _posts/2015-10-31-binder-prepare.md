@@ -55,7 +55,7 @@ Binder系列主要讲述几大块
 - [Binder系列5 —— 获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)
 - [Binder系列6 —— framework层分析](http://www.yuanhh.com/2015/11/21/binder-framework/)
 - [Binder系列7 —— 如何使用Binder](http://www.yuanhh.com/2015/11/22/binder-use/)
-- [Binder系列8 —— 如何使用AIDL](http://www.yuanhh.com/2015/11/22binder-aidl/)
+- [Binder系列8 —— 如何使用AIDL](http://www.yuanhh.com/2015/11/22/binder-aidl/)
 - [Binder系列9 —— 总结](http://www.yuanhh.com/2015/11/28/binder-summary/)
 
 

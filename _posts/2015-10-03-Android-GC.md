@@ -29,16 +29,11 @@ Dalvik虚拟机，每一次GC打印内容：
 ##1.2 含义解析
 
 - GC Reason(GC触发原因)
-	- GC_CONCURRENT
-	并发GC用于释放内存来获取更多的堆空间
-	- GC_FOR_MALLOC
-	应用程序尝试分配内存时，堆内存已经满了，因此系统必须停止应用程序并回收内存。
-	- GC_HPROF_DUMP_HEAP
-	当需要创建HPROF文件来分析堆内存时，触发gc 
-	- GC_EXPLICIT
-	明确的GC，例如当程序直接调用gc()
-	- GC_EXTERNAL_ALLOC
-	仅有API级别为10或者更低时（新版本分配内存都在Dalvik堆上）  
+	- GC_CONCURRENT：当已分配内存达到某一值时，触发并发GC；
+	- GC_FOR_MALLOC：当尝试在堆上分配内存不足时触发的GC；系统必须停止应用程序并回收内存；
+	- GC_HPROF_DUMP_HEAP： 当需要创建HPROF文件来分析堆内存时触发的GC； 
+	- GC_EXPLICIT：当明确的调用GC时，例如调用System.gc()等；
+	- GC_EXTERNAL_ALLOC： 仅在API级别为10或者更低时（新版本分配内存都在Dalvik堆上）  
   
   
 - Amount freed

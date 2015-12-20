@@ -152,4 +152,3 @@ oom_adj
 ## 参考
 
 - <http://developer.android.com/intl/zh-cn/guide/components/processes-and-threads.html>
-- <http://hukai.me/android-notes-process-and-thread/>
