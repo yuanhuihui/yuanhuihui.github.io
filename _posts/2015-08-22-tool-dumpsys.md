@@ -2,7 +2,7 @@
 layout: post
 title:  "dumpsys工具"
 date:   2015-8-22 22:12:30
-categories: algorithm
+categories: android tool
 excerpt:  dumpsys工具
 ---
 
