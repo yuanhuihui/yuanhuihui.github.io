@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Android进程整理"
-date:   2015-12-18 22:10:40
+date:   2015-12-19 22:10:40
 categories: android
 excerpt:  Android进程整理
 ---
@@ -28,6 +28,8 @@ excerpt:  Android进程整理
 - 深蓝色：内核守护进程、用户空间守护进程以及应用进程，这些都是由“深红色”fork生成的；
 - 浅蓝色：各种系统服务、驱动等相关信息。
 
+
+----------
 
 下面，进一步阐释各个进程状态：
 
@@ -302,7 +304,7 @@ mediaserver 子线程，如下：
 作为Binder架构的一个大管家，所有注册服务、获取服务，都需要经过servicemanager。 servicemanager进程没有子进程，也没有子线程。更多关于servicemanager，请查看[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章。
 
 
-### 四、进程统计
+## 四、进程统计
 
 下面以一台基于Android 5.1.1的手机为例，统计以“父进程”作为PPID的进程个数统计表（进程总数为407）：
 
