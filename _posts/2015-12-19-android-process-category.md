@@ -65,9 +65,10 @@ excerpt:  Android进程整理
 
 查看进程<pid>内的所有子进程和子线程： `ps -t | grep <pid>`； 
  
-查看所有普通应用程序，由于目前android是单用户的，所以用户普通进程的user都是以u0_开头的，google有意把android发展成支持多用户的，以后应该会有u1_, u2_等等的用户名：
+查看所有普通应用程序，由于目前android是单用户的，所以用户普通进程的user都是以u0_开头的，google有意把android发展成支持多用户的，以后应该会有u1_, u2_等等的用户名，另外普通app的uid是从10000开始：
 
  	`ps | grep ^u0`;
+
 
 
 **PS输出结果含义**：
@@ -244,16 +245,18 @@ Java Framework中的service都运行在system_server进程中，system_server内
 |Thread_|普通线程，包含若干个|
 |AsyncTask #|异步任务，包含若干个|
 |RenderThread|渲染线程，可以包含若干个|
-|ActivityManager|system_server专有|
+|ActivityManager|ActivityManagerService线程|
 |PerformanaceCont|system_server专有|
 |FileObserver|system_server专有|
-|CpuTracker|system_server专有|
+|CpuTracker|统计进程CPU信息|
 |PowerManagerSer|system_server专有|
 |PackageManager|system_server专有|
 |watchdog|system_server专有|
 |WifiMonitor|system_server专有|
 |UEventObserver|system_server专有|
 |...|...|
+
+ActivityManagerService线程是一个ServerThread线程。
 
 ### 3.3 app 子线程
 
@@ -313,7 +316,7 @@ mediaserver 子线程，如下：
 
 ## 四、进程统计
 
-下面以一台基于Android 5.1.1的手机为例，统计以“父进程”作为PPID的进程个数统计表（进程总数为407）：
+下面以一台基于Android 5.1.1的手机为例，统计以“父进程”作为PPID的进程个数统计表：
 
 |父进程|个数|解释|
 |---|---|---|
@@ -327,5 +330,7 @@ mediaserver 子线程，如下：
 |sh|  2 |分别为ps, grep|
 
 图中zygote64/zygote/qseecomd/adbd的父进程都是init进程，而sh的父进程是adbd.
+
+手机总计：`407`个进程，`1575`个线程。(该数据仅供参考，让大家对手机当前的进程和线程的数量级有个大概的感观)
 
 
