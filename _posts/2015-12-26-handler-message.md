@@ -166,6 +166,21 @@ loop()进入循环模式，不断重复下面的操作，直到没有消息时�
         mQueue.quit(true); //安全地消息移除 【见 4.4】
     }
 
+### 2.5 post()
+
+发送消息，并设置变量callback，用于处理消息
+
+    public final boolean post(Runnable r)
+    {
+       return  sendMessageDelayed(getPostMessage(r), 0);
+    }
+
+    private static Message getPostMessage(Runnable r) {
+        Message m = Message.obtain();
+        m.callback = r;
+        return m;
+    }
+
 ## 三、 Message
 
 ### 3.1 消息体
