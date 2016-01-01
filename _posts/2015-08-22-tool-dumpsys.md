@@ -81,7 +81,7 @@ excerpt:  dumpsys工具
 	    return 0;
 	}
 
-从代码中，可以得出，	`dumpsys`主要工作：
+从代码中，可以得出，`dumpsys`主要工作分为以下4个步骤：
 
 1. `defaultServiceManager()`,获取service manager
 2. `sm->listServices()`，获取系统所有向service manager注册过的服务。
@@ -96,6 +96,7 @@ excerpt:  dumpsys工具
 ##二、dumpsys命令
 
 1. dumpsys -l 可查看当前手机系统所有的service
+
 2. dumpsys [service]，可查看指定service的dump信息。下面列举部分比较常用的dumpsys指令：
 
 |命令|功能|
@@ -114,21 +115,26 @@ excerpt:  dumpsys工具
 |dumpsys power|查看功耗信息
 |dumpsys wifi|查看wifi信息
 
-例如：查看内存相关的信息：
+下面以内存以例来看看dumpsys用法：
+
+- 查看内存信息：
 	
-	dumpsys meminfo
+		dumpsys meminfo
 
-查看帮助信息
+- 查看指令帮助信息
 
-	dumpsys meminfo -h  //此处以meminfo为例，其他指令也是类同
+		dumpsys meminfo -h  //此处以meminfo为例，其他指令也是类同
 
-如果想更进一步查看某个具体apk或进程的内存信息，可通过：
+- 查看具体apk或pid的内存信息:
 
-	dumpsys meminfo <packagename> 或者<pid>
+		dumpsys meminfo <packagename> 或者<pid>
 
-下面是`dumpsys`手机中com.android.phone进程的内存信息如下：
+- 下面是`dumpsys`手机中com.android.phone进程的内存信息如下：
 
-	root@X3c70:/ # dumpsys meminfo com.android.phone
+	root@****:/ #  dumpsys meminfo com.android.phone
+
+结果：
+
 	Applications Memory Usage (kB):
 	Uptime: 20874479 Realtime: 22539026
 	

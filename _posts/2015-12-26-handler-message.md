@@ -12,7 +12,7 @@ excerpt:  Android Message
 
 ---
 
-> 本文基于Android 6.0的源代码，来分析Java层的Handler消息处理机制
+> 本文基于Android 6.0的源代码，来分析Java层的消息处理机制
 
 **相关源码**
 	
@@ -24,7 +24,7 @@ excerpt:  Android Message
 ## 一、概述
 在整个Android的源码世界里，有两大利剑，其一是Binder IPC机制，，另一个便是消息机制(由Handler/Looper/MessageQueue等构成的)。关于Binder在[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)中详细讲解过，有兴趣看看。
 
-Android有大量的消息驱动方式来进行交互，比如Android的四剑客Activity, Service, Broadcast, ContentProvider的启动过程的交互，都离不开消息机制，Android某种意义上也可以说成是一个以消息驱动的系统。
+Android有大量的消息驱动方式来进行交互，比如Android的四剑客Activity, Service, Broadcast, ContentProvider的启动过程的交互，都离不开消息机制，Android某种意义上也可以说成是一个以消息驱动的系统。消息机制设计MessageQueue/Message/Looper/Handler。
 
 ### 1.1 模型  
 消息机制主要包含：
@@ -44,7 +44,7 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 - Message中有一个用于处理消息的Handler；
 - Handlder中有Looper和MessageQueue。
 
-另外，由于本文是讲述Java层的Handler消息处理机制，其实MessageQueue更多的核心功能都是由native层来完成的，后面再讲述native的情况
+另外，由于本文是讲述Java层的Handler消息处理机制，其实MessageQueue更多的核心功能都是由native层来完成的，后面再讲述native的情况。想深入研究Native层的Handler机制可查看[Android消息机制-Handler(下篇)](http://www.yuanhh.com/2016/01/01/handler-message-3)
 
 
 ### 1.3 典型实例
@@ -71,7 +71,7 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 ## 二、Looper
 
-### 2.1 创建Looper
+### 2.1 new Looper()
 
     private Looper(boolean quitAllowed) {
         mQueue = new MessageQueue(quitAllowed);  //创建MessageQueue对象
@@ -152,7 +152,7 @@ loop()进入循环模式，不断重复下面的操作，直到没有消息时�
 - 把Message分发给相应的target
 - 再把分发后的Message，回收到消息池
 
-这是这个消息处理的核心部分。另外，上面代码中可以看到有logging方法，这是用于debug的，默认情况下`logging == null`，通过设置setMessageLogging()放来开启debug工作。
+这是这个消息处理的核心部分。另外，上面代码中可以看到有logging方法，这是用于debug的，默认情况下`logging == null`，通过设置setMessageLogging()用来开启debug工作。
 
 消息循环，涉及到消息，下一节会讲解Message。
 
@@ -275,7 +275,7 @@ native方法如下：
 
 这些native方法，会再下一篇文章中，详细说明。
 
-### 4.1 创建MessageQueue
+### 4.1 new MessageQueue()
 
 	MessageQueue(boolean quitAllowed) {
         mQuitAllowed = quitAllowed;
@@ -324,8 +324,9 @@ native方法如下：
                             mMessages = msg.next;
                         }
                         msg.next = null;
-                        msg.markInUse(); //设置消息为使用中的状态
-                        return msg;
+                        //设置消息flag成使用状态
+                        msg.markInUse(); 
+                        return msg;   //成功地获取MessageQueue中的下一条即将要执行的消息
                     }
                 } else {
                     //没有消息
@@ -374,7 +375,7 @@ native方法如下：
         }
     }
 
-nativePollOnce是阻塞的操作，当从mMessages中成功提取一个消息后才会返回，否则便会阻塞等待消息，也就是说当消息队列为空时，无法返回直到有消息加入到消息队列中。
+nativePollOnce()是阻塞的操作，当nativePollOnce()返回后，next()从mMessages中提取一个消息。nativePollOnce()在native做了大量的工作，想深入研究可查看 [Android消息机制-Handler(下篇)](http://www.yuanhh.com/2016/01/01/handler-message-3)。
 
 
 ### 4.3 enqueueMessage
@@ -503,7 +504,7 @@ MessageQueue一直是按照Message触发的时间先后顺序排列的，队头�
     final boolean mAsynchronous;
     IMessenger mMessenger;
 
-### 5.1 创建Handler
+### 5.1 new Handler()
 
 **(1) Handler()**
 
@@ -597,7 +598,7 @@ MessageQueue一直是按照Message触发的时间先后顺序排列的，队头�
      	//空方法，子类实现时需要覆写的地方
     }
 
-消息分发流程：
+消息分发的优先级：
 
 1. 当Message有回调方法，那么由`message.callback.run()`来处理消息并返回；否则继续执行；
 2. 当Handler设置了mCallback成员变量，那么由`mCallback.handleMessage(msg)`来处理消息，处理完的返回值为true则直接返回；否则继续执行；
@@ -606,7 +607,11 @@ MessageQueue一直是按照Message触发的时间先后顺序排列的，队头�
 
 ### 5.4 sendMessage
 
-发送消息
+发送消息调用链：
+
+![java_sendmessage](\images\handler\java_sendmessage.png)
+
+从上图，可以发现所有的发消息方式，最终都是调用MessageQueue.enqueueMessage();
 
 **(1) sendEmptyMessage**
 
@@ -646,7 +651,20 @@ MessageQueue一直是按照Message触发的时间先后顺序排列的，队头�
         return enqueueMessage(queue, msg, uptimeMillis);
     }
 
-**(5) enqueueMessage**
+**(5) sendMessageAtFrontOfQueue**
+
+	public final boolean sendMessageAtFrontOfQueue(Message msg) {
+	        MessageQueue queue = mQueue;
+	        if (queue == null) {
+	            RuntimeException e = new RuntimeException(this + " sendMessageAtTime() called with no mQueue");
+	            return false;
+	        }
+	        return enqueueMessage(queue, msg, 0);
+	    }
+
+该方法将Message加入到消息队列的队头
+
+**(6) enqueueMessage**
 
 	private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
         msg.target = this;
