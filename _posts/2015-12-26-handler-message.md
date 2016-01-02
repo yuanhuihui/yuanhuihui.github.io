@@ -299,7 +299,8 @@ native方法如下：
             if (nextPollTimeoutMillis != 0) {
                 Binder.flushPendingCommands();
             }
-            nativePollOnce(ptr, nextPollTimeoutMillis); //调用native方法，轮询消息
+            //阻塞操作，当等待nextPollTimeoutMillis时长，或者消息队列被唤醒，都会返回。
+            nativePollOnce(ptr, nextPollTimeoutMillis); 
             synchronized (this) {
                 final long now = SystemClock.uptimeMillis();
                 Message prevMsg = null;
@@ -338,8 +339,7 @@ native方法如下：
                     return null;
                 }
                 //当消息队列为空，或者消息队列的第一个消息时
-                if (pendingIdleHandlerCount < 0
-                        && (mMessages == null || now < mMessages.when)) {
+                if (pendingIdleHandlerCount < 0 && (mMessages == null || now < mMessages.when)) {
                     pendingIdleHandlerCount = mIdleHandlers.size();
                 }
                 if (pendingIdleHandlerCount <= 0) {
@@ -358,7 +358,7 @@ native方法如下：
                 mPendingIdleHandlers[i] = null; //去掉handler的引用
                 boolean keep = false;
                 try {
-                    keep = idler.queueIdle();
+                    keep = idler.queueIdle();  //idle时执行的方法
                 } catch (Throwable t) {
                     Log.wtf(TAG, "IdleHandler threw exception", t);
                 }
@@ -374,8 +374,7 @@ native方法如下：
             nextPollTimeoutMillis = 0;
         }
     }
-
-nativePollOnce()是阻塞的操作，当nativePollOnce()返回后，next()从mMessages中提取一个消息。nativePollOnce()在native做了大量的工作，想深入研究可查看 [Android消息机制-Handler(下篇)](http://www.yuanhh.com/2016/01/01/handler-message-3)。
+nativePollOnce(ptr, nextPollTimeoutMillis)是一个native方法，是一个阻塞操作。其中nextPollTimeoutMillis代表下一个消息到来前，还需要等待的时长；当nextPollTimeoutMillis = -1时，表示消息队列中无消息，会一直等待下去。空闲后，往往会执行IdleHandler中的方法。当nativePollOnce()返回后，next()从mMessages中提取一个消息。nativePollOnce()在native做了大量的工作，想深入研究可查看 [Android消息机制-Handler(下篇)](http://www.yuanhh.com/2016/01/01/handler-message-3)。
 
 
 ### 4.3 enqueueMessage
@@ -697,4 +696,4 @@ Handler类似于辅助类，更多的实现都是MessageQueue, Message中的方�
 - Handler通过sendMessage()发送Message到MessageQueue队列；
 - Looper通过loop()，不断提取出达到触发条件的Message，并将Message交给target来处理；
 - 经过dispatchMessage()后，交回给Handler的handleMessage()来进行相应地处理。
-- 将Message加入MessageQueue时，如果需要会唤醒loop线程；如果MessageQueue中没有Message时，loop线程会挂起。
+- 将Message加入MessageQueue时，处往管道写入字符，可以会唤醒loop线程；如果MessageQueue中没有Message，并处于Idle状态，则会执行IdelHandler接口中的方法，往往用于做一些清理性地工作。
