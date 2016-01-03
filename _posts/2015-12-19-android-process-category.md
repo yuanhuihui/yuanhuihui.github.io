@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Android进程整理"
+title:  "进程篇—进程整理"
 date:   2015-12-19 22:10:40
 categories: android Process
-excerpt:  Android进程整理
+excerpt:  进程篇—进程整理
 ---
 
 * content
@@ -12,7 +12,7 @@ excerpt:  Android进程整理
 
 ---
 
-> 线程与进程的最大区别就是是否共享父进程的地址空间
+> 整理Android手机，核心进程和线程情况
 
 ## 一、概括
 

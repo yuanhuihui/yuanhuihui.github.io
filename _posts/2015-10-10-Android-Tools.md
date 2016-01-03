@@ -2,7 +2,7 @@
 layout: post
 title:  "Android工具(内存)"
 date:   2015-10-10 21:10:21
-categories: android
+categories: android tool
 excerpt:  Android 工具
 ---
 

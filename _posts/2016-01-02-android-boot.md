@@ -107,6 +107,8 @@ excerpt:  Android开机过程分析
 service一般运行于另外一个init的子进程，所以启动service前需要判断对应的可执行文件是否存在。
 
 
+default: 意味着disabled=false，oneshot=false，critical=false
+
 ## 2.3 zygote
 
 	通过 cat init.rc 可查看init.rc；  

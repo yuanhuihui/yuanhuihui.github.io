@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "进程状态"
+title:  "进程篇—状态转换"
 date:   2015-12-12 19:10:40
 categories: Process
-excerpt:  进程状态
+excerpt:  进程篇—状态转换
 ---
 
 * content
@@ -14,7 +14,7 @@ excerpt:  进程状态
 
 > 进程状态转换，同样可用于线程的状态转移
 
-### 1. 进程状态
+## 一、进程状态
 
 进程的生命周期内，有5种状态，分别为new, runnable, running, blocked, dead共5种状态，进程所处的状态，会随着系统负载以及运行环境的变化而不断发生改变(由一个状态切换到另一个状态)。
 
@@ -36,7 +36,7 @@ excerpt:  进程状态
 - 死亡状态(dead)：进程正在被结束，这可能是进程正常结束或其他原因中断退出运行。
 	- 进程结束运行前，系统必须置进程为dead态，再处理资源释放和回收等工作。
 
-### 2. 状态转移
+## 二、状态转移
 
 ![process_status](\images\android-process\process_manage2.jpg)
 
@@ -45,6 +45,6 @@ excerpt:  进程状态
 3. Running -> Blocked： 当进程请求资源的使用权(如外设)或等待事件发生(如I/O完成)时，由运行态转换为阻塞态；
 4. Blocked -> Runnable： 当进程已经获取所需资源的使用权或者等待事件已完成时，中断处理程序必须把相应进程的状态由阻塞态转为就绪态；
 
-### 3.小结
+## 三、小结
 
 进程的状态转移，主要围绕Runnable、Running、Blocked三个状态。Runnable与Running之间的转换，更多的是与调度器Scheduler相关，而Blocked状态主要涉及资源的使用权问题。
