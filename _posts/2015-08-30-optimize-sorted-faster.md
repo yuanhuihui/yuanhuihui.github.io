@@ -2,7 +2,7 @@
 layout: post
 title:  "排序与未排序数组的效率分析"
 date:   2015-8-30 0:52:30
-categories: algorithm
+categories: else
 excerpt:  详细分析为什么处理已排序的数组比未排序的数组要快的底层机理
 ---
 

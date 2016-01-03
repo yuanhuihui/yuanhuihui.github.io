@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "进程状态切换"
+title:  "进程状态"
 date:   2015-12-12 19:10:40
-categories: linux java android Process
-excerpt:  进程状态切换
+categories: Process
+excerpt:  进程状态
 ---
 
 * content

@@ -2,7 +2,7 @@
 layout: post
 title:  "大数据算法"
 date:   2015-04-30 20:15:11
-categories:  algorithm
+categories:  else
 excerpt:  各种海量数据处理相关的算法介绍与分析
 ---
 

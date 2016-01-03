@@ -2,7 +2,7 @@
 layout: post
 title:  "Android消息机制-Handler(中篇)"
 date:   2015-12-27 22:30:20
-categories: android
+categories: android handler
 excerpt:  Android Message
 ---
 

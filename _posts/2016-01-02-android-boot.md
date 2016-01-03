@@ -22,7 +22,7 @@ excerpt:  Android开机过程分析
 
 **图解：**
 
-开机过程是从图中最下方Loader开始，经过 -> Kernel -> Native -> Framework，一路直至最上层的App启动。下面来进一步说明：
+开机过程是从图中最下方Loader开始，经过 -> Kernel -> Native -> Framework，一路直至最上层的App层启动。下面来进一步说明：
 
 1. Loader
 	- Boot ROM: 当按下电源开机键，引导芯片代码从预设定处(固化在ROM)开始执行，加载引导程序到RAM；
@@ -55,7 +55,8 @@ excerpt:  Android开机过程分析
 # 二	、init进程
 
 ## 2.1 init流程
-[-->init.c]
+
+[-->system/core/init/init.c]
 
 1. 设置子进程退出的信号处理函数sigchld_handler
 - 创建文件夹以及设备挂载；
