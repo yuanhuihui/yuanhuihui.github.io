@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "进程篇—进程整理"
-date:   2015-12-19 22:10:40
+date:   2015-12-19 21:10:40
 categories: android Process
 excerpt:  进程篇—进程整理
 ---
@@ -16,22 +16,9 @@ excerpt:  进程篇—进程整理
 
 ## 一、概括
 
-先展示一张Android整个启动过程图：
+系统启动架构图*：
 
 ![process_status](\images\android-process\process_status.jpg)
-
-图解：
-
-- 深红色：代表0号进程，是在进入刚进入启动时创建的，内核启动完成后便退出；
-- 浅红色：init/kthreadd/Zygote，这3个进程分别会创建大量的内核守护进程、用户空间守护进程以及应用进程，地位主要创建了大量子进程(注意，此处说的不是子线程)；
-- 深紫色：system server/ media server/ servicemanager，这3个进程并不是用于创建子进程，而是对于整个Android架构，有着非常重要的意义；
-- 深蓝色：内核守护进程、用户空间守护进程以及应用进程，这些都是由“深红色”fork生成的；
-- 浅蓝色：各种系统服务、驱动等相关信息。
-
-
-----------
-
-下面，进一步阐释各个进程状态：
 
 ### 1.1 父进程
 在所有进程中，以父进程的姿态存在的进程(即图中的浅红色项)，如下：
@@ -49,76 +36,16 @@ excerpt:  进程篇—进程整理
 
 - **`servicemanager`**：是由init孵化而来的，是整个Binder架构(IPC)的大管家，所有大大小小的service都需要先请示servicemanager。
 
-### 1.3 ps指令
-
-在`adb shell`终端，输入 `ps`，可查看手机当前所有的进程状态，其中`ps`的英文全称是Process Status。
-
-**PS命令参数**:
-
-- -t 显示进程里的所有子线程 
-- -c 显示进程耗费的CPU时间 
-- -p 显示进程优先级、nice值、调度策略
-- -P 显示进程，通常是bg(后台进程)或fg(前台进程)
-- -x 显示进程耗费的用户时间和系统时间，格式:(u:0, s:0)，单位:秒(s)。 
-
-上面的参数可根据需要自由组合，比如只需要查看当前进程的线程情况:
-
-查看进程<pid>内的所有子进程和子线程： `ps -t | grep <pid>`； 
- 
-查看所有普通应用程序，由于目前android是单用户的，所以用户普通进程的user都是以u0_开头的，google有意把android发展成支持多用户的，以后应该会有u1_, u2_等等的用户名，另外普通app的uid是从10000开始：
-
- 	`ps | grep ^u0`;
-
-
-
-**PS输出结果含义**：
-
-- USER：  进程的当前用户
-- PID   ： 进程ID
-- PPID  ： 父进程ID
-- VSIZE  ： 进程虚拟地址空间大小；(virtual size)
-- RSS    ： 进程正在使用的物理内存大小；
-- WCHAN  ： 值为0代表进程处于运行态；否则代表内核地址(休眠态)
-- PC  ： 程序指针
-- NAME:  进程名
-
-**实例说明**
-
-
-![ps_command](\images\android-process\ps_command.jpg)
-
-含义：
-
-|类型|说明|
-|---|---|
-|用户|system|
-|进程ID|20671|
-|父进程ID|497|
-|虚拟空间大小|2085804B|
-|正在使用物理内存|60892B|
-|CPU消耗|1|
-|进程优化级|20|
-|Nice值|0|
-|实时进程优先级|0|
-|调度策略|SCHED_OTHER(默认策略)|
-|PCY|后台进程|
-|WCHAN|内核地址|
-|当前程序指令|b17d3d30|
-|S|处于休眠状态|
-|进程名|com.android.settings|
-|进程时间消耗|用户态130s,系统态12s|
-
-关于更多进程的调度与优先级的说明，见[进程与线程](http://www.yuanhh.com/2015/10/01/Process-and-thread/)。
-
 ## 二、进程
 
 Android进程从大类来划分，可分为内核进程和用户进程。
 
-### 2.1 内核进程
+### 2.1 kthreadd子进程
 
 `kthreadd`进程（2号进程），是Linux系统的内核进程，是所有内核进程的鼻祖。
 
-下面列举部分比较常见的内核进程：
+由Kthreadd孵化出来的内核守护进程，这些进程位于系统启动架构图中的kernel的深蓝色块。下面列举常见的内核进程：
+
 
 |进程名|解释
 |---|---|
@@ -146,14 +73,12 @@ Android进程从大类来划分，可分为内核进程和用户进程。
 
 *每个内核进程的作用，后续再补上*
 
-### 2.2 用户进程
+### 2.2 init子进程
 
 `init`进程(1号进程)，是Linux系统的用户空间进程，或者说是Android的第一个用户空间进程。
 
-init生成的子进程，定义在rc文件，其中每一个service，在启动时会通过fork的方式产生内核子进程。针对Andorid 6.0， rc文件包括：init.rc，init.trace.rc， init.usb.rc，ueventd.rc，init.zygote32.rc， init.zygote32_64.rc， init.zygote64.rc，init.zygote64_32.rc共8个。
+下面列举常见的由init进程孵化而来的用户进程：
 
-
-下面列举出由**`init进程`** fork的比较重要的子进程
 
 |进程名|进程文件|作用
 |---|---|
@@ -175,12 +100,12 @@ init生成的子进程，定义在rc文件，其中每一个service，在启动�
 |surfaceflinger |/system/bin/surfaceflinger|UI帧相关的进程
 |...|...|
 
-调试命令 
-	
-	debuggerd -b [tid] //-b 表示在控制台中输出backtrace, 否则dump到/data/tombstones文件夹
 
 
-### 2.3 Zygote
+servicemanager，作为Binder架构的一个大管家，所有注册服务、获取服务，都需要经过servicemanager，更多关于servicemanager查看[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章。
+
+
+### 2.3 Zygote子进程
 
 Zygote本身是一个Native的应用程序，刚开始的名字为“app_process”，运行过程中，通过系统调用将自己名字改为Zygote。是所有上层Java进程的父进程，android系统中还有另一个Zygote64进程，用于孵化64位的应用进程。
 
@@ -258,7 +183,28 @@ Java Framework中的service都运行在system_server进程中，system_server内
 
 ActivityManagerService线程是一个ServerThread线程。
 
-### 3.3 app 子线程
+### 3.3 mediaserver 子线程
+
+mediaserver 子线程，如下：
+
+|线程名|
+|---|
+|mediaserver|
+|ApmTone
+|ApmAudio
+|ApmOutput
+|Safe Speaker Th
+|AudioOut_2
+|FastMixer
+|AudioOut_4
+|FastMixer
+|AudioOut_6
+|Binder_1|
+|Binder_2|
+
+*每个线程的作用，后续再补上*
+
+### 3.4 app 子线程
 
 此处以settings为例
 
@@ -286,33 +232,6 @@ ActivityManagerService线程是一个ServerThread线程。
 
 - 主线程是由 Zygote母体生成的；
 - 线程池：首次创建第一个Binder线程A，然后监听BR_SPAWN_LOOPER事件，收到后创建第二个Binder线程B，线程B继续监听BR_SPAWN_LOOPER事件，收到后创建第三个Binder线程C。总共创建3个Bindr线程，这是Binder协议决定。根据系统处理器数目以及应用程序的负载强度，线程池的线程数目可以动态调整，这是Binder优化需要考虑的。
-
-
-### 3.4 mediaserver 子线程
-
-mediaserver 子线程，如下：
-
-|线程名|
-|---|
-|mediaserver|
-|ApmTone
-|ApmAudio
-|ApmOutput
-|Safe Speaker Th
-|AudioOut_2
-|FastMixer
-|AudioOut_4
-|FastMixer
-|AudioOut_6
-|Binder_1|
-|Binder_2|
-
-*每个线程的作用，后续再补上*
-
-### 3.5 servicemanager
-
-作为Binder架构的一个大管家，所有注册服务、获取服务，都需要经过servicemanager。 servicemanager进程没有子进程，也没有子线程。更多关于servicemanager，请查看[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章。
-
 
 ## 四、进程统计
 
