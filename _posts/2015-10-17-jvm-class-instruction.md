@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "虚拟机系列1-Class结构"
-date:   2015-10-24 19:16:10
-categories: Java
-excerpt:  虚拟机系列1-Class结构
+title:  "Jvm系列1—Class文件介绍"
+date:   2015-10-17 10:16:10
+categories: jvm Java
+excerpt:  Jvm系列1—Class文件介绍
 ---
 
 * content
@@ -19,14 +19,14 @@ excerpt:  虚拟机系列1-Class结构
 计算机只能识别0和1，所以大家编写的程序都需要经过编译器，转换为由0和1组成的二进制本地机器码(Native Code)。随着虚拟机的不断发展，很多程序语言开始选择与操作系统和机器指令集无关的格式作为编译后的存储格式（Class文件），从而实现"Write Once, Run Anywhere"。  
 Java设计之初，考虑后期能让Java虚拟机运行其他语言，目前有越来越多的其他语言都可以直接需要在Java虚拟机，虚拟机只能识别Class文件，至于是由何种语言编译而来的，虚拟机并不关心，如下图：
 
-![jvm](http://i.imgur.com/Y55s3c6.jpg)
+![Jvm_class_loading_1](\images\jvm\Jvm_class_loading_1.png)
 
-故发布规范文档时，Java规范拆分为Java语言规范和Java虚拟机规范。  
+可以看出不管是由Java语言，还是JRuby等其他语言，只能能生成.class字节码文件，就都可以运行在Java虚拟机上。故发布规范文档时，Java规范拆分为Java语言规范和Java虚拟机规范。  
 
 Java语法中定义各种变量、关键字、运算符的语义最终由多个字节码命令组合而成。因此字节码命令所能提供的语义描述能力必然要比Java语言本身更加强大。
 
 
-# 二、Class类文件结构
+# 二、Class组成
  Class文件是一组以8位字节为单位的二进制流，中间没有任何分隔符，非常紧凑。 当需要占用8位以上的数据时，会按照Big-endian顺序，高位在前，低位在后的方式来分割成多个8位字节来存储。  
 
 - 任何一个Class文件都对应着唯一的类或接口的定义信息；
@@ -41,13 +41,13 @@ Java虚拟机规范规定：Class文件格式采用伪结构来存储数据，�
 
 下面介绍几个概述：
 
-**(1)全限定名**  
+#### 全限定名
 是指把类全名中的“.”号，用“/”号替换，并且在最后加入一个“；”分号后生成的名称。比如`java.lang.Object`对应的全限定名为`java/lang/Object;` 。
 
-**(2)简单名**  
+#### 简单名 
 这个比较好理解，就是直接的方法名或者字段。比如`toString()`方法，不需要包名作为前缀了。
 
-**(3)字段描述符**  
+#### 字段描述符  
 用于描述字段的数据类型。  
 
 规则如下：
@@ -72,7 +72,7 @@ Java虚拟机规范规定：Class文件格式采用伪结构来存储数据，�
 - 对象类型：String ==>  Ljava/lang/String;
 - 数组类型：long[] ==>  [J
 
-**(3)方法描述符**   
+#### 方法描述符 
 用来描述方法的参数列表(数量、类型以及顺序)和返回值。 
 
 格式：(参数描述符列表)返回值描述符。  
@@ -102,15 +102,17 @@ Java虚拟机规范规定：Class文件格式采用伪结构来存储数据，�
 
 一个Class文件的大小：26 + cp_info[] + u2[] + field_info[] + method_info[] + attribute_info[]
 
-下面具体来分析Class文件的组成部分：
+接下来，将具体来介绍ClassFile文件的各个组成部分。
 
-### 2.2.1 魔数 
+# 三、ClassFile文件组成
+
+### 3.1 魔数 
 每个Class文件头4个字节称为魔数(Magic Number),作用是用于确定这个Class文件是否能被虚拟机所接受，魔数固定值0xCAFEBABE。这是身份识别，比如jpeg等图片文件头也会有魔数。
 
-### 2.2.2 版本号 
+### 3.2 版本号 
 紧跟魔数，也占用4个字节。从第5字节到第8字节存储的分别是 次版本号，主版本号。
 
-### 2.2.3 常量池  
+### 3.3 常量池  
 常量池是Class文件空间最大的数据项之一，长度不固定。
 
 a. 常量池长度  
@@ -133,11 +135,11 @@ b. 常量池内容,格式如下：
 
 常量池中每一项常量都是一个表结构，每个表的开始第一位是u1类型的标志位tag, 代表当前这个常量的类型。在JDK 1.7.中共有14种不同的表结构的类型，如下：
 
-![常量池的类型](http://i.imgur.com/mxYskCo.png)
+![constant_type](\images\jvm\constant_type.png)
 
-Class文件都是二进制格式，可通过`Jdk/bin/javap.exe`工具，分析Class文件字节码。【进行演示】
+Class文件都是二进制格式，可通过`Jdk/bin/javap.exe`工具，分析Class文件字节码。关于javap用法，可通过`javap --help`来查看。
 
-### 2.2.4 访问标识 
+### 3.4 访问标识 
 2个字节代表，标示用于识别一些类或者接口层次的访问信息.
 
 | 标识名   |  标识值        | 解释|
@@ -151,15 +153,15 @@ Class文件都是二进制格式，可通过`Jdk/bin/javap.exe`工具，分析Cl
 |ACC_ANNOTATION|	0x2000|声明为注释类型|
 |ACC_ENUM|	0x4000|	声明为枚举类型|
 
-### 2.2.5 类/父类索引
+### 3.5 类/父类索引
 
 当前类索引和父类索引占用大小都为u2类型，由于一个类智能继承一个父类，故父类索引只有一个。除了java.lang.Object对象的父类索引为0，其他所有类都有父类。
 
-### 2.2.6 接口索引
+### 3.6 接口索引
 
 一个类可以实现多个接口，故利用interfaces_count来记录该类所实现的接口个数，interfaces[interfaces_count]来记录所有实现的接口内容。
 
-### 2.2.7 字段表
+### 3.7 字段表
 
 字段表用于描述类或接口中声明的变量，格式如下：
 
@@ -189,7 +191,7 @@ Java语法中，接口中的字段默认包含ACC_PUBLIC, ACC_STATIC, ACC_FINAL�
 
 紧跟其后的name_index和descriptor_index是对常量池的引用，分别代表着字段的简单名和方法的描述符。
 
-### 2.2.8 方法表
+### 3.8 方法表
 
 方法表用于描述类或接口中声明的方法，格式如下：
 
@@ -223,7 +225,7 @@ Java语法中，接口中的字段默认包含ACC_PUBLIC, ACC_STATIC, ACC_FINAL�
 - Java语言中重载方法，必须与原方法同名，且特征签名不同。特征签名是指方法中各个参数在常量池的字段符号引用的集合，不包括返回值。当时Class文件格式中，特征签名范围更广，允许方法名和特征签名都相同，但返回值不同的方法，合法地共存子啊同一个Class文件中。
 
 
-### 2.2.9 属性表
+### 3.9 属性表
 
 属性表格式：
 
@@ -284,31 +286,12 @@ ConstantValue属性是指被static关键字修饰的变量（也称为类变量�
 - 实例变量：在实例构造器<init>方法进行赋值
 
 
-## 1.3 字节码
 
-Java虚拟机的指令由操作码和操作数组成。  
+----------
 
-- 操作码：一个字节长度(0~255)，意味着指令集的操作码个数不能操作256条。
-- 操作数：一条指令可以有零或者多个操作数，同时操作数可以是1个或者多个字节。编译后的代码没有采用操作数长度对齐方式，比如16位无符号整数需使用两个字节储存(假设为byte1和byte2)，那么真实值是 `(byte1 << 8) | byte2`。
+参考资料
 
-放弃操作数对齐方案：
-
-- 优势：可以省略很多填充和间隔符号，从而减少数据量，具有更高的传输效率；Java起初就是为了面向网络、智能家具而设计的，故更加注重传输效率。
-- 劣势：运行时从构建出具体数据结构，导致解释执行字节码会损失部分性能。
-
-不考虑异常处理，Java虚拟机的解释器的执行模型如下：
-
-	do {
-	    atomically calculate pc and fetch opcode at pc;
-	    if (operands) fetch operands;
-	    execute the action for the opcode;
-	} while (there is more to do);
-
-### 1.3.1 字节码语法(省略)
-
-## 参考文献
-
-- <https://docs.oracle.com/javase/specs/jvms/se7/html/>
-- Java语言规范《The Java Language Specification》
-- Java虚拟机规范《The Java Virtual Machine Specification》
-- 《深入理解Java虚拟机》
+1. <https://docs.oracle.com/javase/specs/jvms/se7/html/>
+2. Java语言规范《The Java Language Specification》
+3. Java虚拟机规范《The Java Virtual Machine Specification》
+4. 《深入理解Java虚拟机》
