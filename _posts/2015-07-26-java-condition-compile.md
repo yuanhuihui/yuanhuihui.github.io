@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Java中的条件编译"
-date:   2016-01-02 22:09:12
+date:   2015-7-26 22:09:12
 categories: java
 excerpt:  Java中的条件编译
 ---
@@ -127,6 +127,6 @@ Java语法的条件编译，是通过**判断条件为常量的if语句**实现�
 	     15: return
   
 
-从反编译的`Code`字段，可以看出`constantFalseFlag()`方法体内的内容经过编译后尾空方法，这是由于if判断语句，对于常量false分支，是不可达分支，则在编译成class字节码文件时剪出该分支，最终效果等价于`voidMethod()`。而对于`falseFlag()`方法，则多了5条指令。
+从反编译的`Code`字段，可以看出`constantFalseFlag()`方法体内的内容经过编译后，对于常量false分支，是不可达分支，则在编译成class字节码文件时剪出该分支，最终效果等价于`voidMethod()`。而对于`falseFlag()`方法，则多了5条指令。
 
 可见，对于常量为false的if语句，由于恒为false，等同于条件编译的功能。
