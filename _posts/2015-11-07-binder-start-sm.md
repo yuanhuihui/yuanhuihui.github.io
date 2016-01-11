@@ -128,7 +128,7 @@ service manager的主方法入口
 	    return NULL;
 	}
 
-binder_open功能是打开binder设备，并把binder内存映射，fd记录binder设备描述符。对于流程图中的2、3、、4步骤，都是通过系统调用，最后是调用Binder驱动方法，关于binder驱动，[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)中有详细说明。
+binder_open功能是打开binder设备，并把binder内存映射，fd记录binder设备描述符。对于流程图中的2、3、4步骤，都是通过系统调用，最后是调用Binder驱动方法，关于binder驱动，[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)中有详细说明。
 
 ### [5] binder_become_context_manager
 ==> `/framework/native/cmds/servicemanager/binder.c`

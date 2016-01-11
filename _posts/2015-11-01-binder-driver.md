@@ -13,11 +13,34 @@ excerpt:  Binder系列1—Binder驱动
 ---
 > 基于Android 6.0的源码剖析，在讲解Binder原理之前，先从kernel的角度来讲解Binder驱动
 
-## 准备
 
-Binder驱动代码路径`kernel/drivers/android/binder.c`，对于Android 5.0，Binder驱动`/kernel/drivers/staging/android/binder.c`。
+## 概述
 
-Binder驱动是Android专用的，但底层的驱动架构与Linux驱动没有区别。binder驱动在以misc设备进行注册，作为虚拟设备，也没有直接操作硬件，只是对设备内存的处理。主要是驱动设备的初始化(binder_init)，打开(binder_open)，映射(binder_mmap)，数据操作(binder_ioctl)。下面就分别就以上四种操作展开说明。
+Android 6.0的Binder驱动代码路径
+
+	/kernel/drivers/android/binder.c
+	/kernel/include/uapi/linux/android/binder.h
+
+Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样。binder驱动在以misc设备进行注册，作为虚拟设备，没有直接操作硬件，只是对设备内存的处理。主要是驱动设备的初始化(binder_init)，打开(binder_open)，映射(binder_mmap)，数据操作(binder_ioctl)。
+
+![binder_syscall](/images/binder/binder_dev/binder_syscall.png)
+
+用户态的程序调用kernel驱动，需要陷入内核态，进行系统调用(syscall)，比如打开Binder驱动方法的调用链为： open-> __open() -> binder_open()。 open()为用户空间的方法，__open()便是系统调用中相应的处理方法，通过查找，对应调用到内核binder驱动的binder_open()方法，至于其他的从用户态陷入内核态的流程也基本一致。 
+
+关于Binder驱动open/mmap/ioctl这几个核心方法的主要工作：
+
+![binder_driver](/images/binder/binder_dev/binder_driver.png)
+
+
+**IPC架构**
+
+![IPC-Transaction](/images/binder/binder_dev/IPC-Transaction.png)
+
+例如，当Client向ServiceManager注册服务的过程中，Hanlde=0，RPC代码为`ADD_SERVICE`，RPC数据为待注册的服务名，Binder协议为`BC_TRANSACTION`。
+
+
+下面就分别就以上四种操作展开说明。
+
 
 ## 一、 binder_init
 
@@ -42,7 +65,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动没有�
 	}
 
 
-`debugfs_create_dir`是指在debugfs文件系统中创建一个目录，返回值是指向dentry的指针。当kernel中禁用debugfs的话，返回值是-%ENODEV。
+`debugfs_create_dir`是指在debugfs文件系统中创建一个目录，返回值是指向dentry的指针。当kernel中禁用debugfs的话，返回值是-%ENODEV。默认是禁用的。如果需要打开，在目录`/kernel/arch/arm64/configs/`下找到目标defconfig文件中添加一行`CONFIG_DEBUG_FS=y`，再重新编译版本，即可打开debug_fs。
 
 ### 1.1 misc_register
 
@@ -82,58 +105,50 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动没有�
 		get_task_struct(current);
 		proc->tsk = current;   //将当前线程的task保存到binder进程的tsk
 		INIT_LIST_HEAD(&proc->todo);
-		init_waitqueue_head(&proc->wait);
-		proc->default_priority = task_nice(current);  //task_nice将nice值转换为进程优先级
+		init_waitqueue_head(&proc->wait); //初始化等待队列
+		proc->default_priority = task_nice(current);  //将当前进程的nice值转换为进程优先级
 	
 		binder_lock(__func__);   //同步锁，因为binder支持多线程访问
-	
-		binder_stats_created(BINDER_STAT_PROC); //统计binder对象创建信息
+		binder_stats_created(BINDER_STAT_PROC); //BINDER_PROC对象创建数加1
 		hlist_add_head(&proc->proc_node, &binder_procs);
 		proc->pid = current->group_leader->pid;
 		INIT_LIST_HEAD(&proc->delivered_death);
-		filp->private_data = proc;       //file数据指针指向binder_proc数据
-	
+		filp->private_data = proc;       //file文件指针的private_data变量指向binder_proc数据
 		binder_unlock(__func__); //释放同步锁
-	
-		if (binder_debugfs_dir_entry_proc) {
-			char strbuf[11];
-			proc->debugfs_entry = debugfs_create_file(strbuf, S_IRUGO,
-				binder_debugfs_dir_entry_proc, proc, &binder_proc_fops);
-		}
-	
+
 		return 0;
 	}
 
 ### 2.1 binder_proc
 
-binder进程
+binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构体的跟结构体。
 
 	struct binder_proc {
 		struct hlist_node proc_node;
-		struct rb_root threads;  //记录用户请求binder_thread的红黑树
-		struct rb_root nodes;    //记录实体节点binder_node的红黑树
-		struct rb_root refs_by_desc; //binder实体的引用(以handle为key)
+		struct rb_root threads;  //保存binder_thread结构体的红黑树的跟节点
+		struct rb_root nodes;    //保存binder_node结构体的红黑树的根节点
+		struct rb_root refs_by_desc; //保存binder_ref实体的引用(以handle为key)
 		struct rb_root refs_by_node; //binder实体的引用（以ptr为key）
-		int pid;                     //进程id
-		struct vm_area_struct *vma;  //指向进程空间的指针
+		int pid;                     //创建binder_proc结构体的进程id
+		struct vm_area_struct *vma;  //指向进程虚拟地址空间的指针
 		struct mm_struct *vma_vm_mm;
-		struct task_struct *tsk;    //task
+		struct task_struct *tsk;    //创建binder_proc结构体的进程结构体
 		struct files_struct *files;
 		struct hlist_node deferred_work_node;
 		int deferred_work;
-		void *buffer;                //内核空间所指向的物理内存，在内核空间的起始地址
-		ptrdiff_t user_buffer_offset; //地址空间偏移量
+		void *buffer;                //接收IPC数据的内核地址空间指针(binder_buffer)
+		ptrdiff_t user_buffer_offset; //内核空间与用户空间的地址偏移量
 	
 		struct list_head buffers;
 		struct rb_root free_buffers;   //空闲buffer
 		struct rb_root allocated_buffers; //已分配buffer
 		size_t free_async_space;
 	
-		struct page **pages;  //描述物理页面的数据结构
-		size_t buffer_size;  //映射内存大小
+		struct page **pages;  //描述物理内存页的数据结构
+		size_t buffer_size;  //接收IPC数据的内核地址空间大小
 		uint32_t buffer_free;
-		struct list_head todo;
-		wait_queue_head_t wait;
+		struct list_head todo;  //进程将要做的事
+		wait_queue_head_t wait; //等待队列
 		struct binder_stats stats;
 		struct list_head delivered_death;
 		int max_threads;                //最大线程数
@@ -160,10 +175,22 @@ binder进程
 
 kmalloc用于在物理页上分配连续的空间。更多关于kernel内存，可以查看文章[Linux内存管理](http://www.yuanhh.com/2015/10/30/kernel-memory/)。
 
+### 2.3 小结
+
+**binder_open**  
+
+ filp->private_data = proc 该语句很重要，将将通过之后通过filp可获取相应的binder_proc保存到filp指针的private_data成员变量，那么之后通过filp可获取相应的binder_proc，而binder_proc里管理IPC所需的各种信息，拥有其他结构体的跟结构体。
+
+
 
 ## 三、 binder_mmap
 
-内存映射操作
+### 命令解析
+
+> binder_mmap(文件描述符，用户虚拟内存空间)
+
+主要功能：首先在内核虚拟地址空间，申请一块与用户虚拟内存相同大小的内存；然后再申请1个page大小的物理内存，再将同一块物理内存分别映射到内核虚拟地址空间和用户虚拟内存空间，从而实现了用户空间的Buffer和内核空间的Buffer同步操作的功能。
+
 
 	static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	{
@@ -179,19 +206,7 @@ kmalloc用于在物理页上分配连续的空间。更多关于kernel内存，�
 		if ((vma->vm_end - vma->vm_start) > SZ_4M)
 			vma->vm_end = vma->vm_start + SZ_4M;  //保证映射内存大小不超过4M
 	
-		if (vma->vm_flags & FORBIDDEN_MMAP_FLAGS) {
-			ret = -EPERM;
-			failure_string = "bad vm_flags";
-			goto err_bad_arg;
-		}
-		vma->vm_flags = (vma->vm_flags | VM_DONTCOPY) & ~VM_MAYWRITE;
-	
 		mutex_lock(&binder_mmap_lock);  //同步锁
-		if (proc->buffer) {
-			ret = -EBUSY;
-			failure_string = "already mapped";
-			goto err_already_mapped;
-		}
 		//分配一个连续的内核虚拟空间，与进程虚拟空间大小一致
 		area = get_vm_area(vma->vm_end - vma->vm_start, VM_IOREMAP); 
 		if (area == NULL) {
@@ -204,7 +219,7 @@ kmalloc用于在物理页上分配连续的空间。更多关于kernel内存，�
 		mutex_unlock(&binder_mmap_lock); //释放锁
 	    
 		...
-		proc->pages = kzalloc(sizeof(proc->pages[0]) * ((vma->vm_end - vma->vm_start) / PAGE_SIZE), GFP_KERNEL);
+		proc->pages = kzalloc(sizeof(proc->pages[0]) * ((vma->vm_end - vma->vm_start) / PAGE_SIZE), GFP_KERNEL);//分配一个虚拟用户空间的页数大小的内存给pages指针
 		if (proc->pages == NULL) {
 			ret = -ENOMEM;
 			failure_string = "alloc page array";
@@ -233,30 +248,24 @@ kmalloc用于在物理页上分配连续的空间。更多关于kernel内存，�
 		proc->vma_vm_mm = vma->vm_mm;
 		return 0;
 	
-	err_alloc_small_buf_failed:
-		kfree(proc->pages);
-		proc->pages = NULL;
-	err_alloc_pages_failed:
-		mutex_lock(&binder_mmap_lock);
-		vfree(proc->buffer);
-		proc->buffer = NULL;
-	err_get_vm_area_failed:
-	err_already_mapped:
-		mutex_unlock(&binder_mmap_lock);
-	err_bad_arg:
+		...// 错误flags跳转处，free释放内存之类的操作
 		return ret;
 	}
 
-- vm_area_struct： 一块连续的虚拟地址进程空间， 地址空间范围0~3G。
-- vm_struct：      一块连续的虚拟地址内核空间， 对应的物理页面可以不连续，地址范围(3G + 896M + 8M) ~ 4G.
+**Binder进程间通信效率高的核心机制**：
+ 
+![binder_physical_memory](/images/binder/binder_dev/binder_physical_memory.jpg)
+
+- vm_area_struct： 一块连续的虚拟进程空间， 地址空间范围0~3G。
+- vm_struct：      一块连续的虚拟内核空间， 对应的物理页面可以不连续，地址范围(3G + 896M + 8M) ~ 4G.
 - 除了896M的连续物理内存地址空间是绝对的物理连续，其他内存都不是物理内存连续；
 - 安全保护区域的指针都是非法的
 
+ 
+虚拟进程地址空间(vm_area_struct)和虚拟内核地址空间(vm_struct)都映射到同一块物理空间。当Client端与Server端发送数据时，Client（作为数据发送端）先从自己的进程空间把IPC通信数据`copy_from_user`拷贝到内核空间，而Server端（作为数据接收端）与内核共享数据，不再需要拷贝数据，而是通过内存地址空间的偏移量，即可获悉内存地址，整个过程只发生一次内存拷贝。一般地做法，需要Client端进程空间拷贝到内核空间，再由内核空间拷贝到Server进程空间，会发生两次拷贝。
 
-**Binder进程间通信效率高的核心机制**：  
-虚拟进程地址空间(vm_area_struct)和虚拟内核地址空间(vm_struct)都映射到同一块物理空间。当Client端与Server端进行数据传输时，Client端先从它的进程空间拷贝到内核空间，Server端与内核共享数据，发生一次内存拷贝。一般地做法，需要Client端进程空间拷贝到内核空间，再由内核空间拷贝到Server进程空间，会发生两次拷贝。
 
-![memory](/images/binder/binder_dev/binder2_memory2.jpg)
+![binder_memory_map](/images/binder/binder_dev/binder_memory_map.png)
 
 ### 3.1 binder_buffer
 
@@ -317,7 +326,7 @@ binder_node代表一个binder实体
 			struct page **page_array_ptr;
 			page = &proc->pages[(page_addr - proc->buffer) / PAGE_SIZE];
 			BUG_ON(*page);
-			*page = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);  //分配物理空间
+			*page = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);  //分配物理内存
 			if (*page == NULL) {
 				goto err_alloc_page_failed;
 			}
@@ -343,10 +352,32 @@ binder_node代表一个binder实体
 - 物理空间映射到内核空间
 - 物理空间映射到进程空间
 
+![binder_mmap](/images/binder/binder_dev/binder_mmap.png)
+
 
 ## 四、 binder_ioctl
 
-数据操作
+### 命令解析
+
+> ioctl(文件描述符，ioctl命令，数据类型)
+
+(1) 文件描述符，是通过open()方法打开Binder Driver后返回值；
+
+(2) ioctl命令和数据类型是一体的，不同的命令对应不同的数据类型
+
+|ioctl命令|数据类型|操作|
+|---|---|---|
+|BINDER_WRITE_READ|struct binder_write_read|收发Binder IPC数据|
+|BINDER_SET_MAX_THREADS|__u32|设置Binder线程最大个数|
+|BINDER_SET_CONTEXT_MGR|__s32|设置Service Manager节点|
+|BINDER_THREAD_EXIT|__s32|释放Binder线程
+|BINDER_VERSION|struct binder_version|获取Binder版本信息|
+|BINDER_SET_IDLE_TIMEOUT|__s64|没有使用|
+|BINDER_SET_IDLE_PRIORITY|__s32|没有使用|
+
+上述命令中`BINDER_WRITE_READ`命令使用率最为频繁，也是ioctl的核心命令。
+
+### 源码
 
 	static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	{
@@ -361,7 +392,7 @@ binder_node代表一个binder实体
 			goto err_unlocked;
 	
 		binder_lock(__func__);
-		thread = binder_get_thread(proc); //从binder_proc中查看binger_thread,如果存在则直接返回，如果不存在则新建一个，并添加到当前的proc。
+		thread = binder_get_thread(proc); //从binder_proc中查看binder_thread,如果存在则直接返回，如果不存在则新建一个，并添加到当前的proc。
 		if (thread == NULL) {
 			ret = -ENOMEM;
 			goto err;
@@ -418,14 +449,6 @@ binder_node代表一个binder实体
 		return ret;
 	}
 
-
-主要处理下面5条指令：
-
-- BINDER_WRITE_READ：  进行binder的读写操作
-- BINDER_SET_MAX_THREADS：设置binder最大支持的线程数
-- BINDER_SET_CONTEXT_MGR：成为binder的上下文管理者，也就是ServiceManager成为守护进程
-- BINDER_THREAD_EXIT：当binder线程退出，释放binder线程
-- BINDER_VERSION：获取bindder的版本号
 
 ### 4.1 binder_thread
 
@@ -995,64 +1018,16 @@ binder线程的读操作，下面只列举部分cmd命令相应的操作方法
 		return 0;
 	}
 
-## 五、 附录
+## 五、Binder协议
 
-列举部分Binder相关的数据结构
+![binder_protocol](/images/binder/binder_dev/binder_protocol.png)
 
-|分类|Binder协议|解释|
-|---|---|---|
-|BINDER_COMMAND_PROTOCOL|BC_TRANSACTION|用于发送Binder IPC数据给接收端|
-|BINDER_RETURN_PROTOCOL|BR_TRANSACTION|用于接收端收到数据，回复给发送端|
+Binder协议包含在IPC数据中，分为两类:
 
-### 5.1 binder_write_read  
-用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。`binder_write_read`结构体在32位的操作系统占用的空间为24Byte，在64位系统占用空间为2字节.
+1. `BINDER_COMMAND_PROTOCOL`：binder请求码，以"BC_"开头，用于从IPC层传递到Binder Driver层；
+2. `BINDER_RETURN_PROTOCOL` ：binder响应码，以"BR_"开头，用于从Binder Driver层传递到IPC层；
 
-	struct binder_write_read {
-		binder_size_t		write_size;	//write字节数
-		binder_size_t		write_consumed;	//驱动已消耗的write字节数
-		binder_uintptr_t	write_buffer;  //指向write数据区
-		binder_size_t		read_size;	//read字节数
-		binder_size_t		read_consumed;	//驱动已消耗的read字节数
-		binder_uintptr_t	read_buffer;   //指向read数据区
-	};
-
-### 5.2 binder_transaction_data
-
-当BINDER_WRITE_READ命令的目标是本地Binder实体时，target使用ptr，否则使用handle。只有当这是Binder实体时，cookie才有意义，表示附加数据，由进程自己解释。大概40个字节
-
-	struct binder_transaction_data {
-		union {
-			__u32	handle;	   //binder实体的引用
-			binder_uintptr_t ptr;	 //Binder实体在当前进程的地址
-		} target;  //RPC目标
-		binder_uintptr_t	cookie;	
-		__u32		code;		//RPC代码
-	
-		__u32	        flags;
-		pid_t		sender_pid;  //发送者进程的pid
-		uid_t		sender_euid; //发送者进程的euid
-		binder_size_t	data_size;	
-		binder_size_t	offsets_size;	
-	
-		union {
-			struct {
-				binder_uintptr_t	buffer;
-				binder_uintptr_t	offsets;
-			} ptr;
-			__u8	buf[8];
-		} data;   //RPC数据
-	};
-
-### 5.3  binder_state
-
-	struct binder_state
-	{
-	    int fd; //文件描述符
-	    void *mapped;   //内存映射地址
-	    size_t mapsize; //内存映射大小
-	};
-
-### 5.4 binder请求码
+### 5.1 binder请求码
 
 应用程序向binder设备请求的消息，以BC_开头，总17条；
 
@@ -1085,7 +1060,7 @@ binder线程的读操作，下面只列举部分cmd命令相应的操作方法
 		BC_DEAD_BINDER_DONE = _IOW('c', 16, binder_uintptr_t),
 	};
 
-### 5.5 binder响应码
+### 5.2 binder响应码
 
 binder设备向应用程序回复的消息，以BR_开头，总18条；
 
@@ -1124,3 +1099,56 @@ binder设备向应用程序回复的消息，以BR_开头，总18条；
 	
 		BR_FAILED_REPLY = _IO('r', 17),
 	};
+
+## 六、 附录
+
+列举部分Binder相关的数据结构
+
+### 6.1 binder_write_read  
+用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。`binder_write_read`结构体在32位的操作系统占用的空间为24Byte，在64位系统占用空间为2字节.
+
+	struct binder_write_read {
+		binder_size_t		write_size;	//write字节数
+		binder_size_t		write_consumed;	//驱动已消耗的write字节数
+		binder_uintptr_t	write_buffer;  //指向write数据区
+		binder_size_t		read_size;	//read字节数
+		binder_size_t		read_consumed;	//驱动已消耗的read字节数
+		binder_uintptr_t	read_buffer;   //指向read数据区
+	};
+
+### 6.2 binder_transaction_data
+
+当BINDER_WRITE_READ命令的目标是本地Binder实体时，target使用ptr，否则使用handle。只有当这是Binder实体时，cookie才有意义，表示附加数据，由进程自己解释。大概40个字节
+
+	struct binder_transaction_data {
+		union {
+			__u32	handle;	   //binder实体的引用
+			binder_uintptr_t ptr;	 //Binder实体在当前进程的地址
+		} target;  //RPC目标
+		binder_uintptr_t	cookie;	
+		__u32		code;		//RPC代码
+	
+		__u32	        flags;
+		pid_t		sender_pid;  //发送者进程的pid
+		uid_t		sender_euid; //发送者进程的euid
+		binder_size_t	data_size;	
+		binder_size_t	offsets_size;	
+	
+		union {
+			struct {
+				binder_uintptr_t	buffer;
+				binder_uintptr_t	offsets;
+			} ptr;
+			__u8	buf[8];
+		} data;   //RPC数据
+	};
+
+### 6.3  binder_state
+
+	struct binder_state
+	{
+	    int fd; //文件描述符
+	    void *mapped;   //内存映射地址
+	    size_t mapsize; //内存映射大小
+	};
+

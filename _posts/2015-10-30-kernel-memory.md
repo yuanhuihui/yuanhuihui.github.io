@@ -368,7 +368,7 @@ Linux采用虚拟内存管理技术，每个进程都有各自独立的进程地
 
 虚拟内存与真实物理内存映射关系：
 
-![memory](/images/binder/binder_dev/binder2_memory.jpg)
+![memory](/images/kernel_memory/memory_map.jpg)
 
 ### 3.4 碎片问题
 
