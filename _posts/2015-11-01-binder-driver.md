@@ -123,6 +123,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 
 binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构体的跟结构体。
 
+
 	struct binder_proc {
 		struct hlist_node proc_node;
 		struct rb_root threads;  //保存binder_thread结构体的红黑树的跟节点

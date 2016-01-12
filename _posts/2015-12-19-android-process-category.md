@@ -248,7 +248,7 @@ mediaserver 子线程，如下：
 |adbd| 2|打开了2个adb窗口|
 |sh|  2 |分别为ps, grep|
 
-图中zygote64/zygote/qseecomd/adbd的父进程都是init进程，而sh的父进程是adbd.
+图中zygote64/zygote/qseecomd/adbd的父进程都是init进程，而sh的父进程是adbd，而adb和qseecomd的父进程都是init进程。
 
 手机总计：`407`个进程，`1575`个线程。(该数据仅供参考，让大家对手机当前的进程和线程的数量级有个大概的感观)
 

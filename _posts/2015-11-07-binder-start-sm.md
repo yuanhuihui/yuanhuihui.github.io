@@ -11,6 +11,7 @@ excerpt:  Binder系列2—启动Service Manager
 
 
 ---
+
 > 基于Android 6.0的源码剖析， 本文详细地讲解了Service Manager如何产生
 
 ## 类关系图

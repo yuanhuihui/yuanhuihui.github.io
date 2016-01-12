@@ -20,10 +20,10 @@ Android系统中的耗电统计分为软件排行榜和硬件排行榜，软件�
 
 涉及耗电统计相关的核心类：
 
-	platform/frameworks/base/core/res/res/xml/power_profile.xml
-	framework/base/core/java/com/andorid/internal/os/PowerProfile.java
-	framework/base/core/java/com/andorid/internal/os/BatteryStatsHelper.java
-	framework/base/core/java/com/andorid/internal/os/BatterySipper.java
+	/framework/base/core/res/res/xml/power_profile.xml
+	/framework/base/core/java/com/andorid/internal/os/PowerProfile.java
+	/framework/base/core/java/com/andorid/internal/os/BatteryStatsHelper.java
+	/framework/base/core/java/com/andorid/internal/os/BatterySipper.java
 
 - PowerProfile.java用于获取各个组件的电流数值；power_profile.xml是一个可配置的功耗数据文件。
 - 软件排行榜的计算算法：BatteryStatsHelper类中的processAppUsage()方法
@@ -736,6 +736,7 @@ idlePower = (idleTimeMs * cpuIdlePower) / (60* 60* 1000)
 屏幕功耗可配置项
 
 - POWER_SCREEN_ON = "screen.on" 所对应的值
+- POWER_SCREEN_FULL = "screen.full" 所对应的值
 
 **功耗计算**
 
