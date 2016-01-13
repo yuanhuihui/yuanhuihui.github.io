@@ -52,7 +52,7 @@ excerpt:  Linux内存管理
 - 执行DMA操作的内存必须从ZONE_DMA区分配
 - 一般内存，既可从ZONE_DMA，也可从ZONE_NORMAL分配，但不能同时从两个区分配；
 
-### 1.3 页分配
+### 1.3 页分配与释放
 
 下面列举所有的页为单位进行连续物理内存分配，也称为低级页分配器：  
 
@@ -73,7 +73,7 @@ excerpt:  Linux内存管理
 |free_pages(addr, order)|从地址addr开始，释放2^order个页|
 |free_page(addr)|释放addr所在的那一页|
 
-### 1.4 字节分配
+### 1.4 字节分配与释放
 
 kmalloc，vmalloc分配都是以字节为单位
 
@@ -90,6 +90,15 @@ kmalloc，vmalloc分配都是以字节为单位
 - GFP_ATOMIC：用于原子性的内存分配，不会休眠；典型原子性场景有中断处理程序，软中断，tasklet等
 
  kmalloc内存分配最终总是调用__get_free_pages 来进行实际的分配，故前缀都是GFP_开头。 kmalloc分最多只能分配32个page大小的内存，每个page=4k，也就是128K大小，其中16个字节用来记录页描述结构。kmalloc分配的是常驻内存，不会被交换到文件中。最小分配单位是32或64字节。
+
+**kzalloc**
+
+`kzalloc()`等价于先用 `kmalloc()` 申请空间， 再用`memset()`来初始化，所有申请的元素都被初始化为0。
+
+	static inline void *kzalloc(size_t size, gfp_t flags)
+	{
+		return kmalloc(size, flags | __GFP_ZERO); //通过或标志位__GFP_ZERO，初始化元素为0
+	}
 
 **(2) vmalloc**
 
@@ -369,6 +378,9 @@ Linux采用虚拟内存管理技术，每个进程都有各自独立的进程地
 虚拟内存与真实物理内存映射关系：
 
 ![memory](/images/kernel_memory/memory_map.jpg)
+
+其中物理地址空间中除了896M(ZONE_DMA + ZONE_NORMAL)的区域是绝对的物理连续，其他内存都不是物理内存连续。在虚拟内核地址空间中的安全保护区域的指针都是非法的，用于保证指针非法越界类的操作，vm_struct是连续的虚拟内核空间，对应的物理页面可以不连续，地址范围(3G + 896M + 8M) ~ 4G；另外在虚拟用户空间中 vm_area_struct同样也是一块连续的虚拟进程空间，地址空间范围0~3G。
+
 
 ### 3.4 碎片问题
 

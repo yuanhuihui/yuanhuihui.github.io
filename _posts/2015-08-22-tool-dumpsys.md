@@ -93,7 +93,7 @@ excerpt:  dumpsys工具
 ----------
 
 
-##二、dumpsys命令
+## 二、dumpsys命令
 
 1. dumpsys -l 可查看当前手机系统所有的service
 
@@ -115,13 +115,13 @@ excerpt:  dumpsys工具
 |dumpsys power|查看功耗信息
 |dumpsys wifi|查看wifi信息
 
-下面以内存以例来看看dumpsys用法：
+比如：
 
 - 查看内存信息：
 	
 		dumpsys meminfo
 
-- 查看指令帮助信息
+- 查看dumpsys内存的帮助信息
 
 		dumpsys meminfo -h  //此处以meminfo为例，其他指令也是类同
 
@@ -129,49 +129,24 @@ excerpt:  dumpsys工具
 
 		dumpsys meminfo <packagename> 或者<pid>
 
-- 下面是`dumpsys`手机中com.android.phone进程的内存信息如下：
+其他的dumpys指令也有类似的作用。
 
-	root@****:/ #  dumpsys meminfo com.android.phone
 
-结果：
+**其他：**   
+另外，还有一个比较重要的dumpstate指令：
 
-	Applications Memory Usage (kB):
-	Uptime: 20874479 Realtime: 22539026
-	
-	** MEMINFO in pid 4610 [com.android.phone] **
-	                   Pss  Private  Private  Swapped     Heap     Heap     Heap
-	                 Total    Dirty    Clean    Dirty     Size    Alloc     Free
-	                ------   ------   ------   ------   ------   ------   ------
-	  Native Heap     4902     4828        0        0    16384     9452     6931
-	  Dalvik Heap     8382     7880        0        0    32326    28212     4114
-	 Dalvik Other      868      868        0        0
-	        Stack     1556     1556        0        0
-	       Cursor        2        0        0        0
-	    Other dev        5        0        4        0
-	     .so mmap      751      436       28        0
-	    .apk mmap       12        0        0        0
-	    .dex mmap       96        0       96        0
-	    .oat mmap      496        0      180        0
-	    .art mmap     2004     1344      408        0
-	   Other mmap       10        4        0        0
-	      Unknown     1266     1260        0        0
-	        TOTAL    20350    18176      716        0    48710    37664    11045
-	
-	 Objects
-	               Views:        0         ViewRootImpl:        0
-	         AppContexts:       22           Activities:        0
-	              Assets:        8        AssetManagers:        8
-	       Local Binders:       98        Proxy Binders:       30
-	       Parcel memory:       20         Parcel count:       83
-	    Death Recipients:        8      OpenSSL Sockets:        0
-	
-	 SQL
-	         MEMORY_USED:      702
-	  PAGECACHE_OVERFLOW:       76          MALLOC_SIZE:       62
-	
-	 DATABASES
-	      pgsz     dbsz   Lookaside(b)          cache  Dbname
-	         4       56             12         0/24/1  /data/data/com.android.providers.telephony/databases/HbpcdLookup.db
-	         4      280            384       29/36/13  /data/data/com.android.providers.telephony/databases/telephony.db
-	         4      160            489       58/48/25  /data/data/com.android.providers.telephony/databases/mmssms.db
+1. 基本信息，如版本信息，内存基本信息，cpu基本信息，硬件信息等
+2. 系统log/panic信息
+3. 网络/路由信息
+5. 锁的使用信息
+6. 进程信息
+7. binder信息
+8. 应用程序安装信息
+9. 磁盘使用情况
+10. 所有activity,services信息
+11. properties信息等
+
+而bugreport的真正实现便是通过dumpstate指令来完成的。
+
+
 
