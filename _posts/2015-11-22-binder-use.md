@@ -139,7 +139,11 @@ excerpt: Binder系列7—Binder用法
 		};
 	}
 
-### 1.4 运行
+### 1.4 原理图
+
+![native_binder](\images\binder\binderSimple\native_binder_demo.jpg)
+
+### 1.5 运行
 
 **(1)编译生成**  
 利用Android.mk编译上述代码，在Android的源码中，通过mm编译后，可生成两个可执行文件ServerDemo，ClientDemo。

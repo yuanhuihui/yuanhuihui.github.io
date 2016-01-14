@@ -110,7 +110,7 @@ excerpt:  Binder系列3—获取Service Manager
  
 
 - `ProcessState`的单例模式的惟一性，因此一个进程只打开binder设备一次,其中ProcessState的成员变量`mDriverFD`记录binder驱动的fd，用于访问binder设备。
-- `BIDNER_VM_SIZE = (1*1024*1024) - (4096 *2)`, binder分配的默认内存大小为1M-8k。
+- `BINDER_VM_SIZE = (1*1024*1024) - (4096 *2)`, binder分配的默认内存大小为1M-8k。
 - `DEFAULT_MAX_BINDER_THREADS = 15`，binder默认的最大可并发访问的线程数为15。
 
 ### [4] open_driver()
@@ -145,7 +145,7 @@ excerpt:  Binder系列3—获取Service Manager
 	    return fd;
 	}
 
-open_driver作用是打开/dev/binder设备，binder支持的最大线程数默认是15。关于binder驱动操作，详细见[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)
+open_driver作用是打开/dev/binder设备，binder支持的最大线程数默认是15。关于binder驱动的相应方法，见文章[Binder系列1—Binder Driver](http://www.yuanhh.com/2015/11/01/binder-driver/)。
 
 
 ### [8] getContextObject
@@ -160,7 +160,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 
 
 
-### [9] getContextObject
+### [9] getStrongProxyForHandle
 ==> `/framework/native/libs/binder/ProcessState.cpp`
 
 获取IBinder
@@ -339,19 +339,8 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 
 ## 小结
 
-1. `defaultServiceManager()`单例模式:  
-	- 当gDefaultServiceManager存在，直接返回，否则继续；  
-	- defaultServiceManager 等价于：`sp<IServiceManager> sm = new BpServiceManager(new BpBinder(0));`  
-  
-2. `ProcessState::self()`单例模式：  
-
-	- 当ProcessState对象存在，则直接返回，否则依次进行下面步骤;
-	- 打开内核的/dev/binder设备，建立与内核的Binder驱动的交互通道;
-	- 利用`mmap`为Binder驱动映射内存空间;
-	- 将Binder驱动的fd赋值`ProcessState`对象中的变量`mDriverFD`，用于交互操作。  
-  
-3. BpServiceManager巧妙将通信层与业务层逻辑合二为一
-	- 通过继承IServiceManager，实现了接口中的业务逻辑函数；
-	- 其成员变量mRemote = new BpBinder(0)，通过成员变量进行Binder通信工作。  
-	
+1. `defaultServiceManager()`是单例模式：当gDefaultServiceManager存在，则直接返回；否则继续；defaultServiceManager 等价于：sp<IServiceManager> sm = new BpServiceManager(new BpBinder(0));
+2. `ProcessState::self()`也是单例模式：当ProcessState对象存在，则直接返回；否则依次进行下面步骤;
+打开内核的/dev/binder设备，利用mmap()为Binder驱动映射内存空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。  
+3. BpServiceManager巧妙将通信层与业务层逻辑合为一体，通过继承接口IServiceManager实现了接口中的业务逻辑函数；通过成员变量mRemote = new BpBinder(0)进行Binder通信工作。  
 4. BpBinder通过handler来对应BBinder, 在整个Binder系统中，handle=0代表ServiceManager所对应的BBinder。

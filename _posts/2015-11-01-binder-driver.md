@@ -14,9 +14,9 @@ excerpt:  Binder系列1—Binder Driver
 > 基于Android 6.0的源码剖析，在讲解Binder原理之前，先从kernel的角度来讲解Binder Driver.
 
 
-## 概述
+## 一、概述
 
-### 源码路径
+### 1.1 源码路径
 
 Binder Driver的源码路径
 
@@ -29,7 +29,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 ![binder_driver](/images/binder/binder_dev/binder_driver.png)
 
 
-### 系统调用
+### 1.2 系统调用
 
 用户态的程序调用kernel驱动，需要陷入内核态，进行系统调用(syscall)，比如打开Binder驱动方法的调用链为： open-> __open() -> binder_open()。 open()为用户空间的方法，__open()便是系统调用中相应的处理方法，通过查找，对应调用到内核binder驱动的binder_open()方法，至于其他的从用户态陷入内核态的流程也基本一致。 
 
@@ -38,7 +38,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 
 
 
-### Binder通信
+### 1.3 Binder通信
 
 Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简单地划分为三层，驱动层、IPC层、业务层。`demo()`便是Client端和Server共同协商定义好的业务；handle、RPC数据、代码、协议这4项组成了IPC层的数据，通过IPC层进行数据传输；而真正在Client和Server两端建立通信的基础设施便是Binder Driver。
 
@@ -46,9 +46,9 @@ Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简
 
 例如，当名为`BatteryStatsService`的Client向ServiceManager注册服务的过程中，IPC层的数据组成为：Hanlde=0，RPC代码为`ADD_SERVICE`，RPC数据为`BatteryStatsService`，Binder协议为`BC_TRANSACTION`。
 
+## 二、 Binder核心方法
 
-
-## 一、 binder_init
+### 2.1 binder_init
 
 主要工作是为了注册misc设备
 
@@ -97,7 +97,7 @@ Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简
 	};
 
 
-## 二、 binder_open
+### 2.2 binder_open
 
 打开binder驱动设备
 
@@ -129,7 +129,7 @@ Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简
 
 
 
-## 三、 binder_mmap
+### 2.3 binder_mmap
 
 > binder_mmap(文件描述符，用户虚拟内存空间)
 
@@ -235,7 +235,7 @@ binder_mmap的主要工作可用下面的图来表达：
 
 
 
-## 四、 binder_ioctl
+### 2.4 binder_ioctl
 
 binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
@@ -330,7 +330,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 	}
 
 
-### 4.1 binder_get_thread()
+**binder_get_thread()**
 
 从binder_proc中查找binder_thread,如果存在则直接返回，如果不存在则新建一个，并添加到当前的proc
 
@@ -367,7 +367,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 		return thread;
 	}
 
-### 4.2 binder_ioctl_write_read()
+**binder_ioctl_write_read()**
 
 对于ioctl()方法中，传递进来的命令是cmd = `BINDER_WRITE_READ`时执行该方法，arg是一个`binder_write_read`结构体
 
@@ -393,9 +393,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 		if (bwr.write_size > 0) {
 			//当写缓存中有数据，则执行binder写操作【见4.3】
 			ret = binder_thread_write(proc, thread,
-						  bwr.write_buffer,
-						  bwr.write_size,
-						  &bwr.write_consumed); 
+						  bwr.write_buffer, bwr.write_size, &bwr.write_consumed); 
 			trace_binder_write_done(ret); 
 			if (ret < 0) { //当写失败，再将bwr数据写回用户空间，并返回
 				bwr.read_consumed = 0;
@@ -406,10 +404,9 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 		}
 		if (bwr.read_size > 0) {
 			//当读缓存中有数据，则执行binder读操作, 【见4.4】
-			ret = binder_thread_read(proc, thread, bwr.read_buffer,
-						 bwr.read_size,
-						 &bwr.read_consumed,
-						 filp->f_flags & O_NONBLOCK); 
+			ret = binder_thread_read(proc, thread, 
+						  bwr.read_buffer, bwr.read_size, &bwr.read_consumed,
+						  filp->f_flags & O_NONBLOCK); 
 			trace_binder_read_done(ret);
 			if (!list_empty(&proc->todo))
 				wake_up_interruptible(&proc->wait); //进入休眠，等待中断唤醒
@@ -440,243 +437,470 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 - 最后把内核数据bwr拷贝到用户空间。
 
 
-### 4.3 binder_thread_write()
+## 三、Binder内存
 
-binder线程的写操作，下面只列举部分cmd命令相应的操作方法
+### Binder内存机制
+Binder进程间通信效率高的核心机制，如下图：
+ 
+![binder_physical_memory](/images/binder/binder_dev/binder_physical_memory.jpg)
 
-	int binder_thread_write(struct binder_proc *proc,
-				struct binder_thread *thread,
-				binder_uintptr_t binder_buffer, size_t size,
-				binder_size_t *consumed)
+虚拟进程地址空间(vm_area_struct)和虚拟内核地址空间(vm_struct)都映射到同一块物理内存空间。当Client端与Server端发送数据时，Client（作为数据发送端）先从自己的进程空间把IPC通信数据`copy_from_user`拷贝到内核空间，而Server端（作为数据接收端）与内核共享数据，不再需要拷贝数据，而是通过内存地址空间的偏移量，即可获悉内存地址，整个过程只发生一次内存拷贝。一般地做法，需要Client端进程空间拷贝到内核空间，再由内核空间拷贝到Server进程空间，会发生两次拷贝。 
+
+对于进程和内核虚拟地址映射到同一个物理内存的操作是发生在数据接收端，而数据发送端还是需要将用户态的数据复制到内核态。到此，可能有读者会好奇，为何不直接让发送端和接收端直接映射到同一个物理空间，那样就连一次复制的操作都不需要了，0次复制操作那就与Linux标准内核的共享内存的IPC机制没有区别了，对于共享内存虽然效率高，但是对于多进程的同步问题比较复杂，而管道/消息队列等IPC需要复制2两次，效率较低。这里就不先展开讨论Linux现有的各种IPC机制跟Binder的详细对比，总之Android选择Binder的基于速度和安全性的考虑。
+
+下面这图是从Binder在进程间数据通信的流程图，从图中更能明了Binder的内存转移关系。
+
+![binder_memory_map](/images/binder/binder_dev/binder_memory_map.png)
+
+
+### Binder内存分配
+
+Binder内存分配方法通过binder_alloc_buf().
+
+	static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
+						      size_t data_size, size_t offsets_size, int is_async)
 	{
-		uint32_t cmd;
-		void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
-		void __user *ptr = buffer + *consumed;
-		void __user *end = buffer + size;
-	
-		while (ptr < end && thread->return_error == BR_OK) {
-			if (get_user(cmd, (uint32_t __user *)ptr))
-				return -EFAULT;
-			ptr += sizeof(uint32_t);
-			trace_binder_command(cmd);
-			if (_IOC_NR(cmd) < ARRAY_SIZE(binder_stats.bc)) {
-				binder_stats.bc[_IOC_NR(cmd)]++;
-				proc->stats.bc[_IOC_NR(cmd)]++;
-				thread->stats.bc[_IOC_NR(cmd)]++;
-			}
-			switch (cmd) {
-				case BC_ACQUIRE:
-				case BC_RELEASE:
-				case BC_DECREFS: {
-					uint32_t target;
-					struct binder_ref *ref;
-					const char *debug_string;
-		
-					if (get_user(target, (uint32_t __user *)ptr))
-						return -EFAULT;
-					ptr += sizeof(uint32_t);
-					if (target == 0 && binder_context_mgr_node &&
-					    (cmd == BC_INCREFS || cmd == BC_ACQUIRE)) {
-						ref = binder_get_ref_for_node(proc,
-							       binder_context_mgr_node);
-					} else
-						ref = binder_get_ref(proc, target);
-					if (ref == NULL) {
-						break;
-					}
-					switch (cmd) {
-					case BC_INCREFS:
-						debug_string = "IncRefs";
-						binder_inc_ref(ref, 0, NULL);
-						break;
-					case BC_ACQUIRE:
-						debug_string = "Acquire";
-						binder_inc_ref(ref, 1, NULL);
-						break;
-					case BC_RELEASE:
-						debug_string = "Release";
-						binder_dec_ref(&ref, 1);
-						break;
-					case BC_DECREFS:
-					default:
-						debug_string = "DecRefs";
-						binder_dec_ref(&ref, 0);
-						break;
-					}
-				  break;
-				}
-			
-	
-				case BC_TRANSACTION: 
-				case BC_REPLY: {
-					struct binder_transaction_data tr;
-		
-					if (copy_from_user(&tr, ptr, sizeof(tr)))
-						return -EFAULT;
-					ptr += sizeof(tr);
-					binder_transaction(proc, thread, &tr, cmd == BC_REPLY);
-					break;
-				}
-	
-				case BC_REGISTER_LOOPER: //注册Looper
-					if (thread->looper & BINDER_LOOPER_STATE_ENTERED) {
-						thread->looper |= BINDER_LOOPER_STATE_INVALID;
-						binder_user_error("%d:%d ERROR: BC_REGISTER_LOOPER called after BC_ENTER_LOOPER\n",
-							proc->pid, thread->pid);
-					} else if (proc->requested_threads == 0) {
-						thread->looper |= BINDER_LOOPER_STATE_INVALID;
-						binder_user_error("%d:%d ERROR: BC_REGISTER_LOOPER called without request\n",
-							proc->pid, thread->pid);
-					} else {
-						proc->requested_threads--;
-						proc->requested_threads_started++;
-					}
-					thread->looper |= BINDER_LOOPER_STATE_REGISTERED;
-					break;
-	
-				case BC_ENTER_LOOPER:  //进入Looper
-					if (thread->looper & BINDER_LOOPER_STATE_REGISTERED) {
-						thread->looper |= BINDER_LOOPER_STATE_INVALID;
-					}
-					thread->looper |= BINDER_LOOPER_STATE_ENTERED;
-					break;
-				case BC_EXIT_LOOPER:  //退出Looper
-					thread->looper |= BINDER_LOOPER_STATE_EXITED;
-					break;
-		
-				case BC_REQUEST_DEATH_NOTIFICATION: //处理死亡通知请求
-				case BC_CLEAR_DEATH_NOTIFICATION: {
-					uint32_t target;
-					binder_uintptr_t cookie;
-					struct binder_ref *ref;
-					struct binder_ref_death *death;
-		
-					if (get_user(target, (uint32_t __user *)ptr))
-						return -EFAULT;
-					ptr += sizeof(uint32_t);
-					if (get_user(cookie, (binder_uintptr_t __user *)ptr))
-						return -EFAULT;
-					ptr += sizeof(binder_uintptr_t);
-					ref = binder_get_ref(proc, target);
-					if (ref == NULL) {
-						break;
-					}
-					if (cmd == BC_REQUEST_DEATH_NOTIFICATION) {
-						if (ref->death) {
-							break;
-						}
-						death = kzalloc(sizeof(*death), GFP_KERNEL);
-						if (death == NULL) {
-							thread->return_error = BR_ERROR;
-							break;
-						}
-						binder_stats_created(BINDER_STAT_DEATH);
-						INIT_LIST_HEAD(&death->work.entry);
-						death->cookie = cookie;
-						ref->death = death;
-						if (ref->node->proc == NULL) {
-							ref->death->work.type = BINDER_WORK_DEAD_BINDER;
-							if (thread->looper & (BINDER_LOOPER_STATE_REGISTERED | BINDER_LOOPER_STATE_ENTERED)) {
-								list_add_tail(&ref->death->work.entry, &thread->todo);
-							} else {
-								list_add_tail(&ref->death->work.entry, &proc->todo);
-								wake_up_interruptible(&proc->wait);
-							}
-						}
-					} else {
-						if (ref->death == NULL) {
-							break;
-						}
-						death = ref->death;
-						if (death->cookie != cookie) {
-							break;
-						}
-						ref->death = NULL;
-						if (list_empty(&death->work.entry)) {
-							death->work.type = BINDER_WORK_CLEAR_DEATH_NOTIFICATION;
-							if (thread->looper & (BINDER_LOOPER_STATE_REGISTERED | BINDER_LOOPER_STATE_ENTERED)) {
-								list_add_tail(&death->work.entry, &thread->todo);
-							} else {
-								list_add_tail(&death->work.entry, &proc->todo);
-								wake_up_interruptible(&proc->wait);
-							}
-						} else {
-							BUG_ON(death->work.type != BINDER_WORK_DEAD_BINDER);
-							death->work.type = BINDER_WORK_DEAD_BINDER_AND_CLEAR;
-						}
-					}
-				} break;
-				...
-			}
-
-			*consumed = ptr - buffer;
+		struct rb_node *n = proc->free_buffers.rb_node;
+		struct binder_buffer *buffer;
+		size_t buffer_size;
+		struct rb_node *best_fit = NULL;
+		void *has_page_addr;
+		void *end_page_addr;
+		size_t size;
+		if (proc->vma == NULL) { 
+			return NULL; //虚拟地址空间为空，直接返回
 		}
-		return 0;
+		size = ALIGN(data_size, sizeof(void *)) + ALIGN(offsets_size, sizeof(void *));
+		if (size < data_size || size < offsets_size) {
+			return NULL; //非法的size
+		}
+		if (is_async && proc->free_async_space < size + sizeof(struct binder_buffer)) {
+			return NULL; // 剩余可用的异步空间，小于所需的大小
+		}
+		while (n) {  //从binder_buffer的红黑树从，查找大小相等的buffer块
+			buffer = rb_entry(n, struct binder_buffer, rb_node);
+			buffer_size = binder_buffer_size(proc, buffer);
+			if (size < buffer_size) {
+				best_fit = n;
+				n = n->rb_left;
+			} else if (size > buffer_size)
+				n = n->rb_right;
+			else {
+				best_fit = n;
+				break;
+			}
+		}
+		if (best_fit == NULL) {
+			return NULL; //内存分配失败，地址空间为空
+		}
+		if (n == NULL) {
+			buffer = rb_entry(best_fit, struct binder_buffer, rb_node);
+			buffer_size = binder_buffer_size(proc, buffer);
+		}
+
+		has_page_addr =(void *)(((uintptr_t)buffer->data + buffer_size) & PAGE_MASK);
+		if (n == NULL) {
+			if (size + sizeof(struct binder_buffer) + 4 >= buffer_size)
+				buffer_size = size; 
+			else
+				buffer_size = size + sizeof(struct binder_buffer);
+		}
+		end_page_addr = 	(void *)PAGE_ALIGN((uintptr_t)buffer->data + buffer_size);
+		if (end_page_addr > has_page_addr)
+			end_page_addr = has_page_addr;
+		if (binder_update_page_range(proc, 1,
+		    (void *)PAGE_ALIGN((uintptr_t)buffer->data), end_page_addr, NULL))
+			return NULL;
+		rb_erase(best_fit, &proc->free_buffers);
+		buffer->free = 0;
+		binder_insert_allocated_buffer(proc, buffer);
+		if (buffer_size != size) {
+			struct binder_buffer *new_buffer = (void *)buffer->data + size;
+			list_add(&new_buffer->entry, &buffer->entry);
+			new_buffer->free = 1;
+			binder_insert_free_buffer(proc, new_buffer);
+		}
+
+		buffer->data_size = data_size;
+		buffer->offsets_size = offsets_size;
+		buffer->async_transaction = is_async;
+		if (is_async) {
+			proc->free_async_space -= size + sizeof(struct binder_buffer);
+		}
+		return buffer;
 	}
 
 
-### 4.4 binder_thread_read()
+## 四、Binder协议
 
-binder线程的读操作，下面只列举部分cmd命令相应的操作方法
+![binder_protocol](/images/binder/binder_dev/binder_protocol.png)
 
-	static int binder_thread_read(struct binder_proc *proc,
-				      struct binder_thread *thread,
-				      binder_uintptr_t binder_buffer, size_t size,
-				      binder_size_t *consumed, int non_block)
-	{
-		void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
-		void __user *ptr = buffer + *consumed;
-		void __user *end = buffer + size;
-	
-		int ret = 0;
-		int wait_for_proc_work;
-	
-		if (*consumed == 0) { //写入BR_NOOP到ptr指向的缓冲区
-			if (put_user(BR_NOOP, (uint32_t __user *)ptr)) 
-				return -EFAULT;
-			ptr += sizeof(uint32_t);
+Binder协议包含在IPC数据中，分为两类:
+
+1. `BINDER_COMMAND_PROTOCOL`：binder请求码，以"BC_"开头，简称BC码，用于从IPC层传递到Binder Driver层；
+2. `BINDER_RETURN_PROTOCOL` ：binder响应码，以"BR_"开头，简称BR码，用于从Binder Driver层传递到IPC层；
+
+### 4.1 请求协议
+
+binder请求码，是用`enum binder_driver_command_protocol`来定义的，是用于应用程序向binder驱动设备发送请求消息，以BC_开头，总17条；(-代表目前不支持的请求码)
+
+|请求码|参数类型|功能|
+|---|---|---|
+|BC_TRANSACTION|binder_transaction_data|已发送的事务数据|
+|BC_REPLY| binder_transaction_data|已发送的事务数据|
+|BC_ACQUIRE_RESULT|-|-|
+|BC_FREE_BUFFER|binder_uintptr_t(指针)|释放buffer|
+|BC_INCREFS|__u32(descriptor)|binder_inc_ref(ref,0,NULL)
+|BC_ACQUIRE|__u32(descriptor)|binder_inc_ref(ref,1,NULL)
+|BC_RELEASE|__u32(descriptor)|binder_dec_ref(&ref,1)
+|BC_DECREFS|__u32(descriptor)|binder_dec_ref(&ref,0)
+|BC_INCREFS_DONE| binder_ptr_cookie|binder_dec_node(node, 0, 0)
+|BC_ACQUIRE_DONE| binder_ptr_cookie|binder_dec_node(node, 1, 0)|
+|BC_ATTEMPT_ACQUIRE|-|-|
+|BC_REGISTER_LOOPE|无参数|注册一个spawned looper线程|
+|BC_ENTER_LOOPER|无参数|应用级线程进入looper|
+|BC_EXIT_LOOPER|无参数|应用级线程退出looper|
+|BC_REQUEST_DEATH_NOTIFICATION|  binder_handle_cookie|请求死亡通知|
+|BC_CLEAR_DEATH_NOTIFICATION| binder_handle_cookie|清除死亡通知|
+|BC_DEAD_BINDER_DONE|binder_uintptr_t(指针)|死亡binder完成|
+
+其中binder_ptr_cookie是由binder指针和cookie组成。
+
+**Binder引用回收**
+
+|引用函数|功能|
+|---|---|
+|binder_inc_ref(ref,0,NULL)|binder_ref->weak++|
+|binder_inc_ref(ref,1,NULL)|binder_ref->strong++，或binder_node->internal_strong_refs++|
+|binder_dec_ref(&ref,0)|binder_ref->weak--|
+|binder_dec_ref(&ref,1)|binder_ref->strong--， 或binder_node->internal_strong_refs--|
+|binder_dec_node(node, 0, 0)|binder_node->pending_weak_ref = 0，且binder_node->local_weak_ref--|
+|binder_dec_node(node, 1, 0)|binder_node->pending_strong_ref = 0，且binder_node->local_strong_ref--|
+
+	binder_transaction_buffer_release(){
+		case BINDER_TYPE_BINDER: 
+			binder_dec_node(node, 1, 0); 
+		case BINDER_TYPE_WEAK_BINDER:
+			binder_dec_node(node, 0, 0);
+		case BINDER_TYPE_HANDLE:
+			binder_dec_ref(ref, 1);
+		case BINDER_TYPE_WEAK_HANDLE:
+			binder_dec_ref(ref, 0); 
+		case BINDER_TYPE_FD:
+			task_close_fd(proc, fp->handle);
+	}
+
+### 4.2 响应协议
+
+binder响应码，是用`enum binder_driver_return_protocol`来定义的，是binder设备向应用程序回复的消息，以BR_开头，总18条；
+
+|响应码|参数类型|解释|
+|---|---|---|
+|BR_ERROR|__s32|错误码|
+|BR_OK|无参数|ok|
+|BR_TRANSACTION|binder_transaction_data|已接收的事务数据
+|BR_REPLY|binder_transaction_data|已接收的事务数据
+|BR_ACQUIRE_RESULT|-|-|
+|BR_DEAD_REPLY|无参数|回复失败，原因往往线程或节点为空|
+|BR_TRANSACTION_COMPLETE|无参数|事务完成|
+|BR_INCREFS|binder_ptr_cookie|binder的指针或cookie|
+|BR_ACQUIRE|binder_ptr_cookie|binder的指针或cookie|
+|BR_RELEASE|binder_ptr_cookie|binder的指针或cookie|
+|BR_DECREFS|binder_ptr_cookie|binder的指针或cookie|
+|BR_ATTEMPT_ACQUIRE|-|-|
+|BR_NOOP|无参数|不做任何事，检验下一条命令|
+|BR_SPAWN_LOOPER|无参数|创建新的服务线程|
+|BR_FINISHED|-|-|
+|BR_DEAD_BINDER|binder_uintptr_t(指针)|参数代表cookie|
+|BR_CLEAR_DEATH_NOTIFICATION_DON|binder_uintptr_t(指针)|清除死亡通知，参数代表cookie|
+|BR_FAILED_REPLY|无参数|回复失败，往往是transaction出错导致的|
+
+**BR_SPAWN_LOOPER**：binder驱动已经检测到进程中没有线程等待即将到来的事务。那么当一个进程接收到这条命令时，该进程必须创建一条新的服务线程并注册该线程，该操作通过`BC_ENTER_LOOPER`
+
+### 4.3 请求过程
+
+请求处理过程是通过`binder_thread_write()`方法，该方法用于处理Binder协议中的请求码。当binder_buffer存在数据，binder线程的写操作循环执行。
+
+	binder_thread_write(){
+		while (ptr < end && thread->return_error == BR_OK) {
+			get_user(cmd, (uint32_t __user *)ptr)；//获取IPC数据中的Binder协议(BC码)
+			switch (cmd) {
+				case BC_INCREFS:
+				case BC_ACQUIRE:
+				case BC_RELEASE:
+				case BC_DECREFS:
+					get_user(target, (uint32_t __user *)ptr);//获取IPC数据中的handle
+					if (target == 0 && binder_context_mgr_node &&
+					    (cmd == BC_INCREFS || cmd == BC_ACQUIRE)) {
+						//查找service manager的binder_ref
+						ref = binder_get_ref_for_node(proc, binder_context_mgr_node);
+					} else {
+						//根据target查找binder_ref
+						ref = binder_get_ref(proc, target); 
+					}
+					根据不同cmd，对ref进行相应的增减操作，见BC码表。省略。。。
+					break;
+
+				case BC_INCREFS_DONE:
+				case BC_ACQUIRE_DONE: 
+					get_user(node_ptr, (binder_uintptr_t __user *)ptr)
+					get_user(cookie, (binder_uintptr_t __user *)ptr)
+					//根据节点指针node_ptr，获取相应的binder_node
+					node = binder_get_node(proc, node_ptr); 
+					根据不同的cmd, 对node进行相应的增减操作，见BC码表。省略。。。
+					break;
+
+				case BC_FREE_BUFFER:
+					get_user(data_ptr, (binder_uintptr_t __user *)ptr);
+					//根据buffer指针data_ptr，查找相应的binder_buffer
+					buffer = binder_buffer_lookup(proc, data_ptr);
+					if (buffer->transaction) {
+						buffer->transaction->buffer = NULL;
+						buffer->transaction = NULL;
+					}
+					//释放相应的buffer，以及将新的buffer加入到可用buffer队列中
+					binder_transaction_buffer_release(proc, buffer, NULL);
+					binder_free_buf(proc, buffer);
+					break;
+
+				case BC_TRANSACTION:
+				case BC_REPLY: {
+					struct binder_transaction_data tr;
+					copy_from_user(&tr, ptr, sizeof(tr))； //拷贝用户空间tr到内核
+					// 执行binder_transaction操作
+					binder_transaction(proc, thread, &tr, cmd == BC_REPLY);
+					break;
+
+				case BC_REGISTER_LOOPER:
+					proc->requested_threads--;
+					proc->requested_threads_started++;
+					thread->looper |= BINDER_LOOPER_STATE_REGISTERED;
+					break;
+
+				case BC_ENTER_LOOPER:
+					thread->looper |= BINDER_LOOPER_STATE_ENTERED;
+					break;
+
+				case BC_EXIT_LOOPER:
+					thread->looper |= BINDER_LOOPER_STATE_EXITED;
+					break;
+
+				case BC_REQUEST_DEATH_NOTIFICATION:
+				case BC_CLEAR_DEATH_NOTIFICATION: {
+					get_user(target, (uint32_t __user *)ptr);
+					get_user(cookie, (binder_uintptr_t __user *)ptr);
+					ref = binder_get_ref(proc, target); 
+					if (cmd == BC_REQUEST_DEATH_NOTIFICATION) {
+						death = kzalloc(sizeof(*death), GFP_KERNEL);
+						ref->death = death;
+						if (ref->node->proc == NULL) {
+							ref->death->work.type = BINDER_WORK_DEAD_BINDER;
+							list_add_tail(&ref->death->work.entry, &thread->todo);
+						}
+					}else{
+						if (list_empty(&death->work.entry)) {
+							death->work.type = BINDER_WORK_CLEAR_DEATH_NOTIFICATION;
+							list_add_tail(&ref->death->work.entry, &thread->todo);
+						} else {
+							death->work.type = BINDER_WORK_DEAD_BINDER_AND_CLEAR;
+						}
+					}
+					break;
+
+				case BC_DEAD_BINDER_DONE: 
+					get_user(cookie, (binder_uintptr_t __user *)ptr);
+					list_for_each_entry(w, &proc->delivered_death, entry) {
+						struct binder_ref_death *tmp_death = container_of(w, struct binder_ref_death, work);
+						if (tmp_death->cookie == cookie) {
+							death = tmp_death;
+							break;
+						}
+					}
+					list_del_init(&death->work.entry);
+					if (death->work.type == BINDER_WORK_DEAD_BINDER_AND_CLEAR) {
+						death->work.type = BINDER_WORK_CLEAR_DEATH_NOTIFICATION;
+						list_add_tail(&death->work.entry, &thread->todo);
+					}
+					break;
+
+				}
+			}
 		}
-	
+	}
+
+### 4.4 transaction处理
+
+binder_transaction()这个方法
+
+	static void binder_transaction(struct binder_proc *proc,
+			       struct binder_thread *thread,
+			       struct binder_transaction_data *tr, int reply){
+		if (reply) {
+			in_reply_to = thread->transaction_stack;
+			binder_set_nice(in_reply_to->saved_priority);
+			thread->transaction_stack = in_reply_to->to_parent;
+			target_thread = in_reply_to->from;
+			target_proc = target_thread->proc;
+		
+		}else {
+			if (tr->target.handle) {
+				struct binder_ref *ref;
+				ref = binder_get_ref(proc, tr->target.handle);
+				target_node = ref->node;
+			} else {
+				target_node = binder_context_mgr_node;
+			}
+			target_proc = target_node->proc;
+			if (!(tr->flags & TF_ONE_WAY) && thread->transaction_stack) {
+				struct binder_transaction *tmp;
+				tmp = thread->transaction_stack;
+				while (tmp) {
+					if (tmp->from && tmp->from->proc == target_proc)
+						target_thread = tmp->from;
+					tmp = tmp->from_parent;
+				}
+			}
+		}
+
+		if (target_thread) {
+			e->to_thread = target_thread->pid;
+			target_list = &target_thread->todo;
+			target_wait = &target_thread->wait;
+		} else {
+			target_list = &target_proc->todo;
+			target_wait = &target_proc->wait;
+		}
+
+		t = kzalloc(sizeof(*t), GFP_KERNEL);
+		tcomplete = kzalloc(sizeof(*tcomplete), GFP_KERNEL);
+
+		if (!reply && !(tr->flags & TF_ONE_WAY))
+			t->from = thread;
+		else
+			t->from = NULL;
+		t->sender_euid = task_euid(proc->tsk);
+		t->to_proc = target_proc;
+		t->to_thread = target_thread;
+		t->code = tr->code;
+		t->flags = tr->flags;
+		t->priority = task_nice(current);
+		
+		t->buffer = binder_alloc_buf(target_proc, tr->data_size,
+			tr->offsets_size, !reply && (t->flags & TF_ONE_WAY));
+
+		t->buffer->allow_user_free = 0;
+		t->buffer->transaction = t;
+		t->buffer->target_node = target_node;
+
+		if (target_node)
+			binder_inc_node(target_node, 1, 0, NULL);
+		offp = (binder_size_t *)(t->buffer->data +
+					 ALIGN(tr->data_size, sizeof(void *)));
+		copy_from_user(t->buffer->data, (const void __user *)(uintptr_t)
+				   tr->data.ptr.buffer, tr->data_size);
+		copy_from_user(offp, (const void __user *)(uintptr_t)
+				   tr->data.ptr.offsets, tr->offsets_size);
+		off_end = (void *)offp + tr->offsets_size;
+
+		for (; offp < off_end; offp++) {
+			struct flat_binder_object *fp;
+			fp = (struct flat_binder_object *)(t->buffer->data + *offp);
+			off_min = *offp + sizeof(struct flat_binder_object);
+			switch (fp->type) {
+			case BINDER_TYPE_BINDER:
+			case BINDER_TYPE_WEAK_BINDER: {
+				struct binder_ref *ref;
+				struct binder_node *node = binder_get_node(proc, fp->binder);
+				if (node == NULL) { //创建binder_node节点
+					node = binder_new_node(proc, fp->binder, fp->cookie);
+				}
+				ref = binder_get_ref_for_node(target_proc, node);
+
+				if (fp->type == BINDER_TYPE_BINDER)
+					fp->type = BINDER_TYPE_HANDLE;
+				else
+					fp->type = BINDER_TYPE_WEAK_HANDLE;
+				fp->handle = ref->desc;
+				binder_inc_ref(ref, fp->type == BINDER_TYPE_HANDLE,
+					       &thread->todo);
+			} break;
+
+			case BINDER_TYPE_HANDLE:
+			case BINDER_TYPE_WEAK_HANDLE: {
+				struct binder_ref *ref = binder_get_ref(proc, fp->handle);
+				if (ref->node->proc == target_proc) {
+					if (fp->type == BINDER_TYPE_HANDLE)
+						fp->type = BINDER_TYPE_BINDER;
+					else
+						fp->type = BINDER_TYPE_WEAK_BINDER;
+					fp->binder = ref->node->ptr;
+					fp->cookie = ref->node->cookie;
+					binder_inc_node(ref->node, fp->type == BINDER_TYPE_BINDER, 0, NULL);
+				} else {
+					struct binder_ref *new_ref;
+					new_ref = binder_get_ref_for_node(target_proc, ref->node);
+					fp->handle = new_ref->desc;
+					binder_inc_ref(new_ref, fp->type == BINDER_TYPE_HANDLE, NULL);
+					trace_binder_transaction_ref_to_ref(t, ref, new_ref);
+				}
+			} break;
+
+			case BINDER_TYPE_FD: {
+				int target_fd;
+				struct file *file;
+				file = fget(fp->handle);
+				target_fd = task_get_unused_fd_flags(target_proc, O_CLOEXEC);
+				task_fd_install(target_proc, target_fd, file);
+				fp->handle = target_fd;
+			} break;
+
+			default:
+				return_error = BR_FAILED_REPLY;
+				goto err_bad_object_type;
+			}
+		}
+
+		if (reply) {
+			binder_pop_transaction(target_thread, in_reply_to);
+		} else if (!(t->flags & TF_ONE_WAY)) {
+			t->need_reply = 1;
+			t->from_parent = thread->transaction_stack;
+			thread->transaction_stack = t;
+		} else {
+			if (target_node->has_async_transaction) {
+				target_list = &target_node->async_todo;
+				target_wait = NULL;
+			} else
+				target_node->has_async_transaction = 1;
+		}
+		t->work.type = BINDER_WORK_TRANSACTION;
+		list_add_tail(&t->work.entry, target_list);
+		tcomplete->type = BINDER_WORK_TRANSACTION_COMPLETE;
+		list_add_tail(&tcomplete->entry, &thread->todo);
+		if (target_wait)
+			wake_up_interruptible(target_wait);
+		return;
+	}
+
+
+**binder路由分析**
+
+handler ->  binder_ref -> binder_node -> binder_proc
+
+### 4.5 响应过程
+
+响应处理过程是通过`binder_thread_read()`方法，该方法根据不同的`binder_work->type`，以及不同状态，生成相应的响应码。
+
+	binder_thread_read（）{
 	retry:
 		wait_for_proc_work = thread->transaction_stack == NULL &&
-					list_empty(&thread->todo);
-	
-		if (thread->return_error != BR_OK && ptr < end) { //将error传回ptr，跳转done
-			if (thread->return_error2 != BR_OK) {
-				if (put_user(thread->return_error2, (uint32_t __user *)ptr))
-					return -EFAULT;
-				ptr += sizeof(uint32_t);
-				binder_stat_br(proc, thread, thread->return_error2);
-				if (ptr == end)
-					goto done;
-				thread->return_error2 = BR_OK;
-			}
-			if (put_user(thread->return_error, (uint32_t __user *)ptr))
-				return -EFAULT;
-			ptr += sizeof(uint32_t);
-			binder_stat_br(proc, thread, thread->return_error);
-			thread->return_error = BR_OK;
-			goto done;
-		}
-	
-	
-		thread->looper |= BINDER_LOOPER_STATE_WAITING;
-		if (wait_for_proc_work) //当前线程没有实物需要处理
-			proc->ready_threads++;
-	
-		binder_unlock(__func__);
-
-		if (wait_for_proc_work) { ///当前线程没有实物需要处理
-			if (!(thread->looper & (BINDER_LOOPER_STATE_REGISTERED |
-						BINDER_LOOPER_STATE_ENTERED))) {
-				wait_event_interruptible(binder_user_error_wait,
-							 binder_stop_on_user_error < 2); 
-			}
-			binder_set_nice(proc->default_priority);  //设置优先级
-			if (non_block) { //没阻塞模式，直接返回
+				list_empty(&thread->todo);
+		if (wait_for_proc_work) {
+			binder_set_nice(proc->default_priority);
+			if (non_block) {
 				if (!binder_has_proc_work(proc, thread))
 					ret = -EAGAIN;
-			} else //阻塞模式，让当前线程进入休眠状态，等待请求来唤醒
+			} else
 				ret = wait_event_freezable_exclusive(proc->wait, binder_has_proc_work(proc, thread));
 		} else {
 			if (non_block) {
@@ -685,67 +909,30 @@ binder线程的读操作，下面只列举部分cmd命令相应的操作方法
 			} else
 				ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
 		}
-	
-		binder_lock(__func__);
-	
-		if (wait_for_proc_work)
-			proc->ready_threads--;
-		thread->looper &= ~BINDER_LOOPER_STATE_WAITING;
-	
 		if (ret)
-			return ret;
-	
+			return ret; //对于非阻塞的调用，直接返回
+
 		while (1) {
-			uint32_t cmd;
+			当&thread->todo和&proc->todo都为空时，goto到retry标志处，否则往下执行：
 			struct binder_transaction_data tr;
-			struct binder_work *w;
 			struct binder_transaction *t = NULL;
-	
-			if (!list_empty(&thread->todo)) {
-				w = list_first_entry(&thread->todo, struct binder_work,
-						     entry);
-			} else if (!list_empty(&proc->todo) && wait_for_proc_work) {
-				w = list_first_entry(&proc->todo, struct binder_work,
-						     entry);
-			} else {
-				/* no data added */
-				if (ptr - buffer == 4 &&
-				    !(thread->looper & BINDER_LOOPER_STATE_NEED_RETURN))
-					goto retry;
-				break;
-			}
-	
-			if (end - ptr < sizeof(tr) + 4)
-				break;
-	
 			switch (w->type) {
-			case BINDER_WORK_TRANSACTION: {
+			case BINDER_WORK_TRANSACTION: 
 				t = container_of(w, struct binder_transaction, work);
-			} break;
-			case BINDER_WORK_TRANSACTION_COMPLETE: {
+				break;
+
+			case BINDER_WORK_TRANSACTION_COMPLETE:
 				cmd = BR_TRANSACTION_COMPLETE;
-				if (put_user(cmd, (uint32_t __user *)ptr))
-					return -EFAULT;
-				ptr += sizeof(uint32_t);
-	
-				binder_stat_br(proc, thread, cmd);
-				binder_debug(BINDER_DEBUG_TRANSACTION_COMPLETE,
-					     "%d:%d BR_TRANSACTION_COMPLETE\n",
-					     proc->pid, thread->pid);
-	
+				put_user(cmd, (uint32_t __user *)ptr)； //将cmd写入*ptr
 				list_del(&w->entry);
 				kfree(w);
-				binder_stats_deleted(BINDER_STAT_TRANSACTION_COMPLETE);
-			} break;
-			case BINDER_WORK_NODE: {
+				break;
+
+			case BINDER_WORK_NODE: 
 				struct binder_node *node = container_of(w, struct binder_node, work);
 				uint32_t cmd = BR_NOOP;
-				const char *cmd_name;
-				int strong = node->internal_strong_refs || node->local_strong_refs;
-				int weak = !hlist_empty(&node->refs) || node->local_weak_refs || strong;
-	
 				if (weak && !node->has_weak_ref) {
-					cmd = BR_INCREFS;
+					cmd = BR_INCREFS; 
 					cmd_name = "BR_INCREFS";
 					node->has_weak_ref = 1;
 					node->pending_weak_ref = 1;
@@ -766,263 +953,88 @@ binder线程的读操作，下面只列举部分cmd命令相应的操作方法
 					node->has_weak_ref = 0;
 				}
 				if (cmd != BR_NOOP) {
-					if (put_user(cmd, (uint32_t __user *)ptr))
-						return -EFAULT;
+					put_user(cmd, (uint32_t __user *)ptr);
 					ptr += sizeof(uint32_t);
-					if (put_user(node->ptr,
-						     (binder_uintptr_t __user *)ptr))
-						return -EFAULT;
+					put_user(node->ptr, (binder_uintptr_t __user *)ptr);
 					ptr += sizeof(binder_uintptr_t);
-					if (put_user(node->cookie,
-						     (binder_uintptr_t __user *)ptr))
-						return -EFAULT;
+					(put_user(node->cookie,(binder_uintptr_t __user *)ptr);
 					ptr += sizeof(binder_uintptr_t);
-	
-					binder_stat_br(proc, thread, cmd);
-					binder_debug(BINDER_DEBUG_USER_REFS,
-						     "%d:%d %s %d u%016llx c%016llx\n",
-						     proc->pid, thread->pid, cmd_name,
-						     node->debug_id,
-						     (u64)node->ptr, (u64)node->cookie);
-				} else {
+				}else{
 					list_del_init(&w->entry);
 					if (!weak && !strong) {
-						binder_debug(BINDER_DEBUG_INTERNAL_REFS,
-							     "%d:%d node %d u%016llx c%016llx deleted\n",
-							     proc->pid, thread->pid,
-							     node->debug_id,
-							     (u64)node->ptr,
-							     (u64)node->cookie);
 						rb_erase(&node->rb_node, &proc->nodes);
 						kfree(node);
-						binder_stats_deleted(BINDER_STAT_NODE);
-					} else {
-						binder_debug(BINDER_DEBUG_INTERNAL_REFS,
-							     "%d:%d node %d u%016llx c%016llx state unchanged\n",
-							     proc->pid, thread->pid,
-							     node->debug_id,
-							     (u64)node->ptr,
-							     (u64)node->cookie);
 					}
 				}
-			} break;
+				break;
+				
 			case BINDER_WORK_DEAD_BINDER:
 			case BINDER_WORK_DEAD_BINDER_AND_CLEAR:
-			case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: {
-				struct binder_ref_death *death;
-				uint32_t cmd;
-	
+			case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: 
 				death = container_of(w, struct binder_ref_death, work);
 				if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION)
 					cmd = BR_CLEAR_DEATH_NOTIFICATION_DONE;
 				else
 					cmd = BR_DEAD_BINDER;
-				if (put_user(cmd, (uint32_t __user *)ptr))
-					return -EFAULT;
+				put_user(cmd, (uint32_t __user *)ptr);
 				ptr += sizeof(uint32_t);
-				if (put_user(death->cookie,
-					     (binder_uintptr_t __user *)ptr))
-					return -EFAULT;
+				put_user(death->cookie,(binder_uintptr_t __user *)ptr);
 				ptr += sizeof(binder_uintptr_t);
-				binder_stat_br(proc, thread, cmd);
-	
+
 				if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION) {
 					list_del(&w->entry);
 					kfree(death);
-					binder_stats_deleted(BINDER_STAT_DEATH);
 				} else
 					list_move(&w->entry, &proc->delivered_death);
 				if (cmd == BR_DEAD_BINDER)
-					goto done; /* DEAD_BINDER notifications can cause transactions */
-			} break;
-			}
-	
-			if (!t)
-				continue;
-	
-			BUG_ON(t->buffer == NULL);
-			if (t->buffer->target_node) {
-				struct binder_node *target_node = t->buffer->target_node;
-	
-				tr.target.ptr = target_node->ptr;
-				tr.cookie =  target_node->cookie;
-				t->saved_priority = task_nice(current);
-				if (t->priority < target_node->min_priority &&
-				    !(t->flags & TF_ONE_WAY))
-					binder_set_nice(t->priority);
-				else if (!(t->flags & TF_ONE_WAY) ||
-					 t->saved_priority > target_node->min_priority)
-					binder_set_nice(target_node->min_priority);
-				cmd = BR_TRANSACTION;
-			} else {
-				tr.target.ptr = 0;
-				tr.cookie = 0;
-				cmd = BR_REPLY;
-			}
-			tr.code = t->code;
-			tr.flags = t->flags;
-			tr.sender_euid = from_kuid(current_user_ns(), t->sender_euid);
-	
-			if (t->from) {
-				struct task_struct *sender = t->from->proc->tsk;
-	
-				tr.sender_pid = task_tgid_nr_ns(sender,
-								task_active_pid_ns(current));
-			} else {
-				tr.sender_pid = 0;
-			}
-	
-			tr.data_size = t->buffer->data_size;
-			tr.offsets_size = t->buffer->offsets_size;
-			tr.data.ptr.buffer = (binder_uintptr_t)(
-						(uintptr_t)t->buffer->data +
-						proc->user_buffer_offset);
-			tr.data.ptr.offsets = tr.data.ptr.buffer +
-						ALIGN(t->buffer->data_size,
-						    sizeof(void *));
-	
-			if (put_user(cmd, (uint32_t __user *)ptr))
-				return -EFAULT;
-			ptr += sizeof(uint32_t);
-			if (copy_to_user(ptr, &tr, sizeof(tr)))
-				return -EFAULT;
-			ptr += sizeof(tr);
-	
-			trace_binder_transaction_received(t);
-			binder_stat_br(proc, thread, cmd);
-	
-			list_del(&t->work.entry);
-			t->buffer->allow_user_free = 1;
-			if (cmd == BR_TRANSACTION && !(t->flags & TF_ONE_WAY)) {
-				t->to_parent = thread->transaction_stack;
-				t->to_thread = thread;
-				thread->transaction_stack = t;
-			} else {
-				t->buffer->transaction = NULL;
-				kfree(t);
-				binder_stats_deleted(BINDER_STAT_TRANSACTION);
-			}
-			break;
+					goto done;  //跳转到done标识符
+
+				if (t->buffer->target_node) {
+					struct binder_node *target_node = t->buffer->target_node;
+					tr.target.ptr = target_node->ptr;
+					tr.cookie =  target_node->cookie;						
+					cmd = BR_TRANSACTION;
+				} else {
+					tr.target.ptr = 0;
+					tr.cookie = 0;
+					cmd = BR_REPLY;
+				}
+				根据binder_transaction结构体来赋值binder_transaction_data数据，省略
+				put_user(cmd, (uint32_t __user *)ptr)；
+				ptr += sizeof(uint32_t);
+				copy_to_user(ptr, &tr, sizeof(tr))； //将tr数据传输到用户空间
+				ptr += sizeof(tr);
+
+				if (cmd == BR_TRANSACTION && !(t->flags & TF_ONE_WAY)) {
+					t->to_parent = thread->transaction_stack;
+					t->to_thread = thread;
+					thread->transaction_stack = t;
+				} else {
+					t->buffer->transaction = NULL;
+					kfree(t);
+				}
+				break;
 		}
-	
 	done:
-	
 		*consumed = ptr - buffer;
+		//当满足请求线程加已准备线程数等于0，已启动线程数小于最大线程数，
+		//且looper状态为已注册或已进入时，创建新的线程。
 		if (proc->requested_threads + proc->ready_threads == 0 &&
 		    proc->requested_threads_started < proc->max_threads &&
 		    (thread->looper & (BINDER_LOOPER_STATE_REGISTERED |
-		     BINDER_LOOPER_STATE_ENTERED)) /* the user-space code fails to */
-		     /*spawn a new thread if we leave this out */) {
-			proc->requested_threads++;
-
-			if (put_user(BR_SPAWN_LOOPER, (uint32_t __user *)buffer))
-				return -EFAULT;
-			binder_stat_br(proc, thread, BR_SPAWN_LOOPER);
+		     BINDER_LOOPER_STATE_ENTERED))) { 
+			proc->requested_threads++; 
+			put_user(BR_SPAWN_LOOPER, (uint32_t __user *)buffer)；
 		}
 		return 0;
 	}
 
-## 五、Binder内存
 
-Binder进程间通信效率高的核心机制，如下图：
- 
-![binder_physical_memory](/images/binder/binder_dev/binder_physical_memory.jpg)
-
-虚拟进程地址空间(vm_area_struct)和虚拟内核地址空间(vm_struct)都映射到同一块物理内存空间。当Client端与Server端发送数据时，Client（作为数据发送端）先从自己的进程空间把IPC通信数据`copy_from_user`拷贝到内核空间，而Server端（作为数据接收端）与内核共享数据，不再需要拷贝数据，而是通过内存地址空间的偏移量，即可获悉内存地址，整个过程只发生一次内存拷贝。一般地做法，需要Client端进程空间拷贝到内核空间，再由内核空间拷贝到Server进程空间，会发生两次拷贝。 
-
-对于进程和内核虚拟地址映射到同一个物理内存的操作是发生在数据接收端，而数据发送端还是需要将用户态的数据复制到内核态。到此，可能有读者会好奇，为何不直接让发送端和接收端直接映射到同一个物理空间，那样就连一次复制的操作都不需要了，0次复制操作那就与Linux标准内核的共享内存的IPC机制没有区别了，对于共享内存虽然效率高，但是对于多进程的同步问题比较复杂，而管道/消息队列等IPC需要复制2两次，效率较低。这里就不先展开讨论Linux现有的各种IPC机制跟Binder的详细对比，总之Android选择Binder的基于速度和安全性的考虑。
-
-下面这图是从Binder在进程间数据通信的流程图，从图中更能明了Binder的内存转移关系。
-
-![binder_memory_map](/images/binder/binder_dev/binder_memory_map.png)
-
-
-## 六、Binder协议指令
-
-![binder_protocol](/images/binder/binder_dev/binder_protocol.png)
-
-Binder协议包含在IPC数据中，分为两类:
-
-1. `BINDER_COMMAND_PROTOCOL`：binder请求码，以"BC_"开头，用于从IPC层传递到Binder Driver层；
-2. `BINDER_RETURN_PROTOCOL` ：binder响应码，以"BR_"开头，用于从Binder Driver层传递到IPC层；
-
-### binder请求码
-
-binder请求码，是用`enum binder_driver_command_protocol`来定义的，是用于应用程序向binder驱动设备发送请求消息，以BC_开头，总17条；(-代表目前不支持的请求码)
-
-|请求码|参数类型|解释|
-|---|---|---|
-|BC_TRANSACTION|binder_transaction_data|已发送的事务数据|
-|BC_REPLY| binder_transaction_data|已发送的事务数据|
-|BC_ACQUIRE_RESULT|-|-|
-|BC_FREE_BUFFER|binder_uintptr_t(指针)|参数是指向接收的事务数据|
-|BC_INCREFS|__u32|参数是descriptor|
-|BC_ACQUIRE|__u32|参数是descriptor|
-|BC_RELEASE|__u32|参数是descriptor|
-|BC_DECREFS|__u32|参数是descriptor|
-|BC_INCREFS_DONE| binder_ptr_cookie|binder的指针|
-|BC_ACQUIRE_DONE| binder_ptr_cookie|binder的cookie|
-|BC_ATTEMPT_ACQUIRE|-|-|
-|BC_REGISTER_LOOPE|无参数|注册一个spawned looper线程
-|BC_ENTER_LOOPER|无参数|应用级线程进入binder loop|
-|BC_EXIT_LOOPER|无参数|应用级线程退出binder loop|
-|BC_REQUEST_DEATH_NOTIFICATION|  binder_handle_cookie|请求死亡通知
-|BC_CLEAR_DEATH_NOTIFICATION| binder_handle_cookie|清除死亡通知
-|BC_DEAD_BINDER_DONE|binder_uintptr_t(指针)|死亡binder完成|
-
-
-### binder响应码
-
-binder响应码，是用`enum binder_driver_return_protocol`来定义的，是binder设备向应用程序回复的消息，以BR_开头，总18条；
-
-|响应码|参数类型|解释|
-|---|---|---|
-|BR_ERROR|__s32|错误码|
-|BR_OK|无参数|ok|
-|BR_TRANSACTION|binder_transaction_data|已接收的事务数据
-|BR_REPLY|binder_transaction_data|已接收的事务数据
-|BR_ACQUIRE_RESULT|-|-|
-|BR_DEAD_REPLY|无参数|死亡回复|
-|BR_TRANSACTION_COMPLETE|无参数|事务完成|
-|BR_INCREFS|binder_ptr_cookie|binder的指针或cookie|
-|BR_ACQUIRE|binder_ptr_cookie|binder的指针或cookie|
-|BR_RELEASE|binder_ptr_cookie|binder的指针或cookie|
-|BR_DECREFS|binder_ptr_cookie|binder的指针或cookie|
-|BR_ATTEMPT_ACQUIRE|-|-|
-|BR_NOOP|无参数|不做任何事，检验下一条命令|
-|BR_SPAWN_LOOPER|无参数|创建新的服务线程|
-|BR_FINISHED|-|-|
-|BR_DEAD_BINDER|binder_uintptr_t(指针)|参数代表cookie|
-|BR_CLEAR_DEATH_NOTIFICATION_DON|binder_uintptr_t(指针)|清除死亡通知，参数代表cookie|
-|BR_FAILED_REPLY|无参数|最后一条transaction失败|
-
-**BR_SPAWN_LOOPER**：binder驱动已经检测到进程中没有线程等待即将到来的事务。那么当一个进程接收到这条命令时，该进程必须创建一条新的服务线程并注册该线程，该操作通过`BC_ENTER_LOOPER`
-
-## 七、 结构体附录
+## 五、 结构体定义
 
 列举Binder相关的核心结构体
 
-### binder_write_read
-用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。
-
-|类型|成员变量|解释|
-|---|---|---|
-|binder_size_t|rite_size|write_buffer的字节数
-|binder_size_t|write_consumed|已处理的write字节数
-|binder_uintptr_t|write_buffer|指向write数据区
-|binder_size_t|read_size|read_buffer的字节数
-|binder_size_t|read_consumed|已处理的read字节数
-|binder_uintptr_t|read_buffer|指向read数据区
-
-- write_buffer变量：用于发送IPC(或IPC reply)数据，即传递经由Binder Driver的数据时使用。
-- read_buffer 变量：用于接收来自Binder Driver的数据，即Binder Driver在接收IPC(或IPC reply)数据后，保存到read_buffer，再传递到用户空间；
-
-write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_data结构体。
-
-- copy_from_user()将用户空间IPC数据拷贝到内核态binder_write_read结构体；
-- copy_to_user()将用内核态binder_write_read结构体数据拷贝到用户空间；
-
-### binder_proc
+### 5.1 binder_proc
 
 binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构体的跟结构体。
 
@@ -1046,7 +1058,7 @@ binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构
 |struct| list_head buffers|
 |struct| rb_root free_buffers|空闲buffer
 |struct| rb_root allocated_buffers|已分配buffer
-|size_t| free_async_space|
+|size_t| free_async_space|异步的可用空闲空间
 |struct page **|pages|描述物理内存页的数据结构
 |size_t| buffer_size|接收IPC数据的内核地址空间大小
 |uint32_t| buffer_free|
@@ -1055,8 +1067,8 @@ binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构
 |struct binder_stats| stats|
 |struct list_head| delivered_death|
 |int| max_threads|最大线程数
-|int| requested_threads|
-|int| requested_threads_started|
+|int| requested_threads|请求的线程数
+|int| requested_threads_started|已启动的请求线程数
 |int| ready_threads|
 |long| default_priority|默认优先级
 |struct dentry *|debugfs_entry|
@@ -1068,7 +1080,7 @@ binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构
 	- `refs_by_node` 记录的是`binder_transaction_data`结构体中target的 `ptr`;
 - `user_buffer_offset`是虚拟进程地址与虚拟内核地址的差值，也就是说同一物理地址，当内核地址为kernel_addr，则进程地址为proc_addr = kernel_addr + user_buffer_offset。
 
-### binder_thread
+### 5.2 binder_thread
 
 binder_thread结构体代表当前binder操作所在的线程
 
@@ -1077,7 +1089,7 @@ binder_thread结构体代表当前binder操作所在的线程
 |struct binder_proc *|proc|线程所属的进程|
 |struct rb_node|rb_node||
 |int|pid|线程pid|
-|int|looper||
+|int|looper|looper的状态|
 |struct binder_transaction *|transaction_stack|正在处理的事务|
 |struct list_head|todo|将要处理的数据列表|
 |uint32_t|return_error|write失败后，返回的错误码|
@@ -1085,15 +1097,94 @@ binder_thread结构体代表当前binder操作所在的线程
 |wait_queue_head_t|wait|等待队列的队头|
 |struct binder_stats|stats|binder线程的统计信息|
 
+looper的状态如下：
 
-### binder_buffer
+	enum {
+		BINDER_LOOPER_STATE_REGISTERED  = 0x01, // 已注册
+		BINDER_LOOPER_STATE_ENTERED     = 0x02, // 已进入
+		BINDER_LOOPER_STATE_EXITED      = 0x04, // 已退出
+		BINDER_LOOPER_STATE_INVALID     = 0x08, // 非法
+		BINDER_LOOPER_STATE_WAITING     = 0x10, // 等待中
+		BINDER_LOOPER_STATE_NEED_RETURN = 0x20, // 需要返回
+	};
+
+### 5.3 binder_write_read
+用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。
+
+|类型|成员变量|解释|
+|---|---|---|
+|binder_size_t|rite_size|write_buffer的字节数
+|binder_size_t|write_consumed|已处理的write字节数
+|binder_uintptr_t|write_buffer|指向write数据区
+|binder_size_t|read_size|read_buffer的字节数
+|binder_size_t|read_consumed|已处理的read字节数
+|binder_uintptr_t|read_buffer|指向read数据区
+
+- write_buffer变量：用于发送IPC(或IPC reply)数据，即传递经由Binder Driver的数据时使用。
+- read_buffer 变量：用于接收来自Binder Driver的数据，即Binder Driver在接收IPC(或IPC reply)数据后，保存到read_buffer，再传递到用户空间；
+
+write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_data结构体。
+
+- copy_from_user()将用户空间IPC数据拷贝到内核态binder_write_read结构体；
+- copy_to_user()将用内核态binder_write_read结构体数据拷贝到用户空间；
+
+### 5.4 binder_transaction_data
+
+当BINDER_WRITE_READ命令的目标是本地Binder node时，target使用ptr，否则使用handle。只有当这是Binder node时，cookie才有意义，表示附加数据，由进程自己解释。
+
+	struct binder_transaction_data {
+		union {
+			__u32	handle;	   //binder实体的引用
+			binder_uintptr_t ptr;	 //Binder实体在当前进程的地址
+		} target;  //RPC目标
+		binder_uintptr_t	cookie;	
+		__u32		code;		//RPC代码
+	
+		__u32	        flags;
+		pid_t		sender_pid;  //发送端进程的pid
+		uid_t		sender_euid; //发送端进程的euid
+		binder_size_t	data_size;	
+		binder_size_t	offsets_size;	
+	
+		union {
+			struct {
+				binder_uintptr_t	buffer;
+				binder_uintptr_t	offsets;
+			} ptr;
+			__u8	buf[8];
+		} data;   //RPC数据
+	};
+
+
+### 5.5 binder_transaction
+
+|类型|成员变量|解释|
+|---|---|---|
+|int |debug_id|
+|struct binder_work |work|
+|struct binder_thread *|from|发送端线程
+|struct binder_transaction *|from_parent|
+|struct binder_proc *|to_proc|
+|struct binder_thread *|to_thread|接收端线程
+|struct binder_transaction *|to_parent|
+|unsigned |need_reply|是否需要回应
+|struct binder_buffer *|buffer|
+|unsigned int	|code|
+|unsigned int	|flags|
+|long	|priority|优先级
+|long	|saved_priority|保存的优先级
+|kuid_t	|sender_euid|发送端uid
+
+
+
+### 5.6 binder_buffer
 
 |类型|成员变量|解释|
 |---|---|---|
 |struct list_head|entry|空闲和已分配实体的地址|
 |struct rb_node|rb_node|空闲实体大小或已分配实体地址|
 |unsigned|free|标记是否是空闲buffer，占位1bit|
-|unsigned|allow_user_free|占位1bit|
+|unsigned|allow_user_free|是否允许用户释放，占位1bit|
 |unsigned|async_transaction|占位1bit|
 |unsigned|debug_id|占位29bit|
 |struct binder_transaction *|transaction||
@@ -1105,7 +1196,7 @@ binder_thread结构体代表当前binder操作所在的线程
 
 每一个binder_buffer分为空闲和已分配的，通过free标记来区分。空闲和已分配的binder_buffer通过各自的成员变量rb_node分别连入binder_proc的free_buffers(红黑树)和allocated_buffers(红黑树)。
 
-### binder_node
+### 5.7 binder_node
 
 binder_node代表一个binder实体
 
@@ -1131,8 +1222,52 @@ binder_node代表一个binder实体
 |unsigned| min_priority|占位8bit
 |struct list_head| async_todo|
 
+### 5.8 binder_ref
 
-### binder_state
+|类型|成员变量|解释|
+|---|---|---|
+|int |debug_id|
+|struct rb_node |rb_node_desc|以desc为索引的红黑树
+|struct rb_node |rb_node_node|以node为索引的红黑树
+|struct hlist_node |node_entry|
+|struct binder_proc *|proc|binder进程
+|struct binder_node *|node|binder节点
+|uint32_t |desc|handle
+|int |strong|强引用次数
+|int |weak|弱引用次数
+|struct binder_ref_death *|death|
+
+
+binder引用的查询方式如下：
+
+- node + proc => ref (transaction) 
+- desc + proc => ref (transaction, inc/dec ref) 
+- node => refs + procs (proc exit)
+
+
+### 5.9 binder_ref_death
+
+	struct binder_ref_death {
+		struct binder_work work;
+		binder_uintptr_t cookie;
+	};
+
+### 5.10 binder_work
+
+	struct binder_work {
+		struct list_head entry;
+		enum {
+			BINDER_WORK_TRANSACTION = 1, //binder_transaction()方法设置
+			BINDER_WORK_TRANSACTION_COMPLETE, //binder_transaction()方法设置
+			BINDER_WORK_NODE, // binder_new_node()方法设置
+			BINDER_WORK_DEAD_BINDER, // binder_thread_write()等多个方法可设置
+			BINDER_WORK_DEAD_BINDER_AND_CLEAR, // binder_thread_write()等多个方法可设置
+			BINDER_WORK_CLEAR_DEATH_NOTIFICATION,// binder_thread_write()等多个方法可设置
+		} type;
+	};
+
+
+### 5.11 binder_state
 
 |类型|成员变量|解释|
 |---|---|---|
@@ -1140,63 +1275,25 @@ binder_node代表一个binder实体
 |void *|mapped|内存映射地址
 |size_t |mapsize|内存映射大小
 
-### flat_binder_object
+### 5.12 flat_binder_object
 
 flat_binder_object结构体代表Binder对象在两个进程间传递的扁平结构。
 
 
 |类型|成员变量|解释|
 |---|---|---|
-|__u32|	type|
-|__u32|	flags|
-|binder_uintptr_t|	binder|local对象，union|
-|__u32|handle|remote对象，union|
-|binder_uintptr_t	|cookie|local对象相关的额外数据
+|__u32|	type|类型
+|__u32|	flags|记录优先级、文件描述符许可
+|binder_uintptr_t|binder |local对象，union|
+|__u32|handle |remote对象，union|
+|binder_uintptr_t|cookie|local对象相关的额外数据|
 
+此处的类型type的可能取值来自于`enum`，成员如下：
 
-### binder_transaction
-
-	struct binder_transaction {
-		int debug_id;
-		struct binder_work work;
-		struct binder_thread *from;
-		struct binder_transaction *from_parent;
-		struct binder_proc *to_proc;
-		struct binder_thread *to_thread;
-		struct binder_transaction *to_parent;
-		unsigned need_reply:1;
-		struct binder_buffer *buffer;
-		unsigned int	code;
-		unsigned int	flags;
-		long	priority;
-		long	saved_priority;
-		kuid_t	sender_euid;
-	};
-
-
-### binder_transaction_data
-
-当BINDER_WRITE_READ命令的目标是本地Binder node时，target使用ptr，否则使用handle。只有当这是Binder node时，cookie才有意义，表示附加数据，由进程自己解释。
-
-	struct binder_transaction_data {
-		union {
-			__u32	handle;	   //binder实体的引用
-			binder_uintptr_t ptr;	 //Binder实体在当前进程的地址
-		} target;  //RPC目标
-		binder_uintptr_t	cookie;	
-		__u32		code;		//RPC代码
-	
-		__u32	        flags;
-		pid_t		sender_pid;  //发送者进程的pid
-		uid_t		sender_euid; //发送者进程的euid
-		binder_size_t	data_size;	
-		binder_size_t	offsets_size;	
-	
-		union {
-			struct {
-				binder_uintptr_t	buffer;
-				binder_uintptr_t	offsets;
-			} ptr;
-			__u8	buf[8];
-		} data;   //RPC数据
-	};
+|成员变量|解释|
+|---|---|
+|BINDER_TYPE_BINDER|binder实体的强引用|
+|BINDER_TYPE_WEAK_BINDER|binder实体的弱引用|
+|BINDER_TYPE_HANDLE|binder强引用|
+|BINDER_TYPE_WEAK_HANDLE|binder弱引用|
+|BINDER_TYPE_FD|binder文件描述符|

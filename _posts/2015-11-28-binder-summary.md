@@ -33,20 +33,8 @@ excerpt:  Binder系列9—总结
 
 ![java_binder_framework](\images\binder\java_binder_framework.jpg)
 
-## 四、Binder IPC
 
-![java_binder](\images\binder\IPC-Transaction-2.jpg)
+## 总结
 
-## 五、关于binder优化的一些思考
-
-- defaultServiceManager中，获取server，失败后sleep 1s，缩短休眠时间，提升响应速度？
-- 请求服务过程过程中，通过休眠0.5s的方法，是否有优化方案？
-- binder分配的默认内存大小为 1M-8k， 内存大小的设置依据？
-- binder驱动中，还有 binder_set_nice方法，能否调整nice优化binder ？
-- binder_stats，trace_binder_command这些是否对性能产生影响，能否去掉？
-- binder默认的最大可并发访问的线程数为15，为什么不是2^4=16？
-- binder设备是支持多线程操作，那有binder同步方面是否与死锁，或者锁的粒度问题？
-- IPCThreadState，用来接收/发送来自Binder设备的数据mIn=256，mOut=256。mIn, mOut都是Parcel类型。每一次talkWithDriver,当mIn,mOut占满时，总512字节。
-- ServiceManager申请的binder大小为128k。
-- 进程中开启的线程个数的确定？
+未完待续
 

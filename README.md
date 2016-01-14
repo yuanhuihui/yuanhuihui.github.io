@@ -8,15 +8,16 @@
 
 ### Binder系列
 
-- [Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)
-- [Binder系列2 —— 启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)
-- [Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)
-- [Binder系列4 —— 注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)
-- [Binder系列5 —— 获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)
-- [Binder系列6 —— framework层分析](http://www.yuanhh.com/2015/11/21/binder-framework/)
-- [Binder系列7 —— 如何使用Binder](http://www.yuanhh.com/2015/11/22/binder-use/)
-- [Binder系列8 —— 如何使用AIDL](http://www.yuanhh.com/2015/11/23/binder-aidl/)
-- [Binder系列9 —— 总结](http://www.yuanhh.com/2015/11/28/binder-summary/)
+- [Binder系列—开篇](http://www.yuanhh.com/2015/10/31/binder-prepare/)
+- [Binder系列1—Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)
+- [Binder系列2—启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)
+- [Binder系列3—获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)
+- [Binder系列4—注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)
+- [Binder系列5—获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)
+- [Binder系列6—framework层分析](http://www.yuanhh.com/2015/11/21/binder-framework/)
+- [Binder系列7—如何使用Binder](http://www.yuanhh.com/2015/11/22/binder-use/)
+- [Binder系列8—如何使用AIDL](http://www.yuanhh.com/2015/11/23/binder-aidl/)
+- [Binder系列9—总结](http://www.yuanhh.com/2015/11/28/binder-summary/)
 
 ## Handler系列
 

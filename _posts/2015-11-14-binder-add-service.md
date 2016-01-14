@@ -61,9 +61,10 @@ main_mediaserver.cpp是可执行程序，入口函数main代码如下：
      }
 
 这个过程主要分下面5个步骤：  
+
 ![workflow](/images/binder/addService/workflow.jpg)
   
-上面的main方法，对于`defaultServiceManager()`，在前一篇文章[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)已经介绍，下面主要讲，后三步如下图：
+上面的main方法，对于`defaultServiceManager()`，在前一篇文章[Binder系列3—获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)已经介绍，下面主要讲后三步如下图：
 
 
 ## 源码分析

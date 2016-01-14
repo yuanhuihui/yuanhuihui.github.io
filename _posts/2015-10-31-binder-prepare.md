@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Binder系列-开篇"
+title:  "Binder系列—开篇"
 date:   2015-10-31 15:20:30
 categories: android binder
 excerpt: Binder系列—开篇
@@ -59,17 +59,17 @@ BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代
 
 ## 三、 提纲
 
-在后续的Binder源码分析过程中所涉及的源码，会有部分的精简，主要是去掉所有log输出语句，已减少代码篇幅过于长，Binder系列文章的提纲如下：
+在后续的Binder源码分析过程中所涉及的源码，会有部分的精简，主要是去掉所有log输出语句，已减少代码篇幅过于长。通过前面的介绍，下面罗列一下关于Binder系列文章的提纲：
 
-- [Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)
-- [Binder系列2 —— 启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)
-- [Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)
-- [Binder系列4 —— 注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)
-- [Binder系列5 —— 获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)
-- [Binder系列6 —— framework层分析](http://www.yuanhh.com/2015/11/21/binder-framework/)
-- [Binder系列7 —— 如何使用Binder](http://www.yuanhh.com/2015/11/22/binder-use/)
-- [Binder系列8 —— 如何使用AIDL](http://www.yuanhh.com/2015/11/23/binder-aidl/)
-- [Binder系列9 —— 总结](http://www.yuanhh.com/2015/11/28/binder-summary/)
+- [Binder系列1—Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)
+- [Binder系列2—启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)
+- [Binder系列3—获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)
+- [Binder系列4—注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)
+- [Binder系列5—获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)
+- [Binder系列6—framework层分析](http://www.yuanhh.com/2015/11/21/binder-framework/)
+- [Binder系列7—如何使用Binder](http://www.yuanhh.com/2015/11/22/binder-use/)
+- [Binder系列8—如何使用AIDL](http://www.yuanhh.com/2015/11/23/binder-aidl/)
+- [Binder系列9—总结](http://www.yuanhh.com/2015/11/28/binder-summary/)
 
 
 

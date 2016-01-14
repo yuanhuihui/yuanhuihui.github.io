@@ -16,9 +16,9 @@ excerpt:  Binder系列2—启动Service Manager
 
 ## 类关系图
 
-先来一张整个native层中所涉及类的关系图，接下来几篇文章会详细介绍下图中相关类。
+在整个native binder层中，Service Manager地位非常之重要
 
-![class_relation](/images/binder/binder_classes.jpg)
+![service_manager_classes](/images/binder/create_servicemanager/classes_service_manager.png)
 
 
 ## 源码分析
@@ -114,7 +114,7 @@ service manager的主方法入口
 	    }
 	
 	    bs->mapsize = mapsize;
-		//通过系统调用，mmap内存映射 【流程4】
+	    //通过系统调用，mmap内存映射 【流程4】
 	    bs->mapped = mmap(NULL, mapsize, PROT_READ, MAP_PRIVATE, bs->fd, 0); 
 	    if (bs->mapped == MAP_FAILED) { 
 	        goto fail_map; // binder设备内存无法映射
@@ -129,7 +129,7 @@ service manager的主方法入口
 	    return NULL;
 	}
 
-binder_open功能是打开binder设备，并把binder内存映射，fd记录binder设备描述符。对于流程图中的2、3、4步骤，都是通过系统调用，最后是调用Binder驱动方法，关于binder驱动，[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)中有详细说明。
+binder_open功能是调用open()打开binder设备，再检验binder版本是否一致，最后调用mmap()进行内存映射。对于流程图中的2、3、4步骤，都是通过系统调用，最后是调用Binder驱动方法中相应的方法。关于binder驱动的相应方法，见文章[Binder系列1—Binder Driver](http://www.yuanhh.com/2015/11/01/binder-driver/)。
 
 ### [5] binder_become_context_manager
 ==> `/framework/native/cmds/servicemanager/binder.c`
@@ -141,6 +141,8 @@ binder_open功能是打开binder设备，并把binder内存映射，fd记录bind
 		 //通过ioctl，传递BINDER_SET_CONTEXT_MGR指令。再调用【流程7】
 	    return ioctl(bs->fd, BINDER_SET_CONTEXT_MGR, 0);
 	}
+
+关于ioctl()方法在文章[Binder系列1—Binder Driver](http://www.yuanhh.com/2015/11/01/binder-driver/)中有介绍，通过ioctl()方法，最终调用binder_ioctl_set_ctx_mgr().
 
 ### [7] binder_ioctl_set_ctx_mgr
 ==> `kernel/drivers/android/binder.c` 
@@ -182,7 +184,7 @@ binder驱动操作
 ### [8] binder_new_node 
 ==> `kernel/drivers/android/binder.c` 
 
-创建一个binder_node，binder_node结构体见[Binder系列1 —— Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)中3.2小节。
+创建一个binder_node，binder_node结构体的定义见文章[Binder系列1—Binder Driver](http://www.yuanhh.com/2015/11/01/binder-driver/)的结构体定义章节。
 
 	static struct binder_node *binder_new_node(struct binder_proc *proc,
 						   binder_uintptr_t ptr,

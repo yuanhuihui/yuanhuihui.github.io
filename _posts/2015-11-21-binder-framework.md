@@ -52,7 +52,15 @@ framework Binder架构图：
 Binder类与BinderProxy类 都位于Binder.java文件  
 ServiceManagerNative类与ServiceManagerProxy类 都位于 ServiceManagerNative.java文件
 
-### 1.3 类关系图  
+### 1.3 Binder类
+
+整个Binder从kernel至，native，JNI，Framework层所涉及的全部类
+
+![java_binder_framework](\images\binder\java_binder_framework.jpg)
+
+### 1.4 类关系图  
+
+下面列举framework的binder类关系图
 
 ![class_java_binder](\images\binder\java_binder\class_ServiceManager.jpg)
 

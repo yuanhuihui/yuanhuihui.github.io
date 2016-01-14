@@ -25,7 +25,7 @@ excerpt: Binder系列5—获取服务(getService)
 
 继续以Media为例，开始讲解获取服务的流程：
 
-### [1] getMediaPlayerService
+### 一. getMediaPlayerService
 ==> `/framework/av/media/libmedia/IMediaDeathNotifier.cpp`
 
 获取服务MediaPlayerService
@@ -58,7 +58,7 @@ excerpt: Binder系列5—获取服务(getService)
 关于`defaultServiceManager`，前面已经讲过，返回BpServiceManager。在请求获取名为"media.player"的服务过程中，采用不断循环获取的方法。由于MediaPlayerService服务可能还没向ServiceManager注册完成或者尚未启动完成等情况，故则binder返回为NULL，休眠0.5s后继续请求，直到获取服务为止。
 
 
-### [2] getService
+### 二. getService
 ==> `/framework/native/libs/binder/IServiceManager.cpp`
 
 通过BpServiceManager来获取MediaPlayer服务
@@ -77,7 +77,7 @@ excerpt: Binder系列5—获取服务(getService)
 检索服务是否存在，当服务存在则返回相应的服务，当服务不存在则休眠1s再继续检索服务。该循环进行5次。为什么是循环5次呢，这估计跟Android的ANR时间为5s相关。如果每次都无法获取服务，循环5次，每次循环休眠1s，忽略`checkService()`的时间，差不多就是5s的时间
 
 
-### [3] checkService
+### 三. checkService
 ==> `/framework/native/libs/binder/IServiceManager.cpp`
 
 检索指定服务是否存在
@@ -95,7 +95,7 @@ excerpt: Binder系列5—获取服务(getService)
 里面会返回IBinder对象。
 
 
-### [4]死亡通知
+### 四. 死亡通知
 
 
 死亡通知是为了让Bp端能知道Bn端的生死情况。
@@ -105,7 +105,7 @@ excerpt: Binder系列5—获取服务(getService)
 
 Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，则在Bn端死掉后，会回调binderDied()进行相应处理。
 
-#### 4.1 注册
+#### 4.1 死亡注册
 
 注册用该方法：
 
@@ -143,9 +143,9 @@ Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，
 	    }
 	}
 
-### 4.3 调用机制
+#### 4.3 调用机制
 
 每当service进程退出时，service manager会收到来自Binder设备的死亡通知。
-这项工作是在Service Manager创建的时候[Binder系列2 —— 启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)，通过`binder_link_to_death(bs, ptr, &si->death)`完成。
+这项工作是在Service Manager创建的时候[Binder系列2—启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)，通过`binder_link_to_death(bs, ptr, &si->death)`完成。
 
 另外，每个Bp端，也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。
