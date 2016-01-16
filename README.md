@@ -1,6 +1,6 @@
 ## 博客网站：<http://yuanhh.com>
 
-博文主要包含基于Android 6.0源码的分析整理的文章，旨在从Linux最底层kernel到framework层有一个连贯地深入理解。文章计算从核心组件，从进程、内存、IO等角度对Linux/Android系统的理解，还有一些与Performance/power/debug tool等相关的文章，目前还在对源码的攻读和整理中...
+博文主要包含基于**`Android 6.0`**源码的分析整理的文章，旨在从Linux最底层kernel到framework层有一个连贯地深入理解。文章计算从核心组件，从进程、内存、IO等角度对Linux/Android系统的理解，还有一些与Performance/power/debug tool等相关的文章，目前还在对源码的攻读和整理中...
 
 下面先列举部分博文.
 
@@ -9,16 +9,16 @@
 ### Binder系列
 
 - [Binder系列—开篇](http://www.yuanhh.com/2015/10/31/binder-prepare/)
-- [Binder系列0—Binder Driver初探](http://www.yuanhh.com/2015/11/01/binder-driver/)
-- [Binder系列1—Binder Driver再探](http://www.yuanhh.com/2015/11/02/binder-driver-2/)
-- [Binder系列2—启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)
-- [Binder系列3—获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)
-- [Binder系列4—注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)
-- [Binder系列5—获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)
-- [Binder系列6—framework层分析](http://www.yuanhh.com/2015/11/21/binder-framework/)
-- [Binder系列7—如何使用Binder](http://www.yuanhh.com/2015/11/22/binder-use/)
-- [Binder系列8—如何使用AIDL](http://www.yuanhh.com/2015/11/23/binder-aidl/)
-- [Binder系列9—总结](http://www.yuanhh.com/2015/11/28/binder-summary/)
+- [Binder系列1—Binder Driver初探](http://www.yuanhh.com/2015/11/01/binder-driver/)
+- [Binder系列2—Binder Driver再探](http://www.yuanhh.com/2015/11/02/binder-driver-2/)
+- [Binder系列3—启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)
+- [Binder系列4—获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)
+- [Binder系列5—注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)
+- [Binder系列6—获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)
+- [Binder系列7—framework层分析](http://www.yuanhh.com/2015/11/21/binder-framework/)
+- [Binder系列8—如何使用Binder](http://www.yuanhh.com/2015/11/22/binder-use/)
+- [Binder系列9—如何使用AIDL](http://www.yuanhh.com/2015/11/23/binder-aidl/)
+- [Binder系列10—总结](http://www.yuanhh.com/2015/11/28/binder-summary/)
 
 ## Handler系列
 

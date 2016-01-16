@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列1—Binder Driver再探"
+title:  "Binder系列2—Binder Driver再探"
 date:   2015-11-02 21:21:27
 categories: android binder
-excerpt:  Binder系列1—Binder Driver再探
+excerpt:  Binder系列2—Binder Driver再探
 ---
 
 * content
@@ -42,7 +42,7 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 |BC_TRANSACTION|binder_transaction_data|已发送的事务数据|
 |BC_REPLY| binder_transaction_data|已发送的事务数据|
 |BC_ACQUIRE_RESULT|-|-|
-|BC_FREE_BUFFER|binder_uintptr_t(指针)|释放buffer|
+|BC_FREE_BUFFER|binder_uintptr_t(指针)|释放内存buffer|
 |BC_INCREFS|__u32(descriptor)|binder_inc_ref(ref,0,NULL)
 |BC_ACQUIRE|__u32(descriptor)|binder_inc_ref(ref,1,NULL)
 |BC_RELEASE|__u32(descriptor)|binder_dec_ref(&ref,1)
@@ -58,11 +58,10 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 |BC_DEAD_BINDER_DONE|binder_uintptr_t(指针)|死亡binder完成|
 
 - 对于参数类型`binder_ptr_cookie`是由binder指针和cookie组成。
-- BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码作用关于引用数的增/减。
+- BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码的作用是对强/弱引用的增/减操作，见下表。
 
-引用增加的具体功能如下：
 
-|引用函数|功能|
+|强/弱引用操作函数|功能|
 |---|---|
 |binder_inc_ref(ref,0,NULL)|binder_ref->weak++|
 |binder_inc_ref(ref,1,NULL)|binder_ref->strong++，或binder_node->internal_strong_refs++|
@@ -603,6 +602,103 @@ Binder内存分配方法通过binder_alloc_buf().
 	}
 
 ### 3.3 内存释放
+
+#### binder_free_buf
+
+	static void binder_free_buf(struct binder_proc *proc,
+				    struct binder_buffer *buffer)
+	{
+		size_t size, buffer_size;
+		buffer_size = binder_buffer_size(proc, buffer);
+		size = ALIGN(buffer->data_size, sizeof(void *)) +
+			ALIGN(buffer->offsets_size, sizeof(void *));
+		binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
+			     "%d: binder_free_buf %p size %zd buffer_size %zd\n",
+			      proc->pid, buffer, size, buffer_size);
+		BUG_ON(buffer->free);
+		BUG_ON(size > buffer_size);
+		BUG_ON(buffer->transaction != NULL);
+		BUG_ON((void *)buffer < proc->buffer);
+		BUG_ON((void *)buffer > proc->buffer + proc->buffer_size);
+		if (buffer->async_transaction) {
+			proc->free_async_space += size + sizeof(struct binder_buffer);
+			binder_debug(BINDER_DEBUG_BUFFER_ALLOC_ASYNC,
+				     "%d: binder_free_buf size %zd async free %zd\n",
+				      proc->pid, size, proc->free_async_space);
+		}
+		binder_update_page_range(proc, 0,
+			(void *)PAGE_ALIGN((uintptr_t)buffer->data),
+			(void *)(((uintptr_t)buffer->data + buffer_size) & PAGE_MASK),
+			NULL);
+		rb_erase(&buffer->rb_node, &proc->allocated_buffers);
+		buffer->free = 1;
+		if (!list_is_last(&buffer->entry, &proc->buffers)) {
+			struct binder_buffer *next = list_entry(buffer->entry.next,
+							struct binder_buffer, entry);
+			if (next->free) {
+				rb_erase(&next->rb_node, &proc->free_buffers);
+				binder_delete_free_buffer(proc, next); //调用下方
+			}
+		}
+		if (proc->buffers.next != &buffer->entry) {
+			struct binder_buffer *prev = list_entry(buffer->entry.prev,
+							struct binder_buffer, entry);
+			if (prev->free) {
+				binder_delete_free_buffer(proc, buffer); //调用下方
+				rb_erase(&prev->rb_node, &proc->free_buffers);
+				buffer = prev;
+			}
+		}
+		binder_insert_free_buffer(proc, buffer);
+	}
+
+
+#### binder_delete_free_buffer
+
+	static void binder_delete_free_buffer(struct binder_proc *proc,
+					      struct binder_buffer *buffer)
+	{
+		struct binder_buffer *prev, *next = NULL;
+		int free_page_end = 1;
+		int free_page_start = 1;
+		BUG_ON(proc->buffers.next == &buffer->entry);
+		prev = list_entry(buffer->entry.prev, struct binder_buffer, entry);
+		BUG_ON(!prev->free);
+		if (buffer_end_page(prev) == buffer_start_page(buffer)) {
+			free_page_start = 0;
+			if (buffer_end_page(prev) == buffer_end_page(buffer))
+				free_page_end = 0;
+			binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
+				     "%d: merge free, buffer %p share page with %p\n",
+				      proc->pid, buffer, prev);
+		}
+		if (!list_is_last(&buffer->entry, &proc->buffers)) {
+			next = list_entry(buffer->entry.next,
+					  struct binder_buffer, entry);
+			if (buffer_start_page(next) == buffer_end_page(buffer)) {
+				free_page_end = 0;
+				if (buffer_start_page(next) ==
+				    buffer_start_page(buffer))
+					free_page_start = 0;
+				binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
+					     "%d: merge free, buffer %p share page with %p\n",
+					      proc->pid, buffer, prev);
+			}
+		}
+		list_del(&buffer->entry);
+		if (free_page_start || free_page_end) {
+			binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
+				     "%d: merge free, buffer %p do not share page%s%s with %p or %p\n",
+				     proc->pid, buffer, free_page_start ? "" : " end",
+				     free_page_end ? "" : " start", prev, next);
+			binder_update_page_range(proc, 0, free_page_start ?
+				buffer_start_page(buffer) : buffer_end_page(buffer),
+				(free_page_end ? buffer_end_page(buffer) :
+				buffer_start_page(buffer)) + PAGE_SIZE, NULL);
+		}
+	}
+
+### 
 
 	binder_transaction_buffer_release(){
 		case BINDER_TYPE_BINDER: 

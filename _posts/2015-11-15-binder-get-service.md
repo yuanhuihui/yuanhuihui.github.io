@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列5—获取服务(getService)"
+title:  "Binder系列6—获取服务(getService)"
 date:   2015-11-15 21:11:50
 categories: android binder
-excerpt: Binder系列5—获取服务(getService)
+excerpt: Binder系列6—获取服务(getService)
 ---
 
 * content
@@ -91,7 +91,7 @@ excerpt: Binder系列5—获取服务(getService)
         return reply.readStrongBinder();
     }
 
-这里调用BpBinder->transact()，再调用到IPCThreadState->transact()，再调用到IPCThreadState->waitForResponse，再调用。这个流程与[Binder系列4 —— 注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)中的【流程4到流程10】基本一致。此处不再重复,最后reply
+这里调用BpBinder->transact()，再调用到IPCThreadState->transact()，再调用到IPCThreadState->waitForResponse，再调用。这个流程与[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)中的【流程4到流程10】基本一致。此处不再重复,最后reply
 里面会返回IBinder对象。
 
 
@@ -146,6 +146,6 @@ Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，
 #### 4.3 调用机制
 
 每当service进程退出时，service manager会收到来自Binder设备的死亡通知。
-这项工作是在Service Manager创建的时候[Binder系列2—启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)，通过`binder_link_to_death(bs, ptr, &si->death)`完成。
+这项工作是在Service Manager创建的时候[启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)，通过`binder_link_to_death(bs, ptr, &si->death)`完成。
 
 另外，每个Bp端，也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。

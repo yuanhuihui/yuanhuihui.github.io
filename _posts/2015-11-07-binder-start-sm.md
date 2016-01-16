@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列2—启动Service Manager"
+title:  "Binder系列3—启动Service Manager"
 date:   2015-11-07 21:11:50
 categories: android binder
-excerpt:  Binder系列2—启动Service Manager
+excerpt:  Binder系列3—启动Service Manager
 ---
 
 * content
@@ -14,32 +14,15 @@ excerpt:  Binder系列2—启动Service Manager
 
 > 基于Android 6.0的源码剖析， 本文详细地讲解了Service Manager如何产生
 
-## 类关系图
-
-在整个native binder层中，Service Manager地位非常之重要
-
-![service_manager_classes](/images/binder/create_servicemanager/classes_service_manager.png)
-
-
-## 源码分析
-
-**相关源码**
-
 	/framework/native/cmds/servicemanager/service_manager.c
 	/framework/native/cmds/servicemanager/binder.c
-	/kernel/drivers/android/binder.c  
-
-  
-**时序图**
-
-![create_servicemanager](\images\binder\create_servicemanager\create_servicemanager.jpg)
-
-先展示时序图，让大家对整个流程有一个大致的了解，下面将开始正式介绍整个时序图中每个流程的主要工作。结合时序图，来看下面的介绍，理解起来会比较方便。
+	/kernel/drivers/android/binder.c
 
 ### 入口
-==> `/framework/native/cmds/servicemanager/service_manager.c`
 
-service manager的主方法入口
+Service Manager是整个Binder IPC通信过程中的守护进程，启动Service Manager的入口函数是service_manager.c中的main()方法。代码如下：
+
+==> `/framework/native/cmds/servicemanager/service_manager.c`
 
 	int main(int argc, char **argv)
 	{
@@ -79,12 +62,27 @@ service manager的主方法入口
 	    return 0;
 	}
 
-主要分为4个步骤：
+该过程的**时序图**，如下：
 
-- 打开binder设备 binder_open()；
-- binder成为守护进程 binder_become_context_manager()；
-- 验证selinux权限；
-- 进入无限循环，等待Client的连接。
+![create_servicemanager](\images\binder\create_servicemanager\create_servicemanager.jpg)
+
+>注意小节前的**数字**是与时序图所处的**顺序编号**一一对应，中间会省略部分方法，所以看到的小节并非连续的。
+
+
+Service Manager成为IPC守护进程的整个过程分为4大步骤：
+
+1. 打开binder驱动，并调用mmap()方法分配128k的内存映射空间：binder_open();
+2. 通知binder驱动使其成为守护进程：binder_become_context_manager()；
+3. 验证selinux权限；
+4. 进入循环状态，等待Client端的请求：binder_loop()。
+
+### 类图
+
+Binder在Native framework层所有涉及的类的关系图，如下：
+
+![service_manager_classes](/images/binder/create_servicemanager/classes_service_manager.png)
+
+
 
 ### [1] binder_open
 ==> `/framework/native/cmds/servicemanager/binder.c`
@@ -129,7 +127,7 @@ service manager的主方法入口
 	    return NULL;
 	}
 
-binder_open功能是调用open()打开binder设备，再检验binder版本是否一致，最后调用mmap()进行内存映射。对于流程图中的2、3、4步骤，都是通过系统调用，最后是调用Binder驱动方法中相应的方法。关于binder驱动的相应方法，见文章[Binder系列1—Binder Driver](http://www.yuanhh.com/2015/11/01/binder-driver/)。
+binder_open功能是首先调用open()打开binder设备，再通过ioctl()检验当前binder版本是否一致，最后调用mmap()进行内存映射。对于流程图中的2、3、4步骤，都是通过系统调用，最后都是调用[Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)中相应的方法。
 
 ### [5] binder_become_context_manager
 ==> `/framework/native/cmds/servicemanager/binder.c`
@@ -142,7 +140,7 @@ binder_open功能是调用open()打开binder设备，再检验binder版本是否
 	    return ioctl(bs->fd, BINDER_SET_CONTEXT_MGR, 0);
 	}
 
-关于ioctl()方法在文章[Binder系列1—Binder Driver](http://www.yuanhh.com/2015/11/01/binder-driver/)中有介绍，通过ioctl()方法，最终调用binder_ioctl_set_ctx_mgr().
+通过[ioctl()](http://www.yuanhh.com/2015/11/01/binder-driver/#binderioctl)方法，最终调用binder_ioctl_set_ctx_mgr().
 
 ### [7] binder_ioctl_set_ctx_mgr
 ==> `kernel/drivers/android/binder.c` 
@@ -181,10 +179,17 @@ binder驱动操作
 		return ret;
 	}
 
+在Binder驱动中定义的静态变量
+
+	// service manager所对应的binder_node;
+	static struct binder_node *binder_context_mgr_node; 
+	// 运行service manager的线程uid
+	static kuid_t binder_context_mgr_uid = INVALID_UID; 
+
 ### [8] binder_new_node 
 ==> `kernel/drivers/android/binder.c` 
 
-创建一个binder_node，binder_node结构体的定义见文章[Binder系列1—Binder Driver](http://www.yuanhh.com/2015/11/01/binder-driver/)的结构体定义章节。
+binder_node结构体的定义见文章[Binder Driver初探](http://www.yuanhh.com/2015/11/01/binder-driver/)的结构体定义章节。
 
 	static struct binder_node *binder_new_node(struct binder_proc *proc,
 						   binder_uintptr_t ptr,
@@ -205,11 +210,12 @@ binder驱动操作
 			else
 				return NULL;
 		}
-	
-		node = kzalloc(sizeof(*node), GFP_KERNEL); //分配内核空间
+		//给新创建的binder_node 分配内核空间
+		node = kzalloc(sizeof(*node), GFP_KERNEL);
 		if (node == NULL)
 			return NULL;
 		binder_stats_created(BINDER_STAT_NODE);
+		// 将新创建的node对象添加到proc红黑树；
 		rb_link_node(&node->rb_node, parent, p);
 		rb_insert_color(&node->rb_node, &proc->nodes);
 		node->debug_id = ++binder_last_id;
@@ -221,6 +227,7 @@ binder驱动操作
 		INIT_LIST_HEAD(&node->async_todo);
 		return node;
 	}
+
 
 
 ### [9] binder_loop
@@ -582,11 +589,6 @@ service manager操作的真正处理函数
 在前面注册服务的过程中，其实已经涉及了查询服务的具体方法`find_svc`，该方法比较简单。
 
 ### 小结
-Service Manager成为IPC守护进程流程：
-
-1. 打开binder驱动，并建立128k的内存映射空间：binder_open();
-2. 通知binder驱动它是守护进程：binder_become_context_manager()；
-3. 进入循环状态，等待请求：binder_loop()。
 
 Service Manger意义：
 

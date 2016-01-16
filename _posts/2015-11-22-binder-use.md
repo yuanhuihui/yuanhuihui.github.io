@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列7—如何使用Binder"
+title:  "Binder系列8—如何使用Binder"
 date:   2015-11-22 21:11:50
 categories: android binder
-excerpt: Binder系列7—Binder用法
+excerpt: Binder系列8—如何使用Binder
 ---
 
 * content

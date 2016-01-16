@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列0—Binder Driver初探"
+title:  "Binder系列1—Binder Driver初探"
 date:   2015-11-01 20:11:50
 categories: android binder
-excerpt:  Binder系列0—Binder Driver初探
+excerpt:  Binder系列1—Binder Driver初探
 ---
 
 * content
@@ -47,11 +47,12 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 	static int __init binder_init(void)
 	{
 		int ret;
-		binder_deferred_workqueue = create_singlethread_workqueue("binder"); //创建名为binder的workqueue
+		//创建名为binder的workqueue
+		binder_deferred_workqueue = create_singlethread_workqueue("binder"); 
 		if (!binder_deferred_workqueue)
 			return -ENOMEM;
 	
-		binder_debugfs_dir_entry_root = debugfs_create_dir("binder", NULL); //创建debugfs目录
+		binder_debugfs_dir_entry_root = debugfs_create_dir("binder", NULL); 
 		if (binder_debugfs_dir_entry_root)
 			binder_debugfs_dir_entry_proc = debugfs_create_dir("proc",
 							 binder_debugfs_dir_entry_root);
@@ -95,20 +96,20 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 
 	static int binder_open(struct inode *nodp, struct file *filp)
 	{
-		struct binder_proc *proc; // binder进程 【见附录】
+		struct binder_proc *proc; // binder进程 【见结构体附录】
 	
 		proc = kzalloc(sizeof(*proc), GFP_KERNEL); // 为binder_proc结构体在分配kernel内存空间
 		if (proc == NULL)
 			return -ENOMEM;
 		get_task_struct(current);
 		proc->tsk = current;   //将当前线程的task保存到binder进程的tsk
-		INIT_LIST_HEAD(&proc->todo);
-		init_waitqueue_head(&proc->wait); //初始化等待队列
+		INIT_LIST_HEAD(&proc->todo); //初始化todo列表
+		init_waitqueue_head(&proc->wait); //初始化wait队列
 		proc->default_priority = task_nice(current);  //将当前进程的nice值转换为进程优先级
 	
 		binder_lock(__func__);   //同步锁，因为binder支持多线程访问
 		binder_stats_created(BINDER_STAT_PROC); //BINDER_PROC对象创建数加1
-		hlist_add_head(&proc->proc_node, &binder_procs);
+		hlist_add_head(&proc->proc_node, &binder_procs); //将proc_node节点添加到binder_procs为表头的队列
 		proc->pid = current->group_leader->pid;
 		INIT_LIST_HEAD(&proc->delivered_death);
 		filp->private_data = proc;       //file文件指针的private_data变量指向binder_proc数据
@@ -117,7 +118,9 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 		return 0;
 	}
 
-**binder_open**: 过程中的filp->private_data = proc 该语句很重要，将通过filp可获取相应的binder_proc保存到filp指针的private_data成员变量，那么之后通过filp可获取相应的binder_proc，而binder_proc里管理IPC所需的各种信息，拥有其他结构体的跟结构体。
+创建binder_proc对象，并把当前进程等信息保存到binder_proc对象，该对象管理IPC所需的各种信息并拥有其他结构体的根结构体；再把binder_proc对象保存到文件指针filp。通过加锁机制，保证多进程打开binder驱动的并发问题。
+
+Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈希链表binder_procs，用于保存所有的binder进程队列。
 
 
 
@@ -131,10 +134,10 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 	static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	{
 		int ret;
-		struct vm_struct *area; //虚拟内核空间
+		struct vm_struct *area; //内核虚拟空间
 		struct binder_proc *proc = filp->private_data; 
 		const char *failure_string;
-		struct binder_buffer *buffer;  //【见附录】
+		struct binder_buffer *buffer;  //【见结构体附录】
 	
 		if (proc->tsk != current)
 			return -EINVAL;
@@ -150,12 +153,14 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 			failure_string = "get_vm_area";
 			goto err_get_vm_area_failed;
 		}
-		proc->buffer = area->addr;
+		proc->buffer = area->addr; //指向内核虚拟空间的地址
+		//地址偏移量 = 用户虚拟地址空间 - 内核虚拟地址空间
 		proc->user_buffer_offset = vma->vm_start - (uintptr_t)proc->buffer; 
 		mutex_unlock(&binder_mmap_lock); //释放锁
 	    
 		...
-		proc->pages = kzalloc(sizeof(proc->pages[0]) * ((vma->vm_end - vma->vm_start) / PAGE_SIZE), GFP_KERNEL);//分配一个虚拟用户空间的页数大小的内存给pages指针
+		//分配物理页的指针数组，大小等于用户虚拟地址内存/4k；
+		proc->pages = kzalloc(sizeof(proc->pages[0]) * ((vma->vm_end - vma->vm_start) / PAGE_SIZE), GFP_KERNEL);
 		if (proc->pages == NULL) {
 			ret = -ENOMEM;
 			failure_string = "alloc page array";
@@ -166,7 +171,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 		vma->vm_ops = &binder_vm_ops;
 		vma->vm_private_data = proc;
 	 
-		//分配物理页面，同时映射到内核空间和进程空间 【见】
+		//分配物理页面，同时映射到内核空间和进程空间，目前只分配1个page的物理页 【见】
 		if (binder_update_page_range(proc, 1, proc->buffer, proc->buffer + PAGE_SIZE, vma)) {
 			ret = -ENOMEM;
 			failure_string = "alloc small buf";
@@ -176,7 +181,9 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 		INIT_LIST_HEAD(&proc->buffers);
 		list_add(&buffer->entry, &proc->buffers);
 		buffer->free = 1;
-		binder_insert_free_buffer(proc, buffer);
+		//将空闲buffer放入proc->free_buffers中
+		binder_insert_free_buffer(proc, buffer); 
+		//异步可用空间大小为buffer总大小的一半。
 		proc->free_async_space = proc->buffer_size / 2;
 		barrier();
 		proc->files = get_files_struct(current);
@@ -188,11 +195,13 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 		return ret;
 	}
 
-binder_mmap的主要工作可用下面的图来表达：
+binder_mmap通过加锁，保证一次只有一个进程分配内存，保证多进程间的并发访问。其中`user_buffer_offset`是虚拟进程地址与虚拟内核地址的差值，也就是说同一物理地址，当内核地址为kernel_addr，则进程地址为proc_addr = kernel_addr + user_buffer_offset。
+
+主要工作可用下面的图来表达：
 
 ![binder_mmap](/images/binder/binder_dev/binder_mmap.png)
 
-`binder_update_page_range`主要完成工作：分配物理空间，将物理空间映射到内核空间，将物理空间映射到进程空间。  
+`binder_update_page_range`主要完成工作：分配物理空间，将物理空间映射到内核空间，将物理空间映射到进程空间。  当然`binder_update_page_range`既可以分配物理页面，也可以释放物理页面。
 
 代码如下：
 
@@ -204,7 +213,6 @@ binder_mmap的主要工作可用下面的图来表达：
 			int ret;
 			struct page **page_array_ptr;
 			page = &proc->pages[(page_addr - proc->buffer) / PAGE_SIZE];
-			BUG_ON(*page);
 			*page = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);  //分配物理内存
 			if (*page == NULL) {
 				goto err_alloc_page_failed;
@@ -264,7 +272,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 			goto err_unlocked;
 	
 		binder_lock(__func__);
-		thread = binder_get_thread(proc); //【获取binder_thread 见小节4.1】
+		thread = binder_get_thread(proc); //【获取binder_thread】
 		if (thread == NULL) {
 			ret = -ENOMEM;
 			goto err;
@@ -272,7 +280,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 	
 		switch (cmd) {
 		case BINDER_WRITE_READ:  //进行binder的读写操作
-			ret = binder_ioctl_write_read(filp, cmd, arg, thread); //读写操作【见小节4.2】
+			ret = binder_ioctl_write_read(filp, cmd, arg, thread); //【进行binder读写操作】
 			if (ret)
 				goto err;
 			break;
@@ -383,7 +391,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 		}
 	
 		if (bwr.write_size > 0) {
-			//当写缓存中有数据，则执行binder写操作【见4.3】
+			//当写缓存中有数据，则执行binder写操作
 			ret = binder_thread_write(proc, thread,
 						  bwr.write_buffer, bwr.write_size, &bwr.write_consumed); 
 			trace_binder_write_done(ret); 
@@ -395,7 +403,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 			}
 		}
 		if (bwr.read_size > 0) {
-			//当读缓存中有数据，则执行binder读操作, 【见4.4】
+			//当读缓存中有数据，则执行binder读操作
 			ret = binder_thread_read(proc, thread, 
 						  bwr.read_buffer, bwr.read_size, &bwr.read_consumed,
 						  filp->f_flags & O_NONBLOCK); 
@@ -445,24 +453,24 @@ binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构
 |struct hlist_node| proc_node|进程节点|
 |struct rb_root| threads|保存binder_thread结构体的红黑树的跟节点
 |struct rb_root| nodes|保存binder_node结构体的红黑树的根节点
-|struct rb_root| refs_by_desc|保存binder_ref实体的引用(以handle为key)
+|struct rb_root| refs_by_desc|binder_ref实体的引用(以handle为key)
 |struct rb_root| refs_by_node|binder实体的引用（以ptr为key）
-|int| pid|创建binder_proc结构体的进程id
+|int| pid|创建binder_proc的进程id
 |struct vm_area_struct *|vma|指向进程虚拟地址空间的指针
 |struct mm_struct *|vma_vm_mm;
-|struct task_struct *|tsk|创建binder_proc结构体的进程结构体
+|struct task_struct *|tsk|创建binder_proc的进程|
 |struct files_struct *|files|
-||struct hlist_node| deferred_work_node|
+|struct hlist_node| deferred_work_node|
 |int| deferred_work|
-|void *|buffer|接收IPC数据的内核地址空间指针(binder_buffer)
+|void *|buffer|映射的内核空间的起始地址|
 |ptrdiff_t| user_buffer_offset|内核空间与用户空间的地址偏移量
-|struct| list_head buffers|
-|struct| rb_root free_buffers|空闲buffer
-|struct| rb_root allocated_buffers|已分配buffer
-|size_t| free_async_space|异步的可用空闲空间
-|struct page **|pages|描述物理内存页的数据结构
-|size_t| buffer_size|接收IPC数据的内核地址空间大小
-|uint32_t| buffer_free|
+|struct list_head |buffers|所有的buffer
+|struct rb_root |free_buffers|空闲的buffer
+|struct rb_root |allocated_buffers|已分配的buffer
+|size_t| free_async_space|异步的可用空闲空间大小
+|struct page **|pages|描述物理内存页面的数据结构
+|size_t| buffer_size|映射的内核空间大小|
+|uint32_t| buffer_free| 可用内存总大小
 |struct list_head| todo|进程将要做的事
 |wait_queue_head_t| wait|等待队列
 |struct binder_stats| stats|
@@ -474,12 +482,9 @@ binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构
 |long| default_priority|默认优先级
 |struct dentry *|debugfs_entry|
 
-
-
-- 其中rb_root是一种红黑树结构，红黑树作为自平衡的二叉树树便于查询和维护。
-	- `refs_by_desc` 记录的是`binder_transaction_data`结构体中target的 `handle`;
-	- `refs_by_node` 记录的是`binder_transaction_data`结构体中target的 `ptr`;
-- `user_buffer_offset`是虚拟进程地址与虚拟内核地址的差值，也就是说同一物理地址，当内核地址为kernel_addr，则进程地址为proc_addr = kernel_addr + user_buffer_offset。
+- free_buffers：记录所有空闲的buffer，记录以buffer_size为key的binder_buffer的红黑树结构
+- allocated_buffers:记录所有已分配的buffer，记录以buffer_size为key的binder_buffer的红黑树结构
+- buffers: 所有buffer（包含空闲的和已分配的buffer）的按地址由从低到高都连入到buffers链表中
 
 ### 3.2 binder_thread
 
@@ -492,9 +497,9 @@ binder_thread结构体代表当前binder操作所在的线程
 |int|pid|线程pid|
 |int|looper|looper的状态|
 |struct binder_transaction *|transaction_stack|正在处理的事务|
-|struct list_head|todo|将要处理的数据列表|
+|struct list_head|todo|将要处理的链表|
 |uint32_t|return_error|write失败后，返回的错误码|
-|uint32_t|return_error2|write失败后，返回的错误码|
+|uint32_t|return_error2|write失败后，返回的错误码2|
 |wait_queue_head_t|wait|等待队列的队头|
 |struct binder_stats|stats|binder线程的统计信息|
 
@@ -509,25 +514,25 @@ looper的状态如下：
 		BINDER_LOOPER_STATE_NEED_RETURN = 0x20, // 需要返回
 	};
 
-### 3.3 binder_write_read
-用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。
+### 3.3 binder_buffer
 
 |类型|成员变量|解释|
 |---|---|---|
-|binder_size_t|rite_size|write_buffer的字节数
-|binder_size_t|write_consumed|已处理的write字节数
-|binder_uintptr_t|write_buffer|指向write数据区
-|binder_size_t|read_size|read_buffer的字节数
-|binder_size_t|read_consumed|已处理的read字节数
-|binder_uintptr_t|read_buffer|指向read数据区
+|struct list_head|entry|buffer实体的地址|
+|struct rb_node|rb_node|buffer实体的地址|
+|unsigned|free|标记是否是空闲buffer，占位1bit|
+|unsigned|allow_user_free|是否允许用户释放，占位1bit|
+|unsigned|async_transaction|占位1bit|
+|unsigned|debug_id|占位29bit|
+|struct binder_transaction *|transaction||
+|struct binder_node *|target_node|Binder实体|
+|size_t|data_size||
+|size_t|offsets_size||
+|uint8_t|data[0]||
 
-- write_buffer变量：用于发送IPC(或IPC reply)数据，即传递经由Binder Driver的数据时使用。
-- read_buffer 变量：用于接收来自Binder Driver的数据，即Binder Driver在接收IPC(或IPC reply)数据后，保存到read_buffer，再传递到用户空间；
 
-write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_data结构体。
+每一个binder_buffer分为空闲和已分配的，通过free标记来区分。空闲和已分配的binder_buffer通过各自的成员变量rb_node分别连入binder_proc的free_buffers(红黑树)和allocated_buffers(红黑树)。
 
-- copy_from_user()将用户空间IPC数据拷贝到内核态binder_write_read结构体；
-- copy_to_user()将用内核态binder_write_read结构体数据拷贝到用户空间；
 
 ### 3.4 binder_transaction_data
 
@@ -561,7 +566,7 @@ write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_da
 
 |类型|成员变量|解释|
 |---|---|---|
-|int |debug_id|
+|int |debug_id||
 |struct binder_work |work|
 |struct binder_thread *|from|发送端线程
 |struct binder_transaction *|from_parent|
@@ -576,26 +581,28 @@ write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_da
 |long	|saved_priority|保存的优先级
 |kuid_t	|sender_euid|发送端uid
 
+- debug_id：是一个全局静态变量，每当创建一个`binder_transaction`或`binder_node`或`binder_ref`对象，则++debug_id
 
-
-### 3.6 binder_buffer
+### 3.6 binder_write_read
+用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。
 
 |类型|成员变量|解释|
 |---|---|---|
-|struct list_head|entry|空闲和已分配实体的地址|
-|struct rb_node|rb_node|空闲实体大小或已分配实体地址|
-|unsigned|free|标记是否是空闲buffer，占位1bit|
-|unsigned|allow_user_free|是否允许用户释放，占位1bit|
-|unsigned|async_transaction|占位1bit|
-|unsigned|debug_id|占位29bit|
-|struct binder_transaction *|transaction||
-|struct binder_node *|target_node|Binder实体|
-|size_t|data_size||
-|size_t|offsets_size||
-|uint8_t|data[0]||
+|binder_size_t|rite_size|write_buffer的字节数
+|binder_size_t|write_consumed|已处理的write字节数
+|binder_uintptr_t|write_buffer|指向write数据区
+|binder_size_t|read_size|read_buffer的字节数
+|binder_size_t|read_consumed|已处理的read字节数
+|binder_uintptr_t|read_buffer|指向read数据区
 
+- write_buffer变量：用于发送IPC(或IPC reply)数据，即传递经由Binder Driver的数据时使用。
+- read_buffer 变量：用于接收来自Binder Driver的数据，即Binder Driver在接收IPC(或IPC reply)数据后，保存到read_buffer，再传递到用户空间；
 
-每一个binder_buffer分为空闲和已分配的，通过free标记来区分。空闲和已分配的binder_buffer通过各自的成员变量rb_node分别连入binder_proc的free_buffers(红黑树)和allocated_buffers(红黑树)。
+write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_data结构体。
+
+- copy_from_user()将用户空间IPC数据拷贝到内核态binder_write_read结构体；
+- copy_to_user()将用内核态binder_write_read结构体数据拷贝到用户空间；
+
 
 ### 3.7 binder_node
 
@@ -627,7 +634,7 @@ binder_node代表一个binder实体
 
 |类型|成员变量|解释|
 |---|---|---|
-|int |debug_id|
+|int |debug_id||
 |struct rb_node |rb_node_desc|以desc为索引的红黑树
 |struct rb_node |rb_node_node|以node为索引的红黑树
 |struct hlist_node |node_entry|
@@ -672,9 +679,9 @@ binder引用的查询方式如下：
 
 |类型|成员变量|解释|
 |---|---|---|
-|int| fd|文件描述符
-|void *|mapped|内存映射地址
-|size_t |mapsize|内存映射大小
+|int| fd|文件描述符|
+|void *|mapped|映射到进程空间的起始地址
+|size_t |mapsize|内存空间的映射大小
 
 ### 3.12 flat_binder_object
 

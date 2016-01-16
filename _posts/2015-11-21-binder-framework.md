@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列6—framework层分析"
+title:  "Binder系列7—framework层分析"
 date:   2015-11-21 21:11:50
 categories: android binder
-excerpt: Binder系列6—framework层分析
+excerpt: Binder系列7—framework层分析
 ---
 
 * content
@@ -289,7 +289,7 @@ gBinderProxyOffsets保存了BinderProxy的<init>构造方法，sendDeathNotice()
 	    return javaObjectForIBinder(env, b); 
 	}
 
-对于ProcessState::self()->getContextObject()，在[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)中详细介绍过。此处直接使用其结论：`ProcessState::self()->getContextObject()`等价于 `new BpBinder(0)`; 
+对于ProcessState::self()->getContextObject()，在[获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)中详细介绍过。此处直接使用其结论：`ProcessState::self()->getContextObject()`等价于 `new BpBinder(0)`; 
 
 ### 2.3 javaObjectForIBinder
 ==> `/framework/base/core/jni/android_util_binder.cpp`
@@ -552,7 +552,7 @@ BinderProxy.transact如下：
 	    return JNI_FALSE;
 	}
 
-BinderProxy.transact()，最终核心逻辑是交给BpBinder::transact()完成，在native Binder架构篇[Binder系列4 —— 注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)中有详细说明BpBinder工作原理。
+BinderProxy.transact()，最终核心逻辑是交给BpBinder::transact()完成，在native Binder架构篇[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)中有详细说明BpBinder工作原理。
 
 ### 小结
 

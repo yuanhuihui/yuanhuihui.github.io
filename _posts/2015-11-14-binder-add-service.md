@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列4—注册服务(addService)"
+title:  "Binder系列5—注册服务(addService)"
 date:   2015-11-14 13:10:54
 categories: android binder
-excerpt:  Binder系列4—注册服务(addService)
+excerpt:  Binder系列5—注册服务(addService)
 ---
 
 * content
@@ -13,17 +13,6 @@ excerpt:  Binder系列4—注册服务(addService)
 ---
 > 基于Android 6.0的源码剖析， 本文讲解如何向ServiceManager注册服务的过程。
 
-
-## 类关系图
-在Native层中，我们以media为例，来展开讲解，先来看看media的类关系图。
-
-![class_media_relation](/images/binder/binder_media_classes.jpg)
-
-## 源码分析
-
-
-**相关源码**
-	
 	/framework/native/libs/binder/IServiceManager.cpp
 	/framework/native/libs/binder/BpBinder.cpp
 	/framework/native/libs/binder/IPCThreadState.cpp
@@ -32,15 +21,13 @@ excerpt:  Binder系列4—注册服务(addService)
 	
 	/framework/av/media/libmediaplayerservice/MediaPlayerService.cpp
 
-**流程图**
 
-![addService](\images\binder\addService\addService.jpg)
+## 概述
 
-下面开始讲解每一个流程：  
 
-###  源码入口 
+###  入口 
 
-main_mediaserver.cpp是可执行程序，入口函数main代码如下：
+在Native层的服务注册，选择media服务为例来展开讲解，其中main_mediaserver.cpp是可执行程序，入口函数main代码如下：
 
 	int main(int argc __unused, char** argv)
 	{
@@ -60,12 +47,21 @@ main_mediaserver.cpp是可执行程序，入口函数main代码如下：
         IPCThreadState::self()->joinThreadPool();       //当前线程加入到线程池 【见流程20】	
      }
 
-这个过程主要分下面5个步骤：  
-
 ![workflow](/images/binder/addService/workflow.jpg)
-  
-上面的main方法，对于`defaultServiceManager()`，在前一篇文章[Binder系列3—获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)已经介绍，下面主要讲后三步如下图：
 
+main方法中的`defaultServiceManager()`在上一篇文章[获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)已经讲解，本文主要讲解后面的几个过程。
+
+
+### 类关系图
+在Native层d的服务注册，我们选择以media为例来展开讲解，先来看看media的类关系图。
+
+![class_media_relation](/images/binder/binder_media_classes.jpg)
+
+注册服务前，需要先[获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)，再
+
+![addService](\images\binder\addService\addService.jpg)
+
+下面开始讲解每一个流程：  
 
 ## 源码分析
 
@@ -79,7 +75,7 @@ main_mediaserver.cpp是可执行程序，入口函数main代码如下：
 	           String16("media.player"), new MediaPlayerService()); 【见流程3】
 	}
 
-由[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)分析，可知defaultServiceManager()返回的是BpServiceManager。故此处等价于调用BpServiceManager->addService。  
+由[获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)分析，可知defaultServiceManager()返回的是BpServiceManager。故此处等价于调用BpServiceManager->addService。  
 关于MediaPlayerService的初始化过程，此处就省略，后面有时间会单独介绍。
 
 ### [3] addService
@@ -125,7 +121,7 @@ Binder代理类调用transact
 真正工作交给IPCThreadState来进行transact工作，由【流程3】传递过来的参数：transact(ADD_SERVICE_TRANSACTION, data, &reply, 0);
 
 
-### [5] IPCThreadState::self()
+### [5] IPCThreadState::self
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
 获取IPCThreadState对象
