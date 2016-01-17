@@ -58,17 +58,8 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 |BC_DEAD_BINDER_DONE|binder_uintptr_t(指针)|死亡binder完成|
 
 - 对于参数类型`binder_ptr_cookie`是由binder指针和cookie组成。
-- BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码的作用是对强/弱引用的增/减操作，见下表。
+- BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码的作用是对强/弱引用的增/减操作，见后文[强/弱引用操作函数](http://www.yuanhh.com/2015/11/02/binder-driver-2/#bindertransactionbufferrelease)。
 
-
-|强/弱引用操作函数|功能|
-|---|---|
-|binder_inc_ref(ref,0,NULL)|binder_ref->weak++|
-|binder_inc_ref(ref,1,NULL)|binder_ref->strong++，或binder_node->internal_strong_refs++|
-|binder_dec_ref(&ref,0)|binder_ref->weak--|
-|binder_dec_ref(&ref,1)|binder_ref->strong--， 或binder_node->internal_strong_refs--|
-|binder_dec_node(node, 0, 0)|binder_node->pending_weak_ref = 0，且binder_node->local_weak_ref--|
-|binder_dec_node(node, 1, 0)|binder_node->pending_strong_ref = 0，且binder_node->local_strong_ref--|
 
 ### 2.2 请求过程
 
@@ -247,12 +238,9 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 
 		if (target_node)
 			binder_inc_node(target_node, 1, 0, NULL);
-		offp = (binder_size_t *)(t->buffer->data +
-					 ALIGN(tr->data_size, sizeof(void *)));
-		copy_from_user(t->buffer->data, (const void __user *)(uintptr_t)
-				   tr->data.ptr.buffer, tr->data_size);
-		copy_from_user(offp, (const void __user *)(uintptr_t)
-				   tr->data.ptr.offsets, tr->offsets_size);
+		offp = (binder_size_t *)(t->buffer->data + ALIGN(tr->data_size, sizeof(void *)));
+		copy_from_user(t->buffer->data, (const void __user *)(uintptr_t)tr->data.ptr.buffer, tr->data_size);
+		copy_from_user(offp, (const void __user *)(uintptr_t)tr->data.ptr.offsets, tr->offsets_size);
 		off_end = (void *)offp + tr->offsets_size;
 
 		for (; offp < off_end; offp++) {
@@ -335,9 +323,6 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 		return;
 	}
 
-
-**binder路由分析**： handler ->  binder_ref -> binder_node -> binder_proc
-
 ### 2.4 响应协议
 
 binder响应码，是用`enum binder_driver_return_protocol`来定义的，是binder设备向应用程序回复的消息，以BR_开头，总18条；
@@ -359,18 +344,24 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 |BR_NOOP|无参数|不做任何事，检验下一条命令|
 |BR_SPAWN_LOOPER|无参数|创建新的服务线程|
 |BR_FINISHED|-|-|
-|BR_DEAD_BINDER|binder_uintptr_t(指针)|参数代表cookie|
+|BR_DEAD_BINDER|binder_uintptr_t(指针)|发送死亡通知|
 |BR_CLEAR_DEATH_NOTIFICATION_DON|binder_uintptr_t(指针)|清除死亡通知，参数代表cookie|
 |BR_FAILED_REPLY|无参数|回复失败，往往是transaction出错导致的|
 
-**BR_SPAWN_LOOPER**：binder驱动已经检测到进程中没有线程等待即将到来的事务。那么当一个进程接收到这条命令时，该进程必须创建一条新的服务线程并注册该线程，该操作通过`BC_ENTER_LOOPER`
+**BR_SPAWN_LOOPER**：binder驱动已经检测到进程中没有线程等待即将到来的事务。那么当一个进程接收到这条命令时，该进程必须创建一条新的服务线程并注册该线程，在接下来的响应过程会看到何时生成该响应码。
 
 
 ### 2.5 响应过程
 
-响应处理过程是通过`binder_thread_read()`方法，该方法根据不同的`binder_work->type`，以及不同状态，生成相应的响应码。
+响应处理过程是通过`binder_thread_read()`方法，该方法根据不同的`binder_work->type`以及不同状态，生成相应的响应码。
 
 	binder_thread_read（）{
+		//当已使用字节数为0时，将BR_NOOP响应码放入指针ptr
+		if (*consumed == 0) {
+				if (put_user(BR_NOOP, (uint32_t __user *)ptr))
+					return -EFAULT;
+				ptr += sizeof(uint32_t);
+			}
 	retry:
 		wait_for_proc_work = thread->transaction_stack == NULL &&
 				list_empty(&thread->todo);
@@ -386,6 +377,7 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 				if (!binder_has_thread_work(thread))
 					ret = -EAGAIN;
 			} else
+				//等待客户端的请求
 				ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
 		}
 		if (ret)
@@ -496,22 +488,36 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 		}
 	done:
 		*consumed = ptr - buffer;
-		//当满足请求线程加已准备线程数等于0，已启动线程数小于最大线程数，
-		//且looper状态为已注册或已进入时，创建新的线程。
+		//当满足请求线程加已准备线程数等于0，已启动线程数小于最大线程数(15)，
+		//且looper状态为已注册或已进入时创建新的线程。
 		if (proc->requested_threads + proc->ready_threads == 0 &&
 		    proc->requested_threads_started < proc->max_threads &&
 		    (thread->looper & (BINDER_LOOPER_STATE_REGISTERED |
 		     BINDER_LOOPER_STATE_ENTERED))) { 
 			proc->requested_threads++; 
+			// 生成BR_SPAWN_LOOPER命令，用于创建新的线程
 			put_user(BR_SPAWN_LOOPER, (uint32_t __user *)buffer)；
 		}
 		return 0;
 	}
 
+当transaction堆栈为空，且线程todo链表为空，且non_block=false时，意味着没有任何事务需要处理的，会进入等待客户端请求的状态。当有事务需要处理时便会进入循环处理过程，并生成相应的响应码。
+
+在Binder驱动层，只有在进入binder_thread_read()方法时，同时满足以下条件，
+才会生成`BR_SPAWN_LOOPER`命令，当用户态进程收到该命令则会创建新线程：
+
+1. binder_proc的requested_threads线程数为0；
+2. binder_proc的ready_threads线程数为0；
+3. binder_proc的requested_threads_started个数小于15(即最大线程个数)；
+4. binder_thread的looper状态为BINDER_LOOPER_STATE_REGISTERED或BINDER_LOOPER_STATE_ENTERED。
+
+
+那么在哪里处理响应码呢？ 通过前面的Binder通信协议图，可以知道处理响应码的过程是在用户态处理，即后续文章会讲到的用户空间IPCThreadState类中的[IPCThreadState::waitForResponse()](http://www.yuanhh.com/2015/11/14/binder-add-service/#waitforresponse)和[IPCThreadState::executeCommand()](http://www.yuanhh.com/2015/11/14/binder-add-service/#executecommand)两个方法共同处理Binder协议中的18个响应码。
+
 ## 三、Binder内存
 
 ### 3.1 Binder机制
-在[Binder Driver初探](http://www.yuanhh.com/2015/11/01/binder-driver/)文章从代码角度阐释了Binder_mmap()，这也是Binder进程间通信效率高的核心机制所在，如下图：
+在上一篇文章从代码角度阐释了[binder_mmap()](http://www.yuanhh.com/2015/11/01/binder-driver/#bindermmap)，这也是Binder进程间通信效率高的核心机制所在，如下图：
  
 ![binder_physical_memory](/images/binder/binder_dev/binder_physical_memory.jpg)
 
@@ -615,11 +621,6 @@ Binder内存分配方法通过binder_alloc_buf().
 		binder_debug(BINDER_DEBUG_BUFFER_ALLOC,
 			     "%d: binder_free_buf %p size %zd buffer_size %zd\n",
 			      proc->pid, buffer, size, buffer_size);
-		BUG_ON(buffer->free);
-		BUG_ON(size > buffer_size);
-		BUG_ON(buffer->transaction != NULL);
-		BUG_ON((void *)buffer < proc->buffer);
-		BUG_ON((void *)buffer > proc->buffer + proc->buffer_size);
 		if (buffer->async_transaction) {
 			proc->free_async_space += size + sizeof(struct binder_buffer);
 			binder_debug(BINDER_DEBUG_BUFFER_ALLOC_ASYNC,
@@ -698,7 +699,7 @@ Binder内存分配方法通过binder_alloc_buf().
 		}
 	}
 
-### 
+#### binder_transaction_buffer_release
 
 	binder_transaction_buffer_release(){
 		case BINDER_TYPE_BINDER: 
@@ -712,3 +713,14 @@ Binder内存分配方法通过binder_alloc_buf().
 		case BINDER_TYPE_FD:
 			task_close_fd(proc, fp->handle);
 	}
+
+上述涉及的方法的功能如下：
+
+|强/弱引用操作函数|功能|
+|---|---|
+|binder_inc_ref(ref,0,NULL)|binder_ref->weak++|
+|binder_inc_ref(ref,1,NULL)|binder_ref->strong++，或binder_node->internal_strong_refs++|
+|binder_dec_ref(&ref,0)|binder_ref->weak--|
+|binder_dec_ref(&ref,1)|binder_ref->strong--， 或binder_node->internal_strong_refs--|
+|binder_dec_node(node, 0, 0)|binder_node->pending_weak_ref = 0，且binder_node->local_weak_ref--|
+|binder_dec_node(node, 1, 0)|binder_node->pending_strong_ref = 0，且binder_node->local_strong_ref--|

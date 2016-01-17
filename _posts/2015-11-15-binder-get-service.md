@@ -13,22 +13,31 @@ excerpt: Binder系列6—获取服务(getService)
 ---
 > 基于Android 6.0的源码剖析， 本文Client如何向Server获取服务的过程。
 
-
-## 源码分析
-
-
-**相关源码**
-	
 	/framework/av/media/libmedia/IMediaDeathNotifier.cpp
 	/framework/native/libs/binder/IServiceManager.cpp
 
 
-继续以Media为例，开始讲解获取服务的流程：
+### 类图
+在Native层的服务注册，我们选择以media为例来展开讲解，先来看看media的类关系图。
+
+![get_media_player_service](\images\binder\getService\get_media_player_service.png)
+
+图解：
+
+- 蓝色代表的是获取MediaPlayerService服务所涉及的类
+- 绿色代表的是Binder架构中与Binder驱动通信过程中的最为核心的两个类；
+- 紫色代表的是[注册服务](http://www.yuanhh.com/2015/11/14/binder-add-service/)和获取服务的公共接口/父类；
+
+
+下面开始讲解每一个流程：  
+
+
 
 ### 一. getMediaPlayerService
-==> `/framework/av/media/libmedia/IMediaDeathNotifier.cpp`
 
-获取服务MediaPlayerService
+继续以Media为例，讲解如何获取服务。
+
+==> `/framework/av/media/libmedia/IMediaDeathNotifier.cpp`
 
 	sp<IMediaPlayerService>&
 	IMediaDeathNotifier::getMediaPlayerService()
@@ -55,7 +64,9 @@ excerpt: Binder系列6—获取服务(getService)
 	    return sMediaPlayerService;
 	}
 
-关于`defaultServiceManager`，前面已经讲过，返回BpServiceManager。在请求获取名为"media.player"的服务过程中，采用不断循环获取的方法。由于MediaPlayerService服务可能还没向ServiceManager注册完成或者尚未启动完成等情况，故则binder返回为NULL，休眠0.5s后继续请求，直到获取服务为止。
+获取服务MediaPlayerService
+
+关于[defaultServiceManager()](http://www.yuanhh.com/2015/11/08/binder-get-sm/#defaultservicemanager)过程已经讲解过，返回BpServiceManager。在请求获取名为"media.player"的服务过程中，采用不断循环获取的方法。由于MediaPlayerService服务可能还没向ServiceManager注册完成或者尚未启动完成等情况，故则binder返回为NULL，休眠0.5s后继续请求，直到获取服务为止。
 
 
 ### 二. getService
@@ -91,7 +102,7 @@ excerpt: Binder系列6—获取服务(getService)
         return reply.readStrongBinder();
     }
 
-这里调用BpBinder->transact()，再调用到IPCThreadState->transact()，再调用到IPCThreadState->waitForResponse，再调用。这个流程与[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)中的【流程4到流程10】基本一致。此处不再重复,最后reply
+这里调用BpBinder->transact()，再调用到IPCThreadState->transact()，再调用到IPCThreadState->waitForResponse，再调用。这个流程与[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)中的【流程4到流程10】基本一致。此处不再重复，最后reply
 里面会返回IBinder对象。
 
 
@@ -145,7 +156,7 @@ Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，
 
 #### 4.3 调用机制
 
-每当service进程退出时，service manager会收到来自Binder设备的死亡通知。
-这项工作是在Service Manager创建的时候[启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)，通过`binder_link_to_death(bs, ptr, &si->death)`完成。
+每当service进程退出时，service manager会收到来自Binder驱动的死亡通知。
+这项工作是在[启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)时通过`binder_link_to_death(bs, ptr, &si->death)`完成。
 
-另外，每个Bp端，也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。
+另外，每个Bp端也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。

@@ -127,7 +127,9 @@ Binder在Native framework层所有涉及的类的关系图，如下：
 	    return NULL;
 	}
 
-binder_open功能是首先调用open()打开binder设备，再通过ioctl()检验当前binder版本是否一致，最后调用mmap()进行内存映射。对于流程图中的2、3、4步骤，都是通过系统调用，最后都是调用[Binder驱动](http://www.yuanhh.com/2015/11/01/binder-driver/)中相应的方法。
+先调用open()打开binder设备，open()方法经过系统调用，对应于Binder驱动层的[binder_open()](http://www.yuanhh.com/2015/11/01/binder-driver/#binderopen)方法，该方法会在Binder驱动层创建一个`binder_proc`对象，并将`binder_proc`对象赋值给fd->private_data，同时放入全局链表`binder_procs`。再通过ioctl()检验当前binder版本与Binder驱动层的版本是否一致。
+
+最后调用mmap()进行内存映射，同理，mmap()方法经过系统调用，对应于Binder驱动层的[binder_mmap()](http://www.yuanhh.com/2015/11/01/binder-driver/#bindermmap)方法，该方法会在Binder驱动层创建`Binder_buffer`对象，并放入当前binder_proc的`proc->buffers`链表。
 
 ### [5] binder_become_context_manager
 ==> `/framework/native/cmds/servicemanager/binder.c`
@@ -140,7 +142,7 @@ binder_open功能是首先调用open()打开binder设备，再通过ioctl()检�
 	    return ioctl(bs->fd, BINDER_SET_CONTEXT_MGR, 0);
 	}
 
-通过[ioctl()](http://www.yuanhh.com/2015/11/01/binder-driver/#binderioctl)方法，最终调用binder_ioctl_set_ctx_mgr().
+通过ioctl()方法经过系统调用，对应于Binder驱动层的[binder_ioctl()](http://www.yuanhh.com/2015/11/01/binder-driver/#binderioctl)方法，根据参数`BINDER_SET_CONTEXT_MGR`，最终调用binder_ioctl_set_ctx_mgr()方法。
 
 ### [7] binder_ioctl_set_ctx_mgr
 ==> `kernel/drivers/android/binder.c` 
@@ -186,10 +188,10 @@ binder驱动操作
 	// 运行service manager的线程uid
 	static kuid_t binder_context_mgr_uid = INVALID_UID; 
 
+通过`binder_new_node()`创建了全局的`binder_context_mgr_node`对象，并且增加binder_context_mgr_node的强弱引用各自加1.
+`
 ### [8] binder_new_node 
 ==> `kernel/drivers/android/binder.c` 
-
-binder_node结构体的定义见文章[Binder Driver初探](http://www.yuanhh.com/2015/11/01/binder-driver/)的结构体定义章节。
 
 	static struct binder_node *binder_new_node(struct binder_proc *proc,
 						   binder_uintptr_t ptr,
@@ -222,12 +224,13 @@ binder_node结构体的定义见文章[Binder Driver初探](http://www.yuanhh.co
 		node->proc = proc;
 		node->ptr = ptr;
 		node->cookie = cookie;
-		node->work.type = BINDER_WORK_NODE;
+		node->work.type = BINDER_WORK_NODE; //设置binder_work的type
 		INIT_LIST_HEAD(&node->work.entry);
 		INIT_LIST_HEAD(&node->async_todo);
 		return node;
 	}
 
+在Binder驱动层创建[binder_node结构体](http://www.yuanhh.com/2015/11/01/binder-driver/#bindernode)对象，并将当前binder_proc加入到`binder_node`的`node->proc`。并创建binder_node的async_todo和binder_work两个队列。
 
 
 ### [9] binder_loop
@@ -270,6 +273,9 @@ binder_node结构体的定义见文章[Binder Driver初探](http://www.yuanhh.co
 	    }
 	}
 
+`binder_write`通过ioctl()将BC_ENTER_LOOPER命令发送给binder驱动，此时bwr只有write_buffer有数据，进入[binder_thread_write()](http://www.yuanhh.com/2015/11/02/binder-driver-2//#section-1)方法。
+接下来进入for循环，执行ioctl()，此时bwr只有read_buffer有数据，那么进入[binder_thread_read()](http://www.yuanhh.com/2015/11/02/binder-driver-2//#section-4)方法。
+
 ### [10] binder_write
 ==> `/framework/native/cmds/servicemanager/binder.c`
 
@@ -289,7 +295,7 @@ binder_node结构体的定义见文章[Binder Driver初探](http://www.yuanhh.co
 	    return res;
 	}
 
-初始化bwr，将BC_ENTER_LOOPER命令，bwr地址，发送给binder驱动，让Service Manager进入循环。
+根据传递进来的参数，初始化bwr，其中write_size大小为4，write_buffer指向缓冲区的起始地址，其内容为BC_ENTER_LOOPER请求协议号。通过ioctl将bwr数据发送给binder驱动，让Service Manager进入循环。
 
 ### [13] binder_parse
 ==> `/framework/native/cmds/servicemanager/binder.c`
@@ -439,7 +445,7 @@ service manager操作的真正处理函数
 	        handle = bio_get_ref(msg);
 	        allow_isolated = bio_get_uint32(msg) ? 1 : 0;
 	        if (do_add_service(bs, s, len, handle, txn->sender_euid,
-	            allow_isolated, txn->sender_pid)) 【见流程16】
+	            allow_isolated, txn->sender_pid)) //【见流程16】
 	            return -1;
 	        break;
 	

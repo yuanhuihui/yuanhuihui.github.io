@@ -36,7 +36,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 
 ![binder_syscall](/images/binder/binder_dev/binder_syscall.png)
 
-简单说，当用户空间调用open()方法，最终会调用binder驱动的binder_open()方法；mmap(),ioctl()方法也是同理。
+简单说，当用户空间调用open()方法，最终会调用binder驱动的binder_open()方法；mmap()/ioctl()方法也是同理，在BInder系列的后续文章从用户态进入内核态，都依赖于系统调用过程。
 
 ## 二、 Binder核心方法
 
@@ -118,9 +118,12 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 		return 0;
 	}
 
-创建binder_proc对象，并把当前进程等信息保存到binder_proc对象，该对象管理IPC所需的各种信息并拥有其他结构体的根结构体；再把binder_proc对象保存到文件指针filp。通过加锁机制，保证多进程打开binder驱动的并发问题。
+创建binder_proc对象，并把当前进程等信息保存到binder_proc对象，该对象管理IPC所需的各种信息并拥有其他结构体的根结构体；再把binder_proc对象保存到文件指针filp，以及把binder_proc加入到全局链表`binder_procs`。
 
-Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈希链表binder_procs，用于保存所有的binder进程队列。
+![binder_procs](/images/binder/binder_dev/binder_procs.png)
+
+Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈希链表binder_procs，用于保存所有的binder_proc队列，每次新创建的binder_proc对象都会加入binder_procs链表中。
+
 
 
 
@@ -177,9 +180,9 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
 			failure_string = "alloc small buf";
 			goto err_alloc_small_buf_failed;
 		}
-		buffer = proc->buffer;
-		INIT_LIST_HEAD(&proc->buffers);
-		list_add(&buffer->entry, &proc->buffers);
+		buffer = proc->buffer; //binder_buffer对象 指向proc的buffer地址
+		INIT_LIST_HEAD(&proc->buffers); //创建进程的buffers链表头
+		list_add(&buffer->entry, &proc->buffers); //将binder_buffer地址 加入到所属进程的buffers队列
 		buffer->free = 1;
 		//将空闲buffer放入proc->free_buffers中
 		binder_insert_free_buffer(proc, buffer); 
@@ -451,10 +454,10 @@ binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构
 |类型|成员变量|解释|
 |---|---|---|
 |struct hlist_node| proc_node|进程节点|
-|struct rb_root| threads|保存binder_thread结构体的红黑树的跟节点
-|struct rb_root| nodes|保存binder_node结构体的红黑树的根节点
-|struct rb_root| refs_by_desc|binder_ref实体的引用(以handle为key)
-|struct rb_root| refs_by_node|binder实体的引用（以ptr为key）
+|struct rb_root| threads|binder_thread红黑树的根节点
+|struct rb_root| nodes|binder_node红黑树的根节点
+|struct rb_root| refs_by_desc|binder_ref红黑树的根节点(以handle为key)
+|struct rb_root| refs_by_node|binder_ref红黑树的根节点（以ptr为key）
 |int| pid|创建binder_proc的进程id
 |struct vm_area_struct *|vma|指向进程虚拟地址空间的指针
 |struct mm_struct *|vma_vm_mm;
@@ -667,7 +670,7 @@ binder引用的查询方式如下：
 		enum {
 			BINDER_WORK_TRANSACTION = 1, //binder_transaction()方法设置
 			BINDER_WORK_TRANSACTION_COMPLETE, //binder_transaction()方法设置
-			BINDER_WORK_NODE, // binder_new_node()方法设置
+			BINDER_WORK_NODE, // binder_new_node()/binder_transaction()方法设置
 			BINDER_WORK_DEAD_BINDER, // binder_thread_write()等多个方法可设置
 			BINDER_WORK_DEAD_BINDER_AND_CLEAR, // binder_thread_write()等多个方法可设置
 			BINDER_WORK_CLEAR_DEATH_NOTIFICATION,// binder_thread_write()等多个方法可设置

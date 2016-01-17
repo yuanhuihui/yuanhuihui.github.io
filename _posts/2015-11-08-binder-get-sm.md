@@ -46,7 +46,7 @@ excerpt:  Binder系列4—获取Service Manager
 	        AutoMutex _l(gDefaultServiceManagerLock); //加锁
 	        while (gDefaultServiceManager == NULL) {
 	            gDefaultServiceManager = interface_cast<IServiceManager>(
-	                ProcessState::self()->getContextObject(NULL));  //【见流程2和13】
+	                ProcessState::self()->getContextObject(NULL));  //【见流程2、8、13】
 	            if (gDefaultServiceManager == NULL)
 	                sleep(1);   //休眠1秒
 	        }
@@ -58,6 +58,18 @@ excerpt:  Binder系列4—获取Service Manager
   
 
 这是**单例模式**，我们发现与一般的单例模式不太一样，里面多了一层while循环，这是google在2013年1月Todd Poynor提交的修改。defaultServiceManager需要等待service manager就绪。当我们尝试创建一个本地的代理时，如果service manager没有准备好，那么就会失败，这时sleep 1秒后会重新尝试获取，直到成功。
+
+
+defaultServiceManager()方法中，比较难理解的一行语句便是：
+
+	interface_cast<IServiceManager>(ProcessState::self()->getContextObject(NULL));  
+
+逐步剖析，分解该过程为下面3个步骤
+
+- ProcessState::self()：主要功能是获取ProcessState对象，这是单例模式，每个进程有且只有一个ProcessState对象，存在则直接返回，不存在则创建，详情见流程2~7;
+- getContextObject()： 主要功能是获取BpBiner对象，对于handle=0的BpBiner对象，存在则直接返回，不存在才创建，详情见流程8~12;
+- interface_cast<IServiceManager>()：创建BpServiceManager对象，详情见流程13~15.
+
 
 ## 2. ProcessState::self
 ==> `/framework/native/libs/binder/ProcessState.cpp`
@@ -181,7 +193,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 	                if (status == DEAD_OBJECT)
 	                   return NULL;
 	            }
-	 			//当handle值所对应的IBinder不存在或弱引用无效时，则新建BpBinder【见流程11】
+	            //当handle值所对应的IBinder不存在或弱引用无效时，则创建BpBinder对象【见流程11】
 	            b = new BpBinder(handle); 
 	            e->binder = b;
 	            if (b) e->refs = b->getWeakRefs();
