@@ -499,7 +499,7 @@ binder_thread结构体代表当前binder操作所在的线程
 |struct rb_node|rb_node||
 |int|pid|线程pid|
 |int|looper|looper的状态|
-|struct binder_transaction *|transaction_stack|正在处理的事务|
+|struct binder_transaction *|transaction_stack|线程正在处理的事务|
 |struct list_head|todo|将要处理的链表|
 |uint32_t|return_error|write失败后，返回的错误码|
 |uint32_t|return_error2|write失败后，返回的错误码2|
@@ -516,6 +516,7 @@ looper的状态如下：
 		BINDER_LOOPER_STATE_WAITING     = 0x10, // 等待中
 		BINDER_LOOPER_STATE_NEED_RETURN = 0x20, // 需要返回
 	};
+
 
 ### 3.3 binder_buffer
 
@@ -630,8 +631,8 @@ binder_node代表一个binder实体
 |unsigned| pending_weak_ref|占位1bit
 |unsigned| has_async_transaction|占位1bit
 |unsigned| accept_fds|占位1bit
-|unsigned| min_priority|占位8bit
-|struct list_head| async_todo|
+|unsigned| min_priority|占位8bit，最小优先级
+|struct list_head| async_todo|异步todo队列|
 
 ### 3.8 binder_ref
 
@@ -708,3 +709,5 @@ flat_binder_object结构体代表Binder对象在两个进程间传递的扁平�
 |BINDER_TYPE_HANDLE|binder强引用|
 |BINDER_TYPE_WEAK_HANDLE|binder弱引用|
 |BINDER_TYPE_FD|binder文件描述符|
+
+当传输的flat_binder_object的成员变量type等于BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER类型时，代表该过程为Server进程向Service Manager进程进行服务注册的过程；当其type等于BINDER_TYPE_HANDLE或BINDER_TYPE_WEAK_HEANDLE类型时，代表该过程为Client进程向另一个进程发送Service代理；当其type等于BINDER_TYPE_FD时，代表该过程为一个进程向另一个进程发送文件描述符(file descriptor)。

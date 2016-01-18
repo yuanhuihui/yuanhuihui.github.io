@@ -643,11 +643,17 @@ IPCThreadState进行transact事务处理分3部分：
 ![media_player_service_ipc](/images/binder/addService/media_player_service_ipc.png)
 
 
-- MediaPlayerService进程：主要作用是发送IPC数据(BC_TRANSACTION)和接收IPC应答数据(BR_REPLY);
-- Service Manager进程：主要作用是接收IPC数据(BR_TRANSACTION)和发送IPC应答数据(BC_REPLY)
+过程分析：
 
-步骤（3）中IPC数据，除了Binder协议是BC_TRANSACTION，还有Handle=0， RPC代码为ADD_SERVICE, RPC数据为"media.player"， MediaPlayerService调用ioctl()函数向Binder驱动发送该IPC数据。 Service Manager通过分析IPC数据中的RPC代码为ADD_SERVICE，则调用服务注册函数将"media.player"服务注册到服务目录中。当服务注册完成后，Service Manager会生成IPC应答数据(BC_REPLY)，并传递给MediaPlayerService，告知服务注册已完成，可以正常使用。
+1. MediaPlayerService进程调用ioctl()函数向Binder驱动发送该IPC数据(IPC数据内容：Binder协议是BC_TRANSACTION，还有Handle=0， RPC代码为ADD_SERVICE, RPC数据为"media.player")，该过程可以理解成一个事务binder_transaction，不妨记为T1，执行当前操作的线程binder_thread，不妨记为thread1，则T1->from_parent=NULL，T1->from = thread1，thread1->transaction_stack；
 
+2. Binder驱动收到该Binder请求，生成BR_TRANSACTION命令，选择目标处理该请求的线程，即Service Manager的binder线程，不妨记为thread2，则 T1->to_parent = NULL，T1->to_thread = thread2。并将整个binder_transaction数据插入到目标线程的todo队列；
+
+3. Service Manager的线程thread2收到T2后，调用服务注册函数将"media.player"服务注册到服务目录中。当服务注册完成后，生成IPC应答数据(BC_REPLY)，T2->form_parent = T1，T2->from = thread2, thread2-)->transaction_stack = T2。
+
+4. Binder驱动收到该Binder应答请求，生成BR_REPLY命令，T2->to_parent = T1，T2->to_thread = thread1, thread1->transaction_stack = T2。 在MediaPlayerService收到该命令后，知道服务注册完成，可以正常使用。
+
+整个过程中，BC_TRANSACTION和BR_TRANSACTION过程是一个完整的事务；BC_REPLY和BR_REPLY是一个完成事务。 
 到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://www.yuanhh.com/2015/11/15/binder-get-service/)。
 
 ### [16] startThreadPool
