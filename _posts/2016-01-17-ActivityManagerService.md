@@ -71,12 +71,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 首先，来讲述通过startService()这个API，是如何斗转星移般地交给了ActivityManagerService，并调用ActivityManagerService的startService()的呢？ 答案就是通过Binder IPC机制.
 
-
-![Activity_Manager_Service](/images/android-service/am/Activity_Manager_Service.png)
-
-
-首先，在我们应用程序的Activity类的调用startService()方法，该方法再调用
-
+首先，在我们应用程序的Activity类的调用startService()方法，该方法再调用【流程1】的方法。
 
 ### 1. ContextWrapper.startService
 
@@ -130,7 +125,7 @@ ActivityManagerNative.getDefault()该方法返回的是ActivityManagerProxy对�
 
 通过Binder通信过程中，提供了一个IActivityManager服务接口，ActivityManagerProxy类与ActivityManagerService类都实现了IActivityManager接口。ActivityManagerProxy作为binder通信的客户端，ActivityManagerService作为binder通信的服务端，根据[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章，ActivityManagerProxy.startService()最终调用ActivityManagerService.startService()，整个流程图如下：
 
-![activity_manager_binder](/images/android-service/am/activity_manager_binder.png)
+![Activity_Manager_Service](/images/android-service/am/Activity_Manager_Service.png)
 
 ### 3. ActivityManagerProxy.startService
 
