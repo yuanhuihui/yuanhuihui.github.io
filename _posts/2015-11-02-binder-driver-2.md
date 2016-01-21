@@ -39,26 +39,28 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 
 |请求码|参数类型|作用|
 |---|---|---|
-|BC_TRANSACTION|binder_transaction_data|已发送的事务数据|
-|BC_REPLY| binder_transaction_data|已发送的事务数据|
-|BC_ACQUIRE_RESULT|-|-|
-|BC_FREE_BUFFER|binder_uintptr_t(指针)|释放内存buffer|
-|BC_INCREFS|__u32(descriptor)|binder_inc_ref(ref,0,NULL)
-|BC_ACQUIRE|__u32(descriptor)|binder_inc_ref(ref,1,NULL)
-|BC_RELEASE|__u32(descriptor)|binder_dec_ref(&ref,1)
-|BC_DECREFS|__u32(descriptor)|binder_dec_ref(&ref,0)
-|BC_INCREFS_DONE| binder_ptr_cookie|binder_dec_node(node, 0, 0)
-|BC_ACQUIRE_DONE| binder_ptr_cookie|binder_dec_node(node, 1, 0)|
-|BC_ATTEMPT_ACQUIRE|-|-|
-|BC_REGISTER_LOOPE|无参数|注册一个spawned looper线程|
-|BC_ENTER_LOOPER|无参数|应用级线程进入looper|
-|BC_EXIT_LOOPER|无参数|应用级线程退出looper|
+|BC_TRANSACTION|binder_transaction_data|Client向Binder驱动发送请求数据|
+|BC_REPLY| binder_transaction_data|Server向Binder驱动发送请求数据|
+|BC_FREE_BUFFER|binder_uintptr_t(指针)|释放内存|
+|BC_INCREFS|__u32(descriptor)|binder_ref弱引用加1操作
+|BC_DECREFS|__u32(descriptor)|binder_ref弱引用减1操作
+|BC_ACQUIRE|__u32(descriptor)|binder_ref强引用加1操作
+|BC_RELEASE|__u32(descriptor)|binder_ref强引用减1操作
+|BC_ACQUIRE_DONE| binder_ptr_cookie|binder_node强引用减1操作
+|BC_INCREFS_DONE| binder_ptr_cookie|binder_node弱引用减1操作
+|BC_REGISTER_LOOPE|无参数|创建新的looper线程|
+|BC_ENTER_LOOPER|无参数|应用线程进入looper|
+|BC_EXIT_LOOPER|无参数|应用线程退出looper|
 |BC_REQUEST_DEATH_NOTIFICATION|  binder_handle_cookie|请求死亡通知|
 |BC_CLEAR_DEATH_NOTIFICATION| binder_handle_cookie|清除死亡通知|
 |BC_DEAD_BINDER_DONE|binder_uintptr_t(指针)|死亡binder完成|
+|BC_ACQUIRE_RESULT|-|-|
+|BC_ATTEMPT_ACQUIRE|-|-|
 
-- 对于参数类型`binder_ptr_cookie`是由binder指针和cookie组成。
-- BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码的作用是对强/弱引用的增/减操作，见后文[强/弱引用操作函数](http://www.yuanhh.com/2015/11/02/binder-driver-2/#bindertransactionbufferrelease)。
+
+1. BC_FREE_BUFFER：通过mmap()映射内存，其中ServiceManager映射的空间大小为128K，其他Binder应用进程映射的内存大小为1M-8K。Binder驱动基于这块映射的内存采用最佳匹配算法来动态分配和释放，通过[binder_buffer](http://www.yuanhh.com/2015/11/01/binder-driver/#binderbuffer)结构体中的`free`字段来表示相应的buffer是空闲还是已分配状态。对于已分配的buffers加入到binder_proc中的allocated_buffers红黑树;对于空闲的buffers加入到binder_proc中的free_buffers红黑树。当应用程序需要内存时，根据所需内存大小从free_buffers中找到最合适的内存，并放入allocated_buffers树；当应用程序处理完后必须尽快使用`BC_FREE_BUFFER`命令来释放该buffer，从而添加回到free_buffers树中。
+2. BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码的作用是对binder的强/弱引用的计数操作，用于实现[强/弱指针的功能](http://www.yuanhh.com/2015/11/02/binder-driver-2/#bindertransactionbufferrelease)。
+3. 对于参数类型`binder_ptr_cookie`是由binder指针和cookie组成。- 
 
 
 ### 2.2 请求过程
@@ -329,27 +331,28 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 
 |响应码|参数类型|作用|
 |---|---|---|
-|BR_ERROR|__s32|错误码|
-|BR_OK|无参数|ok|
-|BR_TRANSACTION|binder_transaction_data|已接收的事务数据
-|BR_REPLY|binder_transaction_data|已接收的事务数据
+|BR_ERROR|__s32|操作发生错误|
+|BR_OK|无参数|操作完成|
+|BR_NOOP|无参数|不做任何事|
+|BR_SPAWN_LOOPER|无参数|创建新的Looper线程|
+|BR_TRANSACTION|binder_transaction_data|Binder驱动向Server端发送请求数据
+|BR_REPLY|binder_transaction_data|Binder驱动向Client端发送回复数据
+|BR_TRANSACTION_COMPLETE|无参数|对请求发送的成功反馈|
+|BR_DEAD_REPLY|无参数|回复失败，往往是线程或节点为空|
+|BR_FAILED_REPLY|无参数|回复失败，往往是transaction出错导致|
+|BR_INCREFS|binder_ptr_cookie|binder_ref弱引用加1操作（Server端）|
+|BR_DECREFS|binder_ptr_cookie|binder_ref弱引用减1操作（Server端）|
+|BR_ACQUIRE|binder_ptr_cookie|binder_ref强引用加1操作（Server端）|
+|BR_RELEASE|binder_ptr_cookie|binder_ref强引用减1操作（Server端）|
+|BR_DEAD_BINDER|binder_uintptr_t(指针)|Binder驱动向client端发送死亡通知|
+|BR_CLEAR_DEATH_NOTIFICATION_DONE|binder_uintptr_t(指针)|清除死亡通知，参数代表cookie|
 |BR_ACQUIRE_RESULT|-|-|
-|BR_DEAD_REPLY|无参数|回复失败，原因往往线程或节点为空|
-|BR_TRANSACTION_COMPLETE|无参数|事务完成|
-|BR_INCREFS|binder_ptr_cookie|binder的指针或cookie|
-|BR_ACQUIRE|binder_ptr_cookie|binder的指针或cookie|
-|BR_RELEASE|binder_ptr_cookie|binder的指针或cookie|
-|BR_DECREFS|binder_ptr_cookie|binder的指针或cookie|
 |BR_ATTEMPT_ACQUIRE|-|-|
-|BR_NOOP|无参数|不做任何事，检验下一条命令|
-|BR_SPAWN_LOOPER|无参数|创建新的服务线程|
 |BR_FINISHED|-|-|
-|BR_DEAD_BINDER|binder_uintptr_t(指针)|发送死亡通知|
-|BR_CLEAR_DEATH_NOTIFICATION_DON|binder_uintptr_t(指针)|清除死亡通知，参数代表cookie|
-|BR_FAILED_REPLY|无参数|回复失败，往往是transaction出错导致的|
 
 **BR_SPAWN_LOOPER**：binder驱动已经检测到进程中没有线程等待即将到来的事务。那么当一个进程接收到这条命令时，该进程必须创建一条新的服务线程并注册该线程，在接下来的响应过程会看到何时生成该响应码。
 
+**BR_TRANSACTION_COMPLETE**：当Client端向Binder驱动发送BC_TRANSACTION命令后，Client会收到BR_TRANSACTION_COMPLETE命令，告知Client端请求命令发送成功；对于Server向Binder驱动发送BC_REPLY命令后，Server端会收到BR_TRANSACTION_COMPLETE命令，告知Server端请求回应命令发送成功。
 
 ### 2.5 响应过程
 
@@ -532,7 +535,7 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 
 ### 3.2 内存分配
 
-Binder内存分配方法通过binder_alloc_buf().
+Binder内存分配方法通过binder_alloc_buf()方法，内存管理单元为[binder_buffer](http://www.yuanhh.com/2015/11/01/binder-driver/#binderbuffer)结构体。
 
 	static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
 						      size_t data_size, size_t offsets_size, int is_async)

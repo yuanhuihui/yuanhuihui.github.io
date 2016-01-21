@@ -544,17 +544,17 @@ looper的状态如下：
 
 	struct binder_transaction_data {
 		union {
-			__u32	handle;	   //binder实体的引用
-			binder_uintptr_t ptr;	 //Binder实体在当前进程的地址
+			__u32	handle;	   //binder_ref（即handle）
+			binder_uintptr_t ptr;	 //Binder_node的内存地址
 		} target;  //RPC目标
 		binder_uintptr_t	cookie;	
-		__u32		code;		//RPC代码
+		__u32		code;		//RPC代码，代表Client与Server双方约定的命令码
 	
-		__u32	        flags;
+		__u32	        flags; //标志位，比如TF_ONE_WAY代表异步，即不等待Server端回复
 		pid_t		sender_pid;  //发送端进程的pid
-		uid_t		sender_euid; //发送端进程的euid
-		binder_size_t	data_size;	
-		binder_size_t	offsets_size;	
+		uid_t		sender_euid; //发送端进程的uid
+		binder_size_t	data_size;	//dta.buffer所指向的buffer的数据长度
+		binder_size_t	offsets_size; //现规定与data.buffer偏移量
 	
 		union {
 			struct {
@@ -578,7 +578,7 @@ looper的状态如下：
 |struct binder_thread *|to_thread|接收端线程
 |struct binder_transaction *|to_parent|
 |unsigned |need_reply|是否需要回应
-|struct binder_buffer *|buffer|
+|struct binder_buffer *|buffer|数据buffer
 |unsigned int	|code|
 |unsigned int	|flags|
 |long	|priority|优先级
@@ -614,16 +614,16 @@ binder_node代表一个binder实体
 
 |类型|成员变量|解释|
 |---|---|---|
-|int|debug_id||
+|int|debug_id|用于调试使用|
 |struct binder_work|work||
-|struct rb_node|rb_node|binder正常使用，union|
-|struct hlist_node|dead_node|binder进程已销毁，union|
+|struct rb_node|rb_node|binder节点正常使用，union|
+|struct hlist_node|dead_node|binder节点已销毁，union|
 |struct binder_proc *|proc|binder所在的进程|
-|struct hlist_head |refs|
+|struct hlist_head |refs|所有指向该节点的binder引用队列
 |int| internal_strong_refs|
 |int |local_weak_refs|
 |int |local_strong_refs| 
-|binder_uintptr_t| ptr|Binder实体所在用户空间的地址|
+|binder_uintptr_t| ptr|指向用户空间binder_node的指针|
 |binder_uintptr_t| cookie|附件数据|
 |unsigned| has_strong_ref|占位1bit
 |unsigned| pending_strong_ref|占位1bit
@@ -633,6 +633,8 @@ binder_node代表一个binder实体
 |unsigned| accept_fds|占位1bit
 |unsigned| min_priority|占位8bit，最小优先级
 |struct list_head| async_todo|异步todo队列|
+
+其中ptr与flat_binder_object的binder成员是一致的；cookie与flat_binder_object的cookie成员是一致的
 
 ### 3.8 binder_ref
 
@@ -647,7 +649,7 @@ binder_node代表一个binder实体
 |uint32_t |desc|handle
 |int |strong|强引用次数
 |int |weak|弱引用次数
-|struct binder_ref_death *|death|
+|struct binder_ref_death *|death|当应用注册死亡通知时，此域不为空|
 
 
 binder引用的查询方式如下：
@@ -696,18 +698,18 @@ flat_binder_object结构体代表Binder对象在两个进程间传递的扁平�
 |---|---|---|
 |__u32|	type|类型
 |__u32|	flags|记录优先级、文件描述符许可
-|binder_uintptr_t|binder |local对象，union|
-|__u32|handle |remote对象，union|
-|binder_uintptr_t|cookie|local对象相关的额外数据|
+|binder_uintptr_t|binder |（union）当传递的是binder_node时使用，指向binder_node在应用程序的地址|
+|__u32|handle |（union）当传递的是binder_ref时使用，存放Binder在进程中的引用号|
+|binder_uintptr_t|cookie|该域支队binder_node有效，存放binder_nod的额外数据|
 
 此处的类型type的可能取值来自于`enum`，成员如下：
 
 |成员变量|解释|
 |---|---|
-|BINDER_TYPE_BINDER|binder实体的强引用|
-|BINDER_TYPE_WEAK_BINDER|binder实体的弱引用|
-|BINDER_TYPE_HANDLE|binder强引用|
-|BINDER_TYPE_WEAK_HANDLE|binder弱引用|
+|BINDER_TYPE_BINDER|binder_node的强引用|
+|BINDER_TYPE_WEAK_BINDER|binder_node的弱引用|
+|BINDER_TYPE_HANDLE|binder_ref强引用|
+|BINDER_TYPE_WEAK_HANDLE|binder_ref弱引用|
 |BINDER_TYPE_FD|binder文件描述符|
 
-当传输的flat_binder_object的成员变量type等于BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER类型时，代表该过程为Server进程向Service Manager进程进行服务注册的过程；当其type等于BINDER_TYPE_HANDLE或BINDER_TYPE_WEAK_HEANDLE类型时，代表该过程为Client进程向另一个进程发送Service代理；当其type等于BINDER_TYPE_FD时，代表该过程为一个进程向另一个进程发送文件描述符(file descriptor)。
+当传输的flat_binder_object的成员变量type等于BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER类型时，代表该过程为Server进程向Service Manager进程进行服务注册的过程，则创建binder_node对象；当其type等于BINDER_TYPE_HANDLE或BINDER_TYPE_WEAK_HEANDLE类型时，代表该过程为Client进程向另一个进程发送Service代理，则创建binder_ref对象；当其type等于BINDER_TYPE_FD时，代表该过程为一个进程向另一个进程发送文件描述符(file descriptor)，只是打开文件，则无需创建任何对象。

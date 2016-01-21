@@ -63,7 +63,18 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 3. ActivityManagerService向新生成的ActivityThread进程，通过Binder方式发送生成服务的请求；
 4. ActivityThread启动运行服务，这便于服务启动的简易过程，真正流程远比这服务；
 
-**下面正式开始启动服务的过程分析**
+**启动服务的流程图：**
+
+![start_service_process](/images/android-service/am/start_service_process.png)
+
+图中涉及的首字母缩写：
+
+- AMP:ActivityManagerProxy
+- AMN:ActivityManagerNative
+- AMS:ActivityManagerService
+- AT:ApplicationThread
+- ATP:ApplicationThreadProxy
+- ATN:ApplicationThreadNative
 
 ----------
 
