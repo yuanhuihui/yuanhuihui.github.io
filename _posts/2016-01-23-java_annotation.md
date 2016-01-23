@@ -2,7 +2,7 @@
 layout: post
 title:  "Java注解(Annotation)"
 date:   2016-01-23 15:20:40
-categories: android
+categories: java
 excerpt:  Java注解(Annotation)
 ---
 
@@ -28,28 +28,26 @@ excerpt:  Java注解(Annotation)
 
 所有与Annotation相关的API摘要如下：
 
-
-**(1). 接口(Interface)摘要**
-
-|---|---|
-|Annotation|所有annotation类型都要扩展的公共接口
   
-**(2). 注解类型(Annotation Types)摘要** 
+(1). 注解类型(Annotation Types) API
 
+|注解类型|含义|
 |---|---|
 |Documented|表示含有该注解类型的元素(带有注释的)会通过javadoc或类似工具进行文档化|
 |Inherited|表示注解类型能被自动继承|
 |Retention|表示注解类型的存活时长|
 |Target|表示注解类型所适用的程序元素的种类|
 
-**(3). 枚举(Enum)摘要**
+(2). 枚举(Enum) API
 
+|枚举|含义
 |---|---|
 |ElementType|程序元素类型，用于Target注解类型|
 |RetentionPolicy|注解保留策略，用于Retention注解类型|
 
-**(4). 异常和错误摘要**
+(3). 异常和错误 API
 
+|异常/错误|含义|
 |---|---|
 |AnnotationTypeMismatchException|当注解经过编译(或序列化)后，注解类型改变的情况下，程序视图访问该注解所对应的元素，则抛出此异常
 |IncompleteAnnotationException|当注解经过编译(或序列化)后，将其添加到注解类型定义的情况下，程序视图访问该注解所对应的元素，则抛出此异常。|
@@ -58,7 +56,11 @@ excerpt:  Java注解(Annotation)
 
 ## 二、注解类型
 
+前面讲到注解类型共4种，分别为Documented、Inherited、Retention、Target，接下来从jdk1.7的源码角度，来分别加以说明：
+
 ### 2.1 Documented
+
+源码：
 
 	@Documented
 	@Retention(RetentionPolicy.RUNTIME)
@@ -73,6 +75,8 @@ excerpt:  Java注解(Annotation)
 
 ### 2.2 Inherited
 
+源码：
+
 	@Documented
 	@Retention(RetentionPolicy.RUNTIME)
 	@Target(ElementType.ANNOTATION_TYPE)
@@ -83,6 +87,8 @@ excerpt:  Java注解(Annotation)
 
 ### 2.3 Retention
 
+源码：
+
 	@Documented
 	@Retention(RetentionPolicy.RUNTIME)
 	@Target(ElementType.ANNOTATION_TYPE)
@@ -92,7 +98,7 @@ excerpt:  Java注解(Annotation)
 
 @Retention：表示该注解类型的注解保留的时长。当注解类型声明中没有@Retention元注解，则默认保留策略为RetentionPolicy.CLASS。关于保留策略(RetentionPolicy)是枚举类型，共定义3种保留策略，如下表：
 
-|保留策略|解释|
+|RetentionPolicy|含义|
 |---|---|
 |SOURCE|仅存在Java源文件，经过编译器后便丢弃相应的注解
 |CLASS|存在Java源文件，以及经编译器后生成的Class字节码文件，但在运行时VM不再保留注释|
@@ -103,6 +109,8 @@ excerpt:  Java注解(Annotation)
 
 ### 2.4 Target
 
+源码：
+
 	@Documented
 	@Retention(RetentionPolicy.RUNTIME)
 	@Target(ElementType.ANNOTATION_TYPE)
@@ -112,7 +120,7 @@ excerpt:  Java注解(Annotation)
 
 @Target：表示该注解类型的所使用的程序元素类型。当注解类型声明中没有@Target元注解，则默认为可适用所有的程序元素。如果存在指定的@Target元注解，则编译器强制实施相应的使用限制。关于程序元素(ElementType)是枚举类型，共定义8种程序元素，如下表：
 
-|元素类型|解释|
+|ElementType|含义|
 |---|---|
 |ANNOTATION_TYPE|注解类型声明
 |CONSTRUCTOR|构造方法声明
@@ -127,11 +135,11 @@ excerpt:  Java注解(Annotation)
 
 ## 三、内建注解
 
-Java提供了三种内建注解。
+Java提供了多种内建的注解，下面接下几个比较常用的注解：@Override、@Deprecated、@SuppressWarnings这3个注解。
 
-### 3.1 @Override
+### 3.1 @Override(覆写)
 
-覆写的注解
+源码：
 
 	@Target(ElementType.METHOD)
 	@Retention(RetentionPolicy.SOURCE)
@@ -142,9 +150,9 @@ Java提供了三种内建注解。
 
 注解类型分析：@Override可适用元素为方法，仅仅保留在java源文件中。
 
-### 3.2 @Deprecated
+### 3.2 @Deprecated(不赞成使用)
 
-不赞成使用的注解
+源码：
 
 	@Documented
 	@Retention(RetentionPolicy.RUNTIME)
@@ -156,9 +164,9 @@ Java提供了三种内建注解。
 
 注解类型分析： @Deprecated可适合用于除注解类型声明之外的所有元素，保留时长为运行时VM。
 
-### 3.3 @SuppressWarnings
+### 3.3 @SuppressWarnings(压制警告)
 
-压制警告的注解
+源码：
 
 	@Target({TYPE, FIELD, METHOD, PARAMETER, CONSTRUCTOR, LOCAL_VARIABLE})
 	@Retention(RetentionPolicy.SOURCE)
@@ -174,9 +182,9 @@ Java提供了三种内建注解。
 
 	@SupressWarning(value={"uncheck","deprecation"}) 
 
-压制警告是需要带有参数的，前面讲的@Override，@Deprecated都是无需参数的
+前面讲的@Override，@Deprecated都是无需参数的，而压制警告是需要带有参数的，可用参数如下：
 
-|参数|语义|
+|参数|含义|
 |---|---|
 |deprecation|使用了过时的类或方法时的警告|
 |unchecked|执行了未检查的转换时的警告|
@@ -188,8 +196,9 @@ Java提供了三种内建注解。
 
 
 
+### 3.4 对比
 
-**3种内建注解的对比：**
+3种内建注解的对比：
 
 |内建注解|Target|Retention|
 |---|---|---|
@@ -221,7 +230,7 @@ Java提供了三种内建注解。
 	    int revision() default 1;
 	}
 
-规则：
+自定义注解规则：
 
 1. 注解方法不带参数，比如`name()`，`website()`；
 2. 注解方法返回值类型：基本类型、String、Enums、Annotation以及前面这些类型的数组类型
