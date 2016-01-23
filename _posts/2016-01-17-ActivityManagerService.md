@@ -2,7 +2,7 @@
 layout: post
 title:  "Activity Manager Service(一)"
 date:   2016-01-17 20:12:50
-categories: android binder
+categories: android 
 excerpt:  Activity Manager Service(一)
 ---
 
@@ -65,7 +65,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 **启动服务的流程图：**
 
-![start_service_process](/images/android-service/am/start_service_process.png)
+![Seq_start_service](/images/android-service/am/Seq_start_service.png)
 
 图中涉及的首字母缩写：
 
@@ -1234,4 +1234,15 @@ ApplicationThread类也位于ActivityThread.java文件
         public void onCreate(){	}
     }
 
-最终调用到抽象类Service.onCreate()方法。
+最终调用到抽象类Service.onCreate()方法，对于真正的Service都会通过覆写该方式，调用真正的onCreate()方法。拨云见日，到此总算是进入了Service的生命周期。
+
+
+### 总结
+
+在整个startService过程，从进程角度来说，流程如下图：
+
+![start_service_process](/images/android-service/am/start_service_process.png)
+
+Process A进程：是指调用startService指令所在的进程，也就是启动服务的发起端进程；system_server进程是Android的系统进程，里面有一个线程叫ActivityManager的线程，主要运行ActivityManagerService相关的服务；Zygote进程，这是由init进程孵化而来的，用于创建Java层进程的母体，所有的Java层进程都是由Zygote进程孵化而来；RemoteService进程便是由Zygote进程孵化而来的用于运行Remote服务的进程，即startService所发起的进程。在图中涉及3次进程/线程间的通信方式，Binder方式、Socket方式以及Handler方式，分别用3种不同的颜色来代表3种通信方式在启动服务过程的整个流程所在环节。一般来说，进程内的线程间通信更多的是采用handler（消息队列）的方式来通信，而进程间的通信更多的是采用binder机制，对于Zygote则是采用Socket的通信方式。
+
+如果读者进一步，深入了解Binder和handler背后的原理，可查看[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章，该系列从Android 6.0的源码为基础，展开地深入分析，该系统共有10篇文章。对于handler，可查看- [Android消息机制-Handler(上篇)](http://www.yuanhh.com/2015/12/26/handler-message/)、[Handler(中篇)](http://www.yuanhh.com/2015/12/27/handler-message-2/)、[Handler(下篇)](http://www.yuanhh.com/2016/01/01/handler-message-3/)共3篇文章。
