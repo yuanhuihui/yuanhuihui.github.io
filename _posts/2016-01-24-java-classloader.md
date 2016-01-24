@@ -12,6 +12,8 @@ excerpt:  Java类加载器（ClassLoader）
 
 ---
 
+> 本文主要讲述Java ClassLoader的工作原理，这为后面将Android App代码热替换或者插件化升级做铺垫
+
 ## 一、 类加载器
 
 ClassLoader即常说的类加载器，其功能是用于从Class文件加载所需的类，主要场景用于热部署、代码热替换等场景。
@@ -178,7 +180,7 @@ ClassLoader的双亲委派模型中，各个ClassLoader之间的关系是通过�
 	class com.yuanhh.classloader.ClassLoadDemo
 	false
 
-输出结果的第一行，可以看出这个对象的确是`com.yuanhh.classloader.ClassLoadDemo`实例化的对象；但第二句是false，这是由于代码中的obj是由用户自定义的类加载器clazzLoader来加载的，虚拟机本身会由系统类加载器加载的类，虽然都是来自同一个Class文件，加载器不同，故仍然是两个不同的类，所以返回值是false。
+输出结果的第一行，可以看出这个对象的确是`com.yuanhh.classloader.ClassLoadDemo`实例化的对象；但第二句是false，这是由于代码中的obj是由用户自定义的类加载器clazzLoader来加载的，可通过obj.getClass().getClassLoader()获取该对象的类加载器为com.yuanhh.classloader.ClassLoadDemo$xxx，而虚拟机本身会由系统类加载器加载的类ClassLoadDemo，可通过ClassLoadDemo.class.getClassLoader()得其类加载器为sun.misc.Launcher$AppClassLoader@XXX。所以可得出结论：即使都是来自同一个Class文件，加载器不同，仍然是两个不同的类，所以返回值是false。
 
 通过`Class.forName()`方法加载的类，采用的是系统类加载器。
 
