@@ -19,7 +19,7 @@ excerpt:  Jvm系列1—Class文件介绍
 计算机只能识别0和1，所以大家编写的程序都需要经过编译器，转换为由0和1组成的二进制本地机器码(Native Code)。随着虚拟机的不断发展，很多程序语言开始选择与操作系统和机器指令集无关的格式作为编译后的存储格式（Class文件），从而实现"Write Once, Run Anywhere"。  
 Java设计之初，考虑后期能让Java虚拟机运行其他语言，目前有越来越多的其他语言都可以直接需要在Java虚拟机，虚拟机只能识别Class文件，至于是由何种语言编译而来的，虚拟机并不关心，如下图：
 
-![Jvm_class_loading_1](\images\jvm\Jvm_class_loading_1.png)
+![Jvm_class_loading_1](/images/jvm/Jvm_class_loading_1.png)
 
 可以看出不管是由Java语言，还是JRuby等其他语言，只能能生成.class字节码文件，就都可以运行在Java虚拟机上。故发布规范文档时，Java规范拆分为Java语言规范和Java虚拟机规范。  
 
