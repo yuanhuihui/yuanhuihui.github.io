@@ -78,11 +78,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 ----------
 
-### 0. startService() API
-
-首先，来讲述通过startService()这个API，是如何斗转星移般地交给了ActivityManagerService，并调用ActivityManagerService的startService()的呢？ 答案就是通过Binder IPC机制.
-
-首先，在我们应用程序的Activity类的调用startService()方法，该方法再调用【流程1】的方法。
+接下来，我们正式从代码角度来分析服务启动的过程。首先在我们应用程序的Activity类的调用startService()方法，该方法调用【流程1】的方法。
 
 ### 1. ContextWrapper.startService
 

@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "Android消息机制-Handler(中篇)"
-date:   2015-12-27 22:30:20
+title:  "Android消息机制-Handler(实战篇)"
+date:   2016-01-01 14:09:12
 categories: android handler
 excerpt:  Android Message
 ---
@@ -98,31 +98,52 @@ HandlerThread 继承于 Thread类
 
 quit()与quitSafely()的区别，仅仅在于是否移除当前正在处理的消息。移除当前正在处理的消息可能会出现不安全的行为。
 
-### 用法
+## 实战
 
-很多时候，在HandlerThread线程中运行Loop()方法，在其他线程中通过Handler发送消息到HandlerThread线程。
-通过wait/notifyAll的方式，有效地解决了多线程的同步问题。
+### 用法1：利用HandlerThread
 
-下面再来讲解用法：
+很多时候，在HandlerThread线程中运行Loop()方法，在其他线程中通过Handler发送消息到HandlerThread线程。通过wait/notifyAll的方式，有效地解决了多线程的同步问题。
 
-1. 创建并启动HandlerThread线程，内部包含Looper
+示例代码：
+
+	// Step 1: 创建并启动HandlerThread线程，内部包含Looper	
+	HandlerThread handlerThread = new HandlerThread("yuanhh.com");
+	handlerThread.start()
 	
-		HandlerThread handlerThread = new HandlerThread("yuanhh.com");
-		handlerThread.start()
-
-2. 创建Handler
-
-		Handler handler = new Handler(handlerThread.getLooper());
-
-3. 发送消息
-
+	// Step 2: 创建Handler
+	Handler handler = new Handler(handlerThread.getLooper());
+	
+	// Step 3: 发送消息
 	handler.post(new Runnable() {  
-              
-            @Override  
-            public void run() {  
-                System.out.println("thread id="+Thread.currentThread().getId());  
-                handler.sendEmptyMessage(10);  
-            }  
-        });  
+	          
+	        @Override  
+	        public void run() {  
+	            System.out.println("thread id="+Thread.currentThread().getId());  
+	            handler.sendEmptyMessage(10);  
+	        }  
+	    });  
 
+
+### 用法2：直接创建线程
+
+示例代码：
+
+	class LooperThread extends Thread {
+	    public Handler mHandler;
+	
+	    public void run() {
+	        Looper.prepare();   
+	
+	        mHandler = new Handler() {  
+	            public void handleMessage(Message msg) {
+	                //处理即将发送过来的消息 
+	            }
+	        };
+	
+	        Looper.loop(); 
+	    }
+	}
+	
+	
+	LooperThread.mHandler.sendEmptyMessage(10);  
 

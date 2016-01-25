@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "进程篇—生命周期"
+title:  "进程篇—生命周期与ADJ"
 date:   2015-10-01 22:20:52
 categories: android Process
-excerpt:  进程篇—生命周期
+excerpt:  进程篇—生命周期与ADJ
 ---
 
 * content

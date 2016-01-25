@@ -22,9 +22,9 @@
 
 ## Handler系列
 
-- [Android消息机制-Handler(上篇)](http://www.yuanhh.com/2015/12/26/handler-message/)
-- [Android消息机制-Handler(中篇)](http://www.yuanhh.com/2015/12/27/handler-message-2/)
-- [Android消息机制-Handler(下篇)](http://www.yuanhh.com/2016/01/01/handler-message-3/)
+- [Android消息机制-Handler(framework篇)](http://www.yuanhh.com/2015/12/26/handler-message-framework/)
+- [Android消息机制-Handler(native篇)](http://www.yuanhh.com/2015/12/27/handler-message-native/)
+- [Android消息机制-Handler(实战篇)](http://www.yuanhh.com/2016/01/01/handler-message-usage/)
 
 ## 进程篇
 

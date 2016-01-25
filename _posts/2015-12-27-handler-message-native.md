@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "Android消息机制-Handler(下篇)"
-date:   2016-01-01 14:09:12
+title:  "Android消息机制-Handler(native篇)"
+date:   2015-12-27 22:30:20
 categories: android handler
 excerpt:  Android Message
 ---

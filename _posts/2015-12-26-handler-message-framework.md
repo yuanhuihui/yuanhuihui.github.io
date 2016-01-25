@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android消息机制-Handler(上篇)"
+title:  "Android消息机制-Handler(framework篇)"
 date:   2015-12-26 18:10:50
 categories: android handler
 excerpt:  Android Message
