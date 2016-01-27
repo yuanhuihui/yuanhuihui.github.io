@@ -14,11 +14,12 @@ excerpt:  Activity Manager Service(一)
 
 > 基于Android 6.0的源码剖析， 分析App启动过程中ActivityManagerService所扮演的角色
 
-	/frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+
 	/frameworks/base/services/core/java/com/android/server/am/ActiveServices.java
 	/frameworks/base/services/core/java/com/android/server/am/ServiceRecord.java
 	/frameworks/base/services/core/java/com/android/server/am/ProcessRecord.java
 
+	/frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
 	/frameworks/base/core/java/android/app/IActivityManager.java
 	/frameworks/base/core/java/android/app/ActivityManagerNative.java (内含ActivityManagerProxy类)
 	/frameworks/base/core/java/android/app/ActivityManager.java

@@ -871,7 +871,7 @@ wifiPowerMah =   ((totalRunningTimeMs - mTotalAppWifiRunningTimeMs) * mWifiPower
     }
 
 计算：
-aggregateSippers
+
     public void calculateRemaining(BatterySipper app, BatteryStats stats, long rawRealtimeUs,
                                    long rawUptimeUs, int statsType) {
         final long idleTimeMs = stats.getBluetoothControllerActivity(
