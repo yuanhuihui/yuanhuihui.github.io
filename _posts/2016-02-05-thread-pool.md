@@ -26,16 +26,11 @@ excerpt: 谈一谈线程池
 
 ## 二、线程池用法
 
-Java API针对不同需求，利用`Executors`类提供了4种不同的线程池：
-
-1. newCachedThreadPool：创建一个可缓存线程池，如果线程池长度超过处理需要，可灵活回收空闲线程，若无可回收，则新建线程。
-2. newFixedThreadPool：创建一个定长线程池，可控制线程最大并发数，超出的线程会在队列中等待。
-3. newScheduledThreadPool：创建一个定长线程池，支持定时及周期性任务执行。
-4. newSingleThreadExecutor：创建一个单线程化的线程池，它只会用唯一的工作线程来执行任务，保证所有任务按照指定顺序(FIFO, LIFO, 优先级)执行。
+Java API针对不同需求，利用`Executors`类提供了4种不同的线程池：newCachedThreadPool, newFixedThreadPool, newScheduledThreadPool, newSingleThreadExecutor，接下来讲讲线程池的用法。
 
 ### 2.1 newCachedThreadPool
 
-创建一个可缓存的无界线程池，该方法无参数，当线程池中的线程空闲时间超过60s则会自动回收该线程，当任务超过线程池的线程数则创建新线程。线程池的大小上限为Integer.MAX_VALUE，可看做是无限大。
+创建一个可缓存的无界线程池，该方法无参数。当线程池中的线程空闲时间超过60s则会自动回收该线程，当任务超过线程池的线程数则创建新线程。线程池的大小上限为Integer.MAX_VALUE，可看做是无限大。
 
     public void cachedThreadPoolDemo(){
         ExecutorService cachedThreadPool = Executors.newCachedThreadPool();
@@ -106,7 +101,7 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
 
 ### 2.3 newSingleThreadExecutor
 
-创建一个只有线程的线程池，该方法无参数，所有任务都保存队列LinkedBlockingQueue中，等待唯一的单线程来执行任务。
+创建一个只有线程的线程池，该方法无参数，所有任务都保存队列LinkedBlockingQueue中，等待唯一的单线程来执行任务，并保证所有任务按照指定顺序(FIFO或优先级)执行。
 
     public void singleThreadExecutorDemo(){
         ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor();
