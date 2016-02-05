@@ -2,7 +2,7 @@
 layout: post
 title:  "设计模式-开篇"
 date:   2015-07-05 19:10:10
-categories: Java
+categories: java
 excerpt:  设计模式-开篇
 ---
 

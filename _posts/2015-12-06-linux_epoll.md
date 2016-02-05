@@ -2,7 +2,7 @@
 layout: post
 title:  "select/poll/epoll对比分析"
 date:   2015-12-06 23:30:20
-categories: Linux
+categories: linux
 excerpt:  select/poll/epoll对比分析
 ---
 

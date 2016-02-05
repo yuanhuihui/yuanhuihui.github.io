@@ -2,8 +2,8 @@
 layout: post
 title:  "Android体系架构"
 date:   2015-08-01 11:30:00
-categories:  Android
-excerpt:  Android
+categories:  android
+excerpt:  Android体系架构
 ---
 
 * content

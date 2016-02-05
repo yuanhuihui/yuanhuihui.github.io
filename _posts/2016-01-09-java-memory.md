@@ -2,7 +2,7 @@
 layout: post
 title:  "Java内存模型"
 date:   2016-01-09 19:18:10
-categories: Java memory
+categories: java memory
 excerpt:  Java内存模型
 ---
 

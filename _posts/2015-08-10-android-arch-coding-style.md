@@ -2,7 +2,7 @@
 layout: post
 title:  "Android开发规范"
 date:   2015-08-10 21:14:54
-categories: Android
+categories: android
 excerpt:  Android开发规范
 ---
 

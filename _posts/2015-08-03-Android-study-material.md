@@ -2,7 +2,7 @@
 layout: post
 title:  "Android学习资料"
 date:   2015-08-03 22:14:54
-categories:  Android
+categories:  android
 excerpt:  各种技术博客，开源库等整理
 ---
 

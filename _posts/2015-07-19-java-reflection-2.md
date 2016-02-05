@@ -2,8 +2,8 @@
 layout: post
 title:  "Java反射之实用篇"
 date:   2015-07-19 22:05:10
-categories: Java
-excerpt:  Java 反射
+categories: java
+excerpt:  Java反射之实用篇
 ---
 
 * content

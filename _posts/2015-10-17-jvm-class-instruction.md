@@ -2,7 +2,7 @@
 layout: post
 title:  "Jvm系列1—Class文件格式"
 date:   2015-10-17 10:16:10
-categories: jvm Java
+categories: jvm java
 excerpt:  Jvm系列1—Class文件格式
 ---
 
