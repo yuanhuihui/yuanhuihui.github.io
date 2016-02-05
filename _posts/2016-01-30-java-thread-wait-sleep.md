@@ -2,7 +2,7 @@
 layout: post
 title:  "wait、notify、sleep、interrupt对比分析"
 date:   2016-01-30 19:10:40
-categories: java Process
+categories: java process
 excerpt: wait、notify、sleep、interrupt对比分析
 ---
 

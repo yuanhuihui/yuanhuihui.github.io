@@ -2,7 +2,7 @@
 layout: post
 title:  "进程篇—状态转换"
 date:   2015-12-12 19:10:40
-categories: Process
+categories: process
 excerpt:  进程篇—状态转换
 ---
 

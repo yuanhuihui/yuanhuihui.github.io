@@ -2,7 +2,7 @@
 layout: post
 title:  "进程篇—进程整理"
 date:   2015-12-19 21:10:40
-categories: android Process
+categories: android process
 excerpt:  进程篇—进程整理
 ---
 

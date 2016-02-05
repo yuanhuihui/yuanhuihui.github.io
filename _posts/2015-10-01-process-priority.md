@@ -2,7 +2,7 @@
 layout: post
 title:  "进程篇—优先级调度"
 date:   2015-10-01 22:20:52
-categories: android Process
+categories: android process
 excerpt:  进程篇—优先级调度
 ---
 
