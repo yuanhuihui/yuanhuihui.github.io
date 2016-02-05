@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Jvm系列1—Class文件介绍"
+title:  "Jvm系列1—Class文件格式"
 date:   2015-10-17 10:16:10
 categories: jvm Java
-excerpt:  Jvm系列1—Class文件介绍
+excerpt:  Jvm系列1—Class文件格式
 ---
 
 * content

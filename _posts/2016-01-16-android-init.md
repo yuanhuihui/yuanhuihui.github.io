@@ -14,10 +14,12 @@ excerpt:  Android系统启动-init篇
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程进程号为1的init进程的工作内容
 
-	/system/core/init/init.h
-	/system/core/init/init.cpp
-	/system/core/init/signal_handler.h
-	/system/core/init/signal_handler.cpp
+	/system/core/init/Init.h
+	/system/core/init/Init.cpp
+	/system/core/init/Init_parser.h
+	/system/core/init/Init_parser.cpp
+	/system/core/init/Signal_handler.h
+	/system/core/init/Signal_handler.cpp
 
 ## 一、概述
 
@@ -324,11 +326,32 @@ Options是Services的可选项，与service配合使用
 	    group graphics drmrpc
 	    onrestart restart zygote
 
-**zygote**对应的可执行文件是/system/bin/app_process，通过调用`pid =fork()`创建子进程，通过`execve(svc->args[0], (char**)svc->args, (char**) ENV)`，进入app_process的 main函数。故zygote是通过fork和execv共同创建的，[此处先留空，后续再针对zygote单独用一篇文章来说明]()。
+## 四、创建Zygote
+
+在init.zygote.rc文件中，zygote服务定义如下：
+
+	service zygote /system/bin/app_process -Xzygote /system/bin --zygote --start-system-server
+	    class main
+	    socket zygote stream 660 root system
+	    onrestart write /sys/android_power/request_state wake
+	    onrestart write /sys/power/state on
+	    onrestart restart media
+	    onrestart restart netd
+
+通过`Init_parser.cpp`完成整个service解析工作，此处就不详细展开讲解析过程，该过程主要是创建一个名"zygote"的service结构体，一个socketinfo结构体(用于socket通信)，以及一个包含4个onrestart的action结构体。
+
+Zygote服务会随着main class的启动而启动，退出后会由init重启zygote，即使多次重启也不会进入recovery模式。zygote所对应的可执行文件是/system/bin/app_process，通过调用`pid =fork()`创建子进程，通过`execve(svc->args[0], (char**)svc->args, (char**) ENV)`，进入App_main.cpp的main()函数。故zygote是通过fork和execv共同创建的。
+
+流程如下：
+
+![zygote_init](/images/boot/init/zygote_init.jpg)
+
+而关于Zygote重启在前面的信号处理过程中讲过，是处理SIGCHLD信号，init进程重启zygote进程。
+
+[更多关于Zygote内容，会在后续文章中展开]()
 
 
-
-## 四、属性服务
+## 五、属性服务
 
 当某个进程A，通过property_set()修改属性值后，init进程会检查访问权限，当权限满足要求后，则更改相应的属性值，属性值一旦改变则会触发相应的触发器（即rc文件中的on开头的语句)，在Android Shared Memmory（共享内存区域）中有一个_system_property_area_区域，里面记录着素有的属性值。对于进程A通过property_get（）方法，获取的也是该共享内存区域的属性值。
 
