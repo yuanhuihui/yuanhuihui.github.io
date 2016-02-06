@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "谈一谈线程池"
-date:   2016-02-05 16:12:42
-categories: java android process
-excerpt: 谈一谈线程池
+title:  "Java线程池分析"
+date:   2016-02-06 12:12:42
+categories: java process
+excerpt: Java线程池分析
 ---
 
 * content
@@ -130,6 +130,7 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
 	pool-1-thread-1, index=1
 	pool-1-thread-1, index=2
 
+从运行结果可以看出，所有任务都是在单一线程运行的。
 
 ### 2.4 newScheduledThreadPool
 
@@ -163,6 +164,11 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
 	pool-1-thread-2, every 3s
 	pool-1-thread-2, every 3s
 	...
+
+- schedule(Runnable command, long delay, TimeUnit unit)，延迟一定时间后执行Runnable任务；
+- schedule(Callable<V> callable, long delay, TimeUnit unit)，延迟一定时间后执行Callable任务；
+- scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit)，延迟一定时间后，以间隔period时间的频率周期性地执行任务；
+- scheduleWithFixedDelay(Runnable command, long initialDelay, long delay,TimeUnit unit)，与scheduleAtFixedRate()方法很类似，但是不同的是scheduleWithFixedDelay()方法的周期时间间隔是以上一个任务执行结束到下一个任务开始执行的间隔，而scheduleAtFixedRate()方法的周期时间间隔是以上一个任务开始执行到下一个任务开始执行的间隔，也就是这一些任务系列的触发时间都是可预知的。
 
 ScheduledExecutorService功能强大，对于定时执行的任务，建议多采用该方法。
 
@@ -260,7 +266,7 @@ Executors类提供4个静态工厂方法：newCachedThreadPool()、newFixedThrea
 - 无界队列。使用无界队列（例如，不具有预定义容量的 LinkedBlockingQueue）将导致在所有 corePoolSize 线程都忙时新任务在队列中等待。这样，创建的线程就不会超过 corePoolSize。（因此，maximumPoolSize 的值也就无效了。）当每个任务完全独立于其他任务，即任务执行互不影响时，适合于使用无界队列；例如，在 Web 页服务器中。这种排队可用于处理瞬态突发请求，当命令以超过队列所能处理的平均数连续到达时，此策略允许无界线程具有增长的可能性。
 - 有界队列。当使用有限的 maximumPoolSizes 时，有界队列（如 ArrayBlockingQueue）有助于防止资源耗尽，但是可能较难调整和控制。队列大小和最大池大小可能需要相互折衷：使用大型队列和小型池可以最大限度地降低 CPU 使用率、操作系统资源和上下文切换开销，但是可能导致人工降低吞吐量。如果任务频繁阻塞（例如，如果它们是 I/O 边界），则系统可能为超过您许可的更多线程安排时间。使用小型队列通常要求较大的池大小，CPU 使用率较高，但是可能遇到不可接受的调度开销，这样也会降低吞吐量。
 
-### 3.3  工作队列BlockingQueue
+### 3.3 工作队列BlockingQueue
 
 BlockingQueue的插入/移除/检查这些方法，对于不能立即满足但可能在将来某一时刻可以满足的操作，共有4种不同的处理方式：第一种是抛出一个异常，第二种是返回一个特殊值（null 或 false，具体取决于操作），第三种是在操作可以成功前，无限期地阻塞当前线程，第四种是在放弃前只在给定的最大时间限制内阻塞。如下表格：
 
