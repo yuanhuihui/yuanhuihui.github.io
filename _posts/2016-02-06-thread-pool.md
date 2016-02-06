@@ -3,7 +3,7 @@ layout: post
 title:  "Java线程池分析"
 date:   2016-02-06 12:12:42
 categories: java process
-excerpt: Java线程池分析
+excerpt:  Java线程池分析
 ---
 
 * content
