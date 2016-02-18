@@ -642,13 +642,8 @@ ActivityManagerNative.getDefault()该方法返回的是ActivityManagerProxy对�
         }
     }
 
-关于**Process.start()**是通过socket通信，告知Zygote创建新的进程。Zygote采用fork方式创建新进程A，采用copy on write技术，新创建的进程复制Zygote进程本身的资源，再加上新进程A相关的资源，构成新的应用进程A，如下图：
+关于**Process.start()**是通过socket通信，告知[Zygote](http://www.yuanhh.com/22016/02/13/android-zygote/)创建fork子进程，创建完新进程，将ActivityThread类加载到新进程，并调用ActivityThread.main()方法。
 
-![zygote_fork](/images/android-service/am/zygote_fork.png)
-
-Zygote创建完新进程，将ActivityThread类加载到新进程，并调用ActivityThread.main()方法。
-
-*注： 关于Zygote内容比较多，这里先不展开讲，后续会有专门针对Zygote文章。*
 
 
 ### 8. ActivityThread

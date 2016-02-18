@@ -719,7 +719,7 @@ IPCThreadState进行transact事务处理分3部分：
 	    status_t result;
 	    do {
 	        processPendingDerefs(); //清除队列的引用
-	        result = getAndExecuteCommand(); //处理下一条指令 【见流程20】
+	        result = getAndExecuteCommand(); //处理下一条指令 【见流程21】
 	
 	        if (result < NO_ERROR && result != TIMED_OUT && result != -ECONNREFUSED && result != -EBADF) {
 	            abort();

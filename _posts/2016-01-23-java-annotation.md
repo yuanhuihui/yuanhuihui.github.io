@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Java注解（Annotation）"
+title:  "Java注解(Annotation)"
 date:   2016-01-23 15:20:40
 categories: java
-excerpt:  Java注解（Annotation）
+excerpt:  Java注解(Annotation)
 ---
 
 * content
