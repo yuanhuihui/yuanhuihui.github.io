@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Android系统启动—SystemServer篇(二)"
+title:  "Android系统启动-   SystemServer篇(二)"
 date:   2016-02-20 21:12:40
 categories: android
-excerpt:  Android系统启动—SystemServer篇(二)
+excerpt:  Android系统启动-SystemServer篇(二)
 ---
 
 * content
@@ -141,7 +141,7 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
         mSystemContext.setTheme(android.R.style.Theme_DeviceDefault_Light_DarkActionBar);
     }
 
-### 3.1 systemMain
+#### 3.1 systemMain
 
 [-->ActivityThread.java]
 
@@ -159,7 +159,7 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
         return thread;
     }
 
-### 3.2 attach
+#### 3.2 attach
 
 [-->ActivityThread.java]
 
@@ -218,7 +218,7 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
 
 主要工作是创建应用上下文ContextImpl，创建Application以及调用其onCreate()方法，设置DropBox以及ComponentCallbacks2回调方法。
 
-### 3.3 makeApplication
+#### 3.3 makeApplication
 
 [-->LoadedApk.java]
 
@@ -258,7 +258,7 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
 
 在该方法调用之前，已经创建了LoadedApk对象，该对象的成员变量mPackageName="android"; mClassLoader = ClassLoader.getSystemClassLoader();
 
-### 3.4 getSystemContext
+#### 3.4 getSystemContext
 
 [-->ActivityThread.java]
 
@@ -488,7 +488,7 @@ startOtherServices()会初始化并启动大概70多个Service，分类以下两
 
 其中WindowManagerServi创建新线程；DropBoxManagerService会将结果保存在/data/system/dropbox。
 
-### BootPhase
+#### BootPhase
 
 该方法有近千行代码，除了启动上述的大量方法，还有一些比较重要的逻辑
 
