@@ -181,7 +181,7 @@ Java Framework中的service都运行在system_server进程中，system_server内
 |UEventObserver|system_server专有|
 |...|...|
 
-ActivityManagerService线程是一个ServerThread线程。
+ActivityManagerService线程是一个ServerThread线程。进程结构体task_struct的comm字段是一个长度为16的char型，故进程名最长为15个字符。
 
 ### 3.3 mediaserver 子线程
 
