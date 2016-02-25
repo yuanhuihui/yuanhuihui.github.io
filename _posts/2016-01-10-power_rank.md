@@ -312,6 +312,7 @@ wifiPowerMah = ((idleTime * mIdleCurrentMa) + (txTime * mTxCurrentMa) + (rxTime 
 
 **可配置项**
 
+- POWER_WIFI_ACTIVE = "wifi.active"（用于计算mWifiPowerPerPacket）
 - POWER_WIFI_ON="wifi.on"
 - POWER_WIFI_SCAN = "wifi.scan"
 - POWER_WIFI_BATCHED_SCAN = "wifi.batchedscan";
@@ -346,6 +347,16 @@ wifiPowerMah = ((idleTime * mIdleCurrentMa) + (txTime * mTxCurrentMa) + (rxTime 
     }
 
 其中 `BatteryStats.Uid.NUM_WIFI_BATCHED_SCAN_BINS=5`
+
+另外
+
+    private static double getWifiPowerPerPacket(PowerProfile profile) {
+        final long WIFI_BPS = 1000000; //初略估算每秒的收发1000000bit
+        final double WIFI_POWER = profile.getAveragePower(PowerProfile.POWER_WIFI_ACTIVE)
+                / 3600;
+        return (WIFI_POWER / (((double)WIFI_BPS) / 8 / 2048)) / (60*60);
+    }
+
 
 **子公式**
 
@@ -1052,3 +1063,11 @@ mHasWifiActivityReporting的默认值为false，故WIFI计算方式默认采用W
 |用户|-||
   
 只有通过配置文件，精确地配置好每一项的基础功耗值，才能有一个精确的功耗统计结果。
+
+
+
+
+wifi批量值
+wifi 计算公式
+
+kernelcpu时间计算

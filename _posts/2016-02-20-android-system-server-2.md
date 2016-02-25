@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android系统启动-   SystemServer篇(二)"
+title:  "Android系统启动-SystemServer篇(二)"
 date:   2016-02-20 21:12:40
 categories: android
 excerpt:  Android系统启动-SystemServer篇(二)
@@ -558,13 +558,13 @@ startOtherServices()会初始化并启动大概70多个Service，分类以下两
 
 在上述方法中，有一个mSystemServiceManager.startBootPhase(）方法贯穿整个流程。启动阶段从PHASE_WAIT_FOR_DEFAULT_DISPLAY到PHASE_BOOT_COMPLETED，具体如下：
 
-|阶段|解释|
+|阶段|值|解释|
 |---|---|
-|PHASE_WAIT_FOR_DEFAULT_DISPLAY|进入该阶段，等待Display有默认显示
-|PHASE_LOCK_SETTINGS_READY|进入该阶段，服务能获取设置数据的锁
-|PHASE_SYSTEM_SERVICES_READY|进入该阶段，服务能安全地调用核心系统服务，比如PowerManager/PackageManager
-|PHASE_ACTIVITY_MANAGER_READY|进入该阶段，服务能广播Intent
-|PHASE_THIRD_PARTY_APPS_CAN_START|进入该阶段，服务能start/bind第三方apps，app能通过BInder调用service
-|PHASE_BOOT_COMPLETED|该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
+|PHASE_WAIT_FOR_DEFAULT_DISPLAY|100|进入该阶段，等待Display有默认显示
+|PHASE_LOCK_SETTINGS_READY|480|进入该阶段，服务能获取设置数据的锁
+|PHASE_SYSTEM_SERVICES_READY|500|进入该阶段，服务能安全地调用核心系统服务，比如PowerManager/PackageManager
+|PHASE_ACTIVITY_MANAGER_READY|550|进入该阶段，服务能广播Intent
+|PHASE_THIRD_PARTY_APPS_CAN_START|600|进入该阶段，服务能start/bind第三方apps，app能通过BInder调用service
+|PHASE_BOOT_COMPLETED|1000|该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
 
 接下来的文章，会重点分析system_server中比较重要的服务，比如ActivityManagerService, PowerManagerService, PackageManagerService等。
