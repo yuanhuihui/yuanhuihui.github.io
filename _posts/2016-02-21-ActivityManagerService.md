@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Activity Manager Service(一)"
-date:   2016-01-17 20:12:50
+date:   2016-02-21 20:12:50
 categories: android 
 excerpt:  Activity Manager Service(一)
 ---

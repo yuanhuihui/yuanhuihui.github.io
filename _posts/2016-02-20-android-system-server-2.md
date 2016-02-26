@@ -26,20 +26,18 @@ excerpt:  Android系统启动-SystemServer篇(二)
 
 
 
-### 1.概述
+### 一、 SystemServer分析
 
-system_server进程是由zygote进程fork生成的，本文是在讲述system_server承载了java framework的哪些系统服务。从上一篇文章[Android系统启动-systemServer上篇](http://www.yuanhh.com/22016/02/14/android-system-server/#methodandargscaller)，可知接下来进入main()方法。
+system_server进程是由zygote进程fork生成的，本文是在讲述system_server承载了java framework的哪些系统服务， 紧接着上一篇文章[Android系统启动-systemServer上篇](http://www.yuanhh.com/22016/02/14/android-system-server/#methodandargscaller)，接下来进入main()方法。
 
-[-->SystemServer.java]
+**Step 1.** SystemServer.main
 
     public static void main(String[] args) {
-        //先初始化SystemServer对象，再调用对象的run()方法， 【见小节2】
+        //先初始化SystemServer对象，再调用对象的run()方法， 【见Step 2】
         new SystemServer().run(); 
     }
 
-### 2. run()
-
-[-->SystemServer.java]
+**Step 2.** SystemServer.run
 
     private void run() {
         //当系统时间比1970年更早，就设置当前系统时间为1970年
@@ -47,17 +45,6 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
             Slog.w(TAG, "System clock is before 1970; setting to 1970.");
             SystemClock.setCurrentTimeMillis(EARLIEST_SUPPORTED_TIME);
         }
-
-        if (!SystemProperties.get("persist.sys.language").isEmpty()) {
-            final String languageTag = Locale.getDefault().toLanguageTag();
-            SystemProperties.set("persist.sys.locale", languageTag);
-            SystemProperties.set("persist.sys.language", "");
-            SystemProperties.set("persist.sys.country", "");
-            SystemProperties.set("persist.sys.localevar", "");
-        }
-
-        Slog.i(TAG, "Entered the Android system server!");
-        EventLog.writeEvent(EventLogTags.BOOT_PROGRESS_SYSTEM_RUN, SystemClock.uptimeMillis());
 
         //变更虚拟机的库文件，对于Android 6.0一般采用的是libart.so
         SystemProperties.set("persist.sys.dalvik.vm.lib.2", VMRuntime.getRuntime().vmLibrary());
@@ -74,6 +61,7 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
                 }
             }, SNAPSHOT_INTERVAL, SNAPSHOT_INTERVAL);
         }
+
         //清除vm内存增长上限，由于启动过程需要较多的虚拟机内存空间
         VMRuntime.getRuntime().clearGrowthLimit();
 
@@ -90,7 +78,7 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_FOREGROUND);
         android.os.Process.setCanSelfBackground(false);
 
-        // main looper线程就在当前线程运行
+        // 主线程looper就在当前线程运行
         Looper.prepareMainLooper();
 
         //加载android_servers.so库，该库包含的源码在frameworks/base/services/目录下
@@ -99,19 +87,20 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
         //检测上次关机过程是否失败，该方法可能不会返回
         performPendingShutdown();
 
-        //初始化系统上下文 【见小节3】
+        //初始化系统上下文 【见Step 3】
         createSystemContext();
 
         //创建系统服务管理
         mSystemServiceManager = new SystemServiceManager(mSystemContext);
-        //将mSystemServiceManager添加到本地服务 【见小节4】
+        //将mSystemServiceManager添加到本地服务的成员sLocalServiceObjects
         LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
 
         
+        //启动各种系统服务 【见Step 4】
         try {
-            startBootstrapServices(); //引导服务 //启动服务 【见小节5】
-            startCoreServices();      //核心服务 //启动服务 【见小节6】
-            startOtherServices();     //其他服务 //启动服务 【见小节7】
+            startBootstrapServices(); // 启动引导服务
+            startCoreServices();      // 启动核心服务
+            startOtherServices();     // 启动其他服务  
         } catch (Throwable ex) {
             Slog.e("System", "************ Failure starting system services", ex);
             throw ex;
@@ -126,24 +115,20 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
         throw new RuntimeException("Main thread loop unexpectedly exited");
     }
 
+LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务类名为key，以具体服务对象为value的Map结构。
 
-
-### 3. createSystemContext
-
-[-->SystemServer.java]
+**Step 3.** SystemServer.createSystemContext
 
     private void createSystemContext() {
-        //【见小节3.1】
+        //创建ActivityThread对象【见Step 3-1】
         ActivityThread activityThread = ActivityThread.systemMain();
-        //【见小节3.4】
+        //创建ContextImpl、LoadedApk对象【见Step 3-2】
         mSystemContext = activityThread.getSystemContext();
-        // 设置主题
+        //设置主题
         mSystemContext.setTheme(android.R.style.Theme_DeviceDefault_Light_DarkActionBar);
     }
 
-#### 3.1 systemMain
-
-[-->ActivityThread.java]
+**Step 3-1.**  ActivityThread.systemMain
 
     public static ActivityThread systemMain() {
         //对于低内存的设备，禁用硬件加速
@@ -154,14 +139,12 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
         }
         // 创建ActivityThread
         ActivityThread thread = new ActivityThread();
-        // 【见小节3.2】
+        // 创建Application以及调用其onCreate()方法【见Step 3-1-1】
         thread.attach(true);
         return thread;
     }
 
-#### 3.2 attach
-
-[-->ActivityThread.java]
+**Step 3-1-1.**  ActivityThread.attach
 
     private void attach(boolean system) {
         sCurrentActivityThread = this;
@@ -179,7 +162,7 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
                 // 创建应用上下文
                 ContextImpl context = ContextImpl.createAppContext(
                         this, getSystemContext().mPackageInfo);
-                //创建Application 【见小节3.3】
+                //创建Application 【见Step 3-1-1-1】
                 mInitialApplication = context.mPackageInfo.makeApplication(true, null);
                 //调用Application.onCreate()方法
                 mInitialApplication.onCreate();
@@ -218,9 +201,7 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
 
 主要工作是创建应用上下文ContextImpl，创建Application以及调用其onCreate()方法，设置DropBox以及ComponentCallbacks2回调方法。
 
-#### 3.3 makeApplication
-
-[-->LoadedApk.java]
+**Step 3-1-1-1.**  LoadedApk.makeApplication
 
     public Application makeApplication(boolean forceDefaultAppClass,
             Instrumentation instrumentation) {
@@ -258,23 +239,25 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
 
 在该方法调用之前，已经创建了LoadedApk对象，该对象的成员变量mPackageName="android"; mClassLoader = ClassLoader.getSystemClassLoader();
 
-#### 3.4 getSystemContext
 
-[-->ActivityThread.java]
+**Step 3-2.** ActivityThread.getSystemContext
 
     public ContextImpl getSystemContext() {
         synchronized (this) {
             if (mSystemContext == null) {
+                //创建ContextImpl对象【见Step 3-2-1】
                 mSystemContext = ContextImpl.createSystemContext(this);
             }
             return mSystemContext;
         }
     }
 
-[-->ContextImpl.java]
+**Step 3-2-1.** ContextImpl.createSystemContext
 
     static ContextImpl createSystemContext(ActivityThread mainThread) {
+        //创建LoadedApk对象
         LoadedApk packageInfo = new LoadedApk(mainThread);
+        //创建ContextImpl对象
         ContextImpl context = new ContextImpl(null, mainThread,
                 packageInfo, null, null, false, null, null, Display.INVALID_DISPLAY);
         context.mResources.updateConfiguration(context.mResourcesManager.getConfiguration(), 
@@ -282,289 +265,75 @@ system_server进程是由zygote进程fork生成的，本文是在讲述system_se
         return context;
     }
 
-创建LoadedApk和ContextImpl对象。
 
-### 4.  addService
+### 二、系统服务
 
-[--> LocalServices.java]
+#### 2.1 服务启动阶段
 
-    public static <T> void addService(Class<T> type, T service) {
-        synchronized (sLocalServiceObjects) {
-            if (sLocalServiceObjects.containsKey(type)) {
-                throw new IllegalStateException("Overriding service registration");
-            }
-            sLocalServiceObjects.put(type, service);
-        }
-    }
+接下来，开始正式进入启动系统服务的过程，从大的方向来看分为引导服务（BootstrapServices），核心服务（CoreServices），其他服务（OtherServices）。
 
-用静态Map变量sLocalServiceObjects，来保存以服务类名为key，以具体服务对象为value的Map结构。
-
-### 5. startBootstrapServices
-
-[-->SystemServer.java]
-
-    private void startBootstrapServices() {
-        //阻塞等待，直到与服务端installd建立socket通道
-        Installer installer = mSystemServiceManager.startService(Installer.class);
-
-        //启动服务ActivityManagerService
-        mActivityManagerService = mSystemServiceManager.startService(
-                ActivityManagerService.Lifecycle.class).getService();
-        mActivityManagerService.setSystemServiceManager(mSystemServiceManager);
-        mActivityManagerService.setInstaller(installer);
-
-        //启动服务PowerManagerService
-        mPowerManagerService = mSystemServiceManager.startService(PowerManagerService.class);
-        mActivityManagerService.initPowerManagement();
-
-        //启动服务LightsService
-        mSystemServiceManager.startService(LightsService.class);
-
-        //启动服务DisplayManagerService
-        mDisplayManagerService = mSystemServiceManager.startService(DisplayManagerService.class);
-
-        //调用DisplayManagerService.onBootPhase()，初始化package manager前需要有默认显示。
-        //【BootPhase阶段1】，会进入wait()状态，直到Display默认显示完成。
-        mSystemServiceManager.startBootPhase(SystemService.PHASE_WAIT_FOR_DEFAULT_DISPLAY);
-
-        //当设备正在加密时，仅运行核心
-        String cryptState = SystemProperties.get("vold.decrypt");
-        if (ENCRYPTING_STATE.equals(cryptState)) {
-            mOnlyCore = true;
-        } else if (ENCRYPTED_STATE.equals(cryptState)) {
-            mOnlyCore = true;
-        }
-
-        //启动服务PackageManagerService
-        mPackageManagerService = PackageManagerService.main(mSystemContext, installer,
-                mFactoryTestMode != FactoryTest.FACTORY_TEST_OFF, mOnlyCore);
-        mFirstBoot = mPackageManagerService.isFirstBoot();
-        mPackageManager = mSystemContext.getPackageManager();
-
-        //启动服务UserManagerService，新建目录/data/user/
-        ServiceManager.addService(Context.USER_SERVICE, UserManagerService.getInstance());
-
-        AttributeCache.init(mSystemContext);
-
-        //注册一些系统服务
-        mActivityManagerService.setSystemProcess();
-
-        //调用native方法，启动传感器服务
-        startSensorService();
-    }
-
-引导服务：
-
-|---|
-|ActivityManagerService|
-|PowerManagerService|
-|LightsService|
-|DisplayManagerService|
-|PackageManagerService|
-|UserManagerService|
-|SensorService|
+- 引导服务：ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService、PackageManagerService、UserManagerService、SensorService共7项服务；
+- 核心服务：BatteryService、UsageStatsService、WebViewUpdateService共3项服务；
+- 其他服务：AlarmManagerService、VibratorService等共71项其他服务
 
 
-(1) mSystemServiceManager.startService(Class<T> serviceClass)，继承于SystemService的服务是通过这种方法初始化服务，功能主要：
-
-1. 创建serviceClass类的对象；
-2. 将刚创建的对象添加到mSystemServiceManager的成员变量mServices；
-3. 调用刚创建对象的onStart()方法。
-
-(2) ServiceManager.addService(String name, IBinder service)， 继承于IBinder的服务是通过该方式，主要功能将创建的Binder服务service向native的[service Manager注册](http://www.yuanhh.com/2015/11/14/binder-add-service/#addservice)。
+整个服务的启动流程中mSystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶段从`PHASE_WAIT_FOR_DEFAULT_DISPLAY`到`PHASE_BOOT_COMPLETED`，具体启动阶段：
 
 
-### 6. startCoreServices
-
-    private void startCoreServices() {
-        //启动服务BatteryService，用于统计电池电量，需要LightService.
-        mSystemServiceManager.startService(BatteryService.class);
-
-        //启动服务UsageStatsService，用于统计应用使用情况
-        mSystemServiceManager.startService(UsageStatsService.class);
-        mActivityManagerService.setUsageStatsManager(
-                LocalServices.getService(UsageStatsManagerInternal.class));
-
-        mPackageManagerService.getUsageStatsIfNoPackageUsageInfo();
-
-        //启动服务WebViewUpdateService
-        mSystemServiceManager.startService(WebViewUpdateService.class);
-    }
-
-核心服务：
-
-|---|
-|BatteryService
-|UsageStatsService
-|WebViewUpdateService
-
-### 7. startOtherServices
-
-startOtherServices()会初始化并启动大概70多个Service，分类以下两大类：
-
-#### 服务类型1
-
-通过ServiceManager.addService(String name, IBinder service)方法注册的服务
-
-|---|
-|SchedulingPolicyService
-|TelephonyRegistry
-|AccountManagerService
-|ContentService
-|VibratorService
-|ConsumerIrService
-|InputManagerService
-|WindowManagerService
-|InputMethodManagerService
-|AccessibilityManagerService
-|LockSettingsService
-|StatusBarManagerService
-|ClipboardService
-|NetworkManagementService
-|TextServicesManagerService
-|NetworkScoreService
-|NetworkStatsService
-|NetworkPolicyManagerService
-|ConnectivityService
-|NsdService
-|UpdateLockService
-|LocationManagerService
-|CountryDetectorService
-|SearchManagerService
-|DropBoxManagerService
-|WallpaperManagerService
-|AudioService
-|SerialService
-|DiskStatsService
-|SamplingProfilerService
-|CommonTimeManagementService
-|AssetAtlasService
-|GraphicsStatsService
-|MediaRouterService
+1. `PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段等待Display有默认显示;
+2. `PHASE_LOCK_SETTINGS_READY=480`，进入该阶段服务能获取锁屏设置的数据;
+3. `PHASE_SYSTEM_SERVICES_READY=500`，进入该阶段服务能安全地调用核心系统服务，如PMS;
+4. `PHASE_ACTIVITY_MANAGER_READY=550`，进入该阶段服务能广播Intent;
+5. `PHASE_THIRD_PARTY_APPS_CAN_START=600`，进入该阶段服务能start/bind第三方apps，app能通过BInder调用service;
+6. `PHASE_BOOT_COMPLETED=1000`，该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
 
 
-#### 服务类型2
+#### 2.2 启动流程
 
-通过mSystemServiceManager.startService(Class<T> serviceClass)方法启动的服务
+在讲服务启动流程之前，先说说SystemServiceManager的`startService(Class<T> serviceClass)`。该方法用于初始化那些继承自SystemService类的服务，主要功能是创建serviceClass类的对象，将刚创建对象添加到SystemServiceManager的成员变量mServices，再调用刚创建对象的onStart()方法。对于服务启动到一定阶段，进入相应的Phase时，会调用SystemServiceManager的`startBootPhase()`回调方法，该方法会循环遍历所有向SystemServiceManager注册过的service的`onBootPhase()`方法。
 
-|---|
-|TelecomLoaderService
-|CameraService
-|AlarmManagerService
-|BluetoothService
-|MountService$Lifecycle
-|UiModeManagerService
-|PersistentDataBlockService
-|DeviceIdleController
-|DevicePolicyManagerService$Lifecycle
-|WifiP2pService
-|WifiService
-|WifiScanningService
-|RttService
-|EthernetService
-|NotificationManagerService
-|DeviceStorageMonitorService
-|DockObserver
-|ThermalObserver
-|MidiService.Lifecycle
-|UsbService.Lifecycle
-|TwilightService
-|JobSchedulerService
-|BackupManagerService$Lifecycle
-|AppWidgetService
-|VoiceInteractionManagerService
-|GestureLauncherService
-|DreamManagerService
-|PrintManagerService
-|RestrictionsManagerService
-|MediaSessionService
-|MediaSessionService
-|TvInputManagerService
-|TrustManagerService
-|FingerprintService
-|LauncherAppsService
-|MediaProjectionManagerService
-|MmsServiceBroker
+另外，还有服务是通过ServiceManager的addService(String name, IBinder service)方法。该方法一般用于初始化那些继承于IBinder类的服务，主要功能将Binder服务向native的[service Manager注册](http://www.yuanhh.com/2015/11/14/binder-add-service/#addservice)，名为name的服务。
 
-其中WindowManagerServi创建新线程；DropBoxManagerService会将结果保存在/data/system/dropbox。
 
-#### BootPhase
+**Phase 1**
 
-该方法有近千行代码，除了启动上述的大量方法，还有一些比较重要的逻辑
+创建ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService共4项服务；则进入阶段`PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段调用DisplayManagerService的`onBootPhase()`方法。
 
-    private void startOtherServices() {
-        ...
-        entropyMixer = new EntropyMixer(context);
-        //安装SystemProvider
-        mActivityManagerService.installSystemProviders();
-        //初始化Watchdog（继承于Thread）
-        final Watchdog watchdog = Watchdog.getInstance();
-        watchdog.init(context, mActivityManagerService);
-        //执行dex优化操作
-        mPackageManagerService.performBootDexOpt();
-        //显示app更新窗口
-        ActivityManagerNative.getDefault().showBootMessage(
-                context.getResources().getText(
-                        com.android.internal.R.string.android_upgrading_starting_apps),
-                false);
+**Phase 2&& Phase3**
 
-        final boolean safeMode = wm.detectSafeMode();
-        if (safeMode) {
-            mActivityManagerService.enterSafeMode();
-            VMRuntime.getRuntime().disableJitCompilation();
-        } else {
-            VMRuntime.getRuntime().startJitCompilation();
-        }
+创建PackageManagerService、DevicePolicyManagerService、UserManagerService、SensorService、BatteryService、UsageStatsService、WebViewUpdateService等等服务（此处省略...），初始化Watchdog，优化dex文件，显示开机动画（showBootMessage），再就是VibratorService和LockSettingsService执行`systemReady()`方法；接着则进入阶段`PHASE_LOCK_SETTINGS_READY=480`，该阶段调用DevicePolicyManagerService的`onBootPhase()`方法；紧接着进入阶段`PHASE_SYSTEM_SERVICES_READY=500`，实现该阶段的回调方法的服务较多。
 
-        vibrator.systemReady();
-        lockSettings.systemReady();
 
-        //【BootPhase阶段2、3】
-        mSystemServiceManager.startBootPhase(SystemService.PHASE_LOCK_SETTINGS_READY);
-        mSystemServiceManager.startBootPhase(SystemService.PHASE_SYSTEM_SERVICES_READY);
+**Phase 4**
 
-        wm.systemReady();
-        mPowerManagerService.systemReady(mActivityManagerService.getAppOpsService());
-        mPackageManagerService.systemReady();
-        mDisplayManagerService.systemReady(safeMode, mOnlyCore);
+WindowManagerService、PowerManagerService、PackageManagerService、DisplayManagerService分别依次执行`systemReady()`方法，接着ActivityManagerService进入`systemReady()`方法; 然后就进入阶段`PHASE_ACTIVITY_MANAGER_READY=550`，实现该阶段的回调方法的服务较多。
 
-        mActivityManagerService.systemReady(new Runnable() {
-            @Override
-            public void run() {
-                //【BootPhase阶段4】
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_ACTIVITY_MANAGER_READY);
+**Phase 5**
 
-                mActivityManagerService.startObservingNativeCrashes();
-                WebViewFactory.prepareWebViewInSystemServer();
+AMS启动native crash监控,，加载WebView，启动SystemUi；然后是NetworkScoreService、NetworkManagementService、NetworkStatsService、NetworkPolicyManagerService、ConnectivityService、AudioService分别依次执行`systemReady()`方法，然后是启动Watchdog。再进入阶段`PHASE_THIRD_PARTY_APPS_CAN_START=600`，实现该阶段的回调方法的服务较多。
 
-                startSystemUi(context);
-                if (networkScoreF != null) networkScoreF.systemReady();
-                if (networkManagementF != null) networkManagementF.systemReady();
-                if (networkStatsF != null) networkStatsF.systemReady();
-                if (networkPolicyF != null) networkPolicyF.systemReady();
-                if (connectivityF != null) connectivityF.systemReady();
-                if (audioServiceF != null) audioServiceF.systemReady();
-                Watchdog.getInstance().start();
-                //【BootPhase阶段5】
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);
 
-                if (wallpaperF != null) wallpaperF.systemRunning();
-                ...
-            }
-        });
-    }
+**Phase 6**
 
-在上述方法中，有一个mSystemServiceManager.startBootPhase(）方法贯穿整个流程。启动阶段从PHASE_WAIT_FOR_DEFAULT_DISPLAY到PHASE_BOOT_COMPLETED，具体如下：
+WallpaperManagerService、InputMethodManagerService、LocationManagerService、CountryDetectorService、NetworkTimeUpdateService、CommonTimeManagementService、TextServicesManagerService、AssetAtlasService、InputManagerService、TelephonyRegistry、MediaRouterService、MmsServiceBroker这些服务依次执行其`systemRunning()`方法。经过一定流程，当ActivityManagerServer进入`finishBooting()`时，则启动流程进入阶段`PHASE_BOOT_COMPLETED=1000`。
 
-|阶段|值|解释|
-|---|---|
-|PHASE_WAIT_FOR_DEFAULT_DISPLAY|100|进入该阶段，等待Display有默认显示
-|PHASE_LOCK_SETTINGS_READY|480|进入该阶段，服务能获取设置数据的锁
-|PHASE_SYSTEM_SERVICES_READY|500|进入该阶段，服务能安全地调用核心系统服务，比如PowerManager/PackageManager
-|PHASE_ACTIVITY_MANAGER_READY|550|进入该阶段，服务能广播Intent
-|PHASE_THIRD_PARTY_APPS_CAN_START|600|进入该阶段，服务能start/bind第三方apps，app能通过BInder调用service
-|PHASE_BOOT_COMPLETED|1000|该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
+到此整个system_server进程已全部启动完成。
 
-接下来的文章，会重点分析system_server中比较重要的服务，比如ActivityManagerService, PowerManagerService, PackageManagerService等。
+### 三、服务分类
+
+system_server进程在整个过程，会启动大概81个服务，下面对其简单分类：
+
+1. **重量级服务：**ActivityManagerService、PackageManagerService、WindowManagerService
+2. **统计调度相关：**DropBoxManagerService、SamplingProfilerService、UsageStatsService、DiskStatsService、SchedulingPolicyService、DeviceStorageMonitorService、AlarmManagerService、DeviceIdleController、DockObserver、ThermalObserver、JobSchedulerService
+3. **功耗相关：**PowerManagerService、BatteryService、DreamManagerService
+4. **网络相关：**NetworkManagementService、NetworkScoreService、NetworkStatsService、NetworkPolicyManagerService、ConnectivityService、BluetoothService、WifiP2pService、WifiService、WifiScanningService、EthernetService、
+5. **多媒体相关：**AudioService、MediaRouterService、VoiceInteractionManagerService、MediaProjectionManagerService、MediaSessionService、
+6. **电话相关：** TelephonyRegistry、TelecomLoaderService
+7. **IO相关：**InputManagerService、InputMethodManagerServiceMountService、PersistentDataBlockService、UsbService、TvInputManagerService、FingerprintService
+8. **显示相关：**DisplayManagerService、LightsService、GraphicsStatsService、StatusBarManagerService、NotificationManagerService、WallpaperManagerService、UiModeManagerService、AppWidgetService、LauncherAppsService、TextServicesManagerService、
+ContentService、LockSettingsService、
+9. **传感器相关：**SensorService、LocationManagerService、VibratorService、CountryDetectorService、WebViewUpdateService、GestureLauncherService
+10. **辅助类：** AccessibilityManagerService、ClipboardService、DevicePolicyManagerService、PrintManagerService、BackupManagerService、UserManagerService、AccountManagerService、TrustManagerService
+11. **其他：**、NsdService、UpdateLockService、SerialService、SearchManagerService、CommonTimeManagementService、AssetAtlasService、ConsumerIrService、MidiServiceCameraService、TwilightService、RestrictionsManagerService、MmsServiceBroker、RttService
+
+后续，会针对其中比较重要的服务进行展开讲解。
