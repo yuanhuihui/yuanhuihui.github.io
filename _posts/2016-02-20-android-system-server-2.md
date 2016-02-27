@@ -28,7 +28,7 @@ excerpt:  Android系统启动-SystemServer篇(二)
 
 ### 一、 SystemServer分析
 
-system_server进程是由zygote进程fork生成的，本文是在讲述system_server承载了java framework的哪些系统服务， 紧接着上一篇文章[Android系统启动-systemServer上篇](http://www.yuanhh.com/22016/02/14/android-system-server/#methodandargscaller)，接下来进入main()方法。
+上一篇文章[Android系统启动-systemServer篇(一)](http://www.yuanhh.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程，本文重要是讲述system_server所承载的java framework的系统服务框架，是如何一路路启动的。
 
 **Step 1.** SystemServer.main
 

@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Android系统启动-开篇"
-date:   2016-01-03 23:43:40
+title:  "Android系统-开篇"
+date:   2016-01-30 23:43:40
 categories: android
-excerpt:  Android系统启动-开篇
+excerpt:  Android系统-开篇
 ---
 
 * content
@@ -79,9 +79,9 @@ Google提供的4层架构图，是非常经典，但只是如垒砖般的方式�
 
 **（1）**在整个开机流程中，有几个非常重要的进程，分别是init、Zygote、SystemServer进程。接下来，计划用三篇文章来分别阐述：
 
-- Android系统启动—init篇
-- Android系统启动—Zygote篇
-- Android系统启动—SystemServer篇
+- [Android系统启动—init篇](http://www.yuanhh.com/2016/02/05/android-init/)
+- [Android系统启动—Zygote篇](http://www.yuanhh.com/2016/02/13/android-zygote/)
+- [Android系统启动—SystemServer篇](http://www.yuanhh.com/2016/02/14/android-system-server/)
 
   
 **（2）**再则就是在整个架构中有大量的服务，通过[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章，可知所有服务都是基于Binder来交互的，那么接下来，需要抓核心服务来重点分析，计划分别用文章来对核心服务展开剖析：

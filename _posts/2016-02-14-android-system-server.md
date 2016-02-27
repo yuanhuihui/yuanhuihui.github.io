@@ -22,7 +22,7 @@ excerpt:  Android系统启动-systemServer篇(一)
 
 ### 启动流程起点
 
-文章[Android系统启动-开篇](http://www.yuanhh.com/2016/01/03/android-boot/)中介绍了SystemServer的在Android体系中所处的地位，SystemServer由Zygote fork生成的，进程名为`system_server`，该进程承载着framework的核心服务。[Android系统启动-zygote篇](http://www.yuanhh.com/22016/02/13/android-zygote/)中讲到Zygote启动过程中，会调用startSystemServer()，可知startSystemServer()函数是system_server启动流程的起点，下面从startSystemServer开始讲解详细启动流程。
+SystemServer的在Android体系中所处的地位，SystemServer由Zygote fork生成的，进程名为`system_server`，该进程承载着framework的核心服务。[Android系统启动-zygote篇](http://www.yuanhh.com/22016/02/13/android-zygote/)中讲到Zygote启动过程中，会调用startSystemServer()，可知startSystemServer()函数是system_server启动流程的起点，下面从startSystemServer开始讲解详细启动流程。
 
 ### 1. startSystemServer
 
@@ -438,7 +438,7 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
         }
     }
 
-到此，总算是进入到了SystemServer类的main()方法。 
+到此，总算是进入到了SystemServer类的main()方法， 在文章[Android系统启动-SystemServer篇(二)](http://www.yuanhh.com/2016/02/20/android-system-server-2/)中会紧接着这里开始讲述。
 
 ### fork机制
 
