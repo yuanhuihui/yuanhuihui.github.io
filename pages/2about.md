@@ -16,5 +16,7 @@ icon: glyphicon-heart
 
 ### 联系我
 
-* email：[gityuan@gmail.com](mailto:{{ site.email }})
-* 微博：[Gityuan](www.weibo.com)
+* 邮箱：[gityuan@gmail.com](mailto:{{ site.email }})
+* 微博：[Gityuan](http://weibo.com/gityuan)
+* 知乎：[Gityuan](http://www.zhihu.com/people/gityuan)
+* 博客：[yuanhh.com](http://www.yuanhh.com)

@@ -9,14 +9,14 @@ excerpt:  Activity与Service生命周期
 * content
 {:toc}
 
-##一. Activity
-
+## 一. Activity
 
 先展示一张Activity的生命周期图：
+
 ![activity lifecycle](/images/lifecycle/activity.png)  
   
   
-###1.1 Activity状态
+### 1.1 Activity状态
 
 只有下面三个状态是静态的，可以存在较长的时间内保持状态不变。(其它状态只是过渡状态，系统快速执行并切换到下一个状态)　　　
 
@@ -37,14 +37,14 @@ excerpt:  Activity与Service生命周期
   
 当acitivty处于暂停或者停止状态，系统可以通过`finish()`或 `android.os.Process.killProcess(android.os.Process.myPid())`来杀死其进程。当该activity再次被打开时(结束或杀死后)，需要重新创建，走一遍完整的流程。
 
-###1.2 Activities调用流程
+### 1.2 Activities调用流程
 当Activity A 启动 Activity B时，两个activity都有自个的生命周期。Activity A暂停或者停止，Activity B被创建。记住，在Activity B创建之前，Activity A并不会完全停止，流程如下：
 
 1. Activity A 进入onPause();
 2. Activity B 依次 onCreate(), onStart(), onResume()。（此时Activity B得到了用户焦点）
 3. 如果Activity A不再可见，则进入onStop().
 
-###1.3 代码实践  
+### 1.3 代码实践  
 利用下面的`DemoActivity`代码，可亲自感受每一个阶段的状态。比如点返回键，home键，menu键等操作，可以借助通过logcat查看该activity到底处于哪种状态，这里就不说结果了，自己动手，丰衣足食。
   
 	import android.app.Activity;
@@ -88,16 +88,15 @@ excerpt:  Activity与Service生命周期
 
 ----------
 
-##二. Service
+## 二. Service
 
   
 先展示一张Service的生命周期图：  
   
-
 ![service lifecycle](/images/lifecycle/service.png)
   
   
-###2.1  启动方式：
+### 2.1  启动方式：
 
 service有两种启动方式：
 
@@ -105,14 +104,14 @@ service有两种启动方式：
 - bindService() 启动远程服务Remote Service   
 
 
-###2.2  生命周期
+### 2.2  生命周期
 
 两种不同的启动方式决定了Service具有两种生命周期的可能（并非互斥的两种）。  
 
 1. start方式：onCreate()，onStartCommand()。onDestroy释放资源。
 2. bind方式： onCreate()，onBind()方法。需要所有client全部调用unbindService()才能将Service释放资源，等待系统回收。
 
-###2.3  代码实践
+### 2.3  代码实践
 利用下面的`DemoService`代码，通过logcat自行感受每一个阶段的状态与场景的关系。
 
 	import android.app.Service;
