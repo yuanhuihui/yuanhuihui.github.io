@@ -11,10 +11,10 @@ icon: glyphicon-heart
 
 * 软件工程师一枚, 喜欢coding, 热爱架构, 喜欢创造，将创意化身为产品，Just do it!
 
-* 主要专注领域是Android开发, web开发.
+* 主要专注领域是Android/Java开发
 
 
 ### 联系我
 
 * email：[gityuan@gmail.com](mailto:{{ site.email }})
-
+* 微博：[Gityuan](www.weibo.com)

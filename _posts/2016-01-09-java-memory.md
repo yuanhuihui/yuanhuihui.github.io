@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Java内存模型"
+title:  "Jvm内存模型"
 date:   2016-01-09 19:18:10
-categories: java memory
-excerpt:  Java内存模型
+categories: java memory jvm
+excerpt:  Jvm内存模型
 ---
 
 * content
@@ -13,7 +13,7 @@ excerpt:  Java内存模型
 
 ---
 
-> Java内存模型，即Java虚拟机内存模型
+> java是在java虚拟机上运行，一般地大家讲到的Java内存其实就是Jvm内存
 
 ## 一、内存模型
 
