@@ -20,12 +20,12 @@ excerpt:  Am命令的用法
 
 	adb shell am start -a android.intent.action.CALL -d tel:10086
 
-(2) 打开网站www.yuanhh.com
+(2) 打开网站`www.yuanhh.com`
 
 	adb shell am start -a android.intent.action.VIEW -d  http://www.yuanhh.com
 
 
-(3) 启动Activity： 启动包名为`com.yuanhh.app`，主Activity为`.MainActivity`，且extra数据以"website"为key, "yuanh.com"为value。通过java代码要完成该功能比较简单，但需要一个android环境，那么通过adb的方式，只需要在窗口，输入如下命令便可完成:
+(3) 启动Activity： 启动包名为`com.yuanhh.app`，主Activity为`.MainActivity`，且extra数据以"website"为key, "yuanh.com"为value。通过java代码要完成该功能虽然不复杂，但至少需要一个android环境，而通过adb的方式，只需要在adb窗口，输入如下命令便可完成:
 
 	am start -n com.yuanhh.app/.MainActivity -es website yuanhh.com
 
@@ -92,7 +92,7 @@ am命令实的实现方式，几乎都是调用ActivityManagerService相应的�
 
 ### 3.3 其他
 
-对于am的子命令，startservice, stopservice, broadcast, kill, profile start, profile stop, dumpheap的可选参数都运行使用`--user <USER_ID>`。目前市面上的绝大多数手机还是单用户模式，故可以忽略该参数，默认为当前用户。
+对于am的子命令，startservice, stopservice, broadcast, kill, profile start, profile stop, dumpheap的可选参数都允许设置`--user <USER_ID>`。目前市面上的绝大多数手机还是单用户模式，故可以忽略该参数，默认为当前用户。
 
 例如：启动id=10010的用户的指定service。
 
@@ -177,7 +177,7 @@ Intent的参数和flags较多，本文为方便起见，分为3种类型参数�
 	[--activity-task-on-home]
 	[--receiver-registered-only] [--receiver-replace-pending]
 
-例如，发送action="broadcast.demo"的广播，并且对于forceStopPackage()的应用不运行接收该广播，命令如下：
+例如，发送action="broadcast.demo"的广播，并且对于forceStopPackage()的应用不允许接收该广播，命令如下：
 
 	am broadcast -a broadcast.demo --exclude-stopped-packages
 

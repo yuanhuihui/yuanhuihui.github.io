@@ -560,48 +560,33 @@ MessageQueue一直是按照Message触发的时间先后顺序排列的，队头�
 
 ### 5.3 dispatchMessage
 
-分发消息
-
-
 	public void dispatchMessage(Message msg) {
         if (msg.callback != null) {
-            handleCallback(msg);  //Message有回调方法
+            //当Message存在回调方法，回调msg.callback.run()方法；
+            handleCallback(msg);  
         } else {
             if (mCallback != null) {
-                if (mCallback.handleMessage(msg)) { //Handler有Callback对象来处理
+                //当Handler存在Callback成员变量时，回调方法handleMessage()；
+                if (mCallback.handleMessage(msg)) {
                     return;
                 }
             }
-            handleMessage(msg);  //Handler自身的回调方法
+            //Handler自身的回调方法handleMessage()
+            handleMessage(msg); 
         }
     }
 
-**(1) Message的回调方法**
+**分发消息机制：**
 
-    //当Message存在回调方法时，直接由Message的CallBack方法来处理，CallBack是一个Runnable类型
-    private static void handleCallback(Message message) {
-        message.callback.run();
-    }
+1. 当`Message`的回调方法不为空时，则回调方法`msg.callback.run()`，其中callBack数据类型为Runnable，然后直接返回，否则进入步骤2；
+2. 当`Handler`存在`mCallback`成员变量不为空时，则回调方法`mCallback.handleMessage(msg)`，然后直接返回，否则进入步骤3；
+3. 调用`Handler`自身的回调方法`handleMessage()`，该方法默认为空，Handler子类通过覆写该方法来完成具体的逻辑。
 
-**(2) Handler的mCallback的回调方法**
+**消息分发的优先级：**
 
-    //消息回调接口，用于处理消息
-    public interface Callback {
-        public boolean handleMessage(Message msg);
-    }
-
-**(3) Handler的回调方法**
-
-    // Handler自身的回调方法
-    public void handleMessage(Message msg) {
-     	//空方法，子类实现时需要覆写的地方
-    }
-
-消息分发的优先级：
-
-1. 当Message有回调方法，那么由`message.callback.run()`来处理消息并返回；否则继续执行；
-2. 当Handler设置了mCallback成员变量，那么由`mCallback.handleMessage(msg)`来处理消息，处理完的返回值为true则直接返回；否则继续执行；
-3. 调用Handler自身的回调方法`handleMessage(msg)`来处理.
+1. `Message`的回调方法：`message.callback.run()`，优先级最高；
+2. Handler的mCallback成员变量的方法`mCallback.handleMessage(msg)`，优先级仅次于1；
+3. 当都不存在时，默认调用`Handler.handleMessage(msg)`
 
 
 ### 5.4 sendMessage
@@ -649,6 +634,7 @@ MessageQueue一直是按照Message触发的时间先后顺序排列的，队头�
         }
         return enqueueMessage(queue, msg, uptimeMillis);
     }
+
 
 **(5) sendMessageAtFrontOfQueue**
 
