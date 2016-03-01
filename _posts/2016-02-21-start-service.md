@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Activity Manager Service(一)"
+title:  "startService流程分析"
 date:   2016-02-21 20:12:50
 categories: android 
-excerpt:  Activity Manager Service(一)
+excerpt:  startService流程分析
 ---
 
 * content
@@ -12,7 +12,7 @@ excerpt:  Activity Manager Service(一)
 
 ---
 
-> 基于Android 6.0的源码剖析， 分析App启动过程中ActivityManagerService所扮演的角色
+> 基于Android 6.0的源码剖析， 分析android Service启动流程中ActivityManagerService所扮演的角色
 
 
 	/frameworks/base/services/core/java/com/android/server/am/ActiveServices.java

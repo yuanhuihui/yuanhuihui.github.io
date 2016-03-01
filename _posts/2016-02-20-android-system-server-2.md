@@ -25,8 +25,25 @@ excerpt:  Android系统启动-SystemServer篇(二)
 	frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
 
 
+## 一、启动调用栈
 
-### 一、 SystemServer分析
+
+System_server启动函数调用类的栈关系：
+
+	SystemServer.main
+		SystemServer.run
+			createSystemContext
+				ActivityThread.systemMain
+					ActivityThread.attach
+						LoadedApk.makeApplication
+				ActivityThread.getSystemContext
+					ContextImpl.createSystemContext
+			startBootstrapServices(); 
+			startCoreServices();    
+			startOtherServices();
+
+
+### 二、 SystemServer分析
 
 上一篇文章[Android系统启动-systemServer篇(一)](http://www.yuanhh.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程，本文重要是讲述system_server所承载的java framework的系统服务框架，是如何一路路启动的。
 
@@ -266,9 +283,9 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
     }
 
 
-### 二、系统服务
+### 三、系统服务
 
-#### 2.1 服务启动阶段
+#### 3.1 服务启动阶段
 
 接下来，开始正式进入启动系统服务的过程，从大的方向来看分为引导服务（BootstrapServices），核心服务（CoreServices），其他服务（OtherServices）。
 
@@ -288,7 +305,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 6. `PHASE_BOOT_COMPLETED=1000`，该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
 
 
-#### 2.2 启动流程
+#### 3.2 启动流程
 
 在讲服务启动流程之前，先说说SystemServiceManager的`startService(Class<T> serviceClass)`。该方法用于初始化那些继承自SystemService类的服务，主要功能是创建serviceClass类的对象，将刚创建对象添加到SystemServiceManager的成员变量mServices，再调用刚创建对象的onStart()方法。对于服务启动到一定阶段，进入相应的Phase时，会调用SystemServiceManager的`startBootPhase()`回调方法，该方法会循环遍历所有向SystemServiceManager注册过的service的`onBootPhase()`方法。
 
@@ -297,20 +314,28 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 
 **Phase 1**
 
-创建ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService共4项服务；则进入阶段`PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段调用DisplayManagerService的`onBootPhase()`方法。
+创建ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService共4项服务；
+
+接着则进入阶段`PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段调用DisplayManagerService的`onBootPhase()`方法。
 
 **Phase 2&& Phase3**
 
-创建PackageManagerService、DevicePolicyManagerService、UserManagerService、SensorService、BatteryService、UsageStatsService、WebViewUpdateService等等服务（此处省略...），初始化Watchdog，优化dex文件，显示开机动画（showBootMessage），再就是VibratorService和LockSettingsService执行`systemReady()`方法；接着则进入阶段`PHASE_LOCK_SETTINGS_READY=480`，该阶段调用DevicePolicyManagerService的`onBootPhase()`方法；紧接着进入阶段`PHASE_SYSTEM_SERVICES_READY=500`，实现该阶段的回调方法的服务较多。
+创建PackageManagerService、DevicePolicyManagerService、UserManagerService、SensorService、BatteryService、UsageStatsService、WebViewUpdateService等等服务（此处省略...），初始化Watchdog，优化dex文件，显示开机动画（showBootMessage），再就是VibratorService和LockSettingsService执行`systemReady()`方法；
+
+接着则进入阶段`PHASE_LOCK_SETTINGS_READY=480`，该阶段调用DevicePolicyManagerService的`onBootPhase()`方法；紧接着进入阶段`PHASE_SYSTEM_SERVICES_READY=500`，实现该阶段的回调方法的服务较多。
 
 
 **Phase 4**
 
-WindowManagerService、PowerManagerService、PackageManagerService、DisplayManagerService分别依次执行`systemReady()`方法，接着ActivityManagerService进入`systemReady()`方法; 然后就进入阶段`PHASE_ACTIVITY_MANAGER_READY=550`，实现该阶段的回调方法的服务较多。
+WindowManagerService、PowerManagerService、PackageManagerService、DisplayManagerService分别依次执行`systemReady()`方法；然后ActivityManagerService进入`systemReady()`方法; 
+
+接着则进入阶段`PHASE_ACTIVITY_MANAGER_READY=550`，实现该阶段的回调方法的服务较多。
 
 **Phase 5**
 
-AMS启动native crash监控,，加载WebView，启动SystemUi；然后是NetworkScoreService、NetworkManagementService、NetworkStatsService、NetworkPolicyManagerService、ConnectivityService、AudioService分别依次执行`systemReady()`方法，然后是启动Watchdog。再进入阶段`PHASE_THIRD_PARTY_APPS_CAN_START=600`，实现该阶段的回调方法的服务较多。
+AMS启动native crash监控,，加载WebView，启动SystemUi；然后是NetworkScoreService、NetworkManagementService、NetworkStatsService、NetworkPolicyManagerService、ConnectivityService、AudioService分别依次执行`systemReady()`方法，然后是启动Watchdog。
+
+接着则进入阶段`PHASE_THIRD_PARTY_APPS_CAN_START=600`，实现该阶段的回调方法的服务较多。
 
 
 **Phase 6**
@@ -319,7 +344,7 @@ WallpaperManagerService、InputMethodManagerService、LocationManagerService、C
 
 到此整个system_server进程已全部启动完成。
 
-### 三、服务分类
+### 四、服务分类
 
 system_server进程在整个过程，会启动大概81个服务，下面对其简单分类：
 
