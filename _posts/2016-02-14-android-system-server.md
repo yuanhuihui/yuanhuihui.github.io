@@ -236,7 +236,7 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
     }
 
 
-此处systemServerClasspath为多少？？
+此处`systemServerClasspath`至少包含/system/framework/services.jar，当然也可以不止于此，比如还可以包含/system/framework/ethernet-service.jar, /system/framework/wifi-service.jar等。
 
 ### 6. performSystemServerDexOpt
 
@@ -455,5 +455,10 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
 ![zygote_fork](/images/boot/zygote/zygote_fork.jpg)
 
 Zygote采用fork方式创建新进程A，采用copy on write技术，新创建的进程复制Zygote进程本身的资源，再加上新进程A相关的资源，构成新的应用进程A。
+
+
+----------
+
+**[如果您觉得文章对您有所帮助，不妨关注我的微信、微博. ^_^](http://www.yuanhh.com/about/)**
 
 

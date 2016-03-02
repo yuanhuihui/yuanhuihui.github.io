@@ -346,9 +346,7 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
 
 ![zygote_init](/images/boot/init/zygote_init.jpg)
 
-而关于Zygote重启在前面的信号处理过程中讲过，是处理SIGCHLD信号，init进程重启zygote进程。
-
-[更多关于Zygote内容，会在后续文章中展开]()
+而关于Zygote重启在前面的信号处理过程中讲过，是处理SIGCHLD信号，init进程重启zygote进程，更多关于Zygote内容见[Zygote篇](http://www.yuanhh.com/2016/02/13/android-zygote/)。
 
 
 ## 五、属性服务
@@ -378,21 +376,23 @@ property_service.cpp
 
 在properyty_init函数中，先调用init_property_area函数，创建一块用于存储属性的共享内存，而共享内存是可以跨进程的。
 
+**关于加载的prop文件**
+
+通过`load_all_load_all_propsprops()`方法，加载以下：
+
+1. /system/build.prop；
+2. /vendor/build.prop；
+3. /factory/factory.prop；
+4. /data/local.prop；
+5. /data/property路径下的persist属性
+
+**对于属性**：
+
 - 属性名以ctl开头，则认为是控制消息，控制消息用来执行一些命令。如：setprop ctl.start bootanim查看开机动画，setprop ctl.stop bootanim 关闭开机动画
 - 属性名以ro.开头，则表示是只读的，不能设置，所以直接返回。
 - 属性名以persist.开头，则需要把这些值写到对应文件中去。
 
+----------
 
-关于加载的prop文件
-
-	void load_all_props() {
-	    load_properties_from_file(PROP_PATH_SYSTEM_BUILD, NULL); // 加载文件/system/build.prop
-	    load_properties_from_file(PROP_PATH_VENDOR_BUILD, NULL);// 加载文件/vendor/build.prop
-	    load_properties_from_file(PROP_PATH_FACTORY, "ro.*");  // 加载文件/factory/factory.prop
-
-	    load_override_properties(); // 加载文件/data/local.prop
-
-	    load_persistent_properties(); // 加载data/property路径下的persist属性
-	    load_recovery_id_prop();
-	}
+**[如果您觉得文章对您有所帮助，不妨关注我的微信、微博. ^_^](http://www.yuanhh.com/about/)**
 
