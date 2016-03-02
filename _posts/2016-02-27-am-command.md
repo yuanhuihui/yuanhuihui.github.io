@@ -129,6 +129,7 @@ Intent的参数和flags较多，本文为方便起见，分为3种类型参数�
 |参数|-e/-es|-esn|-ez|-ei|-el|-ef|-eu|-ecn
 |类型|String|(String)null|boolean|int|long|float|uri|component
 
+
 比如参数es是Extra String首字母简称，实例：
 
 	am start -n com.yuanhh.app/.MainActivity -es website yuanhh.com 
