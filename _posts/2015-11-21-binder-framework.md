@@ -642,5 +642,9 @@ javaObjectForIBinder作用是 创建BinderProxy对象，并将BpBinder对象的�
 
 获取服务过程就是通过BpBinder来发送`GET_SERVICE_TRANSACTION`命令，与实现与binder驱动进行数据交互。
 
+----------
+
+**[如果您觉得文章对您有所帮助，不妨点我，关注我的微信、微博. ^_^](http://www.yuanhh.com/about/)**
+
 
 

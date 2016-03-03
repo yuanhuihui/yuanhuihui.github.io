@@ -72,6 +72,10 @@ BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代
 - [Binder系列9—如何使用AIDL](http://www.yuanhh.com/2015/11/23/binder-aidl/)
 - [Binder系列10—总结](http://www.yuanhh.com/2015/11/28/binder-summary/)
 
+----------
+
+**[如果您觉得文章对您有所帮助，不妨点我，关注我的微信、微博. ^_^](http://www.yuanhh.com/about/)**
+
 
 
 

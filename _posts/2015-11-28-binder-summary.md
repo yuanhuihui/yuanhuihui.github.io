@@ -54,3 +54,6 @@ Binder IPC机制，就是指在进程间传输数据（binder_transaction_data�
 对于binder驱动来说应尽可能地把binder_transaction节点插入到目标进程的某个线程的todo队列，效率更高。当binder驱动可以找到合适的线程，就会把binder_transaction节点插入到相应线程的todo队列中，如果找不到合适的线程，就把节点之间插入binder_proc的todo队列。
 
 
+----------
+
+**[如果您觉得文章对您有所帮助，不妨点我，关注我的微信、微博. ^_^](http://www.yuanhh.com/about/)**

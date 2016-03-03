@@ -441,3 +441,7 @@ MyData.java
 ## 参考
 
 - <http://developer.android.com/intl/zh-cn/guide/components/aidl.html>
+
+----------
+
+**[如果您觉得文章对您有所帮助，不妨点我，关注我的微信、微博. ^_^](http://www.yuanhh.com/about/)**

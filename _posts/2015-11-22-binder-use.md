@@ -348,3 +348,8 @@ public class ClientDemo {
 客户端：
 
 ![framework_client](\images\binder\binderSimple\framework_client.png)
+
+
+----------
+
+**[如果您觉得文章对您有所帮助，不妨点我，关注我的微信、微博. ^_^](http://www.yuanhh.com/about/)**
