@@ -727,3 +727,7 @@ Binder内存分配方法通过binder_alloc_buf()方法，内存管理单元为[b
 |binder_dec_ref(&ref,1)|binder_ref->strong--， 或binder_node->internal_strong_refs--|
 |binder_dec_node(node, 0, 0)|binder_node->pending_weak_ref = 0，且binder_node->local_weak_ref--|
 |binder_dec_node(node, 1, 0)|binder_node->pending_strong_ref = 0，且binder_node->local_strong_ref--|
+
+----------
+
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)

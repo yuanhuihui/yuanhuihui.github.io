@@ -270,7 +270,7 @@ Java - Netbeans 7.1.1 JDK 7 - x64
 这一切都表明现代成熟的编译器变在优化代码上有能力做很多变化。
 
 
-> 本文翻译来源于[stackoverflow](http://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-an-unsorted-array)英文版。
+*本文翻译来源于[stackoverflow](http://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-an-unsorted-array)英文版。*
 
 
 ----------

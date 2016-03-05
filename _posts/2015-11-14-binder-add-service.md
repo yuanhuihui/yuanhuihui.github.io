@@ -786,3 +786,7 @@ MediaPlayerService服务注册
 
 故有两个线程与Binder驱动进行交互。
 
+----------
+
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+

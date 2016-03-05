@@ -151,3 +151,7 @@ UID和PID是IPCThreadState的成员变量， 都是32位的int型数据，通过
     }
 
 文章[startService流程分析](http://www.yuanhh.com/2016/02/21/start-service/#activitymanagerproxyattachapplication)中有讲到`attachApplication()`的调用。该方法一般是system_server进程的子线程调用远程进程时使用，而`attachApplicationLocked`方法则是在同一个线程中，故需要在调用该方法前清空远程调用者的uid和pid，调用结束后恢复远程调用者的uid和pid。
+
+----------
+
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
