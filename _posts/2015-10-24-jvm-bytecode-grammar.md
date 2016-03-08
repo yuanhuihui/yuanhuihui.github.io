@@ -31,52 +31,119 @@ Java虚拟机采用基于栈的架构，其指令由操作码和操作数组成�
 
 对于byte,short,char,boolean类型，往往没有单独的操作码，通过编译器在编译期或者运行期将其扩展。对于byte,short采用带符号扩展，chart,boolean采用零位扩展。相应的数组也是采用类似的扩展方式转换为int类型的字节码来处理。 下面分门别类来介绍Java虚拟机指令，都以int类型的数据操作为例。
 
+栈是指操作数栈
+
 ### 2.1 栈操作相关
 
-（1）加载和存储用于 局部变量表 和操作数栈 之间的操作
+#### load和store
 
-- 从局部变量变量表 加载到 操作栈： xload, xload_\<n\> (x可为i,l,f,d,a)
-- 把操作栈 数据保存到 局部变量表： xstore, xstore_\<n\> (x可为i,l,f,d,a)
+- load 命令：用于将局部变量表的指定位置的相应类型变量加载到栈顶；
+- store命令：用于将栈顶的相应类型数据保入局部变量表的指定位置；
 
-（2）纯粹在操作数栈上操作的指令：
+|变量进栈|含义|变量保存|含义
+|---|---|
+|iload|第1个int型变量进栈|istore|栈顶nt数值存入第1局部变量|
+|iload_0|第1个int型变量进栈|istore_0|栈顶int数值存入第1局部变量|
+|iload_1|第2个int型变量进栈|istore_1|栈顶int数值存入第2局部变量|
+|iload_2|第3个int型变量进栈|istore_2|栈顶int数值存入第3局部变量|
+|iload_3|第4个int型变量进栈|istore_3|栈顶int数值存入第4局部变量|
+|||||
+|lload|第1个long型变量进栈|lstore|栈顶long数值存入第1局部变量|
+|fload|第1个float型变量进栈|fstore|栈顶float数值存入第1局部变量|
+|dload|第1个double型变量进栈|dstore|栈顶double数值存入第1局部变量|
+|aload|第1个ref型变量进栈|astore|栈顶ref对象存入第1局部变量|
 
-- 将常量 压入操作数栈顶： bipush, sipush
-- 将操作数栈顶的数据出栈(1或2个)：pop、pop2
-- 复制栈顶数据(1或2个)，并压入栈顶数据(1或2份)：dup、dup2、dup_x1、dup2_x1、dup_x2、dup2_x2
-- 栈最顶部的两个数值交换：swap
 
-（2）ldc
+#### const、push和ldc
+- const、push：将相应类型的常量放入栈顶
+- ldc:则是从常量池中将常量
 
-- ldc： 将int, float或String型常量值从常量池推送至操作数栈顶
-- ldc_w：将int, float或String型常量值从常量池推送至操作栈顶（宽索引）
-- ldc2_w： 将long或double型常量值从常量池推送至操作数栈顶（宽索引）
+|常量进栈|含义|
+|---|---|
+|aconst_null|null进栈|
+|iconst_m1|int型常量-1进栈|
+|iconst_0|int型常量0进栈|
+|iconst_1|int型常量1进栈|
+|iconst_2|int型常量2进栈|
+|iconst_3|int型常量3进栈|
+|iconst_4|int型常量4进栈|
+|iconst_5|int型常量5进栈|
+|||
+|lconst_0|long型常量0进栈|
+|fconst_0|float型常量0进栈|
+|dconst_0|double型常量0进栈|
+|||
+|bipush|byte型常量进栈|
+|sipush|short型常量进栈|
+
+
+|常量池操作|含义|
+|---|---|
+|ldc|int、float或String型常量从常量池推送至栈顶|
+|ldc_w|int、float或String型常量从常量池推送至栈顶（宽索引）|
+|ldc2_w|long或double型常量从常量池推送至栈顶（宽索引）|
+
+#### pop和dup
+
+- pop用于栈顶数值出栈操作；
+- dup用于赋值栈顶的指定个数的数值，并将其压入栈顶指定次数；
+
+|栈顶操作|含义|
+|---|---|
+|pop|栈顶数值出栈(不能是long/double)|
+|pop2|栈顶数值出栈(long/double型1个，其他2个)|
+|||
+|dup|复制栈顶数值，并压入栈顶|
+|dup_x1|复制栈顶数值，并压入栈顶2次|
+|dup_x2|复制栈顶数值，并压入栈顶3次|
+|dup2|复制栈顶2个数值，并压入栈顶|
+|dup2_x1|复制栈顶2个数值，并压入栈顶2次|
+|dup2_x2|复制栈顶2个数值，并压入栈顶3次|
+|||
+|swap|栈顶的两个数值互换，且不能是long/double|
+
+**注意：dup2**对于long、double类型的数据就是一个，对于其他类型的数据，才是真正的两个，这个的2代表的是2个slot的数据。
+
 
 ### 2.2 对象相关
 
-**(1)对象和数组**
+#### 字段调用
+
+|字段调用|含义|
+|---|---|
+|getstatic|获取类的静态字段，将其值压入栈顶|
+|putstatic|给类的静态字段赋值|
+|getfield|获取对象的字段，将其值压入栈顶|
+|putfield|给对象的字段赋值|
+
+#### 方法调用
+
+|方法调用|作用|解释|
+|---|---|---|
+|invokevirtual|调用实例方法|虚方法分派
+|invokestatic|调用类方法|static方法
+|invokeinterface|调用接口方法|运行时搜索合适方法调用
+|invokespecial|调用特殊实例方法|包括实例初始化方法、父类方法
+|invokedynamic|由用户引导方法决定|运行时动态解析出调用点限定符所引用方法
+
+#### 方法返回 
+
+|方法返回|含义|
+|---|---|
+|ireturn|当前方法返回int|
+|lreturn|当前方法返回long|
+|freturn|当前方法返回float|
+|dreturn|当前方法返回double|
+|areturn|当前方法返回ref|
+
+#### 对象和数组
 
 - 创建类实例： new
 - 创建数组：newarray、anewarray、multianewarray
-- 操作实例属性：getfield、putfield
-- 操作类属性：getstatic、putstatic
 - 数组元素 加载到 操作数栈：xaload (x可为b,c,s,i,l,f,d,a)
 - 操作数栈的值 存储到数组元素： xastore (x可为b,c,s,i,l,f,d,a)
 - 数组长度：arraylength
 - 类实例类型：instanceof、checkcast
-
-**(2)方法调用**
-
-|方法调用|作用|解释|
-|---|---|---|
-|invokevirtual|调用实例方法|虚方法分派，最常见的分派方式
-|invokeinterface|调用接口方法|运行时搜索合适方法调用
-|invokespecial|调用特殊实例方法|包括实例初始化方法、父类方法
-|invokestatic|调用类方法|即static方法
-|invokedynamic|由用户引导方法决定|运行时动态解析出调用点限定符所引用方法
-
-**(3)方法返回**  
-
-- xreturn (x可为i,l,f,d,a)
 
 ### 2.3 运算指令
 
@@ -98,7 +165,6 @@ Java虚拟机采用基于栈的架构，其指令由操作码和操作数组成�
 - 按位与： iand, land
 - 按位异或： ixor, lxor
 - 自增：iin
-- c
 - 比较：dcmpg,dcmpl,fcmpg,fcmpl,lcmp
 
 ### 2.4 类型转换
@@ -136,4 +202,4 @@ Java语言使用synchronized语句块，那么Java虚拟机的指令集中通过
 
 ### 2.7 小结
 
-在基于堆栈的的虚拟机中，指令的主战场便是操作数栈，因此除了load是从局部变量表加载数据到操作数栈以及store储存数据到局部变量表，其余指令基本都是用于操作数栈的
+在基于堆栈的的虚拟机中，指令的主战场便是操作数栈，除了load是从局部变量表加载数据到操作数栈以及store储存数据到局部变量表，其余指令基本都是用于操作数栈的。

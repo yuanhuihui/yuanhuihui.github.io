@@ -348,7 +348,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 
 1. defaultServiceManager()是单例模式：当gDefaultServiceManager存在，则直接返回；否则继续；defaultServiceManager 等价于：sp<IServiceManager> sm = new BpServiceManager(new BpBinder(0));
 2. ProcessState::self()也是单例模式：当ProcessState对象存在，则直接返回；否则依次进行下面步骤;
-调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。  
+调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。注意：映射空间大小为 `BINDER_VM_SIZE = (1*1024*1024) - (4096 *2)``。
 3. BpServiceManager巧妙将通信层与业务层逻辑合为一体，通过继承接口IServiceManager实现了接口中的业务逻辑函数；通过成员变量mRemote = new BpBinder(0)进行Binder通信工作。  
 4. BpBinder通过handler来对应BBinder, 在整个Binder系统中，handle=0代表ServiceManager所对应的BBinder。
 
