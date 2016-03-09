@@ -18,7 +18,7 @@ excerpt:  Android系统-开篇
 
 Android系统非常庞大，底层是采用Linux作为基底，上层采用带有虚拟机的Java层，通过通过JNI技术，将上下打通，融为一体。下图是Google提供的一张经典的4层架构图，从下往上，依次分为Linux内核，系统库和Android Runtime，应用框架层，应用程序层这4层架构，每一层都包含大量的子模块或子系统。
   
-![android-arch1](\images\android-boot\android-arch1.png)
+![android-arch1](\images\boot\android-arch1.png)
   
 
 为了能够更深入地掌握Android整个架构思想，以及每块之间是如何衔接与配合工作的，计划以Android系统启动过程为主线，来详细展开对Android全方位的分析，争取各个击破。
