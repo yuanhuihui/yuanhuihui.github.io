@@ -26,7 +26,7 @@ Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简
 
 ## 二、Binder通信协议
 
-![binder_protocol](/images/binder/binder_dev/binder_protocol.png)
+![binder_protocol](/images/binder/binder_dev/binder_protocol.jpg)
 
 Binder协议包含在IPC数据中，分为两类:
 
