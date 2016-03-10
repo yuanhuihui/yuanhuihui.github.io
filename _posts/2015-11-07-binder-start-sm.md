@@ -64,7 +64,7 @@ Service Manager是整个Binder IPC通信过程中的守护进程，启动Service
 
 该过程的**时序图**，如下：
 
-![create_servicemanager](\images\binder\create_servicemanager\create_servicemanager.jpg)
+![create_servicemanager](/images/binder/create_servicemanager/create_servicemanager.jpg)
 
 >注意小节前的**数字**是与时序图所处的**顺序编号**一一对应，中间会省略部分方法，所以看到的小节并非连续的。
 

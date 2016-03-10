@@ -287,20 +287,20 @@ MyData.java
 
 该工程会生成一个apk，安装到手机，打开apk，界面如下：
 
-![apk](\images\binder\AIDL\apk_ui.png)
+![apk](/images/binder/AIDL/apk_ui.png)
 
 界面上有三个按钮，分别是功能分别是bindService(绑定Service), unbindService(解除绑定Service), killProcess(杀死Service进程)。
 
 从左往右，依次点击界面，可得：
 
-![apk](\images\binder\AIDL\logcat_BinderSimple.png)
+![apk](/images/binder/AIDL/logcat_BinderSimple.png)
 
 
 ## 二、原理分析
 
 调用图：
 
-![aidl image](\images\binder\AIDL\MyServer_java_binder.jpg)
+![aidl image](/images/binder/AIDL/MyServer_java_binder.jpg)
 
 
 采用AIDL技术，是原理还是利用framework binder的架构。本文的实例AIDL会自动生成一个与之相对应的IRemoteService.java文件，如下：

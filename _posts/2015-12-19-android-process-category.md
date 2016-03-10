@@ -18,7 +18,7 @@ excerpt:  进程篇—进程整理
 
 系统启动架构图*：
 
-![process_status](\images\android-process\process_status.jpg)
+![process_status](/images/android-process/process_status.jpg)
 
 ### 1.1 父进程
 在所有进程中，以父进程的姿态存在的进程(即图中的浅红色项)，如下：
@@ -135,7 +135,7 @@ Zygote本身是一个Native的应用程序，刚开始的名字为“app_process
 
 共享父进程的地址空间的便是子线程，即VSIZE必然相同，否则就是子进程，如下图：
 
-![ps_zygote64](\images\android-process\pt_zygote64_2.png)
+![ps_zygote64](/images/android-process/pt_zygote64_2.png)
 
 图中红色圈起来的便是子线程，其他都是子进程。
 

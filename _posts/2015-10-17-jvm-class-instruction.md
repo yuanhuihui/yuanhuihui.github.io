@@ -135,7 +135,7 @@ b. 常量池内容,格式如下：
 
 常量池中每一项常量都是一个表结构，每个表的开始第一位是u1类型的标志位tag, 代表当前这个常量的类型。在JDK 1.7.中共有14种不同的表结构的类型，如下：
 
-![constant_type](\images\jvm\constant_type.png)
+![constant_type](/images/jvm/constant_type.png)
 
 Class文件都是二进制格式，可通过`Jdk/bin/javap.exe`工具，分析Class文件字节码。关于javap用法，可通过`javap --help`来查看。
 

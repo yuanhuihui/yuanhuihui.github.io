@@ -313,7 +313,7 @@ slab层把不同的对象划分为高速缓存组，每个高速缓存组都存�
 
 Linux使用三级页表完成地址转换。
 
-![page_admin](\images\kernel_memory\page_admin.jpg)
+![page_admin](/images/kernel_memory/page_admin.jpg)
 
 1. 顶级页表：页全局目录(PGD)，指向二级页目录；
 2. 二级页表：中间页目录(PMD)，指向PTE中的表项；
@@ -334,7 +334,7 @@ Linux使用三级页表完成地址转换。
 - 堆：动态分配的内存段，大小不固定，可动态扩张(malloc等函数分配内存)，或动态缩减(free等函数释放)；
 - 栈：存放临时创建的局部变量；
 
-![process memory](\images\kernel_memory\user_space.jpg)
+![process memory](/images/kernel_memory/user_space.jpg)
 
 ### 3.1 进程内存空间
 
@@ -347,7 +347,7 @@ Linux采用虚拟内存管理技术，每个进程都有各自独立的进程地
 
 
 
-![kernel memory](\images\kernel_memory\kernel_memory.jpg)
+![kernel memory](/images/kernel_memory/kernel_memory.jpg)
 
 ### 3.2 内存分配
 进程分配内存，陷入内核态分别由brk和mmap完成，但这两种分配还没有分配真正的物理内存，真正分配在后面会讲。

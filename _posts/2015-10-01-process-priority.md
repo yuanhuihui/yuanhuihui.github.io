@@ -18,7 +18,7 @@ excerpt:  进程篇—优先级调度
 
 进程可划分为普通进程和实时进程，那么优先级与nice值的关系图：
 
-![nice_prio](\images\android-process\nice_prio.png)
+![nice_prio](/images/android-process/nice_prio.png)
 
 优先级值越小表示进程优先级越高，3个进程优先级的概念：
 

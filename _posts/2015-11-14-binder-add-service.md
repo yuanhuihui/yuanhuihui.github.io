@@ -53,12 +53,12 @@ excerpt:  Binder系列5—注册服务(addService)
 
 那么接下来的3个过程的**时序图**，如下：
 
-![addService](\images\binder\addService\addService.jpg)
+![addService](/images/binder/addService/addService.jpg)
 
 ### 类图
 在Native层的服务注册，我们选择以media为例来展开讲解，先来看看media的类关系图。
 
-![add_media_player_service](\images\binder\addService\add_media_player_service.png)
+![add_media_player_service](/images/binder/addService/add_media_player_service.png)
 
 图解：
 

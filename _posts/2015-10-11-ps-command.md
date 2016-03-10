@@ -48,7 +48,7 @@ excerpt:  进程-PS命令用法
 **实例说明**
 
 
-![ps_command](\images\android-process\ps_command.jpg)
+![ps_command](/images/android-process/ps_command.jpg)
 
 含义：
 

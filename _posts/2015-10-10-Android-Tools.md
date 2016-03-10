@@ -19,7 +19,7 @@ Memory Monitor, Heap Viewer, Allocation Tracker
 
 ### 1. Memory Monitor
 
-![memory-monitor](\images\android-tools\memory-monitor.png)
+![memory-monitor](/images/android-tools/memory-monitor.png)
 
 
 ### 2. Heap Viewer

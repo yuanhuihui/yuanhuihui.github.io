@@ -27,7 +27,7 @@ excerpt:  Binder系列4—获取Service Manager
 获取Service Manager是通过defaultServiceManager()方法来完成，当进程[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)或
 [获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)的过程之前，都需要先调用defaultServiceManager()方法来获取gDefaultServiceManager对象。对于gDefaultServiceManager对象，如果存在则直接返回；如果不存在则创建该对象，创建过程包括调用open()打开binder驱动设备，利用mmap()映射内核的地址空间。
 
-![get_servicemanager](\images\binder\get_servicemanager\get_servicemanager.jpg)
+![get_servicemanager](/images/binder/get_servicemanager/get_servicemanager.jpg)
 
 
 

@@ -36,7 +36,7 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 ### 1.2 架构图
 
-![handler_java](\images\handler\Main.jpg)
+![handler_java](/images/handler/Main.jpg)
 
 
 - Looper有一个MessageQueue消息队列；
@@ -593,7 +593,7 @@ MessageQueue一直是按照Message触发的时间先后顺序排列的，队头�
 
 发送消息调用链：
 
-![java_sendmessage](\images\handler\java_sendmessage.png)
+![java_sendmessage](/images/handler/java_sendmessage.png)
 
 从上图，可以发现所有的发消息方式，最终都是调用MessageQueue.enqueueMessage();
 
@@ -675,7 +675,7 @@ Handler类似于辅助类，更多的实现都是MessageQueue, Message中的方�
 
 最后用一张图，来表示整个消息机制
 
-![handler_java](\images\handler\handler_java.jpg)
+![handler_java](/images/handler/handler_java.jpg)
 
 流程说明：
 
