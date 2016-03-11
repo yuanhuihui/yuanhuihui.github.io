@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android消息机制-Handler(实战篇)"
+title:  "Android消息机制3-Handler(实战)"
 date:   2016-01-01 14:09:12
 categories: android handler
 excerpt:  Android Message
@@ -19,12 +19,15 @@ excerpt:  Android Message
 	framework/base/core/java/andorid/os/HandlerThread.java
 
 
-## HandlerThread
+## 一、HandlerThread
 
-Handler的用法，往往是在一个线程中运行Looper，其他线程通过Handler来发送消息到Looper所在线程，这里涉及线程间的通信。既然涉及多个线程的通信，会有同步的问题，Android对此直接提供了HandlerThread类，下面来讲讲HandlerThread类的设计。
+[Android消息机制1-Handler(Java层)](http://www.yuanhh.com/2015/12/26/handler-message-framework/)  
+[Android消息机制2-Handler(native篇)](http://www.yuanhh.com/2015/12/27/handler-message-native/#nativepollonce)
+
+这两篇文章已经讲解了消息机制，那么对于Handler的用法，往往是在一个线程中运行Looper，其他线程通过Handler来发送消息到Looper所在线程，这里涉及线程间的通信。既然涉及多个线程的通信，会有同步的问题，Android对此直接提供了HandlerThread类，下面来讲讲HandlerThread类的设计。
 
 
-### 1. 创建
+### 1.1 创建
 
 HandlerThread 继承于 Thread类
 
@@ -38,7 +41,7 @@ HandlerThread 继承于 Thread类
         mPriority = priority;
     }
 
-### 2. getLooper
+### 1.2 getLooper
 
 获取HandlerThread线程中的Looper对象
 
@@ -60,7 +63,7 @@ HandlerThread 继承于 Thread类
         return mLooper;
     }
 
-### 3. 运行
+### 1.3 运行
 
     @Override
     public void run() {
@@ -76,7 +79,7 @@ HandlerThread 继承于 Thread类
         mTid = -1;
     }
 
-### 4. 退出
+### 1.4 退出
 
     public boolean quit() {
         Looper looper = getLooper();
@@ -98,9 +101,9 @@ HandlerThread 继承于 Thread类
 
 quit()与quitSafely()的区别，仅仅在于是否移除当前正在处理的消息。移除当前正在处理的消息可能会出现不安全的行为。
 
-## 实战
+## 二、实战
 
-### 用法1：利用HandlerThread
+### 2.1 利用HandlerThread
 
 很多时候，在HandlerThread线程中运行Loop()方法，在其他线程中通过Handler发送消息到HandlerThread线程。通过wait/notifyAll的方式，有效地解决了多线程的同步问题。
 
@@ -108,7 +111,7 @@ quit()与quitSafely()的区别，仅仅在于是否移除当前正在处理的�
 
 	// Step 1: 创建并启动HandlerThread线程，内部包含Looper	
 	HandlerThread handlerThread = new HandlerThread("yuanhh.com");
-	handlerThread.start()
+	handlerThread.start();
 	
 	// Step 2: 创建Handler
 	Handler handler = new Handler(handlerThread.getLooper());
@@ -119,12 +122,13 @@ quit()与quitSafely()的区别，仅仅在于是否移除当前正在处理的�
 	        @Override  
 	        public void run() {  
 	            System.out.println("thread id="+Thread.currentThread().getId());  
-	            handler.sendEmptyMessage(10);  
 	        }  
 	    });  
 
+或者 handler.postDelayed(Runnable r, long delayMillis)用于延迟执行。
 
-### 用法2：直接创建线程
+
+### 2.2 直接创建线程
 
 示例代码：
 
@@ -133,17 +137,20 @@ quit()与quitSafely()的区别，仅仅在于是否移除当前正在处理的�
 	
 	    public void run() {
 	        Looper.prepare();   
-	
+	        // Step 1: 创建Handler
 	        mHandler = new Handler() {  
 	            public void handleMessage(Message msg) {
-	                //处理即将发送过来的消息 
+	                //TODO  处理即将发送过来的消息 
 	            }
 	        };
 	
 	        Looper.loop(); 
 	    }
 	}
-	
-	
-	LooperThread.mHandler.sendEmptyMessage(10);  
 
+	// Step 2: 创建并启动LooperThread线程，内部包含Looper	
+	LooperThread looperThread = new LooperThread("yuanhh.com");
+	looperThread.start();
+
+	// Step 3: 发送消息
+	LooperThread.mHandler.sendEmptyMessage(10);  

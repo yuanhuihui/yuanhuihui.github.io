@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android消息机制-Handler(native篇)"
+title:  "Android消息机制2-Handler(Native层)"
 date:   2015-12-27 22:30:20
 categories: android handler
 excerpt:  Android Message
@@ -31,22 +31,21 @@ excerpt:  Android Message
 
 ## 一、概述
 
-在文章[Android消息机制-Handler(上篇)](http://www.yuanhh.com/2015/12/26/handler-message/#looper-1)中讲解了Java层的消息处理机制，其中`MessageQueue`类里面涉及到多个native方法，除了MessageQueue的native方法，native层本身也有一套完整的消息机制，用于处理native的消息。在整个消息机制中，而`MessageQueue`是连接Java层和Native层的纽带，换言之，Java层可以向`MessageQueue`消息队列中添加消息，Native层也可以向`MessageQueue`消息队列中添加消息。
+在文章[Android消息机制1-Handler(Java层)](http://www.yuanhh.com/2015/12/26/handler-message-framework/)中讲解了Java层的消息处理机制，其中`MessageQueue`类里面涉及到多个native方法，除了MessageQueue的native方法，native层本身也有一套完整的消息机制，用于处理native的消息。在整个消息机制中，而`MessageQueue`是连接Java层和Native层的纽带，换言之，Java层可以向`MessageQueue`消息队列中添加消息，Native层也可以向`MessageQueue`消息队列中添加消息。
 
 
-Native层的关系图：
+**Native层的关系图**
 
 ![native](/images/handler/native.png)
 
 
 ## 二、MessageQueue
 
-
 在MessageQueue中的native方法如下：
 
 	private native static long nativeInit(); 
     private native static void nativeDestroy(long ptr); 
-    private native void nativePollOnce(long ptr, int timeoutMillis); //该方法不是static
+    private native void nativePollOnce(long ptr, int timeoutMillis); 
     private native static void nativeWake(long ptr);
     private native static boolean nativeIsPolling(long ptr);
     private native static void nativeSetFileDescriptorEvents(long ptr, int fd, int events);
@@ -491,9 +490,9 @@ nativeWake用于唤醒功能，在添加消息到消息队列`enqueueMessage()`,
 其中`TEMP_FAILURE_RETRY` 是一个宏定义， 当执行`write`失败后，会不断重复执行，直到执行成功为止。
 
 
-### 2.5 Native sendMessage
+### 2.5 sendMessage
 
-在[Android消息机制-Handler(上篇)](http://www.yuanhh.com/2015/12/26/handler-message/#sendmessage)文中，讲述了Java层如何向MessageQueue类中添加消息，那么接下来讲讲Native层如何向MessageQueue发送消息。
+在[Android消息机制1-Handler(Java层)](http://www.yuanhh.com/2015/12/26/handler-message-framework/)文中，讲述了Java层如何向MessageQueue类中添加消息，那么接下来讲讲Native层如何向MessageQueue发送消息。
 
 **【1】sendMessage**
 
@@ -544,7 +543,7 @@ sendMessage(),sendMessageDelayed() 都是调用sendMessageAtTime()来完成消�
 - nativeInit()方法，最终实现由epoll机制中的epoll_create()/epoll_ctl()完成；
 - nativeDestroy()方法，最终实现由RefBase::decStrong()完成；
 - nativePollOnce()方法，最终实现由Looper::pollOnce()完成；
-- nativeWake()方法，最终实现由Looper::wake()调用write方法，向管道字符完成；
+- nativeWake()方法，最终实现由Looper::wake()调用write方法，向管道写入字符；
 - nativeIsPolling()，nativeSetFileDescriptorEvents()这两个方法类似，此处就不一一列举。
 
 
