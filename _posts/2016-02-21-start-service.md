@@ -1231,13 +1231,30 @@ ApplicationThread类也位于ActivityThread.java文件
 
 ### 总结
 
-在整个startService过程，从进程角度来说，流程如下图：
+在整个startService过程，从进程角度看服务启动过程
+
+- **Process A进程：**是指调用startService命令所在的进程，也就是启动服务的发起端进程，比如点击桌面App图标，此处Process A便是Launcher所在进程。
+- **system_server进程：**系统进程，是java framework框架的核心载体，里面运行了大量的系统服务，比如这里提供ApplicationThreadProxy（简称ATP），ActivityManagerService（简称AMS），这个两个服务都运行在system_server进程的不同线程中，由于ATP和AMS都是基于IBinder接口，都是binder线程，binder线程的创建与销毁都是由binder驱动来决定的，每个进程binder线程个数的上限为16。
+- **Zygote进程：**是由`init`进程孵化而来的，用于创建Java层进程的母体，所有的Java层进程都是由Zygote进程孵化而来；
+- **Remote Service进程：**远程服务所在进程，是由Zygote进程孵化而来的用于运行Remote服务的进程。主线程主要负责Activity/Service等组件的生命周期以及UI相关操作都运行在这个线程； 另外，每个App进程中至少会有两个binder线程 ApplicationThread(简称AT)和ActivityManagerProxy（简称AMP），当然还有其他线程，这里不是重点就不提了。
+
 
 ![start_service_process](/images/android-service/start_service/start_service_processes.jpg)
-Process A进程：是指调用startService指令所在的进程，也就是启动服务的发起端进程；system_server进程是Android的系统进程，里面有一个线程叫ActivityManager的线程，主要运行ActivityManagerService相关的服务；Zygote进程，这是由init进程孵化而来的，用于创建Java层进程的母体，所有的Java层进程都是由Zygote进程孵化而来；RemoteService进程便是由Zygote进程孵化而来的用于运行Remote服务的进程，即startService所发起的进程。在图中涉及3次进程/线程间的通信方式，Binder方式、Socket方式以及Handler方式，分别用3种不同的颜色来代表3种通信方式在启动服务过程的整个流程所在环节。一般来说，进程内的线程间通信更多的是采用handler（消息队列）的方式来通信，而进程间的通信更多的是采用binder机制，对于Zygote则是采用Socket的通信方式。
 
-如果读者进一步，深入了解Binder和handler背后的原理，可查看[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章，该系列从Android 6.0的源码为基础，展开地深入分析，该系统共有10篇文章。对于handler，可查看- [Android消息机制-Handler(上篇)](http://www.yuanhh.com/2015/12/26/handler-message/)、[Handler(中篇)](http://www.yuanhh.com/2015/12/27/handler-message-2/)、[Handler(下篇)](http://www.yuanhh.com/2016/01/01/handler-message-3/)共3篇文章。
+图中涉及3种IPC通信方式：`Binder`、`Socket`以及`Handler`，在图中分别用3种不同的颜色来代表这3种通信方式。一般来说，同一进程内的线程间通信采用的是 [Handler消息队列机制](http://www.yuanhh.com/2015/12/26/handler-message/)，不同进程间的通信采用的是[binder机制](http://www.yuanhh.com/2015/10/31/binder-prepare/)，另外与Zygote进程通信采用的`Socket`。
 
+启动流程：
+
+1. Process A进程采用Binder IPC向system_server进程发起startService请求；
+2. system_server进程接收到请求后，向zygote进程发送创建进程的请求；
+3. zygote进程fork出新的子进程Remote Service进程；
+4. Remote Service进程，通过Binder IPC向sytem_server进程发起attachApplication请求；
+5. system_server进程在收到请求后，进行一系列准备工作后，再通过binder IPC向remote Service进程发送scheduleCreateService请求；
+6. Remote Service进程的binder线程在收到请求后，通过handler向主线程发送CREATE_SERVICE消息；
+7. 主线程在收到Message后，通过发射机制创建目标Service，并回调Service.onCreate()方法。
+
+到此，服务便正式启动完成。当创建的是本地服务时，无需经过上述步骤2、3，直接创建服务即可。
+
+  
 ----------
-
 如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
