@@ -111,11 +111,11 @@ System_server启动函数调用类的栈关系：
         LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
 
         
-        //启动各种系统服务 【见Step 4】
+        //启动各种系统服务
         try {
-            startBootstrapServices(); // 启动引导服务
-            startCoreServices();      // 启动核心服务
-            startOtherServices();     // 启动其他服务  
+            startBootstrapServices(); // 启动引导服务【见Step 4】
+            startCoreServices();      // 启动核心服务【见Step 5】
+            startOtherServices();     // 启动其他服务【见Step 6】
         } catch (Throwable ex) {
             Slog.e("System", "************ Failure starting system services", ex);
             throw ex;
@@ -283,22 +283,103 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 运行到这里，system_server的准备环境基本完成，接下来开始system_server中最为核心的过程，启动系统服务。
 通过`startBootstrapServices()`, `startCoreServices()`, `startOtherServices()`3个方法。
 
+**Step 4.** startBootstrapServices
+
+[-->SystemServer.java]
+
+    private void startBootstrapServices() {
+        //阻塞等待与installd建立socket通道
+        Installer installer = mSystemServiceManager.startService(Installer.class);
+
+        //启动服务ActivityManagerService
+        mActivityManagerService = mSystemServiceManager.startService(
+                ActivityManagerService.Lifecycle.class).getService();
+        mActivityManagerService.setSystemServiceManager(mSystemServiceManager);
+        mActivityManagerService.setInstaller(installer);
+
+        //启动服务PowerManagerService
+        mPowerManagerService = mSystemServiceManager.startService(PowerManagerService.class);
+
+        //初始化power management
+        mActivityManagerService.initPowerManagement();
+
+        //启动服务LightsService 
+        mSystemServiceManager.startService(LightsService.class);
+
+        //启动服务DisplayManagerService
+        mDisplayManagerService = mSystemServiceManager.startService(DisplayManagerService.class);
+
+        //在初始化package manager之前，需要默认的显示
+        mSystemServiceManager.startBootPhase(SystemService.PHASE_WAIT_FOR_DEFAULT_DISPLAY);
+
+        //当设备正在加密时，仅运行核心
+        String cryptState = SystemProperties.get("vold.decrypt");
+        if (ENCRYPTING_STATE.equals(cryptState)) {
+            mOnlyCore = true;
+        } else if (ENCRYPTED_STATE.equals(cryptState)) {
+            mOnlyCore = true;
+        }
+
+        //启动服务PackageManagerService
+        mPackageManagerService = PackageManagerService.main(mSystemContext, installer,
+                mFactoryTestMode != FactoryTest.FACTORY_TEST_OFF, mOnlyCore);
+        mFirstBoot = mPackageManagerService.isFirstBoot();
+        mPackageManager = mSystemContext.getPackageManager();
+
+        //启动服务UserManagerService，新建目录/data/user/
+        ServiceManager.addService(Context.USER_SERVICE, UserManagerService.getInstance());
+
+        AttributeCache.init(mSystemContext);
+
+        //设置AMS
+        mActivityManagerService.setSystemProcess();
+
+        //启动传感器服务
+        startSensorService();
+    }
+
+该方法所创建的服务：ActivityManagerService, PowerManagerService, LightsService, DisplayManagerService， PackageManagerService， UserManagerService， sensor服务.
+
+
+**Step 5.** startCoreServices
+
+    private void startCoreServices() {
+        //启动服务BatteryService，用于统计电池电量，需要LightService.
+        mSystemServiceManager.startService(BatteryService.class);
+
+        //启动服务UsageStatsService，用于统计应用使用情况
+        mSystemServiceManager.startService(UsageStatsService.class);
+        mActivityManagerService.setUsageStatsManager(
+                LocalServices.getService(UsageStatsManagerInternal.class));
+
+        mPackageManagerService.getUsageStatsIfNoPackageUsageInfo();
+
+        //启动服务WebViewUpdateService
+        mSystemServiceManager.startService(WebViewUpdateService.class);
+    }
+
+启动服务BatteryService，UsageStatsService，WebViewUpdateService。
+
+**Step 6.** startOtherServices
+
+该方法比较长，有近千行代码，逻辑很简单，主要是启动一系列的服务，这里就不列举源码了，在第四节直接对其中的服务进行一个简单分类。
+
 ### 三、Service启动过程
 
 接下来，开始正式进入启动系统服务的过程。
 
-#### 服务启动方式
+#### 启动方式
 system_server进程中的服务启动方式有两种，
 
 1. 一种是通过SystemServiceManager的`startService()`，该方法用于启动继承于SystemService的服务。主要功能：创建serviceClass类的对象，将刚创建对象添加到SystemServiceManager的成员变量mServices，再调用刚创建对象的onStart()方法。对于服务启动到一定阶段，进入相应的Phase时，会调用SystemServiceManager的`startBootPhase()`回调方法，该方法会循环遍历所有向`SystemServiceManager`注册过的service的`onBootPhase()`方法。
 2. 另一种是通过ServiceManager的`addService(String name, IBinder service)`，该方法用于初始化继承于IBinder的服务。主要功能将该服务向Native层的[service Manager注册服务](http://www.yuanhh.com/2015/11/14/binder-add-service/#addservice)。
 
-#### 服务启动流程
+#### 启动流程
 SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶段从`PHASE_WAIT_FOR_DEFAULT_DISPLAY`到`PHASE_BOOT_COMPLETED`，如下图：
   
 ![system_server服务启动流程](/images/boot/systemServer/system_server_boot_process.jpg)
 
-**服务启动流程分析：**
+**启动流程分析：**
 
 1. `PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段等待Display有默认显示;
 2. `PHASE_LOCK_SETTINGS_READY=480`，进入该阶段服务能获取锁屏设置的数据;
