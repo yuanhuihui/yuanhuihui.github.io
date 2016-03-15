@@ -37,10 +37,8 @@ excerpt:  Pm命令用法
 |force-dex-opt `<package`>|dex优化|PMS.forceDexOpt|
 |dump `<package`>|dump信息|AM.dumpPackageStateStatic|
 |trim-caches `<目标size`>|紧缩cache目标大小|PMS.freeStorageAndNotify|
-pm命令实的实现方式，大多数都是调用PackageManagerService相应的方法来完成的。
 
-
-disbale之后，在桌面和应用程序列表里边都看到不该app。
+pm命令实的实现方式，大多数都是调用PackageManagerService相应的方法来完成的。disbale之后，在桌面和应用程序列表里边都看到不该app。
 
 ## 二、详细参数
 

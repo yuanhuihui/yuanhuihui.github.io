@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Am命令的用法"
+title:  "Am命令用法"
 date:   2016-02-27 20:55:51
 categories: android tool
-excerpt:  Am命令的用法
+excerpt:  Am命令用法
 ---
 
 * content
