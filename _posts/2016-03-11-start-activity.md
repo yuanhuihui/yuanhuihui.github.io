@@ -117,8 +117,19 @@ Activity的生命周期中只有在以下3种状态之一，才能较长时间�
 				Activity.performRestoreInstanceState
 					Activity.onRestoreInstanceState
 
-		handleResumeActivity （见2.2）
-
+		ActivityThread.handleResumeActivity
+			ActivityThread.performResumeActivity
+				Activity.performResume
+					Activity.performRestart
+						Instrumentation.callActivityOnRestart
+							Activity.onRestart
+	
+						Activity.performStart
+							Instrumentation.callActivityOnStart
+								Activity.onStart
+	
+					Instrumentation.callActivityOnResume
+						Activity.onResume
 
 采用缩进方式，来代表方法的调用链，相同缩进层的方法代表来自位于同一个调用方法里。callActivityOnCreate和callActivityonRestoreInstanceState相同层级，代表都是由上一层级的ActivityThread.performLaunchActivity()方法中调用。
 
@@ -130,9 +141,11 @@ Activity的生命周期中只有在以下3种状态之一，才能较长时间�
 2. Application.onCreate()
 3. Activity.onCreate()
 4. Activity.onRestoreInstanceState()
-
+5. Activity.onRestart()
+6. Activity.onStart() 
+7. Activity.onResume() 
  
-Application和Activity都实现了ComponentCallbacks2接口；所以Application和Activity会先执行onConfigurationChanged()回调方法。在前面说过onCreate()是过渡状态，紧跟着会执行handleResumeActivity()方法，在下一小节中会说明。
+Application和Activity都实现了ComponentCallbacks2接口；所以Application和Activity会先执行onConfigurationChanged()回调方法。在前面说过onCreate()是过渡状态，紧跟着会执行handleResumeActivity()方法，然后就进入Resumed状态。
 
 #### 3.2 恢复应用
 
@@ -172,8 +185,8 @@ msg: `PAUSE_ACTIVITY`
 		ActivityThread.performPauseActivity
 			ActivityThread.callCallActivityOnSaveInstanceState
 				Instrumentation.callActivityOnSaveInstanceState
-					Activity.performRestoreInstanceState
-						Activity.onRestoreInstanceState
+					Activity.performSaveInstanceState
+						Activity.onSaveInstanceState
 
 			Instrumentation.callActivityOnPause
 				Activity.performPause
@@ -181,7 +194,7 @@ msg: `PAUSE_ACTIVITY`
 
 **App角度**
 
-1. Activity.onRestoreInstanceState()
+1. Activity.onSaveInstanceState()
 2. Activity.onPause()
 
 根据saveState是否true决定是否执行callCallActivityOnSaveInstanceState()分支，从而决定是否回调onRestoreInstanceState()方法
@@ -196,8 +209,8 @@ msg: `STOP_ACTIVITY_HIDE`
 		ActivityThread.performStopActivityInner
 			ActivityThread.callCallActivityOnSaveInstanceState
 				Instrumentation.callActivityOnSaveInstanceState
-					Activity.performRestoreInstanceState
-						Activity.onRestoreInstanceState
+					Activity.performSaveInstanceState
+						Activity.onSaveInstanceState
 
 			ActivityThread.performStop
 				Activity.performStop
@@ -220,7 +233,7 @@ msg: `STOP_ACTIVITY_HIDE`
 
 **App角度**
 
-1. Activity.onRestoreInstanceState
+1. Activity.onSaveInstanceState
 2. Activity.onStop
 
 在停止Activity的过程，会有一个trimApplications()的操作，主要是kill空进程，将当前进程退出loop循环，清理应用的上下文环境，并且更新进程的Adj值。
