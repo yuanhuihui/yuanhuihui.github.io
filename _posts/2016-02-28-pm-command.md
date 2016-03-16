@@ -38,7 +38,7 @@ excerpt:  Pm命令用法
 |dump `<package`>|dump信息|AM.dumpPackageStateStatic|
 |trim-caches `<目标size`>|紧缩cache目标大小|PMS.freeStorageAndNotify|
 
-pm命令实的实现方式，大多数都是调用PackageManagerService相应的方法来完成的。disbale之后，在桌面和应用程序列表里边都看到不该app。
+pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManagerService`相应的方法来完成的。disbale之后，在桌面和应用程序列表里边都看到不该app。
 
 ## 二、详细参数
 

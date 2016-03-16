@@ -268,7 +268,7 @@ msg: `DESTROY_ACTIVITY`
 
 #### 3.6 创建Intent
 
-msg: `NEW_INTENT`
+msg: `NEW_INTENT` （打开已经处于栈顶的Activity，则会发送给NEW_INTENT消息给主线程）
 
 **调用链**
 

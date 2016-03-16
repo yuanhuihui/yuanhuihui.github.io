@@ -56,7 +56,7 @@ am命令还可以启动Service、Broadcast，杀进程，监控等功能，这�
 |am send-trim-memory  `<pid`> `<level`>|收紧进程的内存|setProcessMemoryTrimLevel|
 |am monitor|监控|MyActivityController.run|
 
-am命令实的实现方式，几乎都是调用ActivityManagerService相应的方法来完成的，`am monitor`除外。比如前面概述中介绍的命令`am start -a android.intent.action.VIEW -d  http://www.yuanhh.com`， 启动Acitivty最终调用的是ActivityManagerService类的startActivityAsUser()方法来完成的。再比如`am kill-all`命令，最终的实现工作是由ActivityManagerService的killBackgroundProcesses()方法完成的。
+am命令实的实现方式在Am.java，最终几乎都是调用`ActivityManagerService`相应的方法来完成的，`am monitor`除外。比如前面概述中介绍的命令`am start -a android.intent.action.VIEW -d  http://www.yuanhh.com`， 启动Acitivty最终调用的是ActivityManagerService类的startActivityAsUser()方法来完成的。再比如`am kill-all`命令，最终的实现工作是由ActivityManagerService的killBackgroundProcesses()方法完成的。
 
 
 接下来，说说`[options`]和 `<INTENT`>参数的意义以及如何正确取值。

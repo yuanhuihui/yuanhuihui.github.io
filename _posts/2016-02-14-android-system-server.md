@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Android系统启动-systemServer篇(一)"
+title:  "Android系统启动-SystemServer篇(一)"
 date:   2016-02-14 20:11:40
 categories: android
-excerpt:  Android系统启动-systemServer篇(一)
+excerpt:  Android系统启动-SystemServer篇(一)
 ---
 
 * content
