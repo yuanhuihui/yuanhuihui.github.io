@@ -2,7 +2,7 @@
 layout: post
 title:  "Android系统-开篇"
 date:   2016-01-30 23:43:40
-categories: android
+categories: android start-up
 excerpt:  Android系统-开篇
 ---
 

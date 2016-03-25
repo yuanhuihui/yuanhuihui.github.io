@@ -1,8 +1,8 @@
 ---
 layout: post
 title:  "ActivityManagerService启动过程(一)"
-date:   2016-03-06 21:12:40
-categories: android
+date:   2016-02-21 21:12:40
+categories: android start-up
 excerpt:  ActivityManagerService启动过程(一)
 ---
 
@@ -54,7 +54,7 @@ excerpt:  ActivityManagerService启动过程(一)
 
     }
 
-### 2. startService
+### 2. SystemServiceManager
 
 **2-1. startService**
 

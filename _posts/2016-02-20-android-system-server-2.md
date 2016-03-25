@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Android系统启动-SystemServer篇(二)"
+title:  "Android系统启动-SystemServer下篇"
 date:   2016-02-20 21:12:40
-categories: android
-excerpt:  Android系统启动-SystemServer篇(二)
+categories: android start-up
+excerpt:  Android系统启动-SystemServer下篇
 ---
 
 * content
@@ -44,7 +44,7 @@ System_server启动函数调用类的栈关系：
 
 ### 二、 SystemServer分析
 
-上一篇文章[Android系统启动-systemServer篇(一)](http://www.yuanhh.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程，本文重要是讲述system_server所承载的java framework的系统服务框架，是如何一路路启动的。
+上一篇文章[Android系统启动-systemServer上篇](http://www.yuanhh.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程，本文重要是讲述system_server所承载的java framework的系统服务框架，是如何一路路启动的。
 
 **Step 1.** SystemServer.main
 

@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Android系统启动-SystemServer篇(一)"
+title:  "Android系统启动-SystemServer上篇"
 date:   2016-02-14 20:11:40
-categories: android
-excerpt:  Android系统启动-SystemServer篇(一)
+categories: android start-up
+excerpt:  Android系统启动-SystemServer上篇
 ---
 
 * content
@@ -446,7 +446,7 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
         }
     }
 
-到此，总算是进入到了SystemServer类的main()方法， 在文章[Android系统启动-SystemServer篇(二)](http://www.yuanhh.com/2016/02/20/android-system-server-2/)中会紧接着这里开始讲述。
+到此，总算是进入到了SystemServer类的main()方法， 在文章[Android系统启动-SystemServer下篇](http://www.yuanhh.com/2016/02/20/android-system-server-2/)中会紧接着这里开始讲述。
 
 ### fork机制
 

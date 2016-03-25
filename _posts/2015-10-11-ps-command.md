@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "进程-PS命令用法"
+title:  "ps进程命令"
 date:   2015-10-11 22:20:50
 categories: android tool
-excerpt:  进程-PS命令用法
+excerpt:  ps进程命令
 ---
 
 * content

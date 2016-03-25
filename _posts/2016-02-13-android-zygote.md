@@ -2,7 +2,7 @@
 layout: post
 title:  "Android系统启动-zygote篇"
 date:   2016-02-13 20:21:40
-categories: android
+categories: android start-up
 excerpt:  Android系统启动-zygote篇
 ---
 

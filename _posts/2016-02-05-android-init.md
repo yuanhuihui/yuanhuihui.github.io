@@ -2,7 +2,7 @@
 layout: post
 title:  "Android系统启动-init篇"
 date:   2016-02-05 20:15:40
-categories: android
+categories: android start-up
 excerpt:  Android系统启动-init篇
 ---
 
