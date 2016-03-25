@@ -12,7 +12,7 @@ excerpt:  APP优化
 
 ---
 
-本文是针对Android的App开发优化(一)。
+> 本文是针对Android的App开发优化(一)。
 
 
 

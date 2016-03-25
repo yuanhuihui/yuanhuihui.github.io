@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "系统服务ActivityManagerService（一）"
+title:  "ActivityManagerService启动过程(一)"
 date:   2016-03-06 21:12:40
 categories: android
-excerpt:  系统服务ActivityManagerService(一)
+excerpt:  ActivityManagerService启动过程(一)
 ---
 
 * content
