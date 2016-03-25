@@ -14,14 +14,14 @@ excerpt:  理解Android编译命令
 
 ## 一、引言
 
-关于Android Build系统，这个话题很早就打算整理下，迟迟没有下笔，今天决定跟大家分享下。先看下面几条指令，相信编译过Android源码的人都再熟悉不过的。
+关于Android Build系统，这个话题很早就打算整理下，迟迟没有下笔，决定跟大家分享下。先看下面几条指令，相信编译过Android源码的人都再熟悉不过的。
 
 	source /opt/android1204_17.conf 
 	source setenv.sh
 	lunch
 	make -j12
 
-记得那时刚到公司的时候，同事告诉我用上面的指令就可以编译Android源码，指令虽短但过几天就记不全或者忘记顺序，每次编译时还需要看看自己的云笔记，冰冷的指令总是难以让我记忆，后来我决定认真研究下这个指令的含义。知其然还需知其所以然，这样能更深层次的理解并记忆，才能与自身的知识体系建立强连接，或许还能有意外收获，果然如此，接下来跟大家分享一下在研究上述几条指令含义的过程中，学习到的Android Build(编译)系统。
+记得最初刚接触Android时，同事告诉我用上面的指令就可以编译Android源码，指令虽短但过几天就记不全或者忘记顺序，每次编译时还需要看看自己的云笔记，冰冷的指令总是难以让我记忆。后来我决定认真研究下这个指令的含义。知其然还需知其所以然，这样能更深层次的理解并记忆，才能与自身的知识体系建立强连接，或许还能有意外收获，果然如此，接下来跟大家分享一下在研究上述几条指令含义的过程中，深入了解到的Android Build(编译)系统。
 
 ## 二、编译命令
 
@@ -139,7 +139,8 @@ excerpt:  理解Android编译命令
 
 ## 三、编译系统
 
-Android 编译系统是Android源码的一部分，用于编译Android系统，Android SDK以及相关文档。该编译系统是由Make文件、Shell以及Python脚本共同组成，其中最为重要的便是Make文件。
+Android 编译系统是Android源码的一部分，用于编译Android系统，Android SDK以及相关文档。该编译系统是由Make文件、Shell以及Python脚本共同组成，其中最为重要的便是Make文件。关于编译系统可参考 [理解 Android Build 系统](http://www.ibm.com/developerworks/cn/opensource/os-cn-android-build/)。
+
 
 ### 3.1 Makefile分类
 
@@ -214,9 +215,6 @@ Android 编译系统是Android源码的一部分，用于编译Android系统，A
 	  # 将当前模块编译成一个静态的Java库
 	  include $(BUILD_STATIC_JAVA_LIBRARY)
 
-
 ----------
-
-
-关于编译系统，可参考 [理解 Android Build 系统](http://www.ibm.com/developerworks/cn/opensource/os-cn-android-build/)。
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于gityuan个人信息](http://www.yuanhh.com/about/)
 

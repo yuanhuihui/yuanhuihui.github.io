@@ -39,7 +39,7 @@
 - [Android内存分析命令](http://www.yuanhh.com/2016/01/02/memory-analysis-command/)
 - [Linux内存管理](http://www.yuanhh.com/2015/10/30/kernel-memory/)
 
-## 其他
+## 关于作者
 
-更多文章，见<http://yuanhh.com>
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于gityuan个人信息](http://www.yuanhh.com/about/)
 
