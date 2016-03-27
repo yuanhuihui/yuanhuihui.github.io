@@ -47,10 +47,10 @@ table td{
 
 /* navbar */
 nav{
-	-webkit-box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-	-moz-box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-	-o-box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-	box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+	-webkit-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	-moz-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	-o-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 
 	border-radius: 0;
 }
@@ -222,18 +222,18 @@ footer{
 	line-height: 50px;
 	margin-top: 80px;
 	background: #eaeaea;
-	color: #aaa;
+	color: #555;
 	text-align: center;
 
-	-webkit-box-shadow: 0 -2px 4px rgba(0,0,0,0.5);
-	-moz-box-shadow: 0 -2px 4px rgba(0,0,0,0.5);
-	-o-box-shadow: 0 -2px 4px rgba(0,0,0,0.5);
-	box-shadow: 0 -2px 4px rgba(0,0,0,0.5);
+	-webkit-box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+	-moz-box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+	-o-box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+	box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
 }
-footer a:link {color: #aaa}		/* 未访问的链接 */
-footer a:visited {color: #888}	/* 已访问的链接 */
-footer a:hover {color: #bbb;text-decoration: none;}	/* 鼠标移动到链接上 */
-footer a:active {color: #bbb}	/* 选定的链接 */
+footer a:link {color: #666}		/* 未访问的链接 */
+footer a:visited {color: #333}	/* 已访问的链接 */
+footer a:hover {color: #444;text-decoration: none;}	/* 鼠标移动到链接上 */
+footer a:active {color: #444}	/* 选定的链接 */
 footer .point{
 	margin: 0 8px;
 }
