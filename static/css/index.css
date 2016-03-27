@@ -221,7 +221,7 @@ footer{
 	min-height: 50px;
 	line-height: 50px;
 	margin-top: 80px;
-	background: #3f4850;
+	background: #eaeaea;
 	color: #aaa;
 	text-align: center;
 
@@ -483,5 +483,34 @@ blockquote:last-child {
 		padding-left: 25px;
 	}
 }
+
+/* header.html */
+
+.navbar-inverse {
+	background-color: #eaeaea;
+	border-color: #eaeaea;
+}
+
+.navbar-inverse .navbar-nav>.active>a,.navbar-inverse .navbar-nav>.active>a:hover,.navbar-inverse .navbar-nav>.active>a:focus {
+	color: #fff;
+	background-color: #bbb
+}
+
+/* gityuan*/
+.navbar-inverse .navbar-brand {
+    color: #4B0082;
+}
+
+/*  天道酬勤*/
+.navbar-inverse .navbar-text {
+    color: #bf3eff;
+}
+
+.navbar-inverse .navbar-nav>li>a {
+	color: #333
+}
+
+
+
 
 
