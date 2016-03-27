@@ -2,10 +2,13 @@
   <div class="container">
     <div class="row">
       <div class="col-md-12">
-       <span class="glyphicon glyphicon-envelope"></span> {{ site.email }}
+      	<span>&copy; 2015 Gityuan</span>
+        <span class="point"> · </span>
+        <span>{{ site.description }}</span>
+        <span class="point"> · </span>
+        <span class="glyphicon glyphicon-envelope"></span> {{ site.email }}
         <span class="point"> · </span>
         {% if site.github_username %}
-
           <a href="https://github.com/{{ site.github_username }}">
             <span class="icon">
               <svg viewBox="0 0 16 16">
@@ -13,17 +16,10 @@
               </svg>
             </span>
             Github
-            <!-- <span>{{ site.github_username }}</span> -->
           </a>
-
-          {% endif %}
-          <span class="point"> · </span>
-          <span>&copy; 2015 Gityuan</span>
-          <span class="point"> · </span>
-          <span>{{ site.description }}</span>
-          <span class="point"> · </span>
-          <span><a href="https://github.com/jekyll/jekyll">Jekyll</a> theme by HyG</span>
-
+        {% endif %}
+        <span class="point"> · </span>
+        <span>Jekyll theme by HyG</span>
       </div>
     </div>
   </div>
