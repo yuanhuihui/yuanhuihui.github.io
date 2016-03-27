@@ -16,8 +16,10 @@ icon: glyphicon-heart
 
 #### 关于Gityuan
 
+
 * 微博：[Gityuan](http://weibo.com/gityuan)
 * 知乎：[Gityuan](http://www.zhihu.com/people/gityuan)
+* 博客：[gityuan.com]([http://gityuan.com)
 * 邮箱：[gityuan@gmail.com](mailto:{{ site.email }})
 * 微信公众号： [Gityuan]() (可通过扫一扫下方二维码)
 
@@ -25,4 +27,4 @@ icon: glyphicon-heart
 
 ----------
 
-**如果觉得文章对您有所帮助，请关注Gityuan的微博、微信， 谢谢各位^_^，欢迎大家技术交流！** [点击返回首页](http://yuanhh.com)
+**如果觉得文章对您有所帮助，请关注Gityuan的微博、微信， 谢谢各位^_^，欢迎大家技术交流！** [点击返回博客首页](http://gityuan.com)
