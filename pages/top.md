@@ -22,7 +22,7 @@ permalink: /top/
 
 - [为什么Android要采用Binder作为IPC机制？](https://www.zhihu.com/question/39440766/answer/89210950)
 - [Android中为什么主线程不会因为Looper.loop()里的死循环卡死？](https://www.zhihu.com/question/34652589/answer/90344494?from=profile_answer_card)
-- [自学编程一年,压力过大，我该怎么办？](https://www.zhihu.com/question/41198536/answer/90560766?from=profile_answer_card)
+- [自学编程一年,工作压力过大，我该怎么办？](https://www.zhihu.com/question/41198536/answer/90560766?from=profile_answer_card)
 
 ### 关于Gityuan
 
