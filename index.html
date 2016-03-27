@@ -4,16 +4,15 @@ layout: default
 <div id="index" class="row">
   <div class="col-sm-9">
     <div class="post-area">
-      <!-- small button -->
-     <!--  <p class="pull-right visible-xs">
-       <button>toggle</button>
-     </p> -->
-      <div class="post-list-header">
-				文章
-      </div>
-      <div class="post-list-body">
-        
+
+      <div class="post-list-body">  
         <div class="all-posts" post-cate="All">
+        	<a class="post-list-item" href="http://gityuan.com/top">
+              <h2>
+              域名迁移通知【置顶】
+              </h2>
+              <span class="">Mar 27, 2016</span>
+          </a>
           {% for post in paginator.posts %}
             <a class="post-list-item" href="{{ post.url | prepend: site.baseurl }}">
               <h2>
