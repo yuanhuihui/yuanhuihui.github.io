@@ -18,14 +18,22 @@
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
 
-        {% if page.url == "/index.html" %}
-          <li class="active">
-          {% else %}
-          <li>
+        {% if page.url == "/index.html" %} 
+        	<li class="active"> {% else %} <li>
         {% endif %}
           <a href="{{ site.baseurl }}/"><span class="glyphicon glyphicon-th-large"></span> 博客</a></li>
 
-        {% for p in site.pages %}
+        {% if page.url == "/columns/" %} 
+        	<li class="active"> {% else %} <li>
+        {% endif %}
+          <a href="{{ site.baseurl }}/columns"><span class="glyphicon glyphicon-play"></span> 专栏</a></li>
+          	
+        {% if page.url == "/about/" %} 
+        	<li class="active"> {% else %} <li>
+        {% endif %}
+          <a href="{{ site.baseurl }}/about"><span class="glyphicon glyphicon-heart"></span> 关于</a></li>
+          	          	  	 	
+ <!--       {% for p in site.pages %}
           {% if p.title %}
             {% if p.url == page.url %}
               <li class="active">
@@ -34,7 +42,7 @@
             {% endif %}
             <a href="{{ p.url | prepend: site.baseurl }}"><span class="glyphicon {{ p.icon }}"></span> {{ p.title }}</a></li>
           {% endif %}
-        {% endfor %}
+        {% endfor %} -->
       </ul>
     </div><!-- /.navbar-collapse -->
   </div><!-- /.container-fluid -->

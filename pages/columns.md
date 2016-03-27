@@ -2,10 +2,10 @@
 layout: page
 title: 专栏
 permalink: /columns/
-icon: glyphicon-heart
+icon: glyphicon-play
 ---
 
-> 整理Android源码系列文章，以专栏形式再这里展现
+> 整理Android源码系列文章，以专栏形式再这里展现，随着文章的增多，后期会以专栏形式，不断地进行更新归档。
 
 #### 专栏一： Binder系列
 
