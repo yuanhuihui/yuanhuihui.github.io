@@ -30,5 +30,12 @@
 		    <changefreq>weekly</changefreq>
 		    <priority>0.6</priority>
 		</url>
+
+		<url>
+		    <loc>http://gityuan.com/top</loc>
+		    <lastmod>2016-03-27</lastmod>
+		    <changefreq>weekly</changefreq>
+		    <priority>0.6</priority>
+		</url>
 </urlset>
 
