@@ -3,7 +3,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     {% for post in site.posts %}
     <url>
-        <loc>http://www.kymjs.com{{ post.url }}</loc>
+        <loc>http://gityuan.com{{ post.url }}</loc>
         <lastmod>{{ post.date | date: "%Y-%m-%d" }}</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
