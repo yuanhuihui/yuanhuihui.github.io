@@ -642,7 +642,7 @@ ActivityManagerNative.getDefault()该方法返回的是ActivityManagerProxy对�
         }
     }
 
-关于**Process.start()**是通过socket通信，告知[Zygote](http://www.yuanhh.com/22016/02/13/android-zygote/)创建fork子进程，创建完新进程，将ActivityThread类加载到新进程，并调用ActivityThread.main()方法。
+关于**Process.start()**是通过socket通信，告知[Zygote](http://www.yuanhh.com/2016/02/13/android-zygote/)创建fork子进程，创建完新进程，将ActivityThread类加载到新进程，并调用ActivityThread.main()方法。该过程详细情况，见[Android Process创建过程分析](http://www.yuanhh.com/2016/03/26/app-process-create/)。
 
 
 
@@ -681,8 +681,6 @@ ActivityManagerNative.getDefault()该方法返回的是ActivityManagerProxy对�
 此处的`mAppThread = new ApplicationThread()`；
 
 **[8-2]**
-
-ApplicationThread类也位于ActivityThread.java文件
 
     private void attach(boolean system) {
         sCurrentActivityThread = this;

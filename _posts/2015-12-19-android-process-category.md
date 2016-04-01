@@ -16,9 +16,11 @@ excerpt:  进程篇—进程整理
 
 ## 一、概括
 
-系统启动架构图*：
+系统启动架构图：
 
 ![process_status](/images/android-process/process_status.jpg)
+
+上图在[Android系统-开篇](http://gityuan.com/2016/01/30/android-boot/)中有讲解，是从Android系统启动的角度来分析，本文是从进程/线程的视角来分析该问题。
 
 ### 1.1 父进程
 在所有进程中，以父进程的姿态存在的进程(即图中的浅红色项)，如下：
