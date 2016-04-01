@@ -2,7 +2,7 @@
 layout: post
 title:  "ps进程命令"
 date:   2015-10-11 22:20:50
-categories: android tool
+categories: android tool process
 excerpt:  ps进程命令
 ---
 
@@ -12,11 +12,11 @@ excerpt:  ps进程命令
 
 ---
 
-## PS指令
+## ps进程命令
 
 在`adb shell`终端，输入 `ps`，可查看手机当前所有的进程状态，其中`ps`的英文全称是Process Status。
 
-**PS命令参数**:
+### 1. ps命令参数
 
 - -t 显示进程里的所有子线程 
 - -c 显示进程耗费的CPU时间 
@@ -32,43 +32,40 @@ excerpt:  ps进程命令
 
  	`ps | grep ^u0`;
 
+### 2. ps结果分析
 
+例如，在我手机输出如下命令：（20671是某个进程pid）
 
-**PS输出结果含义**：
+	ps -P -p -x -c  | grep -E "NAME| 20671 "
 
-- USER：  进程的当前用户
-- PID   ： 进程ID
-- PPID  ： 父进程ID
-- VSIZE  ： 进程虚拟地址空间大小；(virtual size)
-- RSS    ： 进程正在使用的物理内存大小；
-- WCHAN  ： 值为0代表进程处于运行态；否则代表内核地址(休眠态)
-- PC  ： 程序指针
-- NAME:  进程名
-
-**实例说明**
-
+**输出结果：**
 
 ![ps_command](/images/android-process/ps_command.jpg)
 
-含义：
 
-|类型|说明|
-|---|---|
-|用户|system|
-|进程ID|20671|
-|父进程ID|497|
-|虚拟空间大小|2085804B|
-|正在使用物理内存|60892B|
-|CPU消耗|1|
-|进程优化级|20|
-|Nice值|0|
-|实时进程优先级|0|
-|调度策略|SCHED_OTHER(默认策略)|
-|PCY|后台进程|
-|WCHAN|内核地址|
-|当前程序指令|b17d3d30|
-|S|处于休眠状态|
-|进程名|com.android.settings|
-|进程时间消耗|用户态130s,系统态12s|
+**结果分析：**
+
+|字段|含义|值|
+|---|---|---|
+|USER|进程的当前用户|system|
+|PID|进程ID|20671|
+|PPID|父进程ID|497|
+|VSIZE|进程虚拟地址空间大小|2085804B|
+|RSS|进程正在使用物理内存大小|60892B|
+|CPU|CPU消耗|1|
+|PRIO|进程优化级|20|
+|NICE|Nice值|0|
+|RTPRI|实时进程优先级|0|
+|SCHED|调度策略|SCHED_OTHER(默认策略)|
+|PCY|进程状态|bg|
+|**WCHAN**|内核地址|ffffffff|
+|PC|当前程序指针|b17d3d30|
+|-|休眠状态|S
+|NAME|进程名|com.android.settings|
+|-|用户态和内核态时间(单位s)|u:130, s:12|
+
+注： WCHAN值为0代表进程处于运行态；否则代表内核地址(休眠态)。
+
+----------
 
 关于更多进程的调度与优先级的说明，见[进程与线程](http://www.yuanhh.com/2015/10/01/Process-and-thread/)。

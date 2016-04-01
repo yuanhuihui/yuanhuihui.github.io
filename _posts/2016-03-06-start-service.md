@@ -128,8 +128,35 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 	    }
     }
 
-ActivityManagerNative.getDefault()该方法返回的是ActivityManagerProxy对象，那么下一步调用ActivityManagerProxy.startService()方法。
+**ActivityManagerNative.getDefault()**
 
+    static public IActivityManager getDefault() {
+        return gDefault.get();
+    }
+
+	//获取IActivityManager的代理类
+    private static final Singleton<IActivityManager> gDefault = new Singleton<IActivityManager>() {
+        protected IActivityManager create() {
+            //获取名为"activity"的服务，服务都注册到ServiceManager来统一管理
+            IBinder b = ServiceManager.getService("activity");
+            IActivityManager am = asInterface(b);
+            return am;
+        }
+    };
+
+	//单例模式，此处的mInstance为IActivityManager类的代理对象，即ActivityManagerProxy。
+	public abstract class Singleton<T> {
+	    public final T get() {
+	        synchronized (this) {
+	            if (mInstance == null) {
+	                mInstance = create();
+	            }
+	            return mInstance;
+	        }
+	    }
+	}
+
+该方法返回的是ActivityManagerProxy对象，那么下一步调用ActivityManagerProxy.startService()方法。
 
 通过Binder通信过程中，提供了一个IActivityManager服务接口，ActivityManagerProxy类与ActivityManagerService类都实现了IActivityManager接口。ActivityManagerProxy作为binder通信的客户端，ActivityManagerService作为binder通信的服务端，根据[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章，ActivityManagerProxy.startService()最终调用ActivityManagerService.startService()，整个流程图如下：
 
@@ -150,7 +177,7 @@ ActivityManagerNative.getDefault()该方法返回的是ActivityManagerProxy对�
         data.writeString(resolvedType);
         data.writeString(callingPackage);
         data.writeInt(userId);
-        //通过Binder 传递数据　【见流程5】
+        //通过Binder 传递数据　【见流程4】
         mRemote.transact(START_SERVICE_TRANSACTION, data, reply, 0);
         reply.readException();
         ComponentName res = ComponentName.readFromParcel(reply);
@@ -159,6 +186,7 @@ ActivityManagerNative.getDefault()该方法返回的是ActivityManagerProxy对�
         return res;
     }
 
+mRemote.transact()是binder通信的客户端发起方法，经过binder驱动，最后回到binder服务端ActivityManagerNative的onTransact()方法。
 
 ### 4. ActivityManagerNative.onTransact
 
