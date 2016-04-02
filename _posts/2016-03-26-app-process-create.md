@@ -568,7 +568,7 @@ Zygote采用fork方式创建新进程A，采用copy on write技术，这是linux
 VM_HOOKS.postForkCommon的主要功能是在fork新进程后，启动Zygote的4个Daemon线程，java堆整理，引用队列，以及析构线程。
 
 
- **小结：forkAndSpecialize()的工作**
+#### forkAndSpecialize小结
 
 调用关系链如下：
 
@@ -812,7 +812,7 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
 上图中，`system_server`进程通过socket IPC通道向`zygote`进程通信，`zygote`在fork出新进程后由于fork返回两次，从而能进入新进程来执行代码。
 
 1. **system_server进程**（即`流程1~3`）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
-2. **zygote进程**（即`流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，forkAndSpecialize()方法是进程创建过程中最为核心的一个环节（详细见上面的流程6），其具体工作是依次执行下面的3个方法：
+2. **zygote进程**（即`流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，图中绿色框`forkAndSpecialize()`方法是进程创建过程中最为核心的一个环节（**详见流程6**），其具体工作是依次执行下面的3个方法：
 	- preFork()：先停止Zygote的4个Daemon子线程（java堆内存整理线程、对线下引用队列线程、析构线程以及监控线程）的运行以及初始化gc堆；
 	- nativeForkAndSpecialize()：调用linux的fork()出`新建进程`，创建Java堆处理的线程池，重置gc性能数据，设置进程的信号处理函数，启动JDWP线程；
 	- postForkCommon()：在启动之前被暂停的4个Daemon子线程。
