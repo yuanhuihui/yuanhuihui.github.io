@@ -819,3 +819,7 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
 3. **新建进程**（即`流程7~13`）：进入handleChildProc()方法，设置进程名，打开binder驱动，启动新的binder线程；然后设置art虚拟机参数，再反射调用目标类的main()方法，即Activity.main()方法。
 
 再之后的流程，如果是startActivity则将要进入Activity的onCreate/onStart/onResume等生命周期；如果是startService则将要进入Service的onCreate等生命周期。
+
+----------
+
+欢迎关注我的**[微博：Gityuan](http://weibo.com/gityuan)**，微信公众号：gityuan，会持续分享更多原创干货。
