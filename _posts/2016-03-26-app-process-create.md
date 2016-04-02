@@ -33,7 +33,7 @@ excerpt:  理解Android进程创建流程
 
 ![start_app_process](/images/android-process/start_app_process.jpg)
 
-概括来说，App启动过程中先通过binder发送消息给system_server进程的AMS线程，AMS再调用Process.start()方法，通过socket向zygote进程发送创建新进程的请求，此时zygote在执行`ZygoteInit.main()`后，便进入`runSelectLoop()`循环方法中，当有客户端连接时便会执行ZygoteConnection.runOnce()方法，再经过层层调用后fork出新的应用进程，在新进程中执行handleChildProc方法，最后调用ActivityThread.main()方法。
+概括来说，App启动过程中先通过binder发送消息给system_server进程，system_server再调用Process.start()方法，通过socket向zygote进程发送创建新进程的请求，此时zygote在执行`ZygoteInit.main()`后，便进入`runSelectLoop()`循环方法中，当有客户端连接时便会执行ZygoteConnection.runOnce()方法，再经过层层调用后fork出新的应用进程，在新进程中执行handleChildProc方法，最后调用ActivityThread.main()方法。
 
 
 
@@ -82,30 +82,14 @@ excerpt:  理解Android进程创建流程
             argsForZygote.add("--runtime-args");
             argsForZygote.add("--setuid=" + uid);
             argsForZygote.add("--setgid=" + gid);
-
             argsForZygote.add("--target-sdk-version=" + targetSdkVersion);
-
-            if (gids != null && gids.length > 0) {
-                StringBuilder sb = new StringBuilder();
-                sb.append("--setgroups=");
-                int sz = gids.length;
-                for (int i = 0; i < sz; i++) {
-                    if (i != 0) {
-                        sb.append(',');
-                    }
-                    sb.append(gids[i]);
-                }
-                argsForZygote.add(sb.toString());
-            }
 
             if (niceName != null) {
                 argsForZygote.add("--nice-name=" + niceName);
             }
-
             if (appDataDir != null) {
                 argsForZygote.add("--app-data-dir=" + appDataDir);
             }
-
             argsForZygote.add(processClass);
 
             if (extraArgs != null) {
@@ -484,7 +468,11 @@ com_android_internal_os_Zygote_nativeForkAndSpecialize()方法，如下：
 
 **Step 6-2-1-1.** fork()
 
-fork()创建新进程，采用copy on write方式，这是linux创建进程的标准方法，会有两次return,对于pid==0为子进程的返回，对于pid>0为父进程的返回。
+Zygote进程是所有Android进程的母体，包括system_server进程以及App进程都是由Zygote进程孵化而来。
+
+![zygote_fork](/images/boot/zygote/zygote_fork.jpg)
+
+Zygote采用fork方式创建新进程A，采用copy on write技术，这是linux创建进程的标准方法，会有两次return,对于pid==0为子进程的返回，对于pid>0为父进程的返回。新创建的进程复制Zygote进程本身的资源，再加上新进程A相关的资源，构成新的应用进程A。
 
 **Step 6-2-2-1.** Zygote.callPostForkChildHooks
 
@@ -499,7 +487,7 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
         Math.setRandomSeedInternal(System.currentTimeMillis());
     }
 
-这里设置新进程Random随机数种子为当前系统时间
+在这里，设置了新进程Random随机数种子为当前系统时间，也就是在进程创建的那一刻就决定了未来随机数的情况，也就是伪随机。
 
 **Step 6-2-2-1-1.** nativePostForkChild
 
@@ -809,5 +797,17 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
         }
     }
 
-到此，总算是进入到了ActivityThread类的main()方法。再之后就要进入Activity的onCreate/onStart/onResume这些生命周期了。
+到此，总算是进入到了ActivityThread类的main()方法。
 
+----------
+
+### 总结
+
+当App第一次启动时或者启动远程Service，即AndroidManifest.xml文件中定义了process:remote属性时，都需要创建进程。比如当用户点击桌面的某个App图标，桌面本身是一个app（即Launcher App），那么Launcher所在进程便是这次创建新进程的发起进程，该通过binder发送消息给system_server进程，接下来：
+
+1. **system_server进程**（即流程1~3）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
+2. **zygote进程**（即流程4~6）：接收到system_server进程发送过来的参数后封装成Arguments对象，然后依次执行下面的3个方法：
+	- preFork()：先停止Zygote的4个Daemon子线程（java堆内存整理线程、对线下引用队列线程、析构线程以及监控线程）的运行以及初始化gc堆；
+	- nativeForkAndSpecialize()：调用linux的fork()出`新建进程`，创建Java堆处理的线程池，重置gc性能数据，设置进程的信号处理函数，启动JDWP线程；
+	- postForkCommon()：在启动之前被暂停的4个Daemon子线程。
+3. **新建进程**（（即流程7~13））：进入handleChildProc()方法，设置进程名，打开binder驱动，启动新的binder线程；然后设置art虚拟机参数，再反射调用目标类的main()方法，即Activity.main()方法，。再之后就要进入Activity的onCreate/onStart/onResume这些生命周期了。

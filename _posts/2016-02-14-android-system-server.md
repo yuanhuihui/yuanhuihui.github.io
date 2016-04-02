@@ -183,7 +183,7 @@ nativeForkSystemServer()，该native方法事在AndroidRuntime.cpp中注册的�
 	  return pid;
 	}
 
-fork()创建新进程，采用copy on write方式，这是linux创建进程的标准方法，会有两次return,对于pid==0为子进程的返回，对于pid>0为父进程的返回。  到此system_server进程已完成了创建的所有工作，接下来开始了system_server进程的真正工作。在前面startSystemServer()方法中，zygote进程执行完forkSystemServer()后，新创建出来的system_server进程便进入handleSystemServerProcess()方法。
+fork()创建新进程，采用copy on write方式，这是linux创建进程的标准方法，会有两次return,对于pid==0为子进程的返回，对于pid>0为父进程的返回。  到此system_server进程已完成了创建的所有工作，接下来开始了system_server进程的真正工作。在前面startSystemServer()方法中，zygote进程执行完forkSystemServer()后，新创建出来的system_server进程便进入handleSystemServerProcess()方法。关于fork()，可查看另一个文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/#nativeforkandspecialize)。
 
 ### 5. handleSystemServerProcess
 
@@ -447,15 +447,6 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
     }
 
 到此，总算是进入到了SystemServer类的main()方法， 在文章[Android系统启动-SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)中会紧接着这里开始讲述。
-
-### fork机制
-
-本文最后通过图来展示zygote作为Android进程的母体，是如何fork出新的子进程，比如本文的system_server进程，以及后续会降到的App进程，如下：
-
-![zygote_fork](/images/boot/zygote/zygote_fork.jpg)
-
-Zygote采用fork方式创建新进程A，采用copy on write技术，新创建的进程复制Zygote进程本身的资源，再加上新进程A相关的资源，构成新的应用进程A。
-
 
 ----------
 
