@@ -439,18 +439,18 @@ blockquote:last-child {
 #content a:active {color: #99b}	/* 选定的链接 */
 
 #content{
-	max-width: 292px;
+	max-width: 392px;
 }
 #content .content-text{
 	padding: 10px 0; 
 }
 #content ul{
-	padding-left: 30px;
+	padding-left: 22px;
 }
 #content ul li{
 	/*list-style: none;*/
-	font-size: 15px;
-	line-height: 25px;
+	font-size: 14px;
+	line-height: 24px;
 }
 .shadow-bottom-center{
 	background-color:#f8f8fd; 
