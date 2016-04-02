@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列4—获取Service Manager"
+title:  "Binder系列4—获取ServiceManager"
 date:   2015-11-08 13:10:54
 categories: android binder
-excerpt:  Binder系列4—获取Service Manager
+excerpt:  Binder系列4—获取ServiceManager
 ---
 
 * content
@@ -11,7 +11,7 @@ excerpt:  Binder系列4—获取Service Manager
 
 
 ---
-> 基于Android 6.0的源码剖析， 本文详细地讲解了如何获取Service Manager(defaultServiceManager)
+> 基于Android 6.0的源码剖析， 本文详细地讲解了如defaultServiceManager()的流程
 	
 	/framework/native/libs/binder/IServiceManager.cpp
 	/framework/native/libs/binder/ProcessState.cpp
@@ -26,6 +26,8 @@ excerpt:  Binder系列4—获取Service Manager
 
 获取Service Manager是通过defaultServiceManager()方法来完成，当进程[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)或
 [获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)的过程之前，都需要先调用defaultServiceManager()方法来获取gDefaultServiceManager对象。对于gDefaultServiceManager对象，如果存在则直接返回；如果不存在则创建该对象，创建过程包括调用open()打开binder驱动设备，利用mmap()映射内核的地址空间。
+
+点击查看[大图](http://gityuan.com/images/binder/get_servicemanager/get_servicemanager.jpg)
 
 ![get_servicemanager](/images/binder/get_servicemanager/get_servicemanager.jpg)
 

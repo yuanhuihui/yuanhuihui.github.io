@@ -23,6 +23,8 @@ binder在framework层，采用JNI技术来调用native(C/C++)层的binder架构�
 
 framework Binder架构图：
 
+点击查看[大图](http://gityuan.com/images/binder/java_binder/java_binder.jpg)
+
 ![java_binder](/images/binder/java_binder/java_binder.jpg)
 
 - 图中红色代表整个framework层 binder架构相关组件；
@@ -55,6 +57,8 @@ ServiceManagerNative类与ServiceManagerProxy类 都位于 ServiceManagerNative.
 ### 1.3 Binder类
 
 整个Binder从kernel至，native，JNI，Framework层所涉及的全部类
+
+点击查看[大图](http://gityuan.com/images/binder/java_binder_framework.jpg)
 
 ![java_binder_framework](/images/binder/java_binder_framework.jpg)
 

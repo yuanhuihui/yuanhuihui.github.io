@@ -51,12 +51,18 @@ excerpt:  Binder系列5—注册服务(addService)
 
 流程图中的[ProcessState::self()](http://www.yuanhh.com/2015/11/08/binder-get-sm/#processstateself)和[defaultServiceManager()](http://www.yuanhh.com/2015/11/08/binder-get-sm/#defaultservicemanager)过程已经讲解过。
 
-那么接下来的3个过程的**时序图**，如下：
+----------
+
+**时序图**
+
+点击查看[大图](http://gityuan.com/images/binder/addService/addService.jpg)
 
 ![addService](/images/binder/addService/addService.jpg)
 
 ### 类图
 在Native层的服务注册，我们选择以media为例来展开讲解，先来看看media的类关系图。
+
+点击查看[大图](http://gityuan.com/images/binder/addService/add_media_player_service.png)
 
 ![add_media_player_service](/images/binder/addService/add_media_player_service.png)
 

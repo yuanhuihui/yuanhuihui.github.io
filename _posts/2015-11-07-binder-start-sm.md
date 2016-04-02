@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "Binder系列3—启动Service Manager"
+title:  "Binder系列3—启动ServiceManager"
 date:   2015-11-07 21:11:50
 categories: android binder
-excerpt:  Binder系列3—启动Service Manager
+excerpt:  Binder系列3—启动ServiceManager
 ---
 
 * content
@@ -78,7 +78,9 @@ Service Manager成为IPC守护进程的整个过程分为4大步骤：
 
 ### 类图
 
-Binder在Native framework层所有涉及的类的关系图，如下：
+Binder在Native framework层所有涉及的类的关系图：
+
+点击查看[大图](http://gityuan.com/images/binder/create_servicemanager/classes_service_manager.png)
 
 ![service_manager_classes](/images/binder/create_servicemanager/classes_service_manager.png)
 

@@ -54,7 +54,7 @@ BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代
 ![Binder关系图](/images/binder/prepare/Ibinder_classes.jpg)
 
 - client端：BpBinder.transact()来发送事务请求；
-- server端：BBinder.transact()会接收到相应事务。
+- server端：BBinder.onTransact()会接收到相应事务。
 
 
 ## 三、 提纲
@@ -71,6 +71,8 @@ BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代
 - [Binder系列8—如何使用Binder](http://www.yuanhh.com/2015/11/22/binder-use/)
 - [Binder系列9—如何使用AIDL](http://www.yuanhh.com/2015/11/23/binder-aidl/)
 - [Binder系列10—总结](http://www.yuanhh.com/2015/11/28/binder-summary/)
+
+文章是从底层驱动往上层写的，对于不是很熟悉binder的朋友，建议从上层往底层看，先阅读`系列5-注册服务`和`系列6-获取服务`，然后再看底层驱动。
 
 
 ----------

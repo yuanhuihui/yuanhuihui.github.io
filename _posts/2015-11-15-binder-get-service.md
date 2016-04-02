@@ -20,6 +20,8 @@ excerpt: Binder系列6—获取服务(getService)
 ### 类图
 在Native层的服务注册，我们选择以media为例来展开讲解，先来看看media的类关系图。
 
+点击查看[大图](http://gityuan.com/images/binder/addService/add_media_player_service.png)
+
 ![get_media_player_service](/images/binder/getService/get_media_player_service.png)
 
 图解：
