@@ -468,11 +468,19 @@ com_android_internal_os_Zygote_nativeForkAndSpecialize()方法，如下：
 
 **Step 6-2-1-1.** fork()
 
-Zygote进程是所有Android进程的母体，包括system_server进程以及App进程都是由Zygote进程孵化而来。
+fork()采用copy on write技术，这是linux创建进程的标准方法，调用一次，返回两次，返回值有3种类型。
+
+- 父进程中，fork返回新创建的子进程的pid;
+- 子进程中，fork返回0；
+- 当出现错误时，fork返回负数。（当进程数超过上限或者系统内存不足时会出错）
+
+fork()的主要工作是寻找空闲的进程号pid，然后从父进程拷贝进程信息，例如数据段和代码段空间等，当然也包含拷贝fork()代码之后的要执行的代码到新的进程。
+
+下面，说说zygote的fork()过程：
 
 ![zygote_fork](/images/boot/zygote/zygote_fork.jpg)
 
-Zygote采用fork方式创建新进程A，采用copy on write技术，这是linux创建进程的标准方法，会有两次return,对于pid==0为子进程的返回，对于pid>0为父进程的返回。新创建的进程复制Zygote进程本身的资源，再加上新进程A相关的资源，构成新的应用进程A。
+Zygote进程是所有Android进程的母体，包括system_server进程以及App进程都是由Zygote进程孵化而来。zygote利用fork()方法生成新进程，对于新进程A复用Zygote进程本身的资源，再加上新进程A相关的资源，构成新的应用进程A。当进程A执行修改某个内存数据时（这便是on write时机），才发生缺页中断，从而分配新的内存地址空间（这便是copy操作），对于copy on write是基于内存页，而不是基于进程的。
 
 **Step 6-2-2-1.** Zygote.callPostForkChildHooks
 
@@ -809,7 +817,7 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
 
 ![process-create](/images/android-process/process-create.jpg)
 
-上图中，`system_server`进程通过socket IPC通道向`zygote`进程通信，`zygote`在fork出新进程后由于fork返回两次，从而能进入新进程来执行代码。
+上图中，`system_server`进程通过socket IPC通道向`zygote`进程通信，`zygote`在fork出新进程后由于fork**调用一次，返回两次**，即在zygote进程中调用一次，在zygote进程和子进程中各返回一次，从而能进入子进程来执行代码。
 
 1. **system_server进程**（即`流程1~3`）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
 2. **zygote进程**（即`流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，图中绿色框`forkAndSpecialize()`方法是进程创建过程中最为核心的一个环节（**详见流程6**），其具体工作是依次执行下面的3个方法：
