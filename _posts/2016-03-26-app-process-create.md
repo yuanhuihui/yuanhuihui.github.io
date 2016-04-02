@@ -803,10 +803,16 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
 
 ### 总结
 
-当App第一次启动时或者启动远程Service，即AndroidManifest.xml文件中定义了process:remote属性时，都需要创建进程。比如当用户点击桌面的某个App图标，桌面本身是一个app（即Launcher App），那么Launcher所在进程便是这次创建新进程的发起进程，该通过binder发送消息给system_server进程，接下来：
+当App第一次启动时或者启动远程Service，即AndroidManifest.xml文件中定义了process:remote属性时，都需要创建进程。比如当用户点击桌面的某个App图标，桌面本身是一个app（即Launcher App），那么Launcher所在进程便是这次创建新进程的发起进程，该通过binder发送消息给system_server进程，该进程承载着整个java framework的核心服务。system_server进程从Process.start开始，执行创建进程，流程图（以进程的视角）如下：
+
+点击查看[大图](http:/gityuan.com/images/android-process/process-create.jpg)
+
+![process-create](/images/android-process/process-create.jpg)
+
+上图中，`system_server`进程通过socket IPC通道向`zygote`进程通信，`zygote`在fork出新进程后由于fork返回两次，从而能进入新进程来执行代码。
 
 1. **system_server进程**（即`流程1~3`）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
-2. **zygote进程**（即`流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，然后依次执行下面的3个方法：
+2. **zygote进程**（即`流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，forkAndSpecialize()方法是进程创建过程中最为核心的一个环节（详细见上面的流程6），其具体工作是依次执行下面的3个方法：
 	- preFork()：先停止Zygote的4个Daemon子线程（java堆内存整理线程、对线下引用队列线程、析构线程以及监控线程）的运行以及初始化gc堆；
 	- nativeForkAndSpecialize()：调用linux的fork()出`新建进程`，创建Java堆处理的线程池，重置gc性能数据，设置进程的信号处理函数，启动JDWP线程；
 	- postForkCommon()：在启动之前被暂停的4个Daemon子线程。
