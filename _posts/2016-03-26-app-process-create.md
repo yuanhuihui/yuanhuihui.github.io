@@ -805,9 +805,11 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
 
 当App第一次启动时或者启动远程Service，即AndroidManifest.xml文件中定义了process:remote属性时，都需要创建进程。比如当用户点击桌面的某个App图标，桌面本身是一个app（即Launcher App），那么Launcher所在进程便是这次创建新进程的发起进程，该通过binder发送消息给system_server进程，接下来：
 
-1. **system_server进程**（即流程1~3）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
-2. **zygote进程**（即流程4~6）：接收到system_server进程发送过来的参数后封装成Arguments对象，然后依次执行下面的3个方法：
+1. **system_server进程**（即`流程1~3`）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
+2. **zygote进程**（即`流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，然后依次执行下面的3个方法：
 	- preFork()：先停止Zygote的4个Daemon子线程（java堆内存整理线程、对线下引用队列线程、析构线程以及监控线程）的运行以及初始化gc堆；
 	- nativeForkAndSpecialize()：调用linux的fork()出`新建进程`，创建Java堆处理的线程池，重置gc性能数据，设置进程的信号处理函数，启动JDWP线程；
 	- postForkCommon()：在启动之前被暂停的4个Daemon子线程。
-3. **新建进程**（（即流程7~13））：进入handleChildProc()方法，设置进程名，打开binder驱动，启动新的binder线程；然后设置art虚拟机参数，再反射调用目标类的main()方法，即Activity.main()方法，。再之后就要进入Activity的onCreate/onStart/onResume这些生命周期了。
+3. **新建进程**（即`流程7~13`）：进入handleChildProc()方法，设置进程名，打开binder驱动，启动新的binder线程；然后设置art虚拟机参数，再反射调用目标类的main()方法，即Activity.main()方法。
+
+再之后的流程，如果是startActivity则将要进入Activity的onCreate/onStart/onResume等生命周期；如果是startService则将要进入Service的onCreate等生命周期。
