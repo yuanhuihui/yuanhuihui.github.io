@@ -33,7 +33,7 @@ excerpt:  理解Android进程创建流程
 
 ![start_app_process](/images/android-process/start_app_process.jpg)
 
-概括来说，App启动过程中先通过binder发送消息给system_server进程的AMS线程，AMS再调用Process.start()方法，通过socket向zygote进程发送创建新进程的请求，此时zygote在[runSelectLoop()](http://gityuan.com/2016/02/13/android-zygote/#runselectloop)方法中，当有客户端连接时便会执行ZygoteConnection.runOnce()方法，再经过层层调用后fork出新的应用进程，在新进程中执行handleChildProc方法，最后调用ActivityThread.main()方法。
+概括来说，App启动过程中先通过binder发送消息给system_server进程的AMS线程，AMS再调用Process.start()方法，通过socket向zygote进程发送创建新进程的请求，此时zygote在执行`ZygoteInit.main()`后，便进入`runSelectLoop()`循环方法中，当有客户端连接时便会执行ZygoteConnection.runOnce()方法，再经过层层调用后fork出新的应用进程，在新进程中执行handleChildProc方法，最后调用ActivityThread.main()方法。
 
 
 
@@ -51,7 +51,7 @@ excerpt:  理解Android进程创建流程
                                   String appDataDir,
                                   String[] zygoteArgs) {
         try {
-             //【见流2】
+             //【见流程2】
             return startViaZygote(processClass, niceName, uid, gid, gids,
                     debugFlags, mountExternal, targetSdkVersion, seInfo,
                     abi, instructionSet, appDataDir, zygoteArgs);
@@ -113,7 +113,7 @@ excerpt:  理解Android进程创建流程
                     argsForZygote.add(arg);
                 }
             }
-             //【见流3】
+             //【见流程3】
             return zygoteSendArgsAndGetResult(openZygoteSocketIfNeeded(abi), argsForZygote);
         }
     }
@@ -205,6 +205,22 @@ excerpt:  理解Android进程创建流程
 
 ### 4. runSelectLoop
 
+[-->ZygoteInit.java]
+
+    public static void main(String argv[]) {
+        try {
+            runSelectLoop(abiList);
+            ....
+        } catch (MethodAndArgsCaller caller) {
+            caller.run(); //【见流程13】
+        } catch (RuntimeException ex) {
+            closeServerSocket();
+            throw ex;
+        }
+    }
+
+后续会讲到runSelectLoop()方法会抛出异常`MethodAndArgsCaller`，从而进入caller.run()方法。
+
 [-> ZygoteInit.java]
 
     private static void runSelectLoop(String abiList) throws MethodAndArgsCaller {
@@ -223,7 +239,7 @@ excerpt:  理解Android进程创建流程
                     peers.add(newPeer);
                     fds.add(newPeer.getFileDesciptor());
                 } else {
-                    //处理客户端数据事务 【5】
+                    //处理客户端数据事务 【见流程5】
                     boolean done = peers.get(i).runOnce();
                     if (done) {
                         peers.remove(i);
@@ -281,7 +297,7 @@ excerpt:  理解Android进程创建流程
                 fdsToClose[1] = fd.getInt$();
             }
             fd = null;
-            【6】
+            【见流程6】
             pid = Zygote.forkAndSpecialize(parsedArgs.uid, parsedArgs.gid, parsedArgs.gids,
                     parsedArgs.debugFlags, rlimits, parsedArgs.mountExternal, parsedArgs.seInfo,
                     parsedArgs.niceName, fdsToClose, parsedArgs.instructionSet,
@@ -295,7 +311,7 @@ excerpt:  理解Android进程创建流程
                 //子进程执行
                 IoUtils.closeQuietly(serverPipeFd);
                 serverPipeFd = null;
-                【7】
+                【见流程7】
                 handleChildProc(parsedArgs, descriptors, childPipeFd, newStderr);
 
                 // 不应到达此处，子进程预期的是抛出异常ZygoteInit.MethodAndArgsCaller或者执行exec().
@@ -317,38 +333,15 @@ excerpt:  理解Android进程创建流程
 
 [-> Zygote.java]
 
-**调用关系链：**
-
-	Zygote.forkAndSpecialize
-		ZygoteHooks.preFork
-			Daemons.stop
-			ZygoteHooks.nativePreFork
-				ZygoteHooks_nativePreFork
-					Runtime::PreZygoteFork
-						heap_->PreZygoteFork()
-		Zygote.nativeForkAndSpecialize
-			Zygote.ForkAndSpecializeCommon
-				fork()
-				Zygote.callPostForkChildHooks
-					ZygoteHooks.postForkChild
-						nativePostForkChild
-							Runtime::DidForkFromZygote
-		ZygoteHooks.postForkCommon
-			Daemons.start
-
-**下面开始讲解这个过程：**
-
-[-> Zygote.java]
-
     public static int forkAndSpecialize(int uid, int gid, int[] gids, int debugFlags,
           int[][] rlimits, int mountExternal, String seInfo, String niceName, int[] fdsToClose,
           String instructionSet, String appDataDir) {
-        VM_HOOKS.preFork(); 【6-1】
+        VM_HOOKS.preFork(); 【见流程6-1】
         int pid = nativeForkAndSpecialize(
                   uid, gid, gids, debugFlags, rlimits, mountExternal, seInfo, niceName, fdsToClose,
-                  instructionSet, appDataDir); 【6-2】
+                  instructionSet, appDataDir); 【见流程6-2】
         ...
-        VM_HOOKS.postForkCommon(); 【6-3】
+        VM_HOOKS.postForkCommon(); 【见流程6-3】
         return pid;
     }
 
@@ -366,9 +359,9 @@ excerpt:  理解Android进程创建流程
 [-> ZygoteHooks.java]
 
 	 public void preFork() {
-        Daemons.stop(); //停止4个Daemon子线程【6-1-1】
-        waitUntilAllThreadsStopped(); //等待所有子线程结束【6-1-2】
-        token = nativePreFork(); //完成gc堆的初始化工作【6-1-3】
+        Daemons.stop(); //停止4个Daemon子线程【见流程6-1-1】
+        waitUntilAllThreadsStopped(); //等待所有子线程结束【见流程6-1-2】
+        token = nativePreFork(); //完成gc堆的初始化工作【见流程6-1-3】
     }
 
 **Step 6-1-1.** Daemons.stop
@@ -397,7 +390,7 @@ nativePreFork通过JNI最终调用的是dalvik_system_ZygoteHooks.cc中的Zygote
 	static jlong ZygoteHooks_nativePreFork(JNIEnv* env, jclass) {
 	    Runtime* runtime = Runtime::Current();
 	    CHECK(runtime->IsZygote()) << "runtime instance not started with -Xzygote";
-	    runtime->PreZygoteFork(); 【6-1-3-1】
+	    runtime->PreZygoteFork(); 【见流程6-1-3-1】
 	    if (Trace::GetMethodTracingMode() != TracingMode::kTracingInactive) {
 	      Trace::Pause();
 	    }
@@ -432,7 +425,7 @@ com_android_internal_os_Zygote_nativeForkAndSpecialize()方法，如下：
 	    if (uid == AID_BLUETOOTH) {
 	        capabilities |= (1LL << CAP_WAKE_ALARM);
 	    }
-	    【6-2-1】
+	    【见流程6-2-1】
 	    return ForkAndSpecializeCommon(env, uid, gid, gids, debug_flags,
 	            rlimits, capabilities, capabilities, mount_external, se_info,
 	            se_name, false, fdsToClose, instructionSet, appDataDir);
@@ -450,7 +443,7 @@ com_android_internal_os_Zygote_nativeForkAndSpecialize()方法，如下：
 	                                     bool is_system_server, jintArray fdsToClose,
 	                                     jstring instructionSet, jstring dataDir) {
 	  SetSigChldHandler(); //设置子进程的signal信号处理函数
-	  pid_t pid = fork(); //fork子进程 【6-2-1-1】
+	  pid_t pid = fork(); //fork子进程 【见流程6-2-1-1】
 	  if (pid == 0) {
 	    //进入子进程
 	    DetachDescriptors(env, fdsToClose); //关闭并清除文件描述符
@@ -478,7 +471,7 @@ com_android_internal_os_Zygote_nativeForkAndSpecialize()方法，如下：
 	      SetThreadName(se_name_c_str); //设置线程名为system_server，方便调试
 	    }
 	    UnsetSigChldHandler(); //设置子进程的signal信号处理函数为默认函数
-	    //等价于调用zygote.callPostForkChildHooks() 【6-2-2-1】
+	    //等价于调用zygote.callPostForkChildHooks() 【见流程6-2-2-1】
 	    env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, debug_flags,
 	                              is_system_server ? NULL : instructionSet);
 	    ...
@@ -501,7 +494,7 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
     }
 
     public void postForkChild(int debugFlags, String instructionSet) {
-        【6-2-2-1-1】
+        【见流程6-2-2-1-1】
         nativePostForkChild(token, debugFlags, instructionSet);
         Math.setRandomSeedInternal(System.currentTimeMillis());
     }
@@ -527,7 +520,7 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
 	      if (isa != kNone && isa != kRuntimeISA) {
 	        action = Runtime::NativeBridgeAction::kInitialize;
 	      }
-	      【6-2-2-1-1-1】
+	      【见流程6-2-2-1-1-1】
 	      Runtime::Current()->DidForkFromZygote(env, action, isa_string.c_str());
 	    } else {
 	      Runtime::Current()->DidForkFromZygote(env, Runtime::NativeBridgeAction::kUnload, nullptr);
@@ -572,7 +565,7 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
 [-> ZygoteHooks.java]
 
     public void postForkCommon() {
-        Daemons.start(); 【6-3-1】
+        Daemons.start(); 【见流程6-3-1】
     }
 
 **Step 6-3-1.** Daemons.start
@@ -587,9 +580,29 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
 VM_HOOKS.postForkCommon的主要功能是在fork新进程后，启动Zygote的4个Daemon线程，java堆整理，引用队列，以及析构线程。
 
 
- **到此App进程已完成了创建的所有工作**：接下来开始了App进程的真正工作。在前面ZygoteConnection.runOnce方法中，zygote进程执行完`forkAndSpecialize()`后，新创建的App进程便进入`handleChildProc()`方法。
+ **小结：forkAndSpecialize()的工作**
 
-接下来的操作运行在App进程。
+调用关系链如下：
+
+	Zygote.forkAndSpecialize
+		ZygoteHooks.preFork
+			Daemons.stop
+			ZygoteHooks.nativePreFork
+				ZygoteHooks_nativePreFork
+					Runtime::PreZygoteFork
+						heap_->PreZygoteFork()
+		Zygote.nativeForkAndSpecialize
+			Zygote.ForkAndSpecializeCommon
+				fork()
+				Zygote.callPostForkChildHooks
+					ZygoteHooks.postForkChild
+						nativePostForkChild
+							Runtime::DidForkFromZygote
+		ZygoteHooks.postForkCommon
+			Daemons.start
+
+
+到此App进程已完成了创建的所有工作，接下来开始新创建的App进程的工作。在前面ZygoteConnection.runOnce方法中，zygote进程执行完`forkAndSpecialize()`后，新创建的App进程便进入`handleChildProc()`方法，下面的操作运行在App进程。
 
 ### 7. handleChildProc
 
@@ -629,11 +642,172 @@ VM_HOOKS.postForkCommon的主要功能是在fork新进程后，启动Zygote的4�
                     VMRuntime.getCurrentInstructionSet(),
                     pipeFd, parsedArgs.remainingArgs);
         } else {
-            //执行目标类的main()方法 【8】
+            //执行目标类的main()方法 【见流程8】
             RuntimeInit.zygoteInit(parsedArgs.targetSdkVersion,
                     parsedArgs.remainingArgs, null);
         }
     }
 
-RuntimeInit.zygoteInit()，之后的流程与启动[system_server进程一致](http://gityuan.com/2016/02/14/android-system-server/#zygoteinit)，这里就不展开了。
+### 8. zygoteInit
+
+[-->RuntimeInit.java]
+
+    public static final void zygoteInit(int targetSdkVersion, String[] argv, ClassLoader classLoader)
+            throws ZygoteInit.MethodAndArgsCaller {
+
+        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "RuntimeInit");
+        redirectLogStreams(); //重定向log输出
+
+        commonInit(); // 通用的一些初始化【见流程9】
+        nativeZygoteInit(); // zygote初始化 【见流程10】
+        applicationInit(targetSdkVersion, argv, classLoader); // 应用初始化【见流程11】
+    }
+
+### 9. commonInit
+
+[-->RuntimeInit.java]
+
+    private static final void commonInit() {
+        // 设置默认的未捕捉异常处理方法
+        Thread.setDefaultUncaughtExceptionHandler(new UncaughtHandler());
+
+        // 设置市区，中国时区为"Asia/Shanghai"
+        TimezoneGetter.setInstance(new TimezoneGetter() {
+            @Override
+            public String getId() {
+                return SystemProperties.get("persist.sys.timezone");
+            }
+        });
+        TimeZone.setDefault(null);
+
+        //重置log配置
+        LogManager.getLogManager().reset(); 
+        new AndroidConfig(); 
+
+        // 设置默认的HTTP User-agent格式,用于 HttpURLConnection。
+        String userAgent = getDefaultUserAgent();
+        System.setProperty("http.agent", userAgent);
+
+        // 设置socket的tag，用于网络流量统计
+        NetworkManagementSocketTagger.install();
+    }
+
+默认的HTTP User-agent格式，例如：
+
+	 "Dalvik/1.1.0 (Linux; U; Android 6.0.1；LenovoX3c70 Build/LMY47V)".
+
+### 10. nativeZygoteInit
+
+nativeZygoteInit()方法在AndroidRuntime.cpp中，进行了jni映射，对应下面的方法。
+
+[-->AndroidRuntime.cpp]
+
+	static void com_android_internal_os_RuntimeInit_nativeZygoteInit(JNIEnv* env, jobject clazz)
+	{
+	    gCurRuntime->onZygoteInit(); //此处的gCurRuntime为AppRuntime，是在AndroidRuntime.cpp中定义的
+	}
+
+[-->app_main.cpp]
+
+    virtual void onZygoteInit()
+    {
+        sp<ProcessState> proc = ProcessState::self();
+        proc->startThreadPool(); //启动新binder线程
+    }
+
+ProcessState::self()是单例模式，主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver()，在binder系列文章中的[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)详细这两个方法的执行原理。
+
+
+### 11. applicationInit
+
+[-->RuntimeInit.java]
+
+    private static void applicationInit(int targetSdkVersion, String[] argv, ClassLoader classLoader)
+            throws ZygoteInit.MethodAndArgsCaller {
+        //true代表应用程序退出时不调用AppRuntime.onExit()，否则会在退出前调用
+        nativeSetExitWithoutCleanup(true);
+
+        //设置虚拟机的内存利用率参数值为0.75
+        VMRuntime.getRuntime().setTargetHeapUtilization(0.75f);
+        VMRuntime.getRuntime().setTargetSdkVersion(targetSdkVersion);
+
+        final Arguments args;
+        try {
+            args = new Arguments(argv); //解析参数
+        } catch (IllegalArgumentException ex) {
+            Slog.e(TAG, ex.getMessage());
+            return;
+        }
+
+        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+
+        //调用startClass的static方法 main() 【见流程12】
+        invokeStaticMain(args.startClass, args.startArgs, classLoader);
+    }
+
+此处args.startClass为"android.app.ActivityThread"。
+
+### 12. invokeStaticMain
+
+[-->RuntimeInit.java]
+
+    private static void invokeStaticMain(String className, String[] argv, ClassLoader classLoader)
+            throws ZygoteInit.MethodAndArgsCaller {
+        Class<?> cl;
+
+        try {
+            cl = Class.forName(className, true, classLoader);
+        } catch (ClassNotFoundException ex) {
+            throw new RuntimeException(
+                    "Missing class when invoking static main " + className, ex);
+        }
+
+        Method m;
+        try {
+            m = cl.getMethod("main", new Class[] { String[].class });
+        } catch (NoSuchMethodException ex) {
+            throw new RuntimeException( "Missing static main on " + className, ex);
+        } catch (SecurityException ex) {
+            throw new RuntimeException(
+                    "Problem getting static main on " + className, ex);
+        }
+
+        int modifiers = m.getModifiers();
+        if (! (Modifier.isStatic(modifiers) && Modifier.isPublic(modifiers))) {
+            throw new RuntimeException(
+                    "Main method is not public and static on " + className);
+        }
+
+        //通过抛出异常，回到ZygoteInit.main()。这样做好处是能清空栈帧，提高栈帧利用率。【见流程13】
+        throw new ZygoteInit.MethodAndArgsCaller(m, argv);
+    }
+
+invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面的【流程4】中可知，下一步进入caller.run()方法。
+
+### 13. MethodAndArgsCaller
+
+[-->ZygoteInit.java]
+
+    public static class MethodAndArgsCaller extends Exception
+            implements Runnable {
+
+        public void run() {
+            try {
+                //根据传递过来的参数，可知此处通过反射机制调用的是ActivityThread.main()方法
+                mMethod.invoke(null, new Object[] { mArgs }); 
+            } catch (IllegalAccessException ex) {
+                throw new RuntimeException(ex);
+            } catch (InvocationTargetException ex) {
+                Throwable cause = ex.getCause();
+                if (cause instanceof RuntimeException) {
+                    throw (RuntimeException) cause;
+                } else if (cause instanceof Error) {
+                    throw (Error) cause;
+                }
+                throw new RuntimeException(ex);
+            }
+        }
+    }
+
+到此，总算是进入到了ActivityThread类的main()方法。再之后就要进入Activity的onCreate/onStart/onResume这些生命周期了。
 

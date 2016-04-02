@@ -339,7 +339,7 @@ nativeZygoteInit()方法在AndroidRuntime.cpp中，进行了jni映射，对应�
 ProcessState::self()是单例模式，主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver()，在binder系列文章中的[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)详细这两个方法的执行原理。
 
 
-### 10 applicationInit
+### 10. applicationInit
 
 [-->RuntimeInit.java]
 
@@ -405,7 +405,7 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
 
 ### 12. MethodAndArgsCaller
 
-在[Android系统启动-zygote篇](http://www.yuanhh.com/22016/02/13/android-zygote/#zygoteinit)中遗留了一个问题没有讲解，如下：
+在[Android系统启动-zygote篇](http://gityuan.com/2016/02/13/android-zygote/#zygoteinit)中遗留了一个问题没有讲解，如下：
 
 [-->ZygoteInit.java]
 
@@ -446,7 +446,7 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
         }
     }
 
-到此，总算是进入到了SystemServer类的main()方法， 在文章[Android系统启动-SystemServer下篇](http://www.yuanhh.com/2016/02/20/android-system-server-2/)中会紧接着这里开始讲述。
+到此，总算是进入到了SystemServer类的main()方法， 在文章[Android系统启动-SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)中会紧接着这里开始讲述。
 
 ### fork机制
 
@@ -459,5 +459,5 @@ Zygote采用fork方式创建新进程A，采用copy on write技术，新创建�
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)
 
