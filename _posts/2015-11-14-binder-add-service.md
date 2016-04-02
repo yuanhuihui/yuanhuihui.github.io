@@ -49,7 +49,7 @@ excerpt:  Binder系列5—注册服务(addService)
 ![workflow](/images/binder/addService/workflow.jpg)
 
 
-流程图中的[ProcessState::self()](http://www.yuanhh.com/2015/11/08/binder-get-sm/#processstateself)和[defaultServiceManager()](http://www.yuanhh.com/2015/11/08/binder-get-sm/#defaultservicemanager)过程已经讲解过。
+流程图中的[ProcessState::self()](http://gityuan.com/2015/11/08/binder-get-sm/#processstateself)和[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/#defaultservicemanager)过程已经讲解过。
 
 ----------
 
@@ -70,7 +70,7 @@ excerpt:  Binder系列5—注册服务(addService)
 
 - 蓝色代表的是注册MediaPlayerService服务所涉及的类
 - 绿色代表的是Binder架构中与Binder驱动通信过程中的最为核心的两个类；
-- 紫色代表的是注册服务和[获取服务](http://www.yuanhh.com/2015/11/15/binder-get-service/)的公共接口/父类；
+- 紫色代表的是注册服务和[获取服务](http://gityuan.com/2015/11/15/binder-get-service/)的公共接口/父类；
 
 
 下面开始讲解每一个流程：  
@@ -86,7 +86,7 @@ excerpt:  Binder系列5—注册服务(addService)
 
 注册服务MediaPlayerService
 
-由[defaultServiceManager()](http://www.yuanhh.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。关于MediaPlayerService的初始化过程，此处就省略，后面有时间会单独介绍。
+由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。关于MediaPlayerService的初始化过程，此处就省略，后面有时间会单独介绍。
 
 ### [3] addService
 ==> `/framework/native/libs/binder/IServiceManager.cpp`
@@ -269,7 +269,7 @@ IPCThreadState进行transact事务处理分3部分：
 	}
 
 
-其中handle的值用来标识目的端，注册服务过程的目的端为service manager，此处handle=0所对应的是binder_context_mgr_node对象，正是service manager所对应的binder实体对象。[binder_transaction_data结构体](http://www.yuanhh.com/2015/11/01/binder-driver/#bindertransactiondata)是binder驱动通信的数据结构，该过程最终是把Binder请求码BC_TRANSACTION和binder_transaction_data结构体写入到`mOut`。
+其中handle的值用来标识目的端，注册服务过程的目的端为service manager，此处handle=0所对应的是binder_context_mgr_node对象，正是service manager所对应的binder实体对象。[binder_transaction_data结构体](http://gityuan.com/2015/11/01/binder-driver/#bindertransactiondata)是binder驱动通信的数据结构，该过程最终是把Binder请求码BC_TRANSACTION和binder_transaction_data结构体写入到`mOut`。
 
 
 ### [9] waitForResponse
@@ -426,7 +426,7 @@ IPCThreadState进行transact事务处理分3部分：
 	}
 
 
-[binder_write_read结构体](http://www.yuanhh.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。
+[binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。
 
 ### [11] executeCommand
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
@@ -660,7 +660,7 @@ IPCThreadState进行transact事务处理分3部分：
 4. Binder驱动收到该Binder应答请求，生成BR_REPLY命令，T2->to_parent = T1，T2->to_thread = thread1, thread1->transaction_stack = T2。 在MediaPlayerService收到该命令后，知道服务注册完成，可以正常使用。
 
 整个过程中，BC_TRANSACTION和BR_TRANSACTION过程是一个完整的事务；BC_REPLY和BR_REPLY是一个完成事务。 
-到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://www.yuanhh.com/2015/11/15/binder-get-service/)。
+到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://gityuan.com/2015/11/15/binder-get-service/)。
 
 ### [16] startThreadPool
 ==> `/framework/native/libs/binder/ProcessState.cpp`
@@ -794,5 +794,5 @@ MediaPlayerService服务注册
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)
 

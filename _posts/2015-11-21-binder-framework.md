@@ -293,7 +293,7 @@ gBinderProxyOffsets保存了BinderProxy的<init>构造方法，sendDeathNotice()
 	    return javaObjectForIBinder(env, b); 
 	}
 
-对于ProcessState::self()->getContextObject()，在[获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)中详细介绍过。此处直接使用其结论：`ProcessState::self()->getContextObject()`等价于 `new BpBinder(0)`; 
+对于ProcessState::self()->getContextObject()，在[获取Service Manager](http://gityuan.com/2015/11/08/binder-get-sm/)中详细介绍过。此处直接使用其结论：`ProcessState::self()->getContextObject()`等价于 `new BpBinder(0)`; 
 
 ### 2.3 javaObjectForIBinder
 ==> `/framework/base/core/jni/android_util_binder.cpp`
@@ -556,7 +556,7 @@ BinderProxy.transact如下：
 	    return JNI_FALSE;
 	}
 
-BinderProxy.transact()，最终核心逻辑是交给BpBinder::transact()完成，在native Binder架构篇[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)中有详细说明BpBinder工作原理。
+BinderProxy.transact()，最终核心逻辑是交给BpBinder::transact()完成，在native Binder架构篇[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)中有详细说明BpBinder工作原理。
 
 ### 小结
 
@@ -648,6 +648,6 @@ javaObjectForIBinder作用是 创建BinderProxy对象，并将BpBinder对象的�
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)
 
 

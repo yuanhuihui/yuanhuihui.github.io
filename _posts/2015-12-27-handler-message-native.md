@@ -31,7 +31,7 @@ excerpt:  Android Message
 
 ## 一、概述
 
-在文章[Android消息机制1-Handler(Java层)](http://www.yuanhh.com/2015/12/26/handler-message-framework/)中讲解了Java层的消息处理机制，其中`MessageQueue`类里面涉及到多个native方法，除了MessageQueue的native方法，native层本身也有一套完整的消息机制，用于处理native的消息。在整个消息机制中，而`MessageQueue`是连接Java层和Native层的纽带，换言之，Java层可以向`MessageQueue`消息队列中添加消息，Native层也可以向`MessageQueue`消息队列中添加消息。
+在文章[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)中讲解了Java层的消息处理机制，其中`MessageQueue`类里面涉及到多个native方法，除了MessageQueue的native方法，native层本身也有一套完整的消息机制，用于处理native的消息。在整个消息机制中，而`MessageQueue`是连接Java层和Native层的纽带，换言之，Java层可以向`MessageQueue`消息队列中添加消息，Native层也可以向`MessageQueue`消息队列中添加消息。
 
 
 **Native层的关系图**
@@ -141,7 +141,7 @@ MessageQueue是在Java层与Native层有着紧密的联系，但是此次Native�
 	    }
 	}
 
-关于epoll的原理以及为什么选择epoll的方式，可查看文章[select/poll/epoll对比分析](http://www.yuanhh.com/2015/12/06/linux_epoll/)。
+关于epoll的原理以及为什么选择epoll的方式，可查看文章[select/poll/epoll对比分析](http://gityuan.com/2015/12/06/linux_epoll/)。
 
 另外，需要注意`Request`队列，也添加到epoll的监控范围内。
 
@@ -492,7 +492,7 @@ nativeWake用于唤醒功能，在添加消息到消息队列`enqueueMessage()`,
 
 ### 2.5 sendMessage
 
-在[Android消息机制1-Handler(Java层)](http://www.yuanhh.com/2015/12/26/handler-message-framework/)文中，讲述了Java层如何向MessageQueue类中添加消息，那么接下来讲讲Native层如何向MessageQueue发送消息。
+在[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)文中，讲述了Java层如何向MessageQueue类中添加消息，那么接下来讲讲Native层如何向MessageQueue发送消息。
 
 **【1】sendMessage**
 

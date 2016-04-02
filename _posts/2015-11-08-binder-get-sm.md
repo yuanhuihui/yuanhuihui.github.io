@@ -24,8 +24,8 @@ excerpt:  Binder系列4—获取ServiceManager
 
 ## 概述
 
-获取Service Manager是通过defaultServiceManager()方法来完成，当进程[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)或
-[获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)的过程之前，都需要先调用defaultServiceManager()方法来获取gDefaultServiceManager对象。对于gDefaultServiceManager对象，如果存在则直接返回；如果不存在则创建该对象，创建过程包括调用open()打开binder驱动设备，利用mmap()映射内核的地址空间。
+获取Service Manager是通过defaultServiceManager()方法来完成，当进程[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)或
+[获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)的过程之前，都需要先调用defaultServiceManager()方法来获取gDefaultServiceManager对象。对于gDefaultServiceManager对象，如果存在则直接返回；如果不存在则创建该对象，创建过程包括调用open()打开binder驱动设备，利用mmap()映射内核的地址空间。
 
 点击查看[大图](http://gityuan.com/images/binder/get_servicemanager/get_servicemanager.jpg)
 
@@ -157,7 +157,7 @@ defaultServiceManager()方法中，比较难理解的一行语句便是：
 	    return fd;
 	}
 
-open_driver作用是打开/dev/binder设备，binder支持的最大线程数默认是15。关于binder驱动的相应方法，见文章[Binder Driver初探](http://www.yuanhh.com/2015/11/01/binder-driver/)。
+open_driver作用是打开/dev/binder设备，binder支持的最大线程数默认是15。关于binder驱动的相应方法，见文章[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)。
 
 
 ## 8. getContextObject
@@ -356,4 +356,4 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)

@@ -20,7 +20,7 @@ excerpt:  Binder IPC的权限控制
 
 ## 一、概述
 
-在[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)中通过十篇文章，深入探讨了Android M的Binder IPC机制。看过Android系统源代码的朋友，一定看到过`Binder.clearCallingIdentity()`和`Binder.restoreCallingIdentity()`这两个方法，其定义在`Binder.java`文件：
+在[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)中通过十篇文章，深入探讨了Android M的Binder IPC机制。看过Android系统源代码的朋友，一定看到过`Binder.clearCallingIdentity()`和`Binder.restoreCallingIdentity()`这两个方法，其定义在`Binder.java`文件：
 
 	//作用是清空远程调用端的uid和pid，用当前本地进程的uid和pid替代；
 	public static final native long clearCallingIdentity();
@@ -35,7 +35,7 @@ clearCallingIdentity(), restoreCallingIdentity()这两个方法使用过程都�
 
 ## 二、原理
 
-从定义这两个方法是native方法，通过[Binder的JNI调用](http://www.yuanhh.com/2015/11/21/binder-framework/#registerandroidosbinder)，在`android_util_Binder.cpp`文件中定义了native方法所对应的jni方法。
+从定义这两个方法是native方法，通过[Binder的JNI调用](http://gityuan.com/2015/11/21/binder-framework/#registerandroidosbinder)，在`android_util_Binder.cpp`文件中定义了native方法所对应的jni方法。
 
 ### 2.1 clearCallingIdentity
 
@@ -150,8 +150,8 @@ UID和PID是IPCThreadState的成员变量， 都是32位的int型数据，通过
         }
     }
 
-文章[startService流程分析](http://www.yuanhh.com/2016/02/21/start-service/#activitymanagerproxyattachapplication)中有讲到`attachApplication()`的调用。该方法一般是system_server进程的子线程调用远程进程时使用，而`attachApplicationLocked`方法则是在同一个线程中，故需要在调用该方法前清空远程调用者的uid和pid，调用结束后恢复远程调用者的uid和pid。
+文章[startService流程分析](http://gityuan.com/2016/02/21/start-service/#activitymanagerproxyattachapplication)中有讲到`attachApplication()`的调用。该方法一般是system_server进程的子线程调用远程进程时使用，而`attachApplicationLocked`方法则是在同一个线程中，故需要在调用该方法前清空远程调用者的uid和pid，调用结束后恢复远程调用者的uid和pid。
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)

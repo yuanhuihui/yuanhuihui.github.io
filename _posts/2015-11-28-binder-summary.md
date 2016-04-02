@@ -24,7 +24,7 @@ excerpt:  Binder系列10—总结
 
 ![binder_arch](/images/binder/java_binder/java_binder.jpg)
 
-Binder在整个Android系统中有这举足轻重的地位，在Native层有一套完整的binder通信的C/S架构(图中的蓝色)，Bpinder作为客户端，BBinder作为服务端。基于naive层的Binder框架，Java也有一套镜像功能的binder C/S架构，通过JNI技术，与native层的binder对应，Java层的binder功能最终都是交给native的binder来完成。从kernel到native，jni，framework层的架构所涉及的所有有关类和方法见[Binder类图](http://www.yuanhh.com/2015/11/21/binder-framework/#binder-1)。
+Binder在整个Android系统中有这举足轻重的地位，在Native层有一套完整的binder通信的C/S架构(图中的蓝色)，Bpinder作为客户端，BBinder作为服务端。基于naive层的Binder框架，Java也有一套镜像功能的binder C/S架构，通过JNI技术，与native层的binder对应，Java层的binder功能最终都是交给native的binder来完成。从kernel到native，jni，framework层的架构所涉及的所有有关类和方法见[Binder类图](http://gityuan.com/2015/11/21/binder-framework/#binder-1)。
 
 
 ### 3. Binder进程与线程
@@ -56,4 +56,4 @@ Binder IPC机制，就是指在进程间传输数据（binder_transaction_data�
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)

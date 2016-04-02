@@ -104,7 +104,7 @@ Android进程从大类来划分，可分为内核进程和用户进程。
 
 
 
-servicemanager，作为Binder架构的一个大管家，所有注册服务、获取服务，都需要经过servicemanager，更多关于servicemanager查看[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章。
+servicemanager，作为Binder架构的一个大管家，所有注册服务、获取服务，都需要经过servicemanager，更多关于servicemanager查看[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)文章。
 
 
 ### 2.3 Zygote子进程

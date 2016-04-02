@@ -703,7 +703,7 @@ nativeZygoteInit()方法在AndroidRuntime.cpp中，进行了jni映射，对应�
         proc->startThreadPool(); //启动新binder线程
     }
 
-ProcessState::self()是单例模式，主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver()，在binder系列文章中的[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)详细这两个方法的执行原理。
+ProcessState::self()是单例模式，主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver()，在binder系列文章中的[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)详细这两个方法的执行原理。
 
 
 ### 11. applicationInit

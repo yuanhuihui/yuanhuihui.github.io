@@ -28,7 +28,7 @@ excerpt: Binder系列6—获取服务(getService)
 
 - 蓝色代表的是获取MediaPlayerService服务所涉及的类
 - 绿色代表的是Binder架构中与Binder驱动通信过程中的最为核心的两个类；
-- 紫色代表的是[注册服务](http://www.yuanhh.com/2015/11/14/binder-add-service/)和获取服务的公共接口/父类；
+- 紫色代表的是[注册服务](http://gityuan.com/2015/11/14/binder-add-service/)和获取服务的公共接口/父类；
 
 
 下面开始讲解每一个流程：  
@@ -68,7 +68,7 @@ excerpt: Binder系列6—获取服务(getService)
 
 获取服务MediaPlayerService
 
-关于[defaultServiceManager()](http://www.yuanhh.com/2015/11/08/binder-get-sm/#defaultservicemanager)过程已经讲解过，返回BpServiceManager。在请求获取名为"media.player"的服务过程中，采用不断循环获取的方法。由于MediaPlayerService服务可能还没向ServiceManager注册完成或者尚未启动完成等情况，故则binder返回为NULL，休眠0.5s后继续请求，直到获取服务为止。
+关于[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/#defaultservicemanager)过程已经讲解过，返回BpServiceManager。在请求获取名为"media.player"的服务过程中，采用不断循环获取的方法。由于MediaPlayerService服务可能还没向ServiceManager注册完成或者尚未启动完成等情况，故则binder返回为NULL，休眠0.5s后继续请求，直到获取服务为止。
 
 
 ### 二. getService
@@ -104,7 +104,7 @@ excerpt: Binder系列6—获取服务(getService)
         return reply.readStrongBinder();
     }
 
-这里调用BpBinder->transact()，再调用到IPCThreadState->transact()，再调用到IPCThreadState->waitForResponse，再调用。这个流程与[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)中的【流程4到流程10】基本一致。此处不再重复，最后reply
+这里调用BpBinder->transact()，再调用到IPCThreadState->transact()，再调用到IPCThreadState->waitForResponse，再调用。这个流程与[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)中的【流程4到流程10】基本一致。此处不再重复，最后reply
 里面会返回IBinder对象。
 
 
@@ -161,12 +161,12 @@ Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，
 #### 4.3 调用机制
 
 每当service进程退出时，service manager会收到来自Binder驱动的死亡通知。
-这项工作是在[启动Service Manager](http://www.yuanhh.com/2015/11/07/binder-start-sm/)时通过`binder_link_to_death(bs, ptr, &si->death)`完成。另外，每个Bp端也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。
+这项工作是在[启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)时通过`binder_link_to_death(bs, ptr, &si->death)`完成。另外，每个Bp端也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。
 
 那么问题来了，Binder死亡通知是如何触发的呢？对于Binder IPC进程都会打开/dev/binder文件，当进程异常退出时，Binder驱动会保证释放将要退出的进程中没有正常关系的/dev/binder文件，实现机制是binder驱动通过调用/dev/binder文件所对应的release回调函数，执行清理工作，并且检查BBinder是否有注册死亡通知，当发现存在死亡通知时，那么就向其对应的BpBinder端发送死亡通知消息。
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)
 
 

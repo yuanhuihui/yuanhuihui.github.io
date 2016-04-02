@@ -14,7 +14,7 @@ excerpt:  性能工具Traceview
 
 ## Traceview
 
-性能分析功能，首推Systrace，建议看看另一篇文章[性能工具Systrace](http://www.yuanhh.com/2016/01/17/systrace/)，关于Trracview就简单地讲一下。
+性能分析功能，首推Systrace，建议看看另一篇文章[性能工具Systrace](http://gityuan.com/2016/01/17/systrace/)，关于Trracview就简单地讲一下。
 
 
 **代码实现:**

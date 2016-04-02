@@ -217,5 +217,5 @@ Android 编译系统是Android源码的一部分，用于编译Android系统，A
 	  include $(BUILD_STATIC_JAVA_LIBRARY)
 
 ----------
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于gityuan个人信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于gityuan个人信息](http://gityuan.com/about/)
 

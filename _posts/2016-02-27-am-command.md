@@ -20,14 +20,14 @@ excerpt:  Am命令用法
 
 	adb shell am start -a android.intent.action.CALL -d tel:10086
 
-(2) 打开网站`www.yuanhh.com`
+(2) 打开网站`www.gityuan.com`
 
-	adb shell am start -a android.intent.action.VIEW -d  http://www.yuanhh.com
+	adb shell am start -a android.intent.action.VIEW -d  http://gityuan.com
 
 
 (3) 启动Activity： 启动包名为`com.yuanhh.app`，主Activity为`.MainActivity`，且extra数据以"website"为key, "yuanh.com"为value。通过java代码要完成该功能虽然不复杂，但至少需要一个android环境，而通过adb的方式，只需要在adb窗口，输入如下命令便可完成:
 
-	am start -n com.yuanhh.app/.MainActivity -es website yuanhh.com
+	am start -n com.yuanhh.app/.MainActivity -es website gityuan.com
 
 
 am命令还可以启动Service、Broadcast，杀进程，监控等功能，这些功能都非常便捷调试程序，接下来讲述关于am更多更详细的功能。
@@ -56,7 +56,7 @@ am命令还可以启动Service、Broadcast，杀进程，监控等功能，这�
 |am send-trim-memory  `<pid`> `<level`>|收紧进程的内存|setProcessMemoryTrimLevel|
 |am monitor|监控|MyActivityController.run|
 
-am命令实的实现方式在Am.java，最终几乎都是调用`ActivityManagerService`相应的方法来完成的，`am monitor`除外。比如前面概述中介绍的命令`am start -a android.intent.action.VIEW -d  http://www.yuanhh.com`， 启动Acitivty最终调用的是ActivityManagerService类的startActivityAsUser()方法来完成的。再比如`am kill-all`命令，最终的实现工作是由ActivityManagerService的killBackgroundProcesses()方法完成的。
+am命令实的实现方式在Am.java，最终几乎都是调用`ActivityManagerService`相应的方法来完成的，`am monitor`除外。比如前面概述中介绍的命令`am start -a android.intent.action.VIEW -d  http://gityuan.com`， 启动Acitivty最终调用的是ActivityManagerService类的startActivityAsUser()方法来完成的。再比如`am kill-all`命令，最终的实现工作是由ActivityManagerService的killBackgroundProcesses()方法完成的。
 
 
 接下来，说说`[options`]和 `<INTENT`>参数的意义以及如何正确取值。
@@ -132,9 +132,9 @@ Intent的参数和flags较多，本文为方便起见，分为3种类型参数�
 
 比如参数es是Extra String首字母简称，实例：
 
-	am start -n com.yuanhh.app/.MainActivity -es website yuanhh.com 
+	am start -n com.yuanhh.app/.MainActivity -es website gityuan.com 
 
-此处`-es website yuanhh.com`，等价于Intent.putExtra("website", "yuanhh.com");
+此处`-es website gityuan.com`，等价于Intent.putExtra("website", "gityuan.com");
 
 **(2). 数组类型**
 
@@ -184,6 +184,6 @@ Intent的参数和flags较多，本文为方便起见，分为3种类型参数�
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)
 
 

@@ -22,7 +22,7 @@ excerpt:  Android系统启动-SystemServer上篇
 
 ### 启动流程
 
-SystemServer的在Android体系中所处的地位，SystemServer由Zygote fork生成的，进程名为`system_server`，该进程承载着framework的核心服务。[Android系统启动-zygote篇](http://www.yuanhh.com/22016/02/13/android-zygote/)中讲到Zygote启动过程中，会调用startSystemServer()，可知`startSystemServer()`函数是system_server启动流程的起点，启动流程图如下：
+SystemServer的在Android体系中所处的地位，SystemServer由Zygote fork生成的，进程名为`system_server`，该进程承载着framework的核心服务。[Android系统启动-zygote篇](http://gityuan.com/22016/02/13/android-zygote/)中讲到Zygote启动过程中，会调用startSystemServer()，可知`startSystemServer()`函数是system_server启动流程的起点，启动流程图如下：
 
 ![system_server_boot_process](/images/boot/systemServer/system_server.jpg)
 
@@ -336,7 +336,7 @@ nativeZygoteInit()方法在AndroidRuntime.cpp中，进行了jni映射，对应�
         proc->startThreadPool(); //启动新binder线程
     }
 
-ProcessState::self()是单例模式，主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver()，在binder系列文章中的[注册服务(addService)](http://www.yuanhh.com/2015/11/14/binder-add-service/)详细这两个方法的执行原理。
+ProcessState::self()是单例模式，主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver()，在binder系列文章中的[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)详细这两个方法的执行原理。
 
 
 ### 10. applicationInit

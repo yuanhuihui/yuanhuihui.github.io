@@ -88,7 +88,7 @@ excerpt:  dumpsys工具
 3. `sm->checkService()`，获取系统中指定的服务。
 4. `service->dump()`，dumpsys命令的核心还是调用远程服务中的dump()方法来获取相应的dump信息。
 
-更多关于如何获取service manager和服务，可查看[Binder系列3 —— 获取Service Manager](http://www.yuanhh.com/2015/11/08/binder-get-sm/)，[Binder系列5 —— 获取服务(getService)](http://www.yuanhh.com/2015/11/15/binder-get-service/)。
+更多关于如何获取service manager和服务，可查看[Binder系列3 —— 获取Service Manager](http://gityuan.com/2015/11/08/binder-get-sm/)，[Binder系列5 —— 获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)。
 
 ----------
 

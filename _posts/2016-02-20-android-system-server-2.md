@@ -44,7 +44,7 @@ System_server启动函数调用类的栈关系：
 
 ### 二、 SystemServer分析
 
-上一篇文章[Android系统启动-systemServer上篇](http://www.yuanhh.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程，本文重要是讲述system_server所承载的java framework的系统服务框架，是如何一路路启动的。
+上一篇文章[Android系统启动-systemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程，本文重要是讲述system_server所承载的java framework的系统服务框架，是如何一路路启动的。
 
 **Step 1.** SystemServer.main
 
@@ -372,7 +372,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 system_server进程中的服务启动方式有两种，
 
 1. 一种是通过SystemServiceManager的`startService()`，该方法用于启动继承于SystemService的服务。主要功能：创建serviceClass类的对象，将刚创建对象添加到SystemServiceManager的成员变量mServices，再调用刚创建对象的onStart()方法。对于服务启动到一定阶段，进入相应的Phase时，会调用SystemServiceManager的`startBootPhase()`回调方法，该方法会循环遍历所有向`SystemServiceManager`注册过的service的`onBootPhase()`方法。
-2. 另一种是通过ServiceManager的`addService(String name, IBinder service)`，该方法用于初始化继承于IBinder的服务。主要功能将该服务向Native层的[service Manager注册服务](http://www.yuanhh.com/2015/11/14/binder-add-service/#addservice)。
+2. 另一种是通过ServiceManager的`addService(String name, IBinder service)`，该方法用于初始化继承于IBinder的服务。主要功能将该服务向Native层的[service Manager注册服务](http://gityuan.com/2015/11/14/binder-add-service/#addservice)。
 
 #### 启动流程
 SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶段从`PHASE_WAIT_FOR_DEFAULT_DISPLAY`到`PHASE_BOOT_COMPLETED`，如下图：
@@ -445,4 +445,4 @@ system_server进程，从源码角度划分为引导服务、核心服务、其�
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)

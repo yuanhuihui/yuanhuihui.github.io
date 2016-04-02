@@ -346,7 +346,7 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
 
 ![zygote_init](/images/boot/init/zygote_init.jpg)
 
-而关于Zygote重启在前面的信号处理过程中讲过，是处理SIGCHLD信号，init进程重启zygote进程，更多关于Zygote内容见[Zygote篇](http://www.yuanhh.com/2016/02/13/android-zygote/)。
+而关于Zygote重启在前面的信号处理过程中讲过，是处理SIGCHLD信号，init进程重启zygote进程，更多关于Zygote内容见[Zygote篇](http://gityuan.com/2016/02/13/android-zygote/)。
 
 
 ## 五、属性服务
@@ -394,5 +394,5 @@ property_service.cpp
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)
 

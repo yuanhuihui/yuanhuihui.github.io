@@ -68,4 +68,4 @@ excerpt:  ps进程命令
 
 ----------
 
-关于更多进程的调度与优先级的说明，见[进程与线程](http://www.yuanhh.com/2015/10/01/Process-and-thread/)。
+关于更多进程的调度与优先级的说明，见[进程与线程](http://gityuan.com/2015/10/01/Process-and-thread/)。

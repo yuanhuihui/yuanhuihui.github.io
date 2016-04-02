@@ -13,7 +13,7 @@ excerpt:  Android属性动画
 
 ----------
 
- >本文重点讲述属性动画，关于逐帧动画与补间动画，可查看上一篇文章[**Android动画之入门篇（一）**](http://www.yuanhh.com/2015/09/03/android-anaimator-1/)。 
+ >本文重点讲述属性动画，关于逐帧动画与补间动画，可查看上一篇文章[**Android动画之入门篇（一）**](http://gityuan.com/2015/09/03/android-anaimator-1/)。 
    
 属性动画功能非常强大，也是最常用的动画方法。可自定义如下属性：  
 
@@ -127,7 +127,7 @@ ValueAnimator是整个属性动画框架的核心类，使用方法如下：
 	    float getInterpolation(float input);
 	}
 
-想要更加深入地了解插值器，可查看[**Android动画之原理篇（三）**](http://www.yuanhh.com/2015/09/05/android-anaimator-3/)。
+想要更加深入地了解插值器，可查看[**Android动画之原理篇（三）**](http://gityuan.com/2015/09/05/android-anaimator-3/)。
 
 ### 2.3 估值器（Evaluators）
 估值器，用于计算属性动画的给定属性的取值。与属性的起始值，结束值，`fraction`三个值相关。
@@ -157,6 +157,6 @@ ValueAnimator是整个属性动画框架的核心类，使用方法如下：
 ## 三、小结
 
 相信读者，通过阅读动画入门这两篇文章，对逐帧动画，补间动画，属性动画有了一个大致的概念与理解，能明白动画的基本用法。  
-如果有兴趣深入了解动画的机制，可查看[**Android动画之原理篇（四）**](http://www.yuanhh.com/2015/09/06/android-anaimator-4/)，从源码的视角来进一步阐述动画的原理。
+如果有兴趣深入了解动画的机制，可查看[**Android动画之原理篇（四）**](http://gityuan.com/2015/09/06/android-anaimator-4/)，从源码的视角来进一步阐述动画的原理。
 
 本文参考文献：<http://developer.android.com/intl/zh-cn/guide/topics/graphics/prop-animation.html>

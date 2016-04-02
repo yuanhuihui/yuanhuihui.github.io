@@ -129,9 +129,9 @@ Binder在Native framework层所有涉及的类的关系图：
 	    return NULL;
 	}
 
-先调用open()打开binder设备，open()方法经过系统调用，对应于Binder驱动层的[binder_open()](http://www.yuanhh.com/2015/11/01/binder-driver/#binderopen)方法，该方法会在Binder驱动层创建一个`binder_proc`对象，并将`binder_proc`对象赋值给fd->private_data，同时放入全局链表`binder_procs`。再通过ioctl()检验当前binder版本与Binder驱动层的版本是否一致。
+先调用open()打开binder设备，open()方法经过系统调用，对应于Binder驱动层的[binder_open()](http://gityuan.com/2015/11/01/binder-driver/#binderopen)方法，该方法会在Binder驱动层创建一个`binder_proc`对象，并将`binder_proc`对象赋值给fd->private_data，同时放入全局链表`binder_procs`。再通过ioctl()检验当前binder版本与Binder驱动层的版本是否一致。
 
-最后调用mmap()进行内存映射，同理，mmap()方法经过系统调用，对应于Binder驱动层的[binder_mmap()](http://www.yuanhh.com/2015/11/01/binder-driver/#bindermmap)方法，该方法会在Binder驱动层创建`Binder_buffer`对象，并放入当前binder_proc的`proc->buffers`链表。
+最后调用mmap()进行内存映射，同理，mmap()方法经过系统调用，对应于Binder驱动层的[binder_mmap()](http://gityuan.com/2015/11/01/binder-driver/#bindermmap)方法，该方法会在Binder驱动层创建`Binder_buffer`对象，并放入当前binder_proc的`proc->buffers`链表。
 
 ### [5] binder_become_context_manager
 ==> `/framework/native/cmds/servicemanager/binder.c`
@@ -144,7 +144,7 @@ Binder在Native framework层所有涉及的类的关系图：
 	    return ioctl(bs->fd, BINDER_SET_CONTEXT_MGR, 0);
 	}
 
-通过ioctl()方法经过系统调用，对应于Binder驱动层的[binder_ioctl()](http://www.yuanhh.com/2015/11/01/binder-driver/#binderioctl)方法，根据参数`BINDER_SET_CONTEXT_MGR`，最终调用binder_ioctl_set_ctx_mgr()方法。
+通过ioctl()方法经过系统调用，对应于Binder驱动层的[binder_ioctl()](http://gityuan.com/2015/11/01/binder-driver/#binderioctl)方法，根据参数`BINDER_SET_CONTEXT_MGR`，最终调用binder_ioctl_set_ctx_mgr()方法。
 
 ### [7] binder_ioctl_set_ctx_mgr
 ==> `kernel/drivers/android/binder.c` 
@@ -232,7 +232,7 @@ binder驱动操作
 		return node;
 	}
 
-在Binder驱动层创建[binder_node结构体](http://www.yuanhh.com/2015/11/01/binder-driver/#bindernode)对象，并将当前binder_proc加入到`binder_node`的`node->proc`。并创建binder_node的async_todo和binder_work两个队列。
+在Binder驱动层创建[binder_node结构体](http://gityuan.com/2015/11/01/binder-driver/#bindernode)对象，并将当前binder_proc加入到`binder_node`的`node->proc`。并创建binder_node的async_todo和binder_work两个队列。
 
 
 ### [9] binder_loop
@@ -275,8 +275,8 @@ binder驱动操作
 	    }
 	}
 
-`binder_write`通过ioctl()将BC_ENTER_LOOPER命令发送给binder驱动，此时bwr只有write_buffer有数据，进入[binder_thread_write()](http://www.yuanhh.com/2015/11/02/binder-driver-2//#section-1)方法。
-接下来进入for循环，执行ioctl()，此时bwr只有read_buffer有数据，那么进入[binder_thread_read()](http://www.yuanhh.com/2015/11/02/binder-driver-2//#section-4)方法。
+`binder_write`通过ioctl()将BC_ENTER_LOOPER命令发送给binder驱动，此时bwr只有write_buffer有数据，进入[binder_thread_write()](http://gityuan.com/2015/11/02/binder-driver-2//#section-1)方法。
+接下来进入for循环，执行ioctl()，此时bwr只有read_buffer有数据，那么进入[binder_thread_read()](http://gityuan.com/2015/11/02/binder-driver-2//#section-4)方法。
 
 ### [10] binder_write
 ==> `/framework/native/cmds/servicemanager/binder.c`
@@ -607,4 +607,4 @@ Service Manger意义：
 
 ----------
 
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)

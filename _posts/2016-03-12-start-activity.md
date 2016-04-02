@@ -31,7 +31,7 @@ excerpt:  startActivity流程分析(一)
 
 ### 一、启动过程
 
-`startActivity`的整体流程与[startService流程](http://www.yuanhh.com/2016/02/21/start-service/)非常相近，但比服务启动更为复杂，多了UI的相关内容以及Activity的生命周期更为丰富。
+`startActivity`的整体流程与[startService流程](http://gityuan.com/2016/02/21/start-service/)非常相近，但比服务启动更为复杂，多了UI的相关内容以及Activity的生命周期更为丰富。
 
 对于Activity的启动过程，可用如下图来概括。
 
@@ -306,4 +306,4 @@ msg: `NEW_INTENT` （打开已经处于栈顶的Activity，则会发送给NEW_IN
 本文主要是概括性讲述Activity的调用过程，后续会再从源码角度进一步细说Activity生命周期。
 
 ----------
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于gityuan的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于gityuan的信息](http://gityuan.com/about/)

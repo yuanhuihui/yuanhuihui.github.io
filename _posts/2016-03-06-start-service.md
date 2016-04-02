@@ -32,8 +32,8 @@ excerpt:  startService流程分析
 
 ### 概述
 
-看过前面介绍[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章，相信对Binder架构有了较深地理解。在[Android系统启动-开篇](http://www.yuanhh.com/2016/01/03/android-boot/)中讲述了Binder的地位是非常之重要，整个Java framework的提供ActivityManagerService、PackageManagerService等服务都是基于Binder架构来通信的，另外
-[handle消息机制](http://www.yuanhh.com/2015/12/26/handler-message/)在进程内的通信使用非常多。本文将开启对ActivityManagerService的分析。  
+看过前面介绍[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)文章，相信对Binder架构有了较深地理解。在[Android系统启动-开篇](http://gityuan.com/2016/01/03/android-boot/)中讲述了Binder的地位是非常之重要，整个Java framework的提供ActivityManagerService、PackageManagerService等服务都是基于Binder架构来通信的，另外
+[handle消息机制](http://gityuan.com/2015/12/26/handler-message/)在进程内的通信使用非常多。本文将开启对ActivityManagerService的分析。  
 
 ActivityManagerService是Android的Java framework的服务框架最重要的服务之一。对于Andorid的Activity、Service、Broadcast、ContentProvider四剑客的管理，包含其生命周期都是通过ActivityManagerService来完成的。对于这四剑客的介绍，此处先略过，后续博主会针对这4剑客分别阐述。
 
@@ -160,7 +160,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 该方法返回的是ActivityManagerProxy对象，那么下一步调用ActivityManagerProxy.startService()方法。
 
-通过Binder通信过程中，提供了一个IActivityManager服务接口，ActivityManagerProxy类与ActivityManagerService类都实现了IActivityManager接口。ActivityManagerProxy作为binder通信的客户端，ActivityManagerService作为binder通信的服务端，根据[Binder系列](http://www.yuanhh.com/2015/10/31/binder-prepare/)文章，ActivityManagerProxy.startService()最终调用ActivityManagerService.startService()，整个流程图如下：
+通过Binder通信过程中，提供了一个IActivityManager服务接口，ActivityManagerProxy类与ActivityManagerService类都实现了IActivityManager接口。ActivityManagerProxy作为binder通信的客户端，ActivityManagerService作为binder通信的服务端，根据[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)文章，ActivityManagerProxy.startService()最终调用ActivityManagerService.startService()，整个流程图如下：
 
 ![Activity_Manager_Service](/images/android-service/am/Activity_Manager_Service.png)
 
@@ -672,7 +672,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
     }
 
-关于**Process.start()**是通过socket通信，告知[Zygote](http://www.yuanhh.com/2016/02/13/android-zygote/)创建fork子进程，创建完新进程，将ActivityThread类加载到新进程，并调用ActivityThread.main()方法。该过程详细情况，见[Android Process创建过程分析](http://www.yuanhh.com/2016/03/26/app-process-create/)。
+关于**Process.start()**是通过socket通信，告知[Zygote](http://gityuan.com/2016/02/13/android-zygote/)创建fork子进程，创建完新进程，将ActivityThread类加载到新进程，并调用ActivityThread.main()方法。该过程详细情况，见[Android Process创建过程分析](http://gityuan.com/2016/03/26/app-process-create/)。
 
 
 
@@ -1269,7 +1269,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 ![start_service_process](/images/android-service/start_service/start_service_processes.jpg)
 
-图中涉及3种IPC通信方式：`Binder`、`Socket`以及`Handler`，在图中分别用3种不同的颜色来代表这3种通信方式。一般来说，同一进程内的线程间通信采用的是 [Handler消息队列机制](http://www.yuanhh.com/2015/12/26/handler-message/)，不同进程间的通信采用的是[binder机制](http://www.yuanhh.com/2015/10/31/binder-prepare/)，另外与Zygote进程通信采用的`Socket`。
+图中涉及3种IPC通信方式：`Binder`、`Socket`以及`Handler`，在图中分别用3种不同的颜色来代表这3种通信方式。一般来说，同一进程内的线程间通信采用的是 [Handler消息队列机制](http://gityuan.com/2015/12/26/handler-message/)，不同进程间的通信采用的是[binder机制](http://gityuan.com/2015/10/31/binder-prepare/)，另外与Zygote进程通信采用的`Socket`。
 
 启动流程：
 
@@ -1285,4 +1285,4 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
   
 ----------
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://www.yuanhh.com/about/)
+如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)

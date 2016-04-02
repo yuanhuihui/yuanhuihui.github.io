@@ -12,7 +12,7 @@ excerpt:  Android Launcher原理
 ----------
 
 ## 基本概念
-本文主要讲述Launcher3屏幕滑动过程，首先需要了解Android的触摸事件分发机制。关于分发机制，可查看文章[Android事件分发机制](http://www.yuanhh.com/2015/09/19/android-touch/)。
+本文主要讲述Launcher3屏幕滑动过程，首先需要了解Android的触摸事件分发机制。关于分发机制，可查看文章[Android事件分发机制](http://gityuan.com/2015/09/19/android-touch/)。
 
 ### 常用类介绍
 
@@ -71,7 +71,7 @@ PagedView是滑屏最主要的类,下面是init()方法出初始化参数，假�
   
 ![launcher_down](/images/launcher/launcher_down.jpg)   
     
-当手指按下时，还没有准备滚动，此时`mTouchState = TOUCH_STATE_REST`，故Worksapce，PagedView并不会拦截事件，虽然没有拦截器进行拦截，也没有onTouchEvent消费，但由于CellLayout的clickable="true"，故ACTION_DOWN事件仍然是被消费了，具体说明见上一篇文章[Android事件分发机制](http://www.yuanhh.com/2015/09/19/android-touch/).
+当手指按下时，还没有准备滚动，此时`mTouchState = TOUCH_STATE_REST`，故Worksapce，PagedView并不会拦截事件，虽然没有拦截器进行拦截，也没有onTouchEvent消费，但由于CellLayout的clickable="true"，故ACTION_DOWN事件仍然是被消费了，具体说明见上一篇文章[Android事件分发机制](http://gityuan.com/2015/09/19/android-touch/).
 
 ### 2. 手指移动：
   

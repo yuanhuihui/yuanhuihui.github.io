@@ -226,7 +226,7 @@ Java提供了多种内建的注解，下面接下几个比较常用的注解：@
 	@Retention(RetentionPolicy.RUNTIME)
 	public @interface AuthorAnno{
 	    String name();
-	    String website() default "Yuanhh.com";
+	    String website() default "gityuan.com";
 	    int revision() default 1;
 	}
 
@@ -234,7 +234,7 @@ Java提供了多种内建的注解，下面接下几个比较常用的注解：@
 
 1. 注解方法不带参数，比如`name()`，`website()`；
 2. 注解方法返回值类型：基本类型、String、Enums、Annotation以及前面这些类型的数组类型
-3. 注解方法可有默认值，比如`default "Yuanhh.com"`，默认website="Yuanhh.com"
+3. 注解方法可有默认值，比如`default "gityuan.com"`，默认website="gityuan.com"
 
 
 有了前面的自定义注解@AuthorAnno，那么我们便可以在代码中使用(AnnotationDemo.java)，如下：
@@ -242,13 +242,13 @@ Java提供了多种内建的注解，下面接下几个比较常用的注解：@
 	package com.yuanhh.annotation;
 	
 	public class AnnotationDemo {
-	    @AuthorAnno(name="yuanhh", website="yuanhh.com", revision=1)
+	    @AuthorAnno(name="yuanhh", website="gityuan.com", revision=1)
 	    public static void main(String[] args) {
 	        System.out.println("I am main method");
 	    }
 	    
 	    @SuppressWarnings({ "unchecked", "deprecation" })
-	    @AuthorAnno(name="yuanhh", website="yuanhh.com", revision=2)
+	    @AuthorAnno(name="yuanhh", website="gityuan.com", revision=2)
 	    public void demo(){
 	        System.out.println("I am demo method");
 	    }
@@ -294,9 +294,9 @@ Java提供了多种内建的注解，下面接下几个比较常用的注解：@
 程序运行的输出结果：
 
 	method: public void com.yuanhh.annotation.AnnotationDemo.demo()
-	name= yuanhh , website= yuanhh.com , revision= 2
+	name= yuanhh , website= gityuan.com , revision= 2
 	method: public static void com.yuanhh.annotation.AnnotationDemo.main(java.lang.String[])
-	name= yuanhh , website= yuanhh.com , revision= 1
+	name= yuanhh , website= gityuan.com , revision= 1
 
 
 这里通过反射将注解直接输出只是出于demo，完全可以根据拿到的注解信息做更多有意义的事。
