@@ -31,7 +31,7 @@ excerpt:  理解Android进程创建流程
 
 ### 概述
 
-本文要介绍的是进程的创建，我们先来说说进程与线程吧。
+本文要介绍的是进程的创建，先简单说说进程与线程的区别。
 
 **进程：**每个`App`在启动前必须先创建一个进程，该进程是由`Zygote` fork出来的，进程具有独立的资源空间，用于承载App上运行的各种Activity/Service等组件。进程对于上层应用来说是完全透明的，这也是google有意为之，让App程序都是运行在Android Runtime。大多数情况一个`App`就运行在一个进程中，除非在AndroidManifest.xml中配置`Android:process`属性，或通过native代码fork进程。
 
@@ -590,24 +590,31 @@ VM_HOOKS.postForkCommon的主要功能是在fork新进程后，启动Zygote的4�
 
 #### forkAndSpecialize小结
 
-调用关系链如下：
+调用关系链：
 
 	Zygote.forkAndSpecialize
 		ZygoteHooks.preFork
 			Daemons.stop
 			ZygoteHooks.nativePreFork
-				ZygoteHooks_nativePreFork
+				dalvik_system_ZygoteHooks.ZygoteHooks_nativePreFork
 					Runtime::PreZygoteFork
 						heap_->PreZygoteFork()
 		Zygote.nativeForkAndSpecialize
-			Zygote.ForkAndSpecializeCommon
+			com_android_internal_os_Zygote.ForkAndSpecializeCommon
 				fork()
 				Zygote.callPostForkChildHooks
 					ZygoteHooks.postForkChild
-						nativePostForkChild
+						dalvik_system_ZygoteHooks.nativePostForkChild
 							Runtime::DidForkFromZygote
 		ZygoteHooks.postForkCommon
 			Daemons.start
+
+
+**时序图：**
+
+点击查看[大图](http://gityuan.com/images/android-process/fork_and_specialize.jpg)
+
+![fork_and_specialize](/images/android-process/fork_and_specialize.jpg)
 
 
 到此App进程已完成了创建的所有工作，接下来开始新创建的App进程的工作。在前面ZygoteConnection.runOnce方法中，zygote进程执行完`forkAndSpecialize()`后，新创建的App进程便进入`handleChildProc()`方法，下面的操作运行在App进程。
@@ -832,11 +839,11 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
 上图中，`system_server`进程通过socket IPC通道向`zygote`进程通信，`zygote`在fork出新进程后由于fork**调用一次，返回两次**，即在zygote进程中调用一次，在zygote进程和子进程中各返回一次，从而能进入子进程来执行代码。该调用流程图的过程：
 
 1. **system_server进程**（`即流程1~3`）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
-2. **zygote进程**（`即流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，图中绿色框`forkAndSpecialize()`方法是进程创建过程中最为核心的一个环节（**详见流程6**），其具体工作是依次执行下面的3个方法：
+2. **zygote进程**（`即流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，图中绿色框forkAndSpecialize()方法是进程创建过程中最为核心的一个环节（[详见流程6](http://gityuan.com/2016/03/26/app-process-create/#forkandspecialize-1)），其具体工作是依次执行下面的3个方法：
 	- preFork()：先停止Zygote的4个Daemon子线程（java堆内存整理线程、对线下引用队列线程、析构线程以及监控线程）的运行以及初始化gc堆；
-	- nativeForkAndSpecialize()：调用linux的fork()出`新建进程`，创建Java堆处理的线程池，重置gc性能数据，设置进程的信号处理函数，启动JDWP线程；
+	- nativeForkAndSpecialize()：调用linux的fork()出新进程，创建Java堆处理的线程池，重置gc性能数据，设置进程的信号处理函数，启动JDWP线程；
 	- postForkCommon()：在启动之前被暂停的4个Daemon子线程。
-3. **新建进程**（`即流程7~13`）：进入handleChildProc()方法，设置进程名，打开binder驱动，启动新的binder线程；然后设置art虚拟机参数，再反射调用目标类的main()方法，即Activity.main()方法。
+3. **新进程**（`即流程7~13`）：进入handleChildProc()方法，设置进程名，打开binder驱动，启动新的binder线程；然后设置art虚拟机参数，再反射调用目标类的main()方法，即Activity.main()方法。
 
 再之后的流程，如果是startActivity则将要进入Activity的onCreate/onStart/onResume等生命周期；如果是startService则将要进入Service的onCreate等生命周期。
 

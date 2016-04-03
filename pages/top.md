@@ -26,6 +26,7 @@ permalink: /top/
 - 站内热门博客：
 
 	- [Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)
+	- [理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/)
 	- [Android系统启动-开篇](http://gityuan.com/2016/01/30/android-boot/)
 	- [startService流程分析](http://gityuan.com/2016/03/06/start-service/)
 	- [理解Android编译命令](http://gityuan.com/2016/03/19/android-build/)
