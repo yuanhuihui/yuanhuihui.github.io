@@ -11,7 +11,9 @@ excerpt:  理解Android进程创建流程
 
 ---
 
-> 基于Android 6.0的源码剖析， 分析Android Process创建流程
+> 基于Android 6.0的源码剖析， 分析Android进程是如何一步步创建的，本文涉及到的源码：
+
+
 
 	/frameworks/base/core/ava/android/os/Process.java
 	/frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
@@ -29,14 +31,24 @@ excerpt:  理解Android进程创建流程
 
 ### 概述
 
-在前面的文章[Android系统启动-SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)讲述关于Zygote 如何fork出子进程system_server（即系统进程）过程，本文将要讲述Android应用进程是如何创建，其流程和创建system_server系统进程创建过程很相近。
+本文要介绍的是进程的创建，我们先来说说进程与线程吧。
+
+**进程：**每个`App`在启动前必须先创建一个进程，该进程是由`Zygote` fork出来的，进程具有独立的资源空间，用于承载App上运行的各种Activity/Service等组件。进程对于上层应用来说是完全透明的，这也是google有意为之，让App程序都是运行在Android Runtime。大多数情况一个`App`就运行在一个进程中，除非在AndroidManifest.xml中配置`Android:process`属性，或通过native代码fork进程。
+
+**线程：**线程对应用开发者来说非常熟悉，比如每次`new Thread().start()`都会创建一个新的线程，该线程并没有自己独立的地址空间，而是与其所在进程之间资源共享。从Linux角度来说进程与线程都是一个task_struct结构体，除了是否共享资源外，并没有其他本质的区别。
+
+对于大多数的应用开发者来说创建线程比较熟悉，而对于创建进程并没有太多的概念。对于系统工程师或者高级开发者，还是有很必要了解Android系统是如何一步步地创建出一个进程的。先来看一张进程创建过程的简要图：
 
 ![start_app_process](/images/android-process/start_app_process.jpg)
 
-概括来说，App启动过程中先通过binder发送消息给system_server进程，system_server再调用Process.start()方法，通过socket向zygote进程发送创建新进程的请求，此时zygote在执行`ZygoteInit.main()`后，便进入`runSelectLoop()`循环方法中，当有客户端连接时便会执行ZygoteConnection.runOnce()方法，再经过层层调用后fork出新的应用进程，在新进程中执行handleChildProc方法，最后调用ActivityThread.main()方法。
+图解说：
 
+- App发起方先通过binder发送消息给system_server进程；
+- system_server再调用Process.start()方法，通过socket向zygote进程发送创建新进程的请求；
+- 此时zygote在执行`ZygoteInit.main()`后，便进入`runSelectLoop()`循环方法中，当有客户端连接时便会执行ZygoteConnection.runOnce()方法，再经过层层调用后fork出新的应用进程；
+- 新进程中执行handleChildProc方法，最后调用ActivityThread.main()方法。
 
-
+接下来从Android M的源码，展开讲解进程创建是一个怎样的过程。
 
 ### 1. Process.start
 
@@ -813,21 +825,21 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
 
 当App第一次启动时或者启动远程Service，即AndroidManifest.xml文件中定义了process:remote属性时，都需要创建进程。比如当用户点击桌面的某个App图标，桌面本身是一个app（即Launcher App），那么Launcher所在进程便是这次创建新进程的发起进程，该通过binder发送消息给system_server进程，该进程承载着整个java framework的核心服务。system_server进程从Process.start开始，执行创建进程，流程图（以进程的视角）如下：
 
-点击查看[大图](http:/gityuan.com/images/android-process/process-create.jpg)
+点击查看[大图](http://gityuan.com/images/android-process/process-create.jpg)
 
 ![process-create](/images/android-process/process-create.jpg)
 
-上图中，`system_server`进程通过socket IPC通道向`zygote`进程通信，`zygote`在fork出新进程后由于fork**调用一次，返回两次**，即在zygote进程中调用一次，在zygote进程和子进程中各返回一次，从而能进入子进程来执行代码。
+上图中，`system_server`进程通过socket IPC通道向`zygote`进程通信，`zygote`在fork出新进程后由于fork**调用一次，返回两次**，即在zygote进程中调用一次，在zygote进程和子进程中各返回一次，从而能进入子进程来执行代码。该调用流程图的过程：
 
-1. **system_server进程**（即`流程1~3`）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
-2. **zygote进程**（即`流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，图中绿色框`forkAndSpecialize()`方法是进程创建过程中最为核心的一个环节（**详见流程6**），其具体工作是依次执行下面的3个方法：
+1. **system_server进程**（`即流程1~3`）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
+2. **zygote进程**（`即流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，图中绿色框`forkAndSpecialize()`方法是进程创建过程中最为核心的一个环节（**详见流程6**），其具体工作是依次执行下面的3个方法：
 	- preFork()：先停止Zygote的4个Daemon子线程（java堆内存整理线程、对线下引用队列线程、析构线程以及监控线程）的运行以及初始化gc堆；
 	- nativeForkAndSpecialize()：调用linux的fork()出`新建进程`，创建Java堆处理的线程池，重置gc性能数据，设置进程的信号处理函数，启动JDWP线程；
 	- postForkCommon()：在启动之前被暂停的4个Daemon子线程。
-3. **新建进程**（即`流程7~13`）：进入handleChildProc()方法，设置进程名，打开binder驱动，启动新的binder线程；然后设置art虚拟机参数，再反射调用目标类的main()方法，即Activity.main()方法。
+3. **新建进程**（`即流程7~13`）：进入handleChildProc()方法，设置进程名，打开binder驱动，启动新的binder线程；然后设置art虚拟机参数，再反射调用目标类的main()方法，即Activity.main()方法。
 
 再之后的流程，如果是startActivity则将要进入Activity的onCreate/onStart/onResume等生命周期；如果是startService则将要进入Service的onCreate等生命周期。
 
 ----------
 
-欢迎关注我的**[微博：Gityuan](http://weibo.com/gityuan)**，微信公众号：gityuan，会持续分享更多原创干货。
+欢迎关注我的**[微博：Gityuan](http://weibo.com/gityuan)**，微信公众号：gityuan，后面会持续分享更多原创技术干货。
