@@ -421,6 +421,11 @@ gRegJNI是一个数组,有100多个成员
 
 对于类加载，采用反射机制Class.forName()方法来加载。对于资源加载，主要是 com.android.internal.R.array.preloaded_drawables和com.android.internal.R.array.preloaded_color_state_lists，在应用程序中以com.android.internal.R.xxx开头的资源，便是此时由Zygote加载到内存的。
 
+zygote进程内加载了preload()方法中的所有资源，当需要fork新进程时，采用copy on write技术，如下：
+
+![zygote_fork](/images/boot/zygote/zygote_fork.jpg)
+
+
 ### 4.3 startSystemServer
 
 ZygoteInit.java

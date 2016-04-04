@@ -18,7 +18,7 @@ excerpt:  进程篇—进程整理
 
 系统启动架构图：
 
-![process_status](/images/android-process/process_status.jpg)
+![process_status](/images/android-process/android-boot.jpg)
 
 上图在[Android系统-开篇](http://gityuan.com/2016/01/30/android-boot/)中有讲解，是从Android系统启动的角度来分析，本文是从进程/线程的视角来分析该问题。
 

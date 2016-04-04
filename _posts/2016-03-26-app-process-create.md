@@ -41,14 +41,21 @@ excerpt:  理解Android进程创建流程
 
 ![start_app_process](/images/android-process/start_app_process.jpg)
 
-图解说：
+图解：
 
-- App发起方先通过binder发送消息给system_server进程；
-- system_server再调用Process.start()方法，通过socket向zygote进程发送创建新进程的请求；
-- 此时zygote在执行`ZygoteInit.main()`后，便进入`runSelectLoop()`循环方法中，当有客户端连接时便会执行ZygoteConnection.runOnce()方法，再经过层层调用后fork出新的应用进程；
-- 新进程中执行handleChildProc方法，最后调用ActivityThread.main()方法。
+1. **App发起进程**：当从桌面启动应用，则发起进程便是Launcher所在进程；当从某App内启动远程进程，则发送进程便是该App所在进程。发起进程先通过binder发送消息给system_server进程；
+2. **system_server进程**：调用Process.start()方法，通过socket向zygote进程发送创建新进程的请求；
+3. **zygote进程**：在执行`ZygoteInit.main()`后便进入`runSelectLoop()`循环体内，当有客户端连接时便会执行ZygoteConnection.runOnce()方法，再经过层层调用后fork出新的应用进程；
+4. **新进程**：执行handleChildProc方法，最后调用ActivityThread.main()方法。
 
-接下来从Android M的源码，展开讲解进程创建是一个怎样的过程。
+可能朋友不是很了解system_server进程和Zygote进程，下面简要说说：
+
+- `system_server`进程：是用于管理整个Java framework层，包含ActivityManager，PowerManager等各种系统服务;
+- `Zygote`进程：是Android系统的首个Java进程，Zygote是所有Java进程的父进程，包括 `system_server`进程以及所有的App进程都是Zygote的子进程，注意这里说的是子进程，而非子线程。
+
+如果想更进一步了解system_server进程和Zygote进程在整个Android系统所处的地位，可查看我的另一个文章[Android系统-开篇](http://gityuan.com/2016/01/30/android-boot/)。
+
+接下来从Android 6.0源码，展开讲解进程创建是一个怎样的过程。
 
 ### 1. Process.start
 
@@ -492,7 +499,7 @@ fork()的主要工作是寻找空闲的进程号pid，然后从父进程拷贝�
 
 ![zygote_fork](/images/boot/zygote/zygote_fork.jpg)
 
-Zygote进程是所有Android进程的母体，包括system_server进程以及App进程都是由Zygote进程孵化而来。zygote利用fork()方法生成新进程，对于新进程A复用Zygote进程本身的资源，再加上新进程A相关的资源，构成新的应用进程A。当进程A执行修改某个内存数据时（这便是on write时机），才发生缺页中断，从而分配新的内存地址空间（这便是copy操作），对于copy on write是基于内存页，而不是基于进程的。
+Zygote进程是所有Android进程的母体，包括system_server进程以及App进程都是由Zygote进程孵化而来。zygote利用fork()方法生成新进程，对于新进程A复用Zygote进程本身的资源，再加上新进程A相关的资源，构成新的应用进程A。何为copy on write(写时复制)？当进程A执行修改某个内存数据时（这便是on write时机），才发生缺页中断，从而分配新的内存地址空间（这便是copy操作），对于copy on write是基于内存页，而不是基于进程的。关于Zygote进程的libc、vm、preloaded classes、preloaded resources是如何生成的，可查看另一个文章[Android系统启动-zygote篇](http://gityuan.com/2016/02/13/android-zygote/#preload)。
 
 **Step 6-2-2-1.** Zygote.callPostForkChildHooks
 
