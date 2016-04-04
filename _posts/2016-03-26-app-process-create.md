@@ -15,12 +15,16 @@ excerpt:  理解Android进程创建流程
 
 
 
-	/frameworks/base/core/ava/android/os/Process.java
+	/frameworks/base/core/java/android/os/Process.java
 	/frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
 	/frameworks/base/core/java/com/android/internal/os/ZygoteConnection.java
+	/frameworks/base/core/java/com/android/internal/os/RuntimeInit.java
 
 	/frameworks/base/core/java/com/android/internal/os/Zygote.java
 	/frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
+
+	/frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
+	/frameworks/base/core/jni/AndroidRuntime.cpp
 
 	/libcore/dalvik/src/main/java/dalvik/system/ZygoteHooks.java
 	/art/runtime/native/dalvik_system_ZygoteHooks.cc
