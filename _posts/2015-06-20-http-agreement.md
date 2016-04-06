@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "浅谈HTTP协议"
-date:   2015-04-01 22:10:54
+date:   2015-06-20 22:10:54
 categories: else
 excerpt:  浅谈HTTP协议的基本内容
 ---

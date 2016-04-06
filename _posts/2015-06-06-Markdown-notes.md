@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Markdown个人笔记"
-date:   2015-05-01 15:14:54
+date:   2015-06-06 15:14:54
 categories: else
 excerpt:  记录在使用Markdown过程中，需要注意的地方
 ---

@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "SELinux 权限问题"
-date:   2015-05-30 22:10:54
+date:   2015-06-13 22:10:54
 categories: android
 excerpt:  系统运行过程中，权限不足，往往需要SELinux来解决
 ---

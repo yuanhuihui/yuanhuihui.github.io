@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Windows下搭建本地Jekyll"
-date:   2015-05-03 23:10:28
+date:   2015-06-07 23:10:28
 categories: else
 excerpt: Windows下搭建本地Jekyll 建立个人博客
 ---

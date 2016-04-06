@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Activity与Service生命周期"
-date:   2015-03-20 20:30:00
+date:   2015-05-31 20:30:00
 categories:  android
 excerpt:  Activity与Service生命周期
 ---

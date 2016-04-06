@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "浅谈HTTP RESTful架构"
-date:   2015-04-2 21:20:50
+date:   2015-06-21 21:20:50
 categories: else
 excerpt:  浅谈HTTP RESTful架构
 ---
