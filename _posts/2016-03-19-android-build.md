@@ -46,6 +46,8 @@ excerpt:  理解Android编译命令
 		...
 	}
 
+`source envsetup.sh`，需要cd到setenv.sh文件所在路径执行，路径可能在build/envsetup.sh，或者integrate/envsetup.sh，再或者不排除有些厂商会封装自己的.sh脚本，但核心思路是一致的。
+
 具体实现这里就不展开说明，下面精炼地总结了一下各个指令用法和功效。
 
 
@@ -130,9 +132,11 @@ excerpt:  理解Android编译命令
 |gettop|查询Android源码的根目录|
 |gettargetarch|获取TARGET_ARCH值|
 
-**Tips:** 当忘了前面的所有指令时，可以执行一个hmm便可输出这些指令的帮助信息。
+### 2.5 其他指令
 
-**其他指令：**
+上述只是列举比较常用的指令，还有其他指令，而且不同的build编译系统，支持的指令可能会存在一些差异，当忘记这些编译指令，可以通过执行`hmm`，查询指令的帮助信息。
+
+最后再列举两个比较常用的指令：
 
 - make clean：执行清理操作，等价于 `rm -rf out/`
 - make update-api：更新API，在framework API改动后需执行该指令，Api记录在目录`frameworks/base/api`；
@@ -188,7 +192,7 @@ Android 编译系统是Android源码的一部分，用于编译Android系统，A
 - LOCAL_SHARED_LIBRARIES：当前模块在运行时依赖的动态库名;
 - LOCAL_STATIC_JAVA_LIBRARIES：当前模块依赖的Java静态库;
 - LOCAL_JAVA_LIBRARIES：当前模块依赖的Java共享库;
-- LOCAL_CERTIFICATE：签署当前应用的证书名称，比如flatform。
+- LOCAL_CERTIFICATE：签署当前应用的证书名称，比如platform。
 - LOCAL_MODULE_TAGS：当前模块所包含的标签，可以包含多标签，可能值为debgu,eng,user,development或optional（默认值）
 
 针对这些环境变量，编译系统还定义了一些便捷函数，如下：
