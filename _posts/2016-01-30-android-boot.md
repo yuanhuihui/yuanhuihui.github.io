@@ -94,7 +94,7 @@ Google提供的4层架构图，是非常经典，但只是如垒砖般的方式�
 - Android服务篇-PackageManagerService
 - Android服务篇-PowerManagerService
 - Android服务篇-BatteryService
-	- [Android耗电统计算法](http://localhost:4000/2016/01/11/power_rank/)
+	- [Android耗电统计算法](http://gityuan.com/2016/01/11/power_rank/)
 - Android服务篇-WindowManagerService
   
 当然graphic也是一大块难啃的模块，也是需要整理的，先留个空位吧。
@@ -111,7 +111,7 @@ Google提供的4层架构图，是非常经典，但只是如垒砖般的方式�
 **（4）**有了这些，中间还缺少关于虚拟机ART的介绍，会需要对ART分析，后续还需要开展对ART虚拟机的一系列文章。另外，从架构中还有很多一块没有提及，那便是Linux Kernel，这部分内容，计划从进程，内存，IO的视角展开分析。
 
 - Linux内核-进程篇
-	- [进程的优先级](http://localhost:4000/2015/10/02/process-priority/)
+	- [进程的优先级](http://gityuan.com/2015/10/02/process-priority/)
 - Linux内核-内存篇
 - Linux内核-IO篇
 - Linux内核-驱动篇
