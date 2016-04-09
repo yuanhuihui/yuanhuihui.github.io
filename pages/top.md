@@ -6,7 +6,7 @@ permalink: /top/
 
 ----------
 
-> 版权声明：除特殊注明外，本站所有博文内容均为原创，未经授权不得用于任何商业活动，如需转载，请注明出处。
+> **版权声明：**本站所有博文内容均为原创，欢迎交流，欢迎用转载，转载请务必注明出处，且不得轻易篡改原文内容。另外，未经授权不得用于任何商业目的。
 
 ### 一、域名迁移
 
@@ -21,32 +21,16 @@ permalink: /top/
 - [Android中为什么主线程不会因为Looper.loop()里的死循环卡死？](https://www.zhihu.com/question/34652589/answer/90344494?from=profile_answer_card)
 - [自学编程一年，压力过大，该怎么办？](https://www.zhihu.com/question/41198536/answer/90560766?from=profile_answer_card)
 
-### 三、博主推荐
+### 三、Gityuan的故事
 
-- 站内热门博客：
+**IT江湖**
 
-	- [Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)
-	- [理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/)
-	- [Android系统启动-开篇](http://gityuan.com/2016/01/30/android-boot/)
-	- [startService流程分析](http://gityuan.com/2016/03/06/start-service/)
-	- [理解Android编译命令](http://gityuan.com/2016/03/19/android-build/)
-	- [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
+`git`是一款免费开源的分布式版本控制系统，相信程序界几乎已无人不知、无人不晓，此处`git`寓指程序界。同时脑海闪过全球最大同性交友网站`github`，即git+hub=github，博主姓袁(Yuan)，故心生`gityuan`的灵感。第一次用`gityuan`这个ID申请的是gityuan@gmail.com邮箱，起初感觉`gityuan`这名字比较晦涩，后来网友在google搜索到我的文章，通过gmail找到我，邮件的抬头称呼是`gityuan`，随着越来越多网友这么称呼我，感觉`gityuan`越来越亲切，于是决定以`gityuan`这个ID仗剑走天涯。于是乎，便注册了同名ID的微博、知乎、微信，从此IT江湖也便多了一个 `gityuan`，还望大家多多支持，先谢过各位了。 另外，本博客的评论系统采用的是多说，其中比较郁闷的是名字不能超过5个字o(╯□╰)o，故只能以"git袁"混迹多说。
 
-- 站外博客推荐：
+**关于Gityuan**
 
-	- [androiddevtools](http://www.androiddevtools.cn/index.html)：收集整理Android开发工具(SDK)、设计规范、素材以及教程等资源，堪称Android开发必备神站，尤其对于无法翻墙的朋友。
+* 微博：[Gityuan](http://weibo.com/gityuan)
+* 知乎：[Gityuan](http://www.zhihu.com/people/gityuan)
+* 微信公众号： [Gityuan]() (可通过扫一扫下方二维码)
 
-
-
-
-### 四、关于Gityuan
-
-- Gityuan由来：
-	 `git`是一款免费开源的分布式版本控制系统，相信程序员几乎无人不知，此处`git`寓指程序界，博主姓袁(yuan)，想到最大的同性交友网站github的域名，故有git+yuan组合而成**gityuan**的灵感，即为博主ID，同时也是博主在各大社交平台的ID。 本博客的评论系统采用的是多说，其中比较郁闷的是名字不能超过5个字，故只能以"git袁"混迹多说。
-
-- Gityuan信息：
-	* 微博：[Gityuan](http://weibo.com/gityuan)
-	* 知乎：[Gityuan](http://www.zhihu.com/people/gityuan)
-	* 微信公众号： [Gityuan]() (可通过扫一扫下方二维码)
-	
-	    ![Gityuan](/images/about-me/gityuan.jpg)
+    ![Gityuan](/images/about-me/gityuan.jpg)

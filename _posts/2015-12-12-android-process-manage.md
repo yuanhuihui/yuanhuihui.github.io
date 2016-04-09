@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "进程篇—状态转换"
+title:  "进程状态的切换"
 date:   2015-12-12 19:10:40
 categories: process
-excerpt:  进程篇—状态转换
+excerpt:  进程状态的切换
 ---
 
 * content

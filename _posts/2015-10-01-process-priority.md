@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "进程篇—优先级调度"
+title:  "进程优先级"
 date:   2015-10-01 22:20:52
 categories: android process
-excerpt:  进程篇—优先级调度
+excerpt:  进程优先级
 ---
 
 * content

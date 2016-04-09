@@ -392,9 +392,9 @@ Linux采用虚拟内存管理技术，每个进程都有各自独立的进程地
 	- 解决方案：slab分配器有所改善
 	- 实例：请求一个11Byte的内存块，系统可能会分配12Byte、16Byte等稍大一些的字节，这些多余空间就产生碎片
 
+----------
 
-
-## 参考
+**相关文章**
 
 - <http://blog.csdn.net/qingen1/article/details/13615055>
 - <http://blog.csdn.net/dlutbrucezhang/article/details/9168255>

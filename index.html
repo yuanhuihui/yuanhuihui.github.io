@@ -9,10 +9,15 @@ layout: default
         <div class="all-posts" post-cate="All">
         	<a class="post-list-item" href="http://gityuan.com/top">
               <h2>
-              <font color="#EE0000">【置顶】</font>
-              域名迁移
+              <font color="#EE0000">[置顶]</font>域名迁移
               </h2>
               <span class="">Mar 27, 2016</span>
+          </a>
+          <a class="post-list-item" href="http://localhost:4000/android">
+              <h2>
+              <font color="#EE0000">[置顶]</font>Android开篇
+              </h2>
+              <span class="">Apr 9, 2016</span>
           </a>
           {% for post in paginator.posts %}
             <a class="post-list-item" href="{{ post.url | prepend: site.baseurl }}">
