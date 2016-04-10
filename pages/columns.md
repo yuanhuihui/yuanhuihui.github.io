@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: page-column
 title: 专栏
 permalink: /columns/
 icon: glyphicon-play

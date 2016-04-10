@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: page-about
 title: 关于
 permalink: /about/
 icon: glyphicon-heart
