@@ -6,14 +6,16 @@ permalink: /android/
 
 ----------
 
+> **版权声明：**本站所有博文内容均为原创，欢迎交流与转载，转载请务必注明作者与网站出处，且不得轻易篡改原文内容。另外，未经授权不得用于任何商业目的。
 
-> 基于Android 6.0源码，深入剖析Android系统架构，争取各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
 
 ## 一、简述
 
 Android系统非常庞大、错中复杂，其底层是采用Linux作为基底，上层采用包含虚拟机的Java层以及Native层，通过系统调用(Syscall)连通系统的内核空间与用户空间。用户空间主要采用C++和Java代码，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而融为一体。
 
 Google官方提供了一张[经典的四层架构图](http://gityuan.com/2016/01/30/android-boot/#android)，从下往上依次分为Linux内核、系统库和Android运行时环境、框架层以及应用层这4层架构，其中每一层都包含大量的子模块或子系统。这只是如垒砖般地简单分层，还远不足以表达Android整个系统的内部架构，运行机理，以及各个模块之间是如何衔接与配合工作的。为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，**以进程的视角**来诠释Android系统全貌，全方位的深度剖析各个模块功能，争取各个击破。
+
+**本站所有Android系列的文章，都是基于Android 6.0源码**，深入剖析Android系统架构，力争各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
 
 ## 二、Android架构
 
@@ -64,9 +66,11 @@ Android系统启动过程由上图从下往上的一个过程：`Loader` -> `Ker
 - Zygote进程还会创建Browser，Phone，Email等App进程，每个App至少运行在一个进程上。
 - 所有的App进程都是由Zygote进程fork生成的。
 
-##  三、IPC机制
+##  三、通信方式
 
-无论是Android系统，还是各种Linux衍生系统，各个组件、模块往往运行在各种不同的进程和线程内，这里就必然涉及进程/线程之间的通信(IPC)。Linux现有管道、消息队列、共享内存、套接字、信号量、信号这些IPC机制，Android额外还有Binder IPC机制，Android OS中的Zygote进程的IPC采用的是Socket（套接字）机制，Android中的Kill Process采用的signal（信号）机制等等，在上层system server、media server以及上层App之间更多的是采用Binder IPC方式来完成跨进程间的通信。
+无论是Android系统，还是各种Linux衍生系统，各个组件、模块往往运行在各种不同的进程和线程内，这里就必然涉及进程/线程之间的通信。对于IPC(Inter-Process Communication, 进程间通信)，Linux现有管道、消息队列、共享内存、套接字、信号量、信号这些IPC机制，Android额外还有Binder IPC机制，Android OS中的Zygote进程的IPC采用的是Socket机制，在上层system server、media server以及上层App之间更多的是采用Binder IPC方式来完成跨进程间的通信。对于Android上层架构中，还多时候是在同一个进程的线程之间需要相互通信，例如同一个进程的主线程与工作线程之间的通信，往往采用的Handler消息机制。
+
+想深入理解Android内核层架构，必须先深入理解Linux现有的IPC机制；对于Android上层架构，则最常用的通信方式是Binder、Socket、Handler，当然也有少量其他的IPC方式，比如杀进程Process.killProcess()采用的是signal方式。下面说说Binder、Socket、Handler：
 
 
 ### 3.1 Binder 
@@ -79,8 +83,33 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 
 ![ServiceManager](/images/binder/prepare/IPC-Binder.jpg)
 	
-- 想进一步了解Binder，可查看[Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)，Binder系列用了11篇文章，从驱动、native、framework、app四个层面，从源码角度出发来讲述整个过程。
+- 想进一步了解Binder，可查看[Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)，Binder系列用了13篇文章，从源码角度出发来，讲述驱动、native、framework、app四个层面的整个完整流程。
 
+### 3.2 Socket
+
+Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中采用Socket通信方式的主要：
+
+- zygote：用于孵化进程，系统进程system_server孵化进程时便通过socket向zygote进程发起请求；
+- installd：用于安装App的守护进程，上层PackageManagerService很多实现最终都是交给它来完成；
+- lmkd：lowmemorykiller的守护进程，Java层的LowMemoryKiller最终都是由lmkd来完成；
+- adbd：这个也不用说，用于服务adb；
+- logcatd:这个不用说，用于服务logcat；
+- vold：即volume Daemon，是存储类的守护进程，用于负责如USB、Sdcard等存储设备的事件处理。
+
+等等还有很多，这里不一一列举，Socket方式更多的用于Android framework层与native层之间的通信。Socket通信方式相对于binder非常简单，所以一直没有写相关文章，为了成一个体系，下次再补上。
+
+### 3.3 Handler
+
+**Binder/Socket用于进程间通信，而Handler消息机制用于同进程的线程间通信**，Handler消息机制是由一组MessageQueue/Message/Looper/Handler共同组成的，这里为了叫法方便，且称之为Handler消息机制。
+
+有人可能会疑惑，为何Binder/Socket用于进程间通信，能否用于线程间通信呢？答案是肯定，对于两个具有独立地址空间的进程通信都可以，当然也能用于共享内存空间的两个线程间通信，这就好比杀鸡用牛刀。接着可能还有人会疑惑，那handler消息机制能否用于进程间通信？答案是不能，Handler只能用于共享内存地址空间的两个线程间通信，即同进程的两个线程间通信。
+
+Handler很多时候是工作线程向UI主线程发送消息，即App应用中只有主线程能更新UI，其他工作线程往往是完成相应工作后，通过handler告知主线程需要做出相应地UI更新操作，handler分发相应的消息给UI主线程去完成。是不是只能工作线程向UI主线程发消息呢，其实不然，可以是UI线程想工作线程发送消息，也可以是多个工作线程之间通过handler发送消息。
+
+对于Handler
+
+- [Android消息机制-Handler(framework篇)](http://gityuan.com/2015/12/26/handler-message-framework/)
+- [Android消息机制-Handler(native篇)](http://gityuan.com/2015/12/27/handler-message-native/)
 
 ##  四、计划提纲
 
@@ -95,7 +124,7 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 	- [SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)
 	- [SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)
   
-**（2）**再则就是在整个架构中有大量的服务，都是基于Binder来交互的，为了搞清楚binder，用了13篇文章来讲解[Binder](http://gityuan.com/2015/10/31/binder-prepare/)，从binder驱动到应用层整个完整的流程。针对比较核心服务来重点分析，计划分别用文章来对核心服务展开剖析：
+**（2）**再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
 - Android服务篇-ActivityManagerService
 	- [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)

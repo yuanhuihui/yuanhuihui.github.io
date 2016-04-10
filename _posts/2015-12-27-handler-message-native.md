@@ -657,7 +657,7 @@ SimpleLooperCallback类， 继承于LooperCallback类
     };
 
 
-MessageEnvelope正如其名字，信封。MessageEnvelope里面记录正收信人(handler)，发信时间(uptime)，信件内容(message)
+MessageEnvelope正如其名字，信封。MessageEnvelope里面记录着收信人(handler)，发信时间(uptime)，信件内容(message)
 
 ### 3.5 ALooper类
 
@@ -675,12 +675,18 @@ ALooper类 与前面介绍的Looper类，更多的操作是通过ALooper_to_Loop
 
 ## 总结
 
-MessageQueue通过mPtr变量保存NativeMessageQueue对象，从而使得MessageQueue成为Java层和Native层的枢纽，既能处理上层消息，也能处理native层消息；下面列举Java层与Native层的对应图：
+MessageQueue通过mPtr变量保存NativeMessageQueue对象，从而使得MessageQueue成为Java层和Native层的枢纽，既能处理上层消息，也能处理native层消息；下面列举Java层与Native层的对应图
 
 ![handler_arch](/images/handler/handler_arch.png)
 
-- 其中MessageQueue在Java层和Native层通过JNI建立关联，图中以红色虚线代表这种关系；
-- 而Handler/Looper/Message这些在Java层与Native层都是彼此独立的，没有任何的关联，图中只是以蓝色虚线代表这种关系。
+图解：
+
+- 红色虚线关系：Java层和Native层的MessageQueue通过JNI建立关联，彼此之间能相互调用，搞明白这个互调关系，也就搞明白了Java如何调用C++代码，C++代码又是如何调用Java代码。
+- 蓝色虚线关系：Handler/Looper/Message这三大类Java层与Native层并没有任何的真正关联，只是分别在Java层和Native层的handler消息模型中具有相似的功能。都是彼此独立的，各自实现相应的逻辑。
 - WeakMessageHandler继承于MessageHandler类，NativeMessageQueue继承于MessageQueue类
 
-另外，消息处理流程是先处理Native Message，再处理Native Request，最后处理Java Message。理解了该流程，也就明白有时上层消息很少，但相应时间却比较长的真正缘由。
+另外，消息处理流程是先处理Native Message，再处理Native Request，最后处理Java Message。理解了该流程，也就明白有时上层消息很少，但响应时间却较长的真正原因。
+
+----------
+
+欢迎关注我的**[微博：Gityuan](http://weibo.com/gityuan)**，微信公众号：gityuan，后面会持续分享更多原创技术干货。
