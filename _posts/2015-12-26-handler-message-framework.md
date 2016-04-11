@@ -20,6 +20,7 @@ excerpt:  Android Message
 	framework/base/core/java/andorid/os/Looper.java
 	framework/base/core/java/andorid/os/Message.java
 	framework/base/core/java/andorid/os/MessageQueue.java
+	libcore/luni/src/main/java/java/lang/ThreadLocal.java
 
 ## 一、概述
 在整个Android的源码世界里，有两大利剑，其一是Binder IPC机制，，另一个便是消息机制(由Handler/Looper/MessageQueue等构成的)。关于Binder在[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)中详细讲解过，有兴趣看看。
@@ -86,29 +87,36 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 **ThreadLocal**： 线程本地存储区（Thread Local Storage，简称为TLS），每个线程都有自己的私有的本地存储区域，不同线程之间彼此不能访问对方的TLS区域。TLS常用的操作方法：
 
+
 - `ThreadLocal.set(T value)`：将value存储到当前线程的TLS区域，源码如下：
 
 	    public void set(T value) {
-	        Thread t = Thread.currentThread(); //获取当前线程
-	        ThreadLocalMap map = getMap(t); //查找当前线程的本地储存区
-	        if (map != null)
-	            map.set(this, value); //设置map内容
-	        else
-	            createMap(t, value); //创建Map
+	        Thread currentThread = Thread.currentThread(); //获取当前线程
+	        Values values = values(currentThread); //查找当前线程的本地储存区
+	        if (values == null) {
+                //当线程本地存储区，尚未存储该线程相关信息时，则创建Values对象
+	            values = initializeValues(currentThread); 
+	        }
+            //保存数据value到当前线程this
+	        values.put(this, value);
 	    }
 
 - `ThreadLocal.get()`：获取当前线程TLS区域的数据，源码如下：
 
 	    public T get() {
-	        Thread t = Thread.currentThread(); //获取当前线程
-	        ThreadLocalMap map = getMap(t); //查找当前线程的本地储存区
-	        if (map != null) {
-	            //获取以当前线程为key所对应的Entry
-	            ThreadLocalMap.Entry e = map.getEntry(this);
-	            if (e != null)
-	                return (T)e.value; //返回之前保存在当前线程TLS中的value
+	        Thread currentThread = Thread.currentThread(); //获取当前线程
+	        Values values = values(currentThread); //查找当前线程的本地储存区
+	        if (values != null) {
+	            Object[] table = values.table;
+	            int index = hash & values.mask;
+	            if (this.reference == table[index]) {
+	                return (T) table[index + 1]; //返回当前线程储存区中的数据
+	            }
+	        } else {
+                //创建Values对象
+	            values = initializeValues(currentThread);
 	        }
-	        return setInitialValue(); //返回初始值null;
+	        return (T) values.getAfterMiss(this); //从目标线程存储区没有查询是则返回null
 	    }
 
 ThreadLocal的get()和set()方法操作的类型都是泛型，接着回到前面提到的`sThreadLocal`变量，其定义如下：

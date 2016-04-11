@@ -214,22 +214,22 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 ## 10. lookupHandleLocked
 ==> `/framework/native/libs/binder/ProcessState.cpp`
 
-根据IBinder来查找对应的IBinder
-
 	ProcessState::handle_entry* ProcessState::lookupHandleLocked(int32_t handle)
 	{
 	    const size_t N=mHandleToObject.size();
+	    //当handle大于mHandleToObject的长度时，进入该分支
 	    if (N <= (size_t)handle) {
 	        handle_entry e;
 	        e.binder = NULL;
 	        e.refs = NULL;
+	        //从mHandleToObject的第N个位置开始，插入(handle+1-N)个e到队列中
 	        status_t err = mHandleToObject.insertAt(e, N, handle+1-N);
 	        if (err < NO_ERROR) return NULL;
 	    }
 	    return &mHandleToObject.editItemAt(handle);
 	}
 
-根据handle值来查找对应的`handle_entry`,`handle_entry`是一个结构体，里面记录IBinder和weakref_type两个指针。当在`hanlde_entry`没有找到跟handle值相对应的IBinder，或存在的弱引用无法获取时，需要创建一个新的`BpBinder`。
+根据handle值来查找对应的`handle_entry`,`handle_entry`是一个结构体，里面记录IBinder和weakref_type两个指针。当handle大于mHandleToObject的Vector长度时，则向该Vector中添加(handle+1-N)个handle_entry结构体，然后再返回handle向对应位置的handle_entry结构体指针。
 
 ## 11. 创建对象BpBinder
 ==> `/framework/native/libs/binder/BpBinder.cpp`
