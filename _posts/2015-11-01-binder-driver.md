@@ -439,7 +439,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 - 当bwr读缓存中有数据，则执行binder读操作；当读失败，再将bwr数据写回用户空间，并退出；
 - 最后把内核数据bwr拷贝到用户空间。
 
-这里涉及两个核心方法`binder_thread_write()`和`binder_thread_write()`方法，在Binder系列的后续文章[Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)中详细介绍。
+这里涉及两个核心方法`binder_thread_write()`和`binder_thread_read()`方法，在Binder系列的后续文章[Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)中详细介绍。
 
 
 ## 三、 结构体附录

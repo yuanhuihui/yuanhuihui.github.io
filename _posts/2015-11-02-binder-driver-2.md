@@ -22,7 +22,7 @@ Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简
 
 ![IPC-Transaction](/images/binder/binder_dev/IPC-Transaction.png)
 
-例如，当名为`BatteryStatsService`的Client向ServiceManager注册服务的过程中，IPC层的数据组成为：Hanlde=0，RPC代码为`ADD_SERVICE`，RPC数据为`BatteryStatsService`，Binder协议为`BC_TRANSACTION`。
+例如，当名为`BatteryStatsService`的Client向ServiceManager注册服务的过程中，IPC层的数据组成为：Handle=0，RPC代码为`ADD_SERVICE`，RPC数据为`BatteryStatsService`，Binder协议为`BC_TRANSACTION`。
 
 ## 二、Binder通信协议
 
@@ -84,7 +84,7 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 						//根据target查找binder_ref
 						ref = binder_get_ref(proc, target); 
 					}
-					根据不同cmd，对ref进行相应的增减操作，见BC码表。省略。。。
+					//根据不同cmd，对ref进行相应的增减操作，见BC码表。省略。。。
 					break;
 
 				case BC_INCREFS_DONE:
@@ -93,7 +93,7 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 					get_user(cookie, (binder_uintptr_t __user *)ptr)
 					//根据节点指针node_ptr，获取相应的binder_node
 					node = binder_get_node(proc, node_ptr); 
-					根据不同的cmd, 对node进行相应的增减操作，见BC码表。省略。。。
+					//根据不同的cmd, 对node进行相应的增减操作，见BC码表。省略。。。
 					break;
 
 				case BC_FREE_BUFFER:
