@@ -15,11 +15,9 @@ permalink: /top/
 
 ### 二、初入江湖
 
-**Gityuan由来**：`Git`是一款免费开源的分布式版本控制系统，相信程序界几乎已无人不知、无人不晓，用Git寓指程序界。全球最大同性交友网站`github`=git+hub，而博主姓袁(`Yuan`)，这便是`Gityuan`的由来。
-
-第一次用Gityuan这个ID申请的是`gityuan@gmail.com`邮箱，起初感觉Gityuan这名字比较晦涩，后来网友在google搜索到我的文章，通过gmail找到我，邮件的抬头称呼是Gityuan，后来越来越多网友都这么称呼我，感觉Gityuan越来越亲切，于是决定以`Gityuan`这个ID仗剑走天涯。
-
-于是开通了同名ID的微博、知乎、微信等各大社区，**Gityuan初入IT江湖，江湖从今往后便多了一号人物Gityuan**，哈哈哈，还望各位业界前辈多多支持！
+- **Gityuan由来**：`Git`是一款免费开源的分布式版本控制系统，相信程序界几乎已无人不知、无人不晓，用Git寓指程序界。全球最大同性交友网站`github`=git+hub，而博主姓袁(`Yuan`)，这便是`Gityuan`的由来。
+- 第一次用Gityuan这个ID申请的是`gityuan@gmail.com`邮箱，起初感觉Gityuan这名字比较晦涩，后来网友在google搜索到我的文章，通过gmail找到我，邮件的抬头称呼是Gityuan，后来越来越多网友都这么称呼我，感觉Gityuan越来越亲切，于是决定以`Gityuan`这个ID仗剑走天涯。
+- 于是开通了同名ID的微博、知乎、微信等各大社区，**Gityuan初入IT江湖，江湖从今往后便多了一号人物Gityuan**，哈哈哈，还望各位业界前辈多多支持！
 
 ### 三、知乎热门回答
 
