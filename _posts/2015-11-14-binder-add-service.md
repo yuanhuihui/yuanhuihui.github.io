@@ -57,6 +57,8 @@ excerpt:  Binder系列5—注册服务(addService)
 
 点击查看[大图](http://gityuan.com/images/binder/addService/addService.jpg)
 
+>注意小节前的**数字**是与时序图所处的**顺序编号**一一对应，中间会省略部分方法，所以看到的小节可能并非连续的，建议读者一个窗口打开时序图，另一个窗口顺着文章往下读，这样不至于迷糊。
+
 ![addService](/images/binder/addService/addService.jpg)
 
 ### 类图

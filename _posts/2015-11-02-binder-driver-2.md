@@ -13,6 +13,8 @@ excerpt:  Binder系列2—Binder Driver再探
 ---
 > 基于Android 6.0的源码剖析，在讲解Binder原理之前，先从kernel的角度来讲解Binder Driver.
 
+	/kernel/drivers/android/binder.c
+	/kernel/include/uapi/linux/android/binder.h
 
 ## 一、Binder通信简述
 
