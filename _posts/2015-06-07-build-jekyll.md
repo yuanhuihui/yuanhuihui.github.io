@@ -79,3 +79,5 @@ Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby�
 *  浏览：[http://localhost:4000/index.html](http://localhost:4000/index.html)
 
 **注意事项：**提交文章时时间非常重要的，提交文章的时间最好比当前时间早一段时间，时差问题，可能会导致文章提交失败。
+  
+高亮： <https://highlightjs.org/static/demo/>

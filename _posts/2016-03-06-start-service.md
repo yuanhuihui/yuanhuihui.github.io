@@ -106,28 +106,27 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 **[2-2]**
 
-	    private ComponentName startServiceCommon(Intent service, UserHandle user) {
-	        try {
-	            //检验service，当service为空则throw异常
-	            validateServiceIntent(service); 
-	            service.prepareToLeaveProcess();
-	            // 调用ActivityManagerNative类 【见流程3】
-	            ComponentName cn = ActivityManagerNative.getDefault().startService(
-	                mMainThread.getApplicationThread(), service, service.resolveTypeIfNeeded(getContentResolver()), getOpPackageName(), user.getIdentifier());
-	            if (cn != null) {
-	                if (cn.getPackageName().equals("!")) {
-	                    throw new SecurityException("Not allowed to start service " + 
-                            service + " without permission " + cn.getClassName());
-	                } else if (cn.getPackageName().equals("!!")) {
-	                    throw new SecurityException("Unable to start service " + 
-                            service  ": " + cn.getClassName());
-	                }
-	            }
-	            return cn;
-	        } catch (RemoteException e) {
-	            throw new RuntimeException("Failure from system", e);
-	        }
-	    }
+    private ComponentName startServiceCommon(Intent service, UserHandle user) {
+        try {
+            //检验service，当service为空则throw异常
+            validateServiceIntent(service); 
+            service.prepareToLeaveProcess();
+            // 调用ActivityManagerNative类 【见流程3】
+            ComponentName cn = ActivityManagerNative.getDefault().startService(
+                mMainThread.getApplicationThread(), service, service.resolveTypeIfNeeded(getContentResolver()), getOpPackageName(), user.getIdentifier());
+            if (cn != null) {
+                if (cn.getPackageName().equals("!")) {
+                    throw new SecurityException("Not allowed to start service " + 
+                        service + " without permission " + cn.getClassName());
+                } else if (cn.getPackageName().equals("!!")) {
+                    throw new SecurityException("Unable to start service " + 
+                        service  ": " + cn.getClassName());
+                }
+            }
+            return cn;
+        } catch (RemoteException e) {
+            throw new RuntimeException("Failure from system", e);
+        }
     }
 
 **ActivityManagerNative.getDefault()**

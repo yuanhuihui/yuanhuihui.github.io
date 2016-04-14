@@ -10,6 +10,7 @@ description: Android,gityuan,Android技术博客,Android源码分析,袁辉辉
 # baseurl: "" # the subpath of your site, e.g. /blog/
 # url: "http://gityuan.com" # the base hostname & protocol for your site
 # twitter_username: yuanhuihui
+
 github_username:  yuanhuihui
 permalink: /:year/:month/:day/:title/
 
@@ -18,9 +19,9 @@ markdown: kramdown
 
 paginate: 16
 paginate_path: "page:num"
+
 # highlight
 # 本地用rouge, github上用pygments
 # highlighter: pygments
 # highlighter: rouge
 # highlighter: true
-
