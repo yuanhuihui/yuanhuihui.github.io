@@ -101,7 +101,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 	    public ComponentName startService(Intent service) {
 	        //当system进程调用此方法时输出warn信息，system进程建立调用startServiceAsUser方法
 	        warnIfCallingFromSystemProcess(); 
-	        return startServiceCommon(service, mUser); 【见流程2-2】
+	        return startServiceCommon(service, mUser); //【见流程2-2】
 	    }
 
 **[2-2]**
@@ -301,7 +301,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
                 service, neededGrants));
         final ServiceMap smap = getServiceMap(r.userId);
         boolean addToStarting = false;
-        对于非前台进程的调度
+        //对于非前台进程的调度
         if (!callerFg && r.app == null && mAm.mStartedUsers.get(r.userId) != null) {
             ProcessRecord proc = mAm.getProcessRecordLocked(r.processName, r.appInfo.uid, false);
             if (proc == null || proc.curProcState > ActivityManager.PROCESS_STATE_RECEIVER) {
@@ -320,7 +320,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
                 addToStarting = true;
             } 
         } 
-        return startServiceInnerLocked(smap, service, r, callerFg, addToStarting); 【见流程6-2】
+        return startServiceInnerLocked(smap, service, r, callerFg, addToStarting); //【见流程6-2】
     }
 
 **[6-2]**
@@ -335,7 +335,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         synchronized (r.stats.getBatteryStats()) {
             r.stats.startRunningLocked(); //用于耗电统计，开启运行的状态
         }
-        String error = bringUpServiceLocked(r, service.getFlags(), callerFg, false); 【见流程6-3】
+        String error = bringUpServiceLocked(r, service.getFlags(), callerFg, false); //【见流程6-3】
         if (error != null) {
             return new ComponentName("!!", error);
         }
@@ -483,7 +483,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
                 }
             }
         } else {
-            /对于孤立进程，无法再利用已存在的进程
+            //对于孤立进程，无法再利用已存在的进程
             app = null;
         }
 
@@ -797,7 +797,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         Parcel reply = Parcel.obtain();
         data.writeInterfaceToken(IActivityManager.descriptor);
         data.writeStrongBinder(app.asBinder());
-        mRemote.transact(ATTACH_APPLICATION_TRANSACTION, data, reply, 0); 【见流程9-2】
+        mRemote.transact(ATTACH_APPLICATION_TRANSACTION, data, reply, 0); //【见流程9-2】
         reply.readException();
         data.recycle();
         reply.recycle();
@@ -1187,7 +1187,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             ...
 
             case CREATE_SERVICE:
-                handleCreateService((CreateServiceData)msg.obj); 【见流程12-2】
+                handleCreateService((CreateServiceData)msg.obj); //【见流程12-2】
                 break;
             case BIND_SERVICE:
                 handleBindService((BindServiceData)msg.obj);

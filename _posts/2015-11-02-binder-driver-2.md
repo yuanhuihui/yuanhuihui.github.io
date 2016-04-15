@@ -18,9 +18,9 @@ excerpt:  Binder系列2—Binder Driver再探
 
 ## 一、Binder通信简述
 
-通过[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)文章，讲述了Binder驱动的init(),open(),mmap(),ioctl()这4个核心方法，同时在最后列举了常见的binder结构体。
+上一篇文章[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)介绍了Binder驱动的`init`、`open`、`mmap`、`ioctl`这4个核心方法，并说明与Binder相关的常见结构体。
 
-Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简单地划分为三层，驱动层、IPC层、业务层。`demo()`便是Client端和Server共同协商定义好的业务；handle、RPC数据、代码、协议这4项组成了IPC层的数据，通过IPC层进行数据传输；而真正在Client和Server两端建立通信的基础设施便是Binder Driver。
+Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简单地划分为三层，驱动层、IPC层、业务层。`demo()`便是Client端和Server共同协商好的统一方法；handle、RPC数据、代码、协议这4项组成了IPC层的数据，通过IPC层进行数据传输；而真正在Client和Server两端建立通信的基础设施便是Binder Driver。
 
 ![IPC-Transaction](/images/binder/binder_dev/IPC-Transaction.png)
 
@@ -475,7 +475,7 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 					tr.cookie = 0;
 					cmd = BR_REPLY;
 				}
-				根据binder_transaction结构体来赋值binder_transaction_data数据，省略
+				//根据binder_transaction结构体来赋值binder_transaction_data数据，省略
 				put_user(cmd, (uint32_t __user *)ptr)；
 				ptr += sizeof(uint32_t);
 				copy_to_user(ptr, &tr, sizeof(tr))； //将tr数据传输到用户空间

@@ -16,9 +16,9 @@ excerpt:  Binder系列1—Binder Driver初探
 	/kernel/drivers/android/binder.c
 	/kernel/include/uapi/linux/android/binder.h
 
-## 一、概述
+## 一、Binder驱动概述
 
-### 1.1 源码路径
+### 1.1 概述
 
 Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样。binder驱动在以misc设备进行注册，作为虚拟设备，没有直接操作硬件，只是对设备内存的处理。主要是驱动设备的初始化(binder_init)，打开
 (binder_open)，映射(binder_mmap)，数据操作(binder_ioctl)。
@@ -28,7 +28,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 
 ### 1.2 系统调用
 
-用户态的程序调用kernel驱动，需要陷入内核态，进行系统调用(syscall)，比如打开Binder驱动方法的调用链为： open-> __open() -> binder_open()。 open()为用户空间的方法，__open()便是系统调用中相应的处理方法，通过查找，对应调用到内核binder驱动的binder_open()方法，至于其他的从用户态陷入内核态的流程也基本一致。 
+用户态的程序调用Kernel层驱动是需要陷入内核态，进行系统调用(`syscall`)，比如打开Binder驱动方法的调用链为： open-> __open() -> binder_open()。 open()为用户空间的方法，__open()便是系统调用中相应的处理方法，通过查找，对应调用到内核binder驱动的binder_open()方法，至于其他的从用户态陷入内核态的流程也基本一致。 
 
 
 ![binder_syscall](/images/binder/binder_dev/binder_syscall.png)
@@ -44,7 +44,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 	static int __init binder_init(void)
 	{
 		int ret;
-		//创建名为binder的workqueue
+		//创建名为binder的工作队列
 		binder_deferred_workqueue = create_singlethread_workqueue("binder"); 
 		if (!binder_deferred_workqueue)
 			return -ENOMEM;
@@ -53,7 +53,9 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 		if (binder_debugfs_dir_entry_root)
 			binder_debugfs_dir_entry_proc = debugfs_create_dir("proc",
 							 binder_debugfs_dir_entry_root);
-		ret = misc_register(&binder_miscdev);    // 注册misc设备
+
+		 // 注册misc设备
+		ret = misc_register(&binder_miscdev);   
 		if (binder_debugfs_dir_entry_root) {
 			... //在debugfs文件系统中创建一系列的文件
 		}
@@ -93,7 +95,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 
 	static int binder_open(struct inode *nodp, struct file *filp)
 	{
-		struct binder_proc *proc; // binder进程 【见结构体附录】
+		struct binder_proc *proc; // binder进程 【见附录3.1】
 	
 		proc = kzalloc(sizeof(*proc), GFP_KERNEL); // 为binder_proc结构体在分配kernel内存空间
 		if (proc == NULL)
@@ -122,8 +124,6 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈希链表binder_procs，用于保存所有的binder_proc队列，每次新创建的binder_proc对象都会加入binder_procs链表中。
 
 
-
-
 ### 2.3 binder_mmap
 
 > binder_mmap(文件描述符，用户虚拟内存空间)
@@ -137,7 +137,7 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
 		struct vm_struct *area; //内核虚拟空间
 		struct binder_proc *proc = filp->private_data; 
 		const char *failure_string;
-		struct binder_buffer *buffer;  //【见结构体附录】
+		struct binder_buffer *buffer;  //【见附录3.3】
 	
 		if (proc->tsk != current)
 			return -EINVAL;
@@ -171,7 +171,7 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
 		vma->vm_ops = &binder_vm_ops;
 		vma->vm_private_data = proc;
 	 
-		//分配物理页面，同时映射到内核空间和进程空间，目前只分配1个page的物理页 【见】
+		//分配物理页面，同时映射到内核空间和进程空间，目前只分配1个page的物理页 【见下文】
 		if (binder_update_page_range(proc, 1, proc->buffer, proc->buffer + PAGE_SIZE, vma)) {
 			ret = -ENOMEM;
 			failure_string = "alloc small buf";
@@ -247,7 +247,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
 |ioctl命令|数据类型|操作|
 |---|---|---|
-|BINDER_WRITE_READ|struct binder_write_read|收发Binder IPC数据|
+|**BINDER_WRITE_READ**|struct binder_write_read|收发Binder IPC数据|
 |BINDER_SET_MAX_THREADS|__u32|设置Binder线程最大个数|
 |BINDER_SET_CONTEXT_MGR|__s32|设置Service Manager节点|
 |BINDER_THREAD_EXIT|__s32|释放Binder线程
@@ -255,7 +255,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 |BINDER_SET_IDLE_TIMEOUT|__s64|没有使用|
 |BINDER_SET_IDLE_PRIORITY|__s32|没有使用|
 
-上述命令中`BINDER_WRITE_READ`命令使用率最为频繁，也是ioctl的核心命令。
+这些命令中`BINDER_WRITE_READ`命令使用率最为频繁，也是ioctl最为核心的命令。
 
 **源码**  
 
@@ -272,7 +272,8 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 			goto err_unlocked;
 	
 		binder_lock(__func__);
-		thread = binder_get_thread(proc); //【获取binder_thread】
+		//获取binder_thread【见2.4.1】
+		thread = binder_get_thread(proc); 
 		if (thread == NULL) {
 			ret = -ENOMEM;
 			goto err;
@@ -280,7 +281,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 	
 		switch (cmd) {
 		case BINDER_WRITE_READ:  //进行binder的读写操作
-			ret = binder_ioctl_write_read(filp, cmd, arg, thread); //【进行binder读写操作】
+			ret = binder_ioctl_write_read(filp, cmd, arg, thread); //【见2.4.2】
 			if (ret)
 				goto err;
 			break;
@@ -330,7 +331,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 	}
 
 
-**binder_get_thread()**
+**2.4.1 binder_get_thread()**
 
 从binder_proc中查找binder_thread,如果存在则直接返回，如果不存在则新建一个，并添加到当前的proc
 
@@ -367,7 +368,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 		return thread;
 	}
 
-**binder_ioctl_write_read()**
+**2.4.2 binder_ioctl_write_read()**
 
 对于ioctl()方法中，传递进来的命令是cmd = `BINDER_WRITE_READ`时执行该方法，arg是一个`binder_write_read`结构体
 

@@ -304,7 +304,7 @@ excerpt:  理解Android进程创建流程
                 fdsToClose[1] = fd.getInt$();
             }
             fd = null;
-            【见流程6】
+            //【见流程6】
             pid = Zygote.forkAndSpecialize(parsedArgs.uid, parsedArgs.gid, parsedArgs.gids,
                     parsedArgs.debugFlags, rlimits, parsedArgs.mountExternal, parsedArgs.seInfo,
                     parsedArgs.niceName, fdsToClose, parsedArgs.instructionSet,
@@ -318,7 +318,7 @@ excerpt:  理解Android进程创建流程
                 //子进程执行
                 IoUtils.closeQuietly(serverPipeFd);
                 serverPipeFd = null;
-                【见流程7】
+                //【见流程7】
                 handleChildProc(parsedArgs, descriptors, childPipeFd, newStderr);
 
                 // 不应到达此处，子进程预期的是抛出异常ZygoteInit.MethodAndArgsCaller或者执行exec().
@@ -343,12 +343,12 @@ excerpt:  理解Android进程创建流程
     public static int forkAndSpecialize(int uid, int gid, int[] gids, int debugFlags,
           int[][] rlimits, int mountExternal, String seInfo, String niceName, int[] fdsToClose,
           String instructionSet, String appDataDir) {
-        VM_HOOKS.preFork(); 【见流程6-1】
+        VM_HOOKS.preFork(); //【见流程6-1】
         int pid = nativeForkAndSpecialize(
                   uid, gid, gids, debugFlags, rlimits, mountExternal, seInfo, niceName, fdsToClose,
-                  instructionSet, appDataDir); 【见流程6-2】
+                  instructionSet, appDataDir); //【见流程6-2】
         ...
-        VM_HOOKS.postForkCommon(); 【见流程6-3】
+        VM_HOOKS.postForkCommon(); //【见流程6-3】
         return pid;
     }
 
@@ -397,7 +397,7 @@ nativePreFork通过JNI最终调用的是dalvik_system_ZygoteHooks.cc中的Zygote
 	static jlong ZygoteHooks_nativePreFork(JNIEnv* env, jclass) {
 	    Runtime* runtime = Runtime::Current();
 	    CHECK(runtime->IsZygote()) << "runtime instance not started with -Xzygote";
-	    runtime->PreZygoteFork(); 【见流程6-1-3-1】
+	    runtime->PreZygoteFork(); //【见流程6-1-3-1】
 	    if (Trace::GetMethodTracingMode() != TracingMode::kTracingInactive) {
 	      Trace::Pause();
 	    }
@@ -432,7 +432,7 @@ com_android_internal_os_Zygote_nativeForkAndSpecialize()方法，如下：
 	    if (uid == AID_BLUETOOTH) {
 	        capabilities |= (1LL << CAP_WAKE_ALARM);
 	    }
-	    【见流程6-2-1】
+	    //【见流程6-2-1】
 	    return ForkAndSpecializeCommon(env, uid, gid, gids, debug_flags,
 	            rlimits, capabilities, capabilities, mount_external, se_info,
 	            se_name, false, fdsToClose, instructionSet, appDataDir);
@@ -513,7 +513,7 @@ Zygote进程是所有Android进程的母体，包括system_server进程以及App
     }
 
     public void postForkChild(int debugFlags, String instructionSet) {
-        【见流程6-2-2-1-1】
+        //【见流程6-2-2-1-1】
         nativePostForkChild(token, debugFlags, instructionSet);
         Math.setRandomSeedInternal(System.currentTimeMillis());
     }
@@ -539,7 +539,7 @@ Zygote进程是所有Android进程的母体，包括system_server进程以及App
 	      if (isa != kNone && isa != kRuntimeISA) {
 	        action = Runtime::NativeBridgeAction::kInitialize;
 	      }
-	      【见流程6-2-2-1-1-1】
+	      //【见流程6-2-2-1-1-1】
 	      Runtime::Current()->DidForkFromZygote(env, action, isa_string.c_str());
 	    } else {
 	      Runtime::Current()->DidForkFromZygote(env, Runtime::NativeBridgeAction::kUnload, nullptr);
@@ -584,7 +584,7 @@ Zygote进程是所有Android进程的母体，包括system_server进程以及App
 [-> ZygoteHooks.java]
 
     public void postForkCommon() {
-        Daemons.start(); 【见流程6-3-1】
+        Daemons.start(); //【见流程6-3-1】
     }
 
 **Step 6-3-1.** Daemons.start
