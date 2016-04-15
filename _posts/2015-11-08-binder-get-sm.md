@@ -39,8 +39,6 @@ excerpt:  Binder系列4—获取ServiceManager
 ## 1. defaultServiceManager
 ==> `/framework/native/libs/binder/IServiceManager.cpp`
 
-获取默认ServiceManager对象。
-
 	sp<IServiceManager> defaultServiceManager()
 	{
 	    if (gDefaultServiceManager != NULL) return gDefaultServiceManager;    
@@ -50,7 +48,7 @@ excerpt:  Binder系列4—获取ServiceManager
 	            gDefaultServiceManager = interface_cast<IServiceManager>(
 	                ProcessState::self()->getContextObject(NULL));  //【见流程2、8、13】
 	            if (gDefaultServiceManager == NULL)
-	                sleep(1);   //休眠1秒
+	                sleep(1);   //休眠1秒，往往在系统刚启动过程可能会第一次获取失败
 	        }
 	    }
 	    
@@ -58,19 +56,18 @@ excerpt:  Binder系列4—获取ServiceManager
 	}
 
   
+获取ServiceManager对象采用**单例模式**，我们发现与一般的单例模式不太一样，里面多了一层while循环，这是google在2013年1月Todd Poynor提交的修改。当尝试创建或获取ServiceManager时，ServiceManager可能尚未准备就绪，这时通过sleep 1秒后，循环尝试获取直到成功。
 
-这是**单例模式**，我们发现与一般的单例模式不太一样，里面多了一层while循环，这是google在2013年1月Todd Poynor提交的修改。defaultServiceManager需要等待service manager就绪。当我们尝试创建一个本地的代理时，如果service manager没有准备好，那么就会失败，这时sleep 1秒后会重新尝试获取，直到成功。
 
-
-defaultServiceManager()方法中，比较难理解的一行语句便是：
+`defaultServiceManager()`方法中比较难理解的语句是：
 
 	interface_cast<IServiceManager>(ProcessState::self()->getContextObject(NULL));  
 
-逐步剖析，分解该过程为下面3个步骤
+下面剖析为3个步骤:ProcessState::self(), getContextObject(), interface_cast<IServiceManager>：
 
-- ProcessState::self()：主要功能是获取ProcessState对象，这是单例模式，每个进程有且只有一个ProcessState对象，存在则直接返回，不存在则创建，详情见流程2~7;
-- getContextObject()： 主要功能是获取BpBiner对象，对于handle=0的BpBiner对象，存在则直接返回，不存在才创建，详情见流程8~12;
-- interface_cast<IServiceManager>()：创建BpServiceManager对象，详情见流程13~15.
+- ProcessState::self()：用于获取ProcessState对象(也是单例模式)，每个进程有且只有一个ProcessState对象，存在则直接返回，不存在则创建，详情见【流程2~7】;
+- getContextObject()： 用于获取BpBiner对象，对于handle=0的BpBiner对象，存在则直接返回，不存在才创建，详情见【流程8~12】;
+- interface_cast<IServiceManager>()：创建BpServiceManager对象，详情见【流程13~15】.
 
 
 ## 2. ProcessState::self
@@ -84,7 +81,9 @@ defaultServiceManager()方法中，比较难理解的一行语句便是：
 	    if (gProcess != NULL) {
 	        return gProcess;
 	    }
-	    gProcess = new ProcessState;  //实例化ProcessState 【见流程3】
+
+	    //实例化ProcessState 【见流程3】
+	    gProcess = new ProcessState;
 	    return gProcess;
 	}
 
@@ -99,10 +98,10 @@ defaultServiceManager()方法中，比较难理解的一行语句便是：
 	ProcessState::ProcessState()
 	    : mDriverFD(open_driver()) // 打开Binder驱动【见流程4】
 	    , mVMStart(MAP_FAILED)
-	    , mThreadCountLock(PTHREAD_MUTEX_INITIALIZER)     // [Android 6.0新增]
-	    , mThreadCountDecrement(PTHREAD_COND_INITIALIZER) // [Android 6.0新增]
-	    , mExecutingThreadsCount(0)                       // [Android 6.0新增]
-	    , mMaxThreads(DEFAULT_MAX_BINDER_THREADS)         // [Android 6.0新增]
+	    , mThreadCountLock(PTHREAD_MUTEX_INITIALIZER)     
+	    , mThreadCountDecrement(PTHREAD_COND_INITIALIZER) 
+	    , mExecutingThreadsCount(0)                      
+	    , mMaxThreads(DEFAULT_MAX_BINDER_THREADS)       
 	    , mManagesContexts(false)
 	    , mBinderContextCheckFunc(NULL)
 	    , mBinderContextUserData(NULL)
@@ -113,7 +112,7 @@ defaultServiceManager()方法中，比较难理解的一行语句便是：
 	        //采用内存映射函数mmap，给binder分配一块虚拟地址空间,用来接收事务
 	        mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
 	        if (mVMStart == MAP_FAILED) {
-	            close(mDriverFD); //没有足够空间分配给/dev/binder, 关闭设备
+	            close(mDriverFD); //没有足够空间分配给/dev/binder,则关闭驱动
 	            mDriverFD = -1;
 	        }
 	    }
@@ -132,7 +131,8 @@ defaultServiceManager()方法中，比较难理解的一行语句便是：
 
 	static int open_driver()
 	{
-	    int fd = open("/dev/binder", O_RDWR); //打开/dev/binder设备，建立与内核的Binder驱动的交互通道
+	    // 打开/dev/binder设备，建立与内核的Binder驱动的交互通道
+	    int fd = open("/dev/binder", O_RDWR); 
 	    if (fd >= 0) {
 	        fcntl(fd, F_SETFD, FD_CLOEXEC);
 	        int vers = 0;
@@ -146,7 +146,8 @@ defaultServiceManager()方法中，比较难理解的一行语句便是：
 	            fd = -1;
 	        }
 	        size_t maxThreads = DEFAULT_MAX_BINDER_THREADS;
-	        //通过ioctl设置binder驱动，能支持的最大线程数
+	
+	        // 通过ioctl设置binder驱动，能支持的最大线程数
 	        result = ioctl(fd, BINDER_SET_MAX_THREADS, &maxThreads);
 	        if (result == -1) {
 	            ALOGE("Binder ioctl to set max threads failed: %s", strerror(errno));
@@ -257,7 +258,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 	template<typename INTERFACE>
 	inline sp<INTERFACE> interface_cast(const sp<IBinder>& obj)
 	{
-	    return INTERFACE::asInterface(obj); 【见流程14】
+	    return INTERFACE::asInterface(obj); //【见流程14】
 	}
 
 故`interface_cast<IServiceManager>()` 等价于 `IServiceManager::asInterface()`.

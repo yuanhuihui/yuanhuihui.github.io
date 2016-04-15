@@ -28,12 +28,14 @@ Service Manager是整个Binder IPC通信过程中的守护进程，启动Service
 	{
 	    struct binder_state *bs;
 	
-	    bs = binder_open(128*1024);  //打开binder驱动，申请128k大小的内存空间 【见流程1】
+	    //打开binder驱动，申请128k大小的内存空间 【见流程1】
+	    bs = binder_open(128*1024);
 	    if (!bs) {
 	        return -1;
 	    }
 	
-	    if (binder_become_context_manager(bs)) {  //成为上下文管理者  【见流程5】
+	    //成为上下文管理者 【见流程5】
+	    if (binder_become_context_manager(bs)) {  
 	        return -1;
 	    }
 	
@@ -57,7 +59,8 @@ Service Manager是整个Binder IPC通信过程中的守护进程，启动Service
 	    cb.func_log = selinux_log_callback;
 	    selinux_set_callback(SELINUX_CB_LOG, cb);
 	
-	    binder_loop(bs, svcmgr_handler); //进入无限循环，处理client端发来的请求 【见流程9】
+	    //进入无限循环，处理client端发来的请求 【见流程9】
+	    binder_loop(bs, svcmgr_handler); 
 	
 	    return 0;
 	}
@@ -102,7 +105,8 @@ Binder在Native framework层所有涉及的类的关系图：
 	        return NULL;
 	    }
 	
-	    bs->fd = open("/dev/binder", O_RDWR);  //通过系统调用，陷入内核，打开Binder设备驱动 【流程2】
+	    //通过系统调用，陷入内核，打开Binder设备驱动 【流程2】
+	    bs->fd = open("/dev/binder", O_RDWR);  
 	    if (bs->fd < 0) {   
 	        goto fail_open; // 无法打开binder设备
 	    }
@@ -140,7 +144,7 @@ Binder在Native framework层所有涉及的类的关系图：
 
 	int binder_become_context_manager(struct binder_state *bs)
 	{
-		 //通过ioctl，传递BINDER_SET_CONTEXT_MGR指令。再调用【流程7】
+	    //通过ioctl，传递BINDER_SET_CONTEXT_MGR指令。再调用【流程7】
 	    return ioctl(bs->fd, BINDER_SET_CONTEXT_MGR, 0);
 	}
 
@@ -170,7 +174,9 @@ binder驱动操作
 		} else {
 			binder_context_mgr_uid = curr_euid; //设置当前线程euid作为Service Manager的uid
 		}
-		binder_context_mgr_node = binder_new_node(proc, 0, 0); //创建Service Manager实体【流程8】
+
+	    //创建Service Manager实体【流程8】
+		binder_context_mgr_node = binder_new_node(proc, 0, 0); 
 		if (binder_context_mgr_node == NULL) {
 			ret = -ENOMEM;
 			goto out;
@@ -433,7 +439,8 @@ service manager操作的真正处理函数
 	        if (s == NULL) {
 	            return -1;
 	        }
-	        handle = do_find_service(bs, s, len, txn->sender_euid, txn->sender_pid); //根据名称查找service 【见流程15】
+	        //根据名称查找service 【见流程15】
+	        handle = do_find_service(bs, s, len, txn->sender_euid, txn->sender_pid); 
 	        if (!handle)
 	            break;
 	        bio_put_ref(reply, handle);
@@ -573,7 +580,8 @@ service manager操作的真正处理函数
 
 	uint32_t do_find_service(struct binder_state *bs, const uint16_t *s, size_t len, uid_t uid, pid_t spid)
 	{
-	    struct svcinfo *si = find_svc(s, len); //查询相应的服务
+	    //查询相应的服务
+	    struct svcinfo *si = find_svc(s, len); 
 	
 	    if (!si || !si->handle) {
 	        return 0;
@@ -581,12 +589,14 @@ service manager操作的真正处理函数
 	
 	    if (!si->allow_isolated) {
 	        uid_t appid = uid % AID_USER;
-	        if (appid >= AID_ISOLATED_START && appid <= AID_ISOLATED_END) { //检查该服务是否允许孤立于进程而单独存在。
+	        //检查该服务是否允许孤立于进程而单独存在
+	        if (appid >= AID_ISOLATED_START && appid <= AID_ISOLATED_END) {
 	            return 0;
 	        }
 	    }
 	
-	    if (!svc_can_find(s, len, spid)) {  //服务是否满足 查询条件
+	    //服务是否满足查询条件
+	    if (!svc_can_find(s, len, spid)) {  
 	        return 0;
 	    }
 	

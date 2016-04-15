@@ -15,26 +15,28 @@ excerpt: Binder系列8—如何使用Binder
 > 自定义binder架构的 client/ server组件
 
 
-## 一、创建Native binder
+## 一、自定义Native层Binder服务
 
 源码结构：
 
-1. ClientDemo.cpp: 客户端程序
-2. ServerDemo.cpp：服务端程序
-3. IMyService.h：自定义的MyService服务的头文件
-4. IMyService.cpp：自定义的MyService服务
-5. Android.mk：源码build文件
+- ClientDemo.cpp: 客户端程序
+- ServerDemo.cpp：服务端程序
+- IMyService.h：自定义的MyService服务的头文件
+- IMyService.cpp：自定义的MyService服务
+- Android.mk：源码build文件
 
 
 ### 1.1 服务端
 
 	#include "IMyService.h"
 	int main() {
-		sp < IServiceManager > sm = defaultServiceManager(); //获取service manager引用
-		sm->addService(String16("service.myservice"), new BnMyService()); //注册名为"service.myservice"的服务到service manager
-		ProcessState::self()->startThreadPool(); //启动线程池
-		IPCThreadState::self()->joinThreadPool(); //把主线程加入线程池
-		return 0;
+	    //获取service manager引用
+	    sp < IServiceManager > sm = defaultServiceManager(); 
+	    //注册名为"service.myservice"的服务到service manager
+	    sm->addService(String16("service.myservice"), new BnMyService()); 
+	    ProcessState::self()->startThreadPool(); //启动线程池
+	    IPCThreadState::self()->joinThreadPool(); //把主线程加入线程池
+	    return 0;
 	}
 
 将名为"service.myservice"的BnMyService服务添加到ServiceManager，并启动服务
@@ -43,11 +45,15 @@ excerpt: Binder系列8—如何使用Binder
 
 	#include "IMyService.h"
 	int main() {
-		sp < IServiceManager > sm = defaultServiceManager(); //获取service manager引用
-		sp < IBinder > binder = sm->getService(String16("service.myservice"));//获取名为"service.myservice"的binder接口
-		sp<IMyService> cs = interface_cast < IMyService > (binder);//将biner对象转换为强引用类型的IMyService
-		cs->sayHello();//利用binder引用调用远程sayHello()方法
-		return 0;
+	    //获取service manager引用
+	    sp < IServiceManager > sm = defaultServiceManager(); 
+	    //获取名为"service.myservice"的binder接口
+	    sp < IBinder > binder = sm->getService(String16("service.myservice"));
+	    //将biner对象转换为强引用类型的IMyService
+	    sp<IMyService> cs = interface_cast < IMyService > (binder);
+	    //利用binder引用调用远程sayHello()方法
+	    cs->sayHello();
+	    return 0;
 	}
 
 获取名为"service.myservice"的服务，再进行类型，最后调用远程方法`sayHello()`
@@ -89,9 +95,9 @@ excerpt: Binder系列8—如何使用Binder
 
 主要功能：
 
-1. 申明IMyService
-2. 申明BpMyService（Binder客户端）
-3. 申明BnMyService（Binder的服务端）
+-  申明IMyService
+-  申明BpMyService（Binder客户端）
+-  申明BnMyService（Binder的服务端）
 
 
 **(2)IMyService.cpp**
@@ -99,7 +105,8 @@ excerpt: Binder系列8—如何使用Binder
 	#include "IMyService.h"
 	namespace android
 	{
-	    IMPLEMENT_META_INTERFACE(MyService, "android.demo.IMyService"); //使用宏，完成MyService定义
+	    //使用宏，完成MyService定义
+	    IMPLEMENT_META_INTERFACE(MyService, "android.demo.IMyService"); 
 	
 		//客户端
 		BpMyService::BpMyService(const sp<IBinder>& impl) :
@@ -170,7 +177,7 @@ excerpt: Binder系列8—如何使用Binder
 
 ![native_client](/images/binder/binderSimple/native_client.png)
 
-## 二、创建Framework Binder
+## 二、自定义Framework层Binder服务
 
 源码结构：
 
@@ -194,13 +201,16 @@ Client端
 可执行程序
 
 	public class ServerDemo {
-		public static void main(String[] args) {
-			System.out.println("MyService Start");
-			Looper.prepareMainLooper(); //开启循环执行
-			android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_FOREGROUND); //设置为前台优先级
-			ServiceManager.addService("MyService", new MyService());//注册服务
-			Looper.loop();
-		}
+	    public static void main(String[] args) {
+	        System.out.println("MyService Start");
+	        //准备Looper循环执行
+	        Looper.prepareMainLooper(); 
+	        //设置为前台优先级
+	        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_FOREGROUND); 
+	        //注册服务
+	        ServiceManager.addService("MyService", new MyService());
+	        Looper.loop();
+	    }
 	}
 
 **(2)IMyService.java**
@@ -208,62 +218,61 @@ Client端
 定义sayHello()方法，DESCRIPTOR属性
 
 	public interface IMyService extends IInterface {
-		static final java.lang.String DESCRIPTOR = "com.yuanhh.frameworkBinder.MyServer";
-		public void sayHello(String str) throws RemoteException ;
+	    static final java.lang.String DESCRIPTOR = "com.yuanhh.frameworkBinder.MyServer";
+	    public void sayHello(String str) throws RemoteException ;
 	    static final int TRANSACTION_say = android.os.IBinder.FIRST_CALL_TRANSACTION;
 	}
 
 **(3)MyService.java**
 
 	public class MyService extends Binder implements IMyService{ 
-		
-		public MyService() {
-			this.attachInterface(this, DESCRIPTOR);
-		}
 	
-		@Override
-		public IBinder asBinder() {
-			return this;
-		}
-	
-		/** 将MyService转换为IMyService接口 **/
-		public static com.yuanhh.frameworkBinder.IMyService asInterface(
-				android.os.IBinder obj) {
-			if ((obj == null)) {
-				return null;
-			}
-			android.os.IInterface iInterface = obj.queryLocalInterface(DESCRIPTOR);
-			if (((iInterface != null) && (iInterface instanceof com.yuanhh.frameworkBinder.IMyService))) {
-				return ((com.yuanhh.frameworkBinder.IMyService) iInterface);
-			}
-			return null;
-		}
-	
-		/**  服务端，接收远程消息，处理onTransact方法  **/
-		@Override
-		protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
-				throws RemoteException {
-			switch (code) {
-			case INTERFACE_TRANSACTION: {
-				reply.writeString(DESCRIPTOR);
-				return true;
-			}
-			case TRANSACTION_say: {
-				data.enforceInterface(DESCRIPTOR);
-				String str = data.readString();
-				sayHello(str);
-				reply.writeNoException();
-				return true;
-			}
-			}
-			return super.onTransact(code, data, reply, flags);
-		}
-	
-		/** 自定义sayHello()方法   **/
-		@Override
-		public void sayHello(String str) {
-			System.out.println("MyService:: Hello, " + str);
-		}
+	    public MyService() {
+	        this.attachInterface(this, DESCRIPTOR);
+	    }
+
+	    @Override
+	    public IBinder asBinder() {
+	        return this;
+	    }
+
+	    /** 将MyService转换为IMyService接口 **/
+	    public static com.yuanhh.frameworkBinder.IMyService asInterface(
+	            android.os.IBinder obj) {
+	        if ((obj == null)) {
+	            return null;
+	        }
+	        android.os.IInterface iInterface = obj.queryLocalInterface(DESCRIPTOR);
+	        if (((iInterface != null)&&(iInterface instanceof com.yuanhh.frameworkBinder.IMyService))){
+	            return ((com.yuanhh.frameworkBinder.IMyService) iInterface);
+	        }
+	        return null;
+	    }
+
+	    /**  服务端，接收远程消息，处理onTransact方法  **/
+	    @Override
+	    protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+	            throws RemoteException {
+	        switch (code) {
+	        case INTERFACE_TRANSACTION: {
+	            reply.writeString(DESCRIPTOR);
+	            return true;
+	        }
+	        case TRANSACTION_say: {
+	            data.enforceInterface(DESCRIPTOR);
+	            String str = data.readString();
+	            sayHello(str);
+	            reply.writeNoException();
+	            return true;
+	        }}
+	        return super.onTransact(code, data, reply, flags);
+	    }
+
+	    /** 自定义sayHello()方法   **/
+	    @Override
+	    public void sayHello(String str) {
+	        System.out.println("MyService:: Hello, " + str);
+	    }
 	}
 
 ### 2.2 Client端

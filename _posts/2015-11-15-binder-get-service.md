@@ -49,8 +49,8 @@ excerpt: Binder系列6—获取服务(getService)
 	        sp<IServiceManager> sm = defaultServiceManager(); //获取ServiceManager
 	        sp<IBinder> binder;
 	        do {
-				//获取名为"media.player"的服务
-	            binder = sm->getService(String16("media.player")); //【见流程2】
+	            //获取名为"media.player"的服务 【见流程2】
+	            binder = sm->getService(String16("media.player"));
 	            if (binder != 0) {
 	                break;
 	            }
@@ -60,7 +60,9 @@ excerpt: Binder系列6—获取服务(getService)
 	        if (sDeathNotifier == NULL) {
 	            sDeathNotifier = new DeathNotifier(); //创建死亡通知
 	        }
-	        binder->linkToDeath(sDeathNotifier); //将死亡通知连接到binder  【见流程4】
+
+	        //将死亡通知连接到binder 【见流程4】
+	        binder->linkToDeath(sDeathNotifier); 
 	        sMediaPlayerService = interface_cast<IMediaPlayerService>(binder); 
 	    }
 	    return sMediaPlayerService;
