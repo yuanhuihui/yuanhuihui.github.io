@@ -105,7 +105,11 @@ excerpt:  理解Android编译命令
 
 	mangrep launcher
 
-再如，搜索所有system_app的selinux权限信息
+再如，搜索所有Java代码中包含zygote所在文件
+
+	jgrep zygote
+
+又如，搜索所有system_app的selinux权限信息
 
 	sepgrep system_app
 

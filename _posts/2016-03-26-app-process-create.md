@@ -63,16 +63,18 @@ excerpt:  理解Android进程创建流程
 
 ### 1. Process.start
 
+[-> Process.java]
+
     public static final ProcessStartResult start(final String processClass,
-                                  final String niceName,
-                                  int uid, int gid, int[] gids,
-                                  int debugFlags, int mountExternal,
-                                  int targetSdkVersion,
-                                  String seInfo,
-                                  String abi,
-                                  String instructionSet,
-                                  String appDataDir,
-                                  String[] zygoteArgs) {
+                              final String niceName,
+                              int uid, int gid, int[] gids,
+                              int debugFlags, int mountExternal,
+                              int targetSdkVersion,
+                              String seInfo,
+                              String abi,
+                              String instructionSet,
+                              String appDataDir,
+                              String[] zygoteArgs) {
         try {
              //【见流程2】
             return startViaZygote(processClass, niceName, uid, gid, gids,
@@ -352,7 +354,7 @@ excerpt:  理解Android进程创建流程
         return pid;
     }
 
-这里`VM_HOOKS`是做什么的呢？ 
+这里`VM_HOOKS`是做什么的呢？  这里的`VM_HOOKS = new ZygoteHooks()`
 
 先说说Zygote进程，如下图：
 ![zygote_sub_thread](/images/android-process/zygote_sub_thread.png)
@@ -449,8 +451,10 @@ com_android_internal_os_Zygote_nativeForkAndSpecialize()方法，如下：
 	                                     jstring java_se_info, jstring java_se_name,
 	                                     bool is_system_server, jintArray fdsToClose,
 	                                     jstring instructionSet, jstring dataDir) {
-	  SetSigChldHandler(); //设置子进程的signal信号处理函数
-	  pid_t pid = fork(); //fork子进程 【见流程6-2-1-1】
+	  //设置子进程的signal信号处理函数
+	  SetSigChldHandler(); 
+	  //fork子进程 【见流程6-2-1-1】
+	  pid_t pid = fork(); 
 	  if (pid == 0) {
 	    //进入子进程
 	    DetachDescriptors(env, fdsToClose); //关闭并清除文件描述符
@@ -477,7 +481,8 @@ com_android_internal_os_Zygote_nativeForkAndSpecialize()方法，如下：
 	    if (se_info_c_str != NULL) {
 	      SetThreadName(se_name_c_str); //设置线程名为system_server，方便调试
 	    }
-	    UnsetSigChldHandler(); //设置子进程的signal信号处理函数为默认函数
+	    //在Zygote子进程中，设置信号SIGCHLD的处理器恢复为默认行为
+	    UnsetSigChldHandler(); 
 	    //等价于调用zygote.callPostForkChildHooks() 【见流程6-2-2-1】
 	    env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, debug_flags,
 	                              is_system_server ? NULL : instructionSet);
@@ -507,10 +512,15 @@ Zygote进程是所有Android进程的母体，包括system_server进程以及App
 
 **Step 6-2-2-1.** Zygote.callPostForkChildHooks
 
+[-> Zygote.java]
+
     private static void callPostForkChildHooks(int debugFlags, boolean isSystemServer,
             String instructionSet) {
+        //【见下文】
         VM_HOOKS.postForkChild(debugFlags, isSystemServer, instructionSet);
     }
+
+[-> ZygoteHooks.java]
 
     public void postForkChild(int debugFlags, String instructionSet) {
         //【见流程6-2-2-1-1】
