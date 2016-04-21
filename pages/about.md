@@ -17,14 +17,11 @@ icon: glyphicon-heart
 
 #### 关于Gityuan
 
-
 * 微博：[Gityuan](http://weibo.com/gityuan)
 * 知乎：[Gityuan](http://www.zhihu.com/people/gityuan)
 * 博客：[gityuan.com]([http://gityuan.com)
 * 邮箱：[gityuan@gmail.com](mailto:{{ site.email }})
-* 微信公众号： [Gityuan]() (可通过扫一扫下方二维码)
-
-    ![Gityuan](/images/about-me/gityuan.jpg)
+* 微信公众号： [Gityuan]()
 
 ----------
 

@@ -11,7 +11,7 @@ excerpt:  理解Kill进程的实现原理
 
 ---
 
-> 基于Android 6.0的源码剖析， 分析kill进程的实现原理，本文涉及到的源码：
+> 基于Android 6.0的源码剖析， 分析kill进程的实现原理，以及讲讲系统调用(syscall)过程，涉及源码：
 
 	/framework/base/core/java/android/os/Process.java
 	/framework/base/core/jni/android_util_Process.cpp
@@ -28,9 +28,9 @@ excerpt:  理解Kill进程的实现原理
 
 ### 概述
 
-文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create)，介绍了Android进程创建过程是如何从framework一步步走到虚拟机。本文正好相反则是说说进程是如何被kill的过程。简单说，kill进程其实是通过发送signal信号的方式来完成的。创建进程从Process.start开始说起，那么杀进程则相应从Process.killProcess开始讲起。
+文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create)，介绍了Android进程创建过程是如何从framework一步步走到虚拟机。本文正好相反则是说说进程是如何被kill的过程。简单说，kill进程其实是通过**发送signal**信号的方式来完成的。创建进程从Process.start开始说起，那么杀进程则相应从Process.killProcess开始讲起。
 
-## 信号(Signal)发送
+## 一、信号发送
 
 ### 1. Process.killProcess
 
@@ -63,9 +63,9 @@ excerpt:  理解Kill进程的实现原理
 
 	asmlinkage long sys_kill(int pid, int sig);
 
- `sys_kill()`方法在linux内核中没有直接定义，而是通过宏定义`SYSCALL_DEFINE2`的方式来实现的。Android内核（即Linux）会为每个syscall分配唯一的系统调用号，当执行系统调用时会根据系统调用号从系统调用表中来查看目标函数的入口地址，在calls.S文件中声明了入口地址信息(这里已经追溯到汇编语言了，就不再介绍)。另外，其中asmlinkage是gcc标签，表明该函数读取的参数位于栈中，而不是寄存器。
+ `sys_kill()`方法在linux内核中没有直接定义，而是通过宏定义`SYSCALL_DEFINE2`的方式来实现的。Android内核（Linux）会为每个syscall分配唯一的系统调用号，当执行系统调用时会根据系统调用号从系统调用表中来查看目标函数的入口地址，在calls.S文件中声明了入口地址信息(这里已经追溯到汇编语言了，就不再介绍)。另外，其中asmlinkage是gcc标签，表明该函数读取的参数位于栈中，而不是寄存器。
 
-如何查找`sys_kill()`所在路径呢？可通过内核空间的`/kernel/include/uapi/asm-generic/unistd.h`，会记录
+那如何查找`sys_kill()`所在路径呢？可通过内核空间的`/kernel/include/uapi/asm-generic/unistd.h`，会记录
 
 	/* kernel/signal.c */
 	#define __NR_kill 129
@@ -86,7 +86,7 @@ excerpt:  理解Kill进程的实现原理
 		return kill_something_info(sig, &info, pid); //【见流程4】
 	}
 
-`SYSCALL_DEFINE2`是系统调用的宏定义，经过层层展开，等价于`asmlinkage long sys_kill(int pid, int sig)`。关于宏展开细节就不多说了，就说一点`SYSCALL_DEFINE2`中的2是指sys_kill方法有两个参数。
+`SYSCALL_DEFINE2`是系统调用的宏定义，方法在此处经层层展开，等价于`asmlinkage long sys_kill(int pid, int sig)`。关于宏展开细节就不多说了，就说一点`SYSCALL_DEFINE2`中的2是指sys_kill方法有两个参数。
 
 关于系统调用流程比较复杂，涉及汇编语言，可以不用知道整个过程，**只需要知道一点：** 用户空间的`kill()`最终调用到内核空间signal.c的`kill_something_info()`方法就可以。
 
@@ -308,7 +308,7 @@ excerpt:  理解Kill进程的实现原理
 			signal->curr_target = t;
 		}
 
-		//找到一个能被杀掉的线程，如果这个信号是fatal，则立刻干掉整个线程组
+		//找到一个能被杀掉的线程，如果这个信号是SIGKILL，则立刻干掉整个线程组
 		if (sig_fatal(p, sig) &&
 		    !(signal->flags & (SIGNAL_UNKILLABLE | SIGNAL_GROUP_EXIT)) &&
 		    !sigismember(&t->real_blocked, sig) &&
@@ -336,29 +336,32 @@ excerpt:  理解Kill进程的实现原理
 	}
 
 
-### 小结
+### 11. 小结
 
 
 到此Signal信号已发送给目标线程，先用一副图来小结一下上述流程：
 
 ![process-kill](/images/android-process/process-kill.jpg)
 
-图中分为用户空间(User Space)和内核空间（Kernel Space)。从用户空间进入内核空间需要向内核发出syscall(系统调用)，系统调用时操作系统提供的服务，用户空间的程序通过各种系统调用来引用内核空间相应的各种服务，系统调用是为了让用户空间的程序陷入内核，该陷入动作是由软中断来完成的。用户态的进程进行系统调用后，CPU切换到内核态，开始执行内核函数。`unistd.h`文件中定义了所有的系统中断号，用户态程序通过不同的系统调用号来调用不同的内核服务，通过系统调用号从系统调用表中查看到相应的内核服务。
+**图解：**
 
-讲完了系统发送过程，接下来进入目标线程来处理相应的信号。
+流程分为用户空间(User Space)和内核空间（Kernel Space)。从用户空间进入内核空间需要向内核发出syscall，用户空间的程序通过各种syscall来调用用内核空间相应的服务。系统调用是为了让用户空间的程序陷入内核，该陷入动作是由软中断来完成的。用户态的进程进行系统调用后，CPU切换到内核态，开始执行内核函数。`unistd.h`文件中定义了所有的系统中断号，用户态程序通过不同的系统调用号来调用不同的内核服务，通过系统调用号从系统调用表中查看到相应的内核服务。
 
-## 信号(Signal)处理
-
-在Process.java中定义了如下3个信号：
+再回到信号，在Process.java中定义了如下3个信号：
 
     public static final int SIGNAL_QUIT = 3;  //用于输出线程trace
     public static final int SIGNAL_KILL = 9;  //用于杀进程/线程
     public static final int SIGNAL_USR1 = 10; //用于强制执行GC
 
+对于`kill -9`，信号SIGKILL的处理过程，这是因为SIGKILL是不能被忽略同时也不能被捕获，故不会由目标线程的signal Catcher线程来处理，而是由内核直接处理，到此便完成。但对于信号3和10，则是交由目标进程(art虚拟机)的SignalCatcher线程来捕获完成相应操作的，接下来进入目标线程来处理相应的信号。
+
+
+## 二、信号处理
+
 **实例：**
 
-`kill -3 <pid>`：该pid所在进程的SignalCatcher接收到信号SIGNAL_QUIT，则挂起进程中的所有线程并dump所有线程的状态。
-`kill -10 <pid>`： 该pid所在进程的SignalCatcher接收到信号SIGNAL_USR1，则触发进程强制执行GC操作。
+- `kill -3 <pid>`：该pid所在进程的SignalCatcher接收到信号SIGNAL_QUIT，则挂起进程中的所有线程并dump所有线程的状态。
+- `kill -10 <pid>`： 该pid所在进程的SignalCatcher接收到信号SIGNAL_USR1，则触发进程强制执行GC操作。
 
 信号SIGNAL_QUIT、SIGNAL_USR1的发送流程由上一节已介绍，对于信号捕获则是由SignalCatcher线程来捕获完成相应操作的。在上一篇文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/#nativeforkandspecialize)的【Step 6-2-1】中的`ForkAndSpecializeCommon`有涉及到signal相关的操作，接下来说说应用进程在创建过程为信号处理做了哪些准备呢？
 
@@ -528,7 +531,7 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 
 这个方法中，只有信号SIGQUIT和SIGUSR1的处理过程，并没有信号SIGKILL的处理过程，这是因为SIGKILL是不能被忽略同时也不能被捕获，所以不会出现在Signal Catcher线程。
 
-### 小结
+### 8. 小结
 
 调用流程：
 
