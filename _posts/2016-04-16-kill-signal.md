@@ -531,6 +531,7 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 
 这个方法中，只有信号SIGQUIT和SIGUSR1的处理过程，并没有信号SIGKILL的处理过程，这是因为SIGKILL是不能被忽略同时也不能被捕获，所以不会出现在Signal Catcher线程。
 
+
 ### 8. 小结
 
 调用流程：
@@ -542,6 +543,62 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 			StartSignalCatcher
 				SignalCatcher
 
-后续再补图。
 
 另外，进程被杀后，对于binder的C/S架构，Binder的Server端挂了，Client会收到死亡通告，还会执行各种清理工作。下一篇文章会进一步说明。
+
+## 三、实例分析
+
+注：下面涉及的signal信号log是Gityuan在kernel.c中自行添加的，原生是没有的，仅用于查看和调试使用。
+
+### [1]. kill -3
+
+当adb终端输入:`adb -3 10562`，则signal信号传递过程如下：
+
+![kill_3](/images/linux/signal/kill_3.png)
+
+其中
+
+- 9365：adb的终端sh所在进程pid;
+- 10562：桌面App的进程pid；
+- 10568：10562进程的子线程(SignalCatcher线程);
+- 上图由红框圈起来的线程都是进程10562的子线程；
+
+流程：
+
+1. 由adb所在进程`9365`向进程10562的子线程`10568`(SignalCatcher线程)，发送`signal=3`信号;该过程需要Art虚拟机参与。
+2. SignalCatcher线程收到信号3后，再向进程`10562`的子线程分别发送`signal=33`信号（大于31的signal都是实时信号），用于dump各个子线程的信息。
+
+### [2]. kill -10
+
+当adb终端输入:`adb -10 10562`，则signal信号传递过程如下：
+
+![kill_10](/images/linux/signal/kill_10.png)
+
+其中
+
+- 9365：adb的终端sh所在进程pid;
+- 10562：桌面App的进程pid；
+
+流程：由adb所在进程`9365`向进程`10562`，发送`signal=10`信号; 该过程需要Art虚拟机参与。
+
+### [3]. kill -9
+
+当adb终端输入:`adb -9 8707`，则signal信号传递过程如下：
+
+![kill_9](/images/linux/signal/kill_9.png)
+
+其中
+
+- 7115：adb的终端sh所在进程pid;
+- 8707：浏览器的进程pid；
+- 上图由红框圈起来的线程都是进程8707的子线程；
+
+流程：由adb所在进程`7115`向进程`8707`，发送`signal=9`信号,判断是SIGKILL信号，则由内核直接处理。
+
+
+### [4]. 小结
+
+-  对于`kill -3`和`kill -10`流程由前面介绍的信号发送和信号处理两个过程，过程中由Art虚拟机来对信号进行相应的处理。
+- 对于` kill -9`则不同，是由linux底层来完成杀进程的过程，也就是执行到前面讲到第一节中的[complete_signal()](http://gityuan.com/2016/04/16/kill-signal/#completesignal)方法后，判断是SIGKILL信号，则由内核直接处理，Art虚拟机压根没机会来处理。
+
+
