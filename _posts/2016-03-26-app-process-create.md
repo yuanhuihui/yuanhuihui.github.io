@@ -382,6 +382,8 @@ excerpt:  理解Android进程创建流程
         FinalizerWatchdogDaemon.INSTANCE.stop(); //析构监控线程
     }
 
+此处守护线程Stop方式是先调用目标线程interrrupt()方法，然后再调用目标线程join()方法，等待线程执行完成。
+
 **Step 6-1-2.** waitUntilAllThreadsStopped
 
     private static void waitUntilAllThreadsStopped() {
