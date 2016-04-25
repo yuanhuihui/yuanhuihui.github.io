@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  "理解Kill进程的实现原理"
+title:  "理解杀进程的实现原理"
 date:   2016-04-16 10:10:22
 categories: android process
-excerpt:  理解Kill进程的实现原理
+excerpt:  理解杀进程的实现原理
 ---
 
 * content
@@ -15,6 +15,7 @@ excerpt:  理解Kill进程的实现原理
 
 	/framework/base/core/java/android/os/Process.java
 	/framework/base/core/jni/android_util_Process.cpp
+	/system/core/libprocessgroup/processgroup.cpp
 	/frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
 
 	/kernel/kernel/signal.c
@@ -30,34 +31,183 @@ excerpt:  理解Kill进程的实现原理
 
 文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create)，介绍了Android进程创建过程是如何从framework一步步走到虚拟机。本文正好相反则是说说进程是如何被kill的过程。简单说，kill进程其实是通过**发送signal**信号的方式来完成的。创建进程从Process.start开始说起，那么杀进程则相应从Process.killProcess开始讲起。
 
-## 一、信号发送
+## 一、用户态Kill
 
-### 1. Process.killProcess
+在`Process.java`文件有3个方法用于杀进程，下面说说这3个方法的具体工作
+
+	 Process.killProcess(int pid)
+	 Process.killProcessQuiet(int pid)
+	 Process.killProcessGroup(int uid, int pid)
+
+
+### 1.1 killProcess
+
+**Step 1-1-1.  killProcess**
 
 [-> Process.java]
 
 	public static final void killProcess(int pid) {
-	    sendSignal(pid, SIGNAL_KILL); //【见流程2】
+	    sendSignal(pid, SIGNAL_KILL); //【见Step 1-1-2】
 	}
 
-其中`SIGNAL_KILL = 9`，这里的`sendSignal`是一个Native方法。在Android系统启动过程中，虚拟机会注册各种framework所需的JNI方法，很多时候查询Java层的native方法所对应的native方法，可在路径/framework/base/core/jni中找到，如果找不到的话，有兴趣可以看看[Zygote篇](http://gityuan.com/2016/02/13/android-zygote/#jnistartreg)。 
 
-这里的sendSignal所对应的JNI方法在android_util_Process.cpp文件的android_os_Process_SendSignalQuiet方法，接下来进入见流程2.
+其中`SIGNAL_KILL = 9`，这里的`sendSignal`是一个Native方法。在Android系统启动过程中，虚拟机会注册各种framework所需的JNI方法，很多时候查询Java层的native方法所对应的native方法，可在路径`/framework/base/core/jni`中找到，在[Zygote篇](http://gityuan.com/2016/02/13/android-zygote/#jnistartreg)有介绍JNI方法查看方法。 
 
-### 2. SendSignalQuiet
+这里的`sendSignal`所对应的JNI方法在android_util_Process.cpp文件的`android_os_Process_SendSignal`方法，接下来进入见流程2.
+
+**Step 1-1-2.  android_os_Process_sendSignal**
+
+[- >android_util_Process.cpp]
+
+	void android_os_Process_sendSignal(JNIEnv* env, jobject clazz, jint pid, jint sig)
+	{
+	    if (pid > 0) {
+	        //打印Signal信息
+	        ALOGI("Sending signal. PID: %" PRId32 " SIG: %" PRId32, pid, sig);
+	        kill(pid, sig);
+	    }
+	}
+
+`sendSignal`和`sendSignalQuiet`的唯一区别就是在于是否有ALOGI()这一行代码。最终杀进程的实现方法都是调用`kill(pid, sig)`方法。
+
+### 1.2 killProcessQuiet
+
+**Step 1-2-1.  killProcessQuiet**
+
+[-> Process.java]
+
+	public static final void killProcessQuiet(int pid) {
+	    sendSignalQuiet(pid, SIGNAL_KILL); //【见Step 1-2-2】
+	}
+
+**Step 1-2-2.  android_os_Process_sendSignalQuiet**
 
 [- >android_util_Process.cpp]
 
 	void android_os_Process_sendSignalQuiet(JNIEnv* env, jobject clazz, jint pid, jint sig)
 	{
 	    if (pid > 0) {
-	        kill(pid, sig); //此处sig=9，【见流程3】
+	        kill(pid, sig); 
 	    }
 	}
 
-这里的`kill`方法位于用户空间的Native层，经过syscall进入到Linux内核的`sys_kill方法`。另外，此处kill(pid，9)，其实与大家平时在adb里输入的 `kill -9 <pid>` 是一个概念。
+可见`killProcess`和`killProcessQuiet`的唯一区别在于是否输出log。最终杀进程的实现方法都是调用`kill(pid, sig)`方法。
 
-### 3. 系统调用
+流程图：
+
+![process-kill-quiet](/images/android-process/process-kill-quiet.jpg)
+
+### 1.3 killProcessGroup
+
+**Step 1-3-1.  killProcessGroup**
+
+[-> Process.java]
+
+	public static final native int killProcessGroup(int uid, int pid);
+
+该Native方法所对应的Jni方法如下：
+
+**Step 1-3-2.  android_os_Process_killProcessGroup**
+
+[- >android_util_Process.cpp]
+
+	jint android_os_Process_killProcessGroup(JNIEnv* env, jobject clazz, jint uid, jint pid)
+	{
+	    return killProcessGroup(uid, pid, SIGKILL);  //【见Step 1-3-3】
+	}
+
+**Step 1-3-3.  killProcessGroup**
+
+[-> processgroup.cpp]
+
+	int killProcessGroup(uid_t uid, int initialPid, int signal)
+	{
+	    int processes;
+	    const int sleep_us = 5 * 1000;  // 5ms
+	    int64_t startTime = android::uptimeMillis();
+	    int retry = 40;
+	    // 【见Step 1-3-3-1】
+	    while ((processes = killProcessGroupOnce(uid, initialPid, signal)) > 0) {
+	        //当还有进程未被杀死，则重试，最多40次
+	        if (retry > 0) {
+	            usleep(sleep_us);
+	            --retry;
+	        } else {
+	            break; //重试40次，仍然没有杀死进程，代表杀进程失败
+	        }
+	    }
+	    if (processes == 0) {
+	        //移除进程组相应的目录 【见Step 1-3-3-2】
+	        return removeProcessGroup(uid, initialPid);
+	    } else {
+	        return -1;
+	    }
+	}
+
+**Step 1-3-3-1.  killProcessGroupOnce**
+
+[-> processgroup.cpp]
+
+	static int killProcessGroupOnce(uid_t uid, int initialPid, int signal)
+	{
+	    int processes = 0;
+	    struct ctx ctx;
+	    pid_t pid;
+	    ctx.initialized = false;
+	    while ((pid = getOneAppProcess(uid, initialPid, &ctx)) >= 0) {
+	        processes++;
+	        if (pid == 0) {
+	            continue; //不应该进入该分支
+	        }
+	        int ret = kill(pid, signal); //杀进程组中的进程pid
+	    }
+	    if (ctx.initialized) {
+	        close(ctx.fd);
+	    }
+	    //processes代表总共杀死了进程组中的进程个数
+	    return processes; 
+	}
+
+其中`getOneAppProcess`方法的作用是从节点`/acct/uid_<uid>/pid_<pid>/cgroup.procs`中获取相应pid，这里是进程，而非线程。故`killProcessGroupOnce`的功能是杀掉uid下，跟initialPid同一个进程组的所有进程。也就意味着通过`kill <pid>` ，当pid是某个进程的子线程时，那么最终杀的仍是进程。
+
+最终杀进程的实现方法都是调用`kill(pid, sig)`方法。
+
+**Step 1-3-3-2.  removeProcessGroup**
+
+[-> processgroup.cpp]
+
+	static int removeProcessGroup(uid_t uid, int pid)
+	{
+	    int ret;
+	    char path[PROCESSGROUP_MAX_PATH_LEN] = {0};
+
+	    //删除目录 /acct/uid_<uid>/pid_<pid>/
+	    convertUidPidToPath(path, sizeof(path), uid, pid);
+	    ret = rmdir(path);
+
+	    //删除目录 /acct/uid_<uid>/
+	    convertUidToPath(path, sizeof(path), uid);
+	    rmdir(path);
+	    return ret;
+	}
+
+流程图：
+
+![process-kill-group](/images/android-process/process-kill-group.jpg)
+
+### 1.4 小结
+
+ - Process.killProcess(int pid): 杀pid进程
+ - Process.killProcessQuiet(int pid)：杀pid进程，且不输出log信息
+ - Process.killProcessGroup(int uid, int pid)：杀同一个uid下同一进程组下的所有进程
+
+以上3个方法，最终杀进程的实现方法都是调用`kill(pid, sig)`方法，该方法位于用户空间的Native层，经过系统调用进入到Linux内核的`sys_kill方法`。对于杀进程此处的sig=9，其实与大家平时在adb里输入的 `kill -9 <pid>` 作用一样。
+
+接下来，进入内核态，看看杀进程的过程。
+
+## 二、内核态Kill
+
+### 2.1. 系统调用
 
 [-> syscalls.h]
 
@@ -83,14 +233,14 @@ excerpt:  理解Kill进程的实现原理
 		info.si_code = SI_USER;
 		info.si_pid = task_tgid_vnr(current);
 		info.si_uid = from_kuid_munged(current_user_ns(), current_uid());
-		return kill_something_info(sig, &info, pid); //【见流程4】
+		return kill_something_info(sig, &info, pid); //【见流程2.2】
 	}
 
 `SYSCALL_DEFINE2`是系统调用的宏定义，方法在此处经层层展开，等价于`asmlinkage long sys_kill(int pid, int sig)`。关于宏展开细节就不多说了，就说一点`SYSCALL_DEFINE2`中的2是指sys_kill方法有两个参数。
 
 关于系统调用流程比较复杂，涉及汇编语言，可以不用知道整个过程，**只需要知道一点：** 用户空间的`kill()`最终调用到内核空间signal.c的`kill_something_info()`方法就可以。
 
-### 4. kill_something_info
+### 2.2 kill_something_info
 
 [-> signal.c]
 
@@ -99,7 +249,7 @@ excerpt:  理解Kill进程的实现原理
 		int ret;
 		if (pid > 0) {
 			rcu_read_lock();
-			//当pid>0时，则发送给pid所对应的进程【见流程5】
+			//当pid>0时，则发送给pid所对应的进程【见流程2.3】
 			ret = kill_pid_info(sig, info, find_vpid(pid));
 			rcu_read_unlock();
 			return ret;
@@ -136,7 +286,7 @@ excerpt:  理解Kill进程的实现原理
 - 当pid=-1时，则发送给所有进程；
 - 当pid<-1时，则发送给-pid所对应的进程。
 
-### 5. kill_pid_info
+### 2.3 kill_pid_info
 
 [-> signal.c]
 
@@ -149,7 +299,7 @@ excerpt:  理解Kill进程的实现原理
 		//根据pid查询到task结构体
 		p = pid_task(pid, PIDTYPE_PID);
 		if (p) {
-			error = group_send_sig_info(sig, info, p); //【见流程6】
+			error = group_send_sig_info(sig, info, p); //【见流程2.4】
 			if (unlikely(error == -ESRCH))
 				goto retry;
 		}
@@ -158,7 +308,7 @@ excerpt:  理解Kill进程的实现原理
 	}
 
 
-### 6. group_send_sig_info
+### 2.4 group_send_sig_info
 
 [-> signal.c]
 
@@ -170,11 +320,11 @@ excerpt:  理解Kill进程的实现原理
 		ret = check_kill_permission(sig, info, p);
 		rcu_read_unlock();
 		if (!ret && sig)
-			ret = do_send_sig_info(sig, info, p, true); //【见流程7】
+			ret = do_send_sig_info(sig, info, p, true); //【见流程2.5】
 		return ret;
 	}
 
-### 7. do_send_sig_info
+### 2.5 do_send_sig_info
 
 [-> signal.c]
 
@@ -184,13 +334,13 @@ excerpt:  理解Kill进程的实现原理
 		unsigned long flags;
 		int ret = -ESRCH;
 		if (lock_task_sighand(p, &flags)) {
-			ret = send_signal(sig, info, p, group); //【见流程8】
+			ret = send_signal(sig, info, p, group); //【见流程2.6】
 			unlock_task_sighand(p, &flags);
 		}
 		return ret;
 	}
 
-### 8. send_signal
+### 2.6 send_signal
 
 [-> signal.c]
 
@@ -202,10 +352,10 @@ excerpt:  理解Kill进程的实现原理
 		from_ancestor_ns = si_fromuser(info) &&
 				   !task_pid_nr_ns(current, task_active_pid_ns(t));
 	#endif
-		return __send_signal(sig, info, t, group, from_ancestor_ns); //【见流程9】
+		return __send_signal(sig, info, t, group, from_ancestor_ns); //【见流程2.7】
 	}
 
-### 9. __send_signal
+### 2.7 __send_signal
 
 [-> signal.c]
 
@@ -276,14 +426,14 @@ excerpt:  理解Kill进程的实现原理
 		signalfd_notify(t, sig);
 		//向信号集中加入信号sig
 		sigaddset(&pending->signal, sig);
-		//完成信号过程，【见流程10】
+		//完成信号过程，【见流程2.8】
 		complete_signal(sig, t, group);
 	ret:
 		trace_signal_generate(sig, info, t, group, result);
 		return ret;
 	}
 
-### 10. complete_signal
+### 2.8 complete_signal
 
 [-> signal.c]
 
@@ -336,7 +486,7 @@ excerpt:  理解Kill进程的实现原理
 	}
 
 
-### 11. 小结
+### 2.9 小结
 
 
 到此Signal信号已发送给目标线程，先用一副图来小结一下上述流程：
@@ -353,10 +503,12 @@ excerpt:  理解Kill进程的实现原理
     public static final int SIGNAL_KILL = 9;  //用于杀进程/线程
     public static final int SIGNAL_USR1 = 10; //用于强制执行GC
 
-对于`kill -9`，信号SIGKILL的处理过程，这是因为SIGKILL是不能被忽略同时也不能被捕获，故不会由目标线程的signal Catcher线程来处理，而是由内核直接处理，到此便完成。但对于信号3和10，则是交由目标进程(art虚拟机)的SignalCatcher线程来捕获完成相应操作的，接下来进入目标线程来处理相应的信号。
+对于`kill -9`，信号SIGKILL的处理过程，这是因为SIGKILL是不能被忽略同时也不能被捕获，故不会由目标线程的signal Catcher线程来处理，而是由内核直接处理，到此便完成。
+
+但对于信号3和10，则是交由目标进程(art虚拟机)的SignalCatcher线程来捕获完成相应操作的，接下来进入目标线程来处理相应的信号。
 
 
-## 二、信号处理
+## 三、Signal Catcher
 
 **实例：**
 
@@ -365,18 +517,18 @@ excerpt:  理解Kill进程的实现原理
 
 信号SIGNAL_QUIT、SIGNAL_USR1的发送流程由上一节已介绍，对于信号捕获则是由SignalCatcher线程来捕获完成相应操作的。在上一篇文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/#nativeforkandspecialize)的【Step 6-2-1】中的`ForkAndSpecializeCommon`有涉及到signal相关的操作，接下来说说应用进程在创建过程为信号处理做了哪些准备呢？
 
-### 1. ForkAndSpecializeCommon
+### 3.1 ForkAndSpecializeCommon
 
 [-> com_android_internal_os_Zygote.cpp]
 
 	static pid_t ForkAndSpecializeCommon(...) {
-	    //设置子进程的signal信号处理函数 //【见流程2】
+	    //设置子进程的signal信号处理函数 //【见流程3.2】
 	    SetSigChldHandler(); 
 	    pid_t pid = fork(); //fork子进程
 	    if (pid == 0) {
-	        //设置子进程的signal信号处理函数为默认函数 //【见流程3】
+	        //设置子进程的signal信号处理函数为默认函数 //【见流程3.3】
 	        UnsetSigChldHandler(); 
-	        //进入虚拟机，执行相关操作【见流程4】
+	        //进入虚拟机，执行相关操作【见流程3.4】
 	        env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, debug_flags,
 	                              is_system_server ? NULL : instructionSet);
 	        ...
@@ -386,7 +538,7 @@ excerpt:  理解Kill进程的实现原理
 	    return pid;
 	}
 
-### 2. SetSigChldHandler
+### 3.2 SetSigChldHandler
 
 [-> com_android_internal_os_Zygote.cpp]
 
@@ -405,7 +557,7 @@ excerpt:  理解Kill进程的实现原理
 SIGCHLD=17，代表子进程退出时所相应的操作动作为`SigChldHandler`。
 
 
-### 3. UnsetSigChldHandler
+### 3.3 UnsetSigChldHandler
 
 [-> com_android_internal_os_Zygote.cpp]
 
@@ -421,7 +573,7 @@ SIGCHLD=17，代表子进程退出时所相应的操作动作为`SigChldHandler`
 	}
 
 
-### 4. DidForkFromZygote
+### 3.4 DidForkFromZygote
 
 在文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/#nativeforkandspecialize)已详细地说明了此过程，并在小节【Step 6-2-2-1-1-1】中说过后续会单独讲讲信号处理过程，那本文便是补充这个过程
 
@@ -435,26 +587,26 @@ SIGCHLD=17，代表子进程退出时所相应的操作动作为`SigChldHandler`
 	    heap_->ResetGcPerformanceInfo();
 
 	    ...
-	    //启动信号捕获 【见流程5】
+	    //启动信号捕获 【见流程3.5】
 	    StartSignalCatcher();
 	    //启动JDWP线程，当命令debuger的flags指定"suspend=y"时，则暂停runtime
 	    Dbg::StartJdwp();
 	}
 
-### 5. StartSignalCatcher
+### 3.5 StartSignalCatcher
 
 [-> Runtime.cc]
 
 	void Runtime::StartSignalCatcher() {
 	  if (!is_zygote_) {
-	    //【见流程6】
+	    //【见流程3.6】
 	    signal_catcher_ = new SignalCatcher(stack_trace_file_);
 	  }
 	}
 
 对于非Zygote进程才会启动SignalCatcher线程。
 
-### 6. SignalCatcher
+### 3.6 SignalCatcher
 
 [-> signal_catcher.cc]
 
@@ -483,9 +635,7 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 
 上图是systemui所在进程的部分线程信息，可以看到其中有一个SignalCatcher线程，该线程具体是如何处理信号的呢，请往下继续看。
 
-
-
-### 7. Run
+### 3.7 Run
 
 [-> signal_catcher.cc]
 
@@ -532,7 +682,7 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 这个方法中，只有信号SIGQUIT和SIGUSR1的处理过程，并没有信号SIGKILL的处理过程，这是因为SIGKILL是不能被忽略同时也不能被捕获，所以不会出现在Signal Catcher线程。
 
 
-### 8. 小结
+### 3.8 小结
 
 调用流程：
 
@@ -546,11 +696,11 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 
 另外，进程被杀后，对于binder的C/S架构，Binder的Server端挂了，Client会收到死亡通告，还会执行各种清理工作。下一篇文章会进一步说明。
 
-## 三、实例分析
+## 四、实例分析
 
 注：下面涉及的signal信号log是Gityuan在kernel.c中自行添加的，原生是没有的，仅用于查看和调试使用。
 
-### [1]. kill -3
+### 4.1  kill -3
 
 当adb终端输入:`adb -3 10562`，则signal信号传递过程如下：
 
@@ -568,7 +718,7 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 1. 由adb所在进程`9365`向进程10562的子线程`10568`(SignalCatcher线程)，发送`signal=3`信号;该过程需要Art虚拟机参与。
 2. SignalCatcher线程收到信号3后，再向进程`10562`的子线程分别发送`signal=33`信号（大于31的signal都是实时信号），用于dump各个子线程的信息。
 
-### [2]. kill -10
+### 4.2  kill -10
 
 当adb终端输入:`adb -10 10562`，则signal信号传递过程如下：
 
@@ -581,7 +731,7 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 
 流程：由adb所在进程`9365`向进程`10562`，发送`signal=10`信号; 该过程需要Art虚拟机参与。
 
-### [3]. kill -9
+### 4.3  kill -9
 
 当adb终端输入:`adb -9 8707`，则signal信号传递过程如下：
 
@@ -596,7 +746,7 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 流程：由adb所在进程`7115`向进程`8707`，发送`signal=9`信号,判断是SIGKILL信号，则由内核直接处理。
 
 
-### [4]. 小结
+### 4.4 小结
 
 -  对于`kill -3`和`kill -10`流程由前面介绍的信号发送和信号处理两个过程，过程中由Art虚拟机来对信号进行相应的处理。
 - 对于` kill -9`则不同，是由linux底层来完成杀进程的过程，也就是执行到前面讲到第一节中的[complete_signal()](http://gityuan.com/2016/04/16/kill-signal/#completesignal)方法后，判断是SIGKILL信号，则由内核直接处理，Art虚拟机压根没机会来处理。
