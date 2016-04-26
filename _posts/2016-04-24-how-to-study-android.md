@@ -11,7 +11,7 @@ excerpt:  如何自学Android
 
 ---
 
-> 在知乎上回答了 [自学编程一年，压力过大，该怎么办？ - Gityuan 的回答](https://www.zhihu.com/question/41198536/answer/90560766?from=profile_answer_card)，之后有不少知乎朋友私信或email给我，希望能讲讲学习Android的心得。
+> 引言：在知乎上回答了 [自学编程一年，压力过大，该怎么办？ - Gityuan 的回答](https://www.zhihu.com/question/41198536/answer/90560766?from=profile_answer_card)，之后有不少知乎朋友私信或email给我，希望能讲讲学习Android的心得。
 
 看到很多人提问**非科班该如何学习编程**，其实科班也基本靠自学。有句话叫“师傅领进门修行靠个人”，再厉害的老师能教你的东西都是很有限的，真正的修行还是要靠自己。我本科是学数学的，虽然研究生是计算机专业，但研究生往往是做研究工作，并不会接触编程这么基本的东西，关于编程相关我都是靠自学。对于Android这一块，是参加工作还开始接触，开始自己学习的。
 
