@@ -163,7 +163,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 ![Activity_Manager_Service](/images/android-service/am/Activity_Manager_Service.png)
 
-### 3. ActivityManagerProxy.startService
+### 3. AMP.startService
 
 该类位于文件ActivityManagerNative.java
 
@@ -189,7 +189,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 mRemote.transact()是binder通信的客户端发起方法，经过binder驱动，最后回到binder服务端ActivityManagerNative的onTransact()方法。
 
-### 4. ActivityManagerNative.onTransact
+### 4. AMN.onTransact
 
     @Override
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
@@ -221,7 +221,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 与IActivityManager的binder通信原理一样，ApplicationThreadProxy作为binder通信的客户端，ApplicationThreadNative作为Binder通信的服务端,ApplicationThread继承ApplicationThreadProxy类，覆写其中的部分方法。
 
-### 5. ActivityManagerService.startService
+### 5. AMS.startService
 
     @Override
     public ComponentName startService(IApplicationThread caller, Intent service,
@@ -441,7 +441,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
  
 对于非前台进程调用而需要启动的服务，如果已经有其他的后台服务正在启动中，那么我们可能希望延迟其启动。这是用来避免启动同时启动过多的进程(非必须的)。
 
-### 7. ActivityManagerService.startProcessLocked
+### 7. AMS.startProcessLocked
 
 **[7-1]**
 
@@ -675,7 +675,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 
 
-### 8. ActivityThread
+### 8. ActivityThread.main
 
 **[8-1]**
 
@@ -787,7 +787,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
     }
 
 
-### 9. ActivityManagerProxy.attachApplication
+### 9. AMP.attachApplication
 
 **[9-1] ActivityManagerProxy.attachApplication**
 
@@ -1011,7 +1011,9 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return true;
     }
 
-### 10. ActiveServices
+### 10. attachApplicationLocked
+
+[-> ActiveServices.java]
 
 **[10-1]**
 
@@ -1166,7 +1168,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 **[11-3] ApplicationThread.scheduleCreateService**
 
-位于ActivityThread
+位于ActivityThread线程
 
     public final void scheduleCreateService(IBinder token,
                 ServiceInfo info, CompatibilityInfo compatInfo, int processState) {
@@ -1178,7 +1180,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         sendMessage(H.CREATE_SERVICE, s); //发送消息 【见流程12-1】
     }
 
-### 12. ActivityThread
+### 12. handleCreateService
 
 **[12-1] ActivityThread.H**
 
@@ -1247,7 +1249,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
     }
 
-### 13. Service
+### 13. Service.onCreate
 
     public abstract class Service extends ContextWrapper implements ComponentCallbacks2 {
         public void onCreate(){	}

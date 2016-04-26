@@ -33,6 +33,7 @@ permalink: /top/
 - [为什么Android要采用Binder作为IPC机制？](https://www.zhihu.com/question/39440766/answer/89210950)，第一次用Gityuan行走江湖时的脚印。
 - [Android中为什么主线程不会因为Looper.loop()里的死循环卡死？](https://www.zhihu.com/question/34652589/answer/90344494?from=profile_answer_card)
 - [自学编程一年，压力过大，该怎么办？](https://www.zhihu.com/question/41198536/answer/90560766?from=profile_answer_card)，关于励志，关于努力，关于梦想的故事。
+- [如何自学Android？](http://zhuanlan.zhihu.com/p/20708611) 这是我的知乎文章，讲述自己是学习Android的一个过程。
 
 ----------
 
