@@ -40,11 +40,9 @@ Java是Android的基础，建议初学者一定要先学习Java基本知识，�
 - [The Java® Virtual Machine Specification](https://docs.oracle.com/javase/specs/jvms/se7/html/)，官方Jvm文档（英文版）
 - 深入理解java虚拟机：这是国内关于Java虚拟机讲得非常全面的一本书，从Java GC到Java虚拟机内部实现以及优化策略，作为Java高手非常值得一看的书籍。
 	
-本文的重点是讲如何学习Android，所以姑且把Java基础与进阶的书都放到Android学习的基础篇里。其实作为Android开发者来说，完全没有必要一开始都对Java理解得那么深，只有要看一两本Java基本书，掌握Java面向对象的思想的核心要义即万物皆为对象，掌握Java基本语法，基本就可以开启Android的学习之路。在后续对Android也有一定理解后，再慢慢不断提升自己的Java和Android水平。
+本文的重点是讲如何学习Android，所以姑且把Java基础与进阶的书都放到Android学习的基础篇里。作为Android开发者来说，完全没有必要一开始都对Java理解得那么深，只有要看一两本Java基本书，掌握Java面向对象的思想的核心要义即万物皆为对象，掌握Java基本语法，基本就可以开启Android的学习之路。在后续对Android也有一定理解后，再慢慢不断提升Java和Android水平。
 
-有朋友私信我觉着这个java入门书难度有点高，可能是本人在看Java书籍之前，还看过些许C++书籍的缘故，后续再更新，未完待续。
-
-// TODO
+有朋友私信我觉着这个java书难度有点高，可能是本人在看Java书籍之前，还看过些许C和C++的入门书的缘故，所以看的第一本书《Java编程思想》。如果你真的是零基础，第一次接触编程，想以Java作为自己的入门语言，那么你可以先看看《Java语言程序设计》(基础篇) 或者《Java从入门到精通》，作为初学者险掌握Java基本语法，平时遇到不熟悉的方法，多查看API文档即可，慢慢地就熟悉了。
 
 ### 1.2 Android基础篇
 
@@ -80,9 +78,8 @@ Android的基本书籍，只需一两本即可，没有必要看太多基础书�
 - [Android 开源项目汇总](https://github.com/Trinea/android-open-project)：作者[Trinea](https://github.com/Trinea)整理的各种开源库，是国内整理得最全面的库；
 - [codeKK 开源项目源码分析](http://a.codekk.com/)：从源码的角度，分析Android较流行的优秀开源框架；
 - [codota.com](http://www.codota.com/)：这是一个代码搜索引擎，收集的是各种API的优秀示例Java代码。
-当然还有很多优秀的博客和网站值得推荐，未完待续。
 
-//未完待续 TODO
+当然还有很多优秀的博客和网站值得推荐... //TODO
 
 ## 二、进阶篇
 
@@ -157,6 +154,8 @@ Android的基本书籍，只需一两本即可，没有必要看太多基础书�
 - 设计模式
 - 设计模式之禅
 - 人月神话
+
+前4本书都是关于Linux，如果你不是需要从事Linux相关开发，只想提升对Android整体的理解，那么只需看一到两本，对Linux的进程、内存、IO以及驱动有所了解，对CPU调度、进程间通信有所熟悉就基本可以。另外，优秀的书还有很多，这里只介绍/列举我看过的书，目前还在看一些优秀的书，后续再更新。
 
 ## 三、其他
 
