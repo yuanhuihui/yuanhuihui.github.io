@@ -176,7 +176,7 @@ Android的基本书籍，只需一两本即可，没有必要看太多基础书�
 
 ----------
 
-> 欢迎关注我的微博：Gityuan
+> 欢迎关注我的微博：[Gityuan](http://weibo.com/gityuan)
 > 
 > Android全栈工程师：上至能写App，中间能改framework和Native代码，下至能调驱动，整体上解决性能/稳定性/功耗问题。这是我对自己的追求，并一直在努力。
 
