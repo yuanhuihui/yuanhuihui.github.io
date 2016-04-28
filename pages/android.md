@@ -36,17 +36,17 @@ Android系统启动过程由上图从下往上的一个过程：`Loader` -> `Ker
 	
 ### 2.2 Kernel层
 
-到这里才刚刚开始进入Android系统.
+Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 
 - 启动Kernel的0号进程：初始化进程管理、内存管理，加载Display,Camera Driver，Binder Driver等相关工作；
 - 启动kthreadd进程（pid=2）：是Linux系统的内核进程，会创建内核工作线程kworkder，软中断线程ksoftirqd，thermal等内核守护进程。`kthreadd进程是所有内核进程的鼻祖`。
 	
 ### 2.3 Native层
 
-启动init进程(pid=1),是Linux系统的用户进程，`init进程是所有用户进程的鼻祖`。
+这里的Native层主要包括init孵化来的用户空间的守护进程、HAL层以及开机动画等。启动init进程(pid=1),是Linux系统的用户进程，`init进程是所有用户进程的鼻祖`。
 
-- init进程启动`Media Server`(多媒体服务)、`servicemanager`(binder服务管家)、`bootanim`(开机动画)等重要服务
-- init进程还会孵化出installd(用于App安装)、ueventd、adbd、lmkd(用于内存管理)等用户守护进程；
+- init进程会孵化出ueventd、logd、healthd、installd、adbd、lmkd等用户守护进程；
+- init进程还启动`servicemanager`(binder服务管家)、`bootanim`(开机动画)等重要服务
 - init进程孵化出Zygote进程，Zygote进程是Android系统的第一个Java进程，`Zygote是所有Java进程的父进程`，Zygote进程本身是由init进程孵化而来的。
 
 ### 2.4 Framework层
@@ -56,9 +56,8 @@ Android系统启动过程由上图从下往上的一个过程：`Loader` -> `Ker
 	- 加载虚拟机；
 	- preloadClasses；
 	- preloadResouces。
-- Zygote进程fork出System Server进程，`System Server是Zygote孵化的第一个进程`，地位非常重要。
-- System Server进程：负责启动和管理整个Java framework，包含ActivityManager，PowerManager等服务。
-- Media Server进程：负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service等服务。
+- System Server进程，是由Zygote进程fork而来，`System Server是Zygote孵化的第一个进程`，System Server负责启动和管理整个Java framework，包含ActivityManager，PowerManager等服务。
+- Media Server进程，是由init进程fork而来，负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service，等服务。
 	
 ### 2.5 App层
 
