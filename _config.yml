@@ -17,6 +17,8 @@ permalink: /:year/:month/:day/:title/
 # Build settings
 markdown: kramdown
 
+gems: [jekyll-paginate]
+
 paginate: 16
 paginate_path: "page:num"
 
