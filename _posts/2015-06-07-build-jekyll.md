@@ -44,6 +44,8 @@ Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby�
 		
 ##  二、安装Jekyll
 
+打开CMD窗口
+
 ### 1. 更换源
 
 	*  无翻墙软件，可使用国内淘宝提供的源
@@ -86,3 +88,26 @@ Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby�
 **注意事项：**提交文章时时间非常重要的，提交文章的时间最好比当前时间早一段时间，时差问题，可能会导致文章提交失败。
   
 高亮： <https://highlightjs.org/static/demo/>
+
+## 四、提交文章
+
+### 1. 配置git用户名和邮箱
+
+	$ git config --global user.name "{username}"     //用户名替换{username}
+	$ git config --global user.email "{email}"    //邮箱替换{email}
+
+### 2. 配置SSH
+
+	$ ssh-keygen -t rsa -C"{email}"    //邮箱替换{email}
+
+一路回车到命令完成，win7系统默认在文件夹`C:\Users\{你的用户名}\.ssh` ，该文件夹有`id_rsa`（私钥） 和 `id_rsa.pub`（公钥） 两个文件。 
+
+将`id_rsa.pub`内容复制到自己的Github主页的`Settings -> SSH keys`，添加完毕即可。
+
+### 3. 提交
+
+	$ cd {username.github.io}
+	$ git add .
+	$ git commit -m "提交简介"
+	$ git push origin master
+
