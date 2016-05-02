@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Jvm系列3—类的加载 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/10/26/jvm-class-loading/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#java" title="java">java</a>
+                        
+                        <a class="tag" href="/tags/#jvm" title="jvm">jvm</a>
+                        
+                    </div>
+                    <h1>Jvm系列3—类的加载</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on October 26, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<h2 id="section">一、概述</h2>
+<p>本文主要讲述虚拟机如何把 Class文件加载到内存的过程。校验、转换解析和初始化，最终形成可被虚拟机使用的Java类型，这就是虚拟机的类加载机制。类型的加载、连接和初始化都是在程序运行期间完成，这样做的优劣势，如下：</p>
+
+<ul>
+  <li>优势：提高Java程序的灵活性，Java动态扩展的语言特性就是依赖运行期动态加载和动态连接。当面向接口的应用程序，可以等到运行时指定实现类；可以通过类加载器，让程序运行时加载一个二进制流作为程序一部分。</li>
+  <li>劣势：增加类加载的性能开销。</li>
+</ul>
+
+<h2 id="section-1">二、 类加载的生命周期</h2>
+<p>类的生命周期是指把Class字节码从文件中加载到内存，直到卸载内存整个过程，分为7个步骤。</p>
+
+<p><img src="/images/jvm/jvm_class_loading_2.png" alt="jvm_class_loading_2" /></p>
+
+<p>图中用红色圈起来的3个过程分别为验证、准备、解析，它们合称为链接(Linking)过程。另外图中紫色的5项是严格按照执行。而蓝色的解析阶段不一定要在初始化之前， 也可以在初始化之后再解析，这种情况称为动态绑定或晚期绑定。</p>
+
+<h3 id="section-2">1. 加载</h3>
+<p>虚拟机在加载阶段，主要工作如下：</p>
+
+<ol>
+  <li>通过<code class="highlighter-rouge">类的全限定名</code>获取该类的二进制字节流；</li>
+  <li>将字节流所代表的静态存储结构 转化为 方法区的运行时数据结构；</li>
+  <li>生成代表该类的Class对象并存放方法区，作为方法区该类的各种数据的访问入口。</li>
+</ol>
+
+<p>对于上述字节流，可能来源：</p>
+
+<ul>
+  <li>压缩包，例如jar/war等格式;</li>
+  <li>网络，典型场景applet;</li>
+  <li>运行时计算生成，例如动态代理技术，在java.lang.reflect.Proxy中，利用ProxyGenerator.generateProxyClass来为特定接口生成形如“*$Proxy”的代理类的二进制字节流；</li>
+  <li>数据库，例如中间件服务器(SAP Netweaver)。</li>
+</ul>
+
+<p>注：对于数组类，不通过类加载器创建，而是由虚拟机直接创建的。另外加载阶段尚未完成，连接阶段可能已经开始。</p>
+
+<h3 id="section-3">2. 验证</h3>
+<p>验证是连接阶段(Linking)的第一步，目的是为了<strong>确保Class文件的字节流符合虚拟机规范</strong>，不会危害虚拟机自身安全。比如：访问数组越界问题，将对象转型为未实现的类型，跳转到不存在的代码区等情绪编译器都会拒绝编译，也就是无法生成Class文件，既然如此，为什么还要验证呢？原因是Class文件不一定都是由java源码编译而成，可以是任何途径，所以验证还是很有必要的，尽可能保证系统能承受住恶意代码攻击。</p>
+
+<p>验证主要工作分4阶段：</p>
+
+<ol>
+  <li>文件格式验证：验证是否符合Class文件格式规范；</li>
+  <li>元数据验证：验证是否符合Java语言规范；</li>
+  <li>字节码验证：验证数据流和控制流分析；</li>
+  <li>符号引用验证：验证符号引用转化为直接引用。</li>
+</ol>
+
+<h4 id="section-4">2.1 文件格式验证</h4>
+
+<p>验证点有比如是否魔数0xCAFEBABE开头；主、次版本号是否范围之内；常量池中常量tag标示是否正确等等，只有通过全部的验证，才能把字节流存储到内存的方法区。</p>
+
+<h4 id="section-5">2.2 元数据验证</h4>
+
+<p>经过文件格式验证，字节流已加载到方法区，这个阶段工作是对方法区的字节码进行语义分析，保证符合Java语言规范。
+验证点比如：</p>
+
+<ul>
+  <li>该类是否有父类(除Object之外，所有类都应该有父类)</li>
+  <li>该类是否继承不允许继承的类(final类)</li>
+  <li>非抽象类，是否都实现其父类的抽象方法或接口中的方法</li>
+  <li>类的字段、方法是否与父类矛盾(例如覆盖父类的final字段，或重载不符合规则)</li>
+  <li>…
+除上面列举外，还有很多。经过元数据验证，能确保元数据都是符合规范。</li>
+</ul>
+
+<h4 id="section-6">2.3 字节码验证</h4>
+
+<p>比如操作数栈的数据类型和指令代码序列配合，跳转指令不会跳到方法体之外等。HotSpot虚拟机提供 -XX:-UseSplitVerifier选项来关闭这项优化。</p>
+
+<h4 id="section-7">2.4 符号引用验证</h4>
+
+<p>校验点：</p>
+
+<ul>
+  <li>符号引用中通过字符串描述的全限定名是否能找到对应的类；</li>
+  <li>在指定类是否存在符合方法的字段描述符以及简单名称所描述的方法和字段；</li>
+  <li>符号引用中的类、字段、方法的访问权限检查。</li>
+  <li>…等等</li>
+</ul>
+
+<p>对于虚拟机的类加载机制来说，验证阶段非常重要的，但不是一定必要的。如果所运行的全部代码(包含自己编写以及第三方包的代码)都已经被反复使用和验证过，那么可以考虑使用 -Xverify:none参数来关闭大部分的类验证措施，以缩短虚拟机类加载的时间。</p>
+
+<h3 id="section-8">3. 准备</h3>
+<p>主要工作：<code class="highlighter-rouge">static变量</code>分配内存，并设置类变量的初始值的阶段。</p>
+
+<p><strong>(1). 类变量：赋予零值</strong></p>
+
+<p>数据类型的零值表，如下：</p>
+
+<table>
+  <tbody>
+    <tr>
+      <td>类型</td>
+      <td>int</td>
+      <td>long</td>
+      <td>float</td>
+      <td>double</td>
+      <td>short</td>
+      <td>byte</td>
+      <td>char</td>
+      <td>boolean</td>
+      <td>reference</td>
+    </tr>
+    <tr>
+      <td>零值</td>
+      <td>0</td>
+      <td>0L</td>
+      <td>0.0f</td>
+      <td>0.0d</td>
+      <td>(short)0</td>
+      <td>(byte)0</td>
+      <td>‘\u0000’</td>
+      <td>false</td>
+      <td>null</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>例如：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static int value = 10;
+</code></pre>
+</div>
+
+<p>在准备阶段，会为变量<code class="highlighter-rouge">value</code>在方法区分配内存并初始化零值，即<code class="highlighter-rouge">value=0</code>，而非10。 因为对于value的赋值10，是由<code class="highlighter-rouge">putstatic</code>指令完成。该指令是在java程序被编译后，存放在类构造器<code class="highlighter-rouge">&lt;clinit&gt;</code>方法之中。所以 <code class="highlighter-rouge">value</code>=10的操作是在类初始化的时候才发生，故类变量在准备期<code class="highlighter-rouge">value=0</code>。</p>
+
+<p><strong>(2). 常量：赋予真实值</strong></p>
+
+<p>例如:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static final int value = 10;
+</code></pre>
+</div>
+
+<p>对于常量，准备阶段会把类字段的字段属性表中的ConstantValue属性所指定的值（此处是10），赋给常量（<code class="highlighter-rouge">value</code>），故常量在准备期间<code class="highlighter-rouge">value =10</code>;</p>
+
+<p><strong>(3). 实例变量：不赋任何值</strong></p>
+
+<p>该阶段仅对类变量进行内存分配，而对于实例变量(或者称呼为成员变量)并不会分配内存，也就更不用提赋值的事。实例变量的初始化，是随着对象实例化时在Java堆上分配内存而进行的。</p>
+
+<h3 id="section-9">4. 解析</h3>
+<p>主要工作：虚拟机将常量池内的符号引用替换为直接引用的阶段。</p>
+
+<p>先解析下符号引用和直接引用的概念</p>
+
+<ul>
+  <li><strong>符号引用(Symbolic Reference)</strong>：以一组符号来描述引用目标，符号可以是任意形式的字面量。只能要准确定位到目标即可。符号引用与虚拟机的内存布局无关，引用的目标也不一定存在内存。这样兼容性强，各种虚拟机只需要能接受符号引用即可。</li>
+  <li><strong>直接引用(Direct Reference)</strong>：直接引用就是指向目标的指针、相对偏移量或者能简介定位到目标的句柄。直接引用和虚拟机内存布局息息相关。直接引用的目标必然存在与内存中。</li>
+</ul>
+
+<p>同一个符号引用 在不同的虚拟机中解析出来的直接引用地址一般都是不相同的；同一个符号引用，在同一个虚拟机下，多次解析时，会对第一次解析结果进行缓存（常量池记录直接引用，并标记已解析状态），从而避免多次解析。</p>
+
+<p>特殊情形，对于invokedynamic指令，不会进行缓存过程，每次使用前都会进行解析。</p>
+
+<h3 id="section-10">5. 初始化</h3>
+<p>主工作：主要是执行类构造器方法clinit。(class init的简称)</p>
+
+<p>类初始化阶段是类加载的最后一个阶段。在初始化之前的过程中，用户可控的地方只有通过自定义类加载器参与，其余都是虚拟机主导和控制。</p>
+
+<p>到了初始化，才开始真正的执行类中定义的Java程序代码。</p>
+
+<p><strong>(1). 类的构造方法</strong></p>
+
+<p>类构造方法是由编译器自动收集源文件中的<code class="highlighter-rouge">类变量赋值操作</code>和<code class="highlighter-rouge">静态语句块</code>合并而成的。收集顺序是由语句在源文件的顺序所决定。故静态语句块只能访问定义之前的静态变量；对于定义之后的变量可以赋值，但不能访问。</p>
+
+<ol>
+  <li>clinit方法与类的实例构造方法init不同，<code class="highlighter-rouge">clinit方法不需要显式调用父类构造器</code>，虚拟机会保证子类的clinit方法执行之前，父类的clinit方法已经执行完毕。故第一个被执行的clinit方法的类肯定是java.lang.Object;</li>
+  <li><code class="highlighter-rouge">clinit方法不是必需的</code>，对于没有静态块和类变量赋值操作，编译器不会生成clinit方法。</li>
+  <li><code class="highlighter-rouge">父类静态语句和静态变量赋值优先于子类</code>.</li>
+  <li><code class="highlighter-rouge">interface中不能有静态语句块</code>，但仍可以有变量初始化的赋值操作，也可以生成clinit方法。但接口和类的不同是，执行接口的clinit方法不需要先执行父接口的clinit方法。只有当父接口中定义的变量使用时，父接口才会初始化。</li>
+  <li>虚拟机保证类构造方法可以多线程正确执行，会加锁、同步的操作。 一个线程执行类构造方法，其他线程<code class="highlighter-rouge">阻塞等待</code>，当类构造方法有耗时操作，会造成多进程的阻塞,往往比较隐蔽。</li>
+</ol>
+
+<p><strong>(2). 类初始化时机</strong></p>
+
+<p>虚拟机规范中严格规定有且只有5种情况下，当类没有初始化时必须立即对类进行初始化：</p>
+
+<ol>
+  <li>遇到<code class="highlighter-rouge">new</code>、<code class="highlighter-rouge">getstatic</code>、<code class="highlighter-rouge">putstatic</code>或<code class="highlighter-rouge">invokeStatic</code>这4条字节码指令时。常见场景：
+    <ol>
+      <li>使用new关键字实例化对象时，触发<code class="highlighter-rouge">new</code>；</li>
+      <li>读取类变量时，触发<code class="highlighter-rouge">getstatic</code>；（final常量除外）</li>
+      <li>设置类变量时，触发<code class="highlighter-rouge">putstatic</code>；</li>
+      <li>调用类的静态方法时，触发<code class="highlighter-rouge">invokeStatic</code>；</li>
+    </ol>
+  </li>
+  <li>虚拟机启动时，需指定一个要执行的主类(含有<code class="highlighter-rouge">main()</code>的类)，虚拟机会先初始化该类；</li>
+  <li>初始化一个类时，当其父类没有初始化，则需要先触发其父类的初始化；</li>
+  <li>使用<code class="highlighter-rouge">java.lang.reflect</code>包中的方法对类进行反射调用时；</li>
+  <li>当<code class="highlighter-rouge">java.lang.invoke.MethodHandle</code>实例最后的解析结果为<code class="highlighter-rouge">REF_getStatic</code>、<code class="highlighter-rouge">REF_putStatic</code>、<code class="highlighter-rouge">REF_invokeStatic</code>的方法句柄，并且该句柄所对应的类没有进行过初始化；</li>
+</ol>
+
+<p>上面讲到final常量不能触发类初始化，是由于在编译时已把数据放入常量池的静态字段，当读取类的<code class="highlighter-rouge">static final</code>字段时，并不需要初始化类，而是从常量池中去获取相应的数据。</p>
+
+<p>上述的5种场景的行为都是对类的一个主动引用过程。除此之外，还有被动引用并不会除非类的初始化过程。
+另外</p>
+
+<p>（下面code角度说明）【后续添加】</p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/10/26/jvm-class-loading"
+                    data-title="Jvm系列3—类的加载"
+                    data-url="http://gityuan.com/2015/10/26/jvm-class-loading/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="一、概述
+本文主要讲述虚拟机如何把 Class文件加载到内存的过程。校验、转换解析和初始化，最终形成可被虚拟机使用的Java类型，这就是虚拟机的类加载机制... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/10/25/jvm-bytecode-grammar/" data-toggle="tooltip" data-placement="top" title="Jvm系列2—字节码指令">
+                        Previous<br>
+                        <span>Jvm系列2—字节码指令</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/10/27/jvm-subsystem/" data-toggle="tooltip" data-placement="top" title="Jvm系列4—执行子系统">
+                        Next<br>
+                        <span>Jvm系列4—执行子系统</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/10/26/jvm-class-loading"
+                        data-title="Jvm系列3—类的加载"
+                        data-url="http://gityuan.com/2015/10/26/jvm-class-loading/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

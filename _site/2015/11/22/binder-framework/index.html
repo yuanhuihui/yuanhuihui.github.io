@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Binder系列7—framework层分析 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/11/22/binder-framework/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#binder" title="binder">binder</a>
+                        
+                        <a class="tag" href="/tags/#framework" title="framework">framework</a>
+                        
+                    </div>
+                    <h1>Binder系列7—framework层分析</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on November 22, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>主要分析Binder在java framework层的框架，相关源码：</p>
+</blockquote>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>/framework/base/core/java/android/os/IInterface.java
+/framework/base/core/java/android/os/IServiceManager.java
+/framework/base/core/java/android/os/ServiceManager.java
+/framework/base/core/java/android/os/ServiceManagerNative.java(包含内部类ServiceManagerProxy)
+
+/framework/base/core/java/android/os/IBinder.java
+/framework/base/core/java/android/os/Binder.java(包含内部类BinderProxy)
+/framework/base/core/java/android/os/Parcel.java
+/framework/base/core/java/com/android/internal/os/BinderInternal.java
+
+/framework/base/core/jni/android_os_Binder.cpp
+/framework/base/core/jni/android_os_Parcel.cpp
+/framework/base/core/jni/AndroidRuntime.cpp
+/framework/base/core/jni/android_util_Binder.cpp
+</code></pre>
+</div>
+
+<h2 id="section">一、概述</h2>
+
+<h3 id="binder">1.1 Binder架构</h3>
+
+<p>binder在framework层，采用JNI技术来调用native(C/C++)层的binder架构，从而为上层应用程序提供服务。 看过binder系列之前的文章，我们知道native层中，binder是C/S架构，分为Bn端(Server)和Bp端(Client)。对于java层在命名与架构上非常相近，同样实现了一套IPC通信架构。</p>
+
+<p>framework Binder架构图：</p>
+
+<p>点击查看<a href="http://gityuan.com/images/binder/java_binder/java_binder.jpg">大图</a></p>
+
+<p><img src="/images/binder/java_binder/java_binder.jpg" alt="java_binder" /></p>
+
+<p><strong>图解：</strong></p>
+
+<ul>
+  <li>图中红色代表整个framework层 binder架构相关组件；
+    <ul>
+      <li>Binder类代表Server端，BinderProxy类代码Client端；</li>
+    </ul>
+  </li>
+  <li>图中蓝色代表Native层Binder架构相关组件；</li>
+  <li>上层framework层的Binder逻辑是建立在Native层架构基础之上的，核心逻辑都是交予Native层方法来处理。</li>
+  <li>framework层的ServiceManager类与Native层的功能并不完全对应，framework层的ServiceManager类的实现最终是通过BinderProxy传递给Native层来完成的，后面会详细说明。</li>
+</ul>
+
+<h3 id="binder-1">1.2 Binder类图</h3>
+
+<p>下面列举framework的binder类关系图</p>
+
+<p>点击查看<a href="http://gityuan.com/images/binder/java_binder/class_ServiceManager.jpg">大图</a></p>
+
+<p><img src="/images/binder/java_binder/class_ServiceManager.jpg" alt="class_java_binder" /></p>
+
+<p>图解：(图中浅蓝色都是Interface，其余都是Class)</p>
+
+<ol>
+  <li><strong>ServiceManager：</strong>通过getIServiceManager方法获取的是ServiceManagerProxy对象； ServiceManager的addService, getService实际工作都交由ServiceManagerProxy的相应方法来处理；</li>
+  <li><strong>ServiceManagerProxy：</strong>其成员变量mRemote指向BinderProxy对象，ServiceManagerProxy的addService, getService方法最终是交由mRemote来完成。</li>
+  <li><strong>ServiceManagerNative</strong>：其方法asInterface()返回的是ServiceManagerProxy对象，ServiceManager便是借助ServiceManagerNative类来找到ServiceManagerProxy；</li>
+  <li><strong>Binder：</strong>其成员变量mObject和方法execTransact()用于native方法</li>
+  <li><strong>BinderInternal：</strong>内部有一个GcWatcher类，用于处理和调试与Binder相关的垃圾回收。</li>
+  <li><strong>IBinder：</strong>接口中常量FLAG_ONEWAY：客户端利用binder跟服务端通信是阻塞式的，但如果设置了FLAG_ONEWAY，这成为非阻塞的调用方式，客户端能立即返回，服务端采用回调方式来通知客户端完成情况。另外IBinder接口有一个内部接口DeathDecipient(死亡通告)。</li>
+</ol>
+
+<h3 id="binder-2">1.3 Binder类分层</h3>
+
+<p>整个Binder从kernel至，native，JNI，Framework层所涉及的全部类</p>
+
+<p>点击查看<a href="http://gityuan.com/images/binder/java_binder_framework.jpg">大图</a></p>
+
+<p><img src="/images/binder/java_binder_framework.jpg" alt="java_binder_framework" /></p>
+
+<h2 id="section-1">二、初始化</h2>
+
+<p>在Android系统开机过程中，Zygote启动时会有一个<a href="http://gityuan.com/2016/02/13/android-zygote/#jnistartreg">虚拟机注册过程</a>，该过程调用AndroidRuntime::<code class="highlighter-rouge">startReg</code>方法来完成jni方法的注册。</p>
+
+<h3 id="startreg">2.1 startReg</h3>
+
+<p>==&gt; AndroidRuntime.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int AndroidRuntime::startReg(JNIEnv* env)
+{
+    androidSetCreateThreadFunc((android_create_thread_fn) javaCreateThreadEtc);
+
+    env-&gt;PushLocalFrame(200);
+
+    //注册jni方法【见2.2】
+    if (register_jni_procs(gRegJNI, NELEM(gRegJNI), env) &lt; 0) {
+        env-&gt;PopLocalFrame(NULL);
+        return -1;
+    }
+    env-&gt;PopLocalFrame(NULL);
+
+    return 0;
+}
+</code></pre>
+</div>
+
+<p>注册JNI方法，其中<code class="highlighter-rouge">gRegJNI</code>是一个数组，记录所有需要注册的jni方法，其中有一项便是REG_JNI(register_android_os_Binder)，下面说说<code class="highlighter-rouge">register_android_os_Binder</code>过程。</p>
+
+<h3 id="registerandroidosbinder">2.2 register_android_os_Binder</h3>
+
+<p>==&gt; android_util_Binder.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int register_android_os_Binder(JNIEnv* env)
+{
+    // 注册Binder类的jni方法【见2.3】
+    if (int_register_android_os_Binder(env) &lt; 0)  
+        return -1;
+
+    // 注册BinderInternal类的jni方法【见2.4】
+    if (int_register_android_os_BinderInternal(env) &lt; 0)
+        return -1;
+
+    // 注册BinderProxy类的jni方法【见2.5】
+    if (int_register_android_os_BinderProxy(env) &lt; 0)
+        return -1;		
+    ...
+    return 0;
+}
+</code></pre>
+</div>
+
+<h3 id="binder-3">2.3 注册Binder</h3>
+
+<p>==&gt; android_util_Binder.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int int_register_android_os_Binder(JNIEnv* env)
+{
+    //其中kBinderPathName = "android/os/Binder";查找kBinderPathName路径所属类
+    jclass clazz = FindClassOrDie(env, kBinderPathName); 
+
+    //将Java层Binder类保存到mClass变量；
+    gBinderOffsets.mClass = MakeGlobalRefOrDie(env, clazz); 
+    //将Java层execTransact()方法保存到mExecTransact变量；
+    gBinderOffsets.mExecTransact = GetMethodIDOrDie(env, clazz, "execTransact", "(IJJI)Z");  
+    //将Java层mObject属性保存到mObject变量
+    gBinderOffsets.mObject = GetFieldIDOrDie(env, clazz, "mObject", "J");
+
+    //注册JNI方法
+    return RegisterMethodsOrDie(env, kBinderPathName, gBinderMethods, 
+		NELEM(gBinderMethods)); 
+}
+</code></pre>
+</div>
+
+<p>注册	Binder类的jni方法，其中：</p>
+
+<ul>
+  <li>FindClassOrDie(env, kBinderPathName) 基本等价于 env-&gt;FindClass(kBinderPathName)</li>
+  <li>MakeGlobalRefOrDie() 等价于 env-&gt;NewGlobalRef()</li>
+  <li>GetMethodIDOrDie() 等价于 env-&gt;GetMethodID()</li>
+  <li>GetFieldIDOrDie() 等价于 env-&gt;GeFieldID()</li>
+  <li>RegisterMethodsOrDie() 等价于 Android::registerNativeMethods();</li>
+</ul>
+
+<p><strong>(1)<code class="highlighter-rouge">gBinderOffsets</code></strong></p>
+
+<p><code class="highlighter-rouge">gBinderOffsets</code>是全局静态结构体(struct)，定义如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static struct bindernative_offsets_t
+{
+    jclass mClass; //记录Binder类
+    jmethodID mExecTransact; //记录execTransact()方法
+    jfieldID mObject; //记录mObject属性
+
+} gBinderOffsets;
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">gBinderOffsets</code>保存了<code class="highlighter-rouge">Binder.java</code>类本身以及其成员方法<code class="highlighter-rouge">execTransact()</code>和成员属性<code class="highlighter-rouge">mObject</code>，这为JNI层访问Java层提供通道。另外通过查询获取Java层 binder信息后保存到<code class="highlighter-rouge">gBinderOffsets</code>，而不再需要每次查找binder类信息的方式能大幅度提高效率，是由于每次查询需要花费较多的CPU时间，尤其是频繁访问时，但用额外的结构体来保存这些信息，是以空间换时间的方法。</p>
+
+<p><strong>(2)gBinderMethods</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static const JNINativeMethod gBinderMethods[] = {
+     /* 名称, 签名, 函数指针 */
+    { "getCallingPid", "()I", (void*)android_os_Binder_getCallingPid },
+    { "getCallingUid", "()I", (void*)android_os_Binder_getCallingUid },
+    { "clearCallingIdentity", "()J", (void*)android_os_Binder_clearCallingIdentity },
+    { "restoreCallingIdentity", "(J)V", (void*)android_os_Binder_restoreCallingIdentity },
+    { "setThreadStrictModePolicy", "(I)V", (void*)android_os_Binder_setThreadStrictModePolicy },
+    { "getThreadStrictModePolicy", "()I", (void*)android_os_Binder_getThreadStrictModePolicy },
+    { "flushPendingCommands", "()V", (void*)android_os_Binder_flushPendingCommands },
+    { "init", "()V", (void*)android_os_Binder_init },
+    { "destroy", "()V", (void*)android_os_Binder_destroy },
+    { "blockUntilThreadAvailable", "()V", (void*)android_os_Binder_blockUntilThreadAvailable }
+};
+</code></pre>
+</div>
+
+<p>通过RegisterMethodsOrDie()，将为gBinderMethods数组中的方法建立了一一映射关系，从而为Java层访问JNI层提供通道。</p>
+
+<p>总之，<code class="highlighter-rouge">int_register_android_os_Binder</code>方法的主要功能：</p>
+
+<ul>
+  <li>通过gBinderOffsets，保存Java层Binder类的信息，为JNI层访问Java层提供通道；</li>
+  <li>通过RegisterMethodsOrDie，将gBinderMethods数组完成映射关系，从而为Java层访问JNI层提供通道。</li>
+</ul>
+
+<p>也就是说该过程建立了Binder类在Native层与framework层之间的相互调用的桥梁。</p>
+
+<h3 id="binderinternal">2.4 注册BinderInternal</h3>
+
+<p>==&gt; android_util_Binder.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int int_register_android_os_BinderInternal(JNIEnv* env)
+{
+    //其中kBinderInternalPathName = "com/android/internal/os/BinderInternal"
+    jclass clazz = FindClassOrDie(env, kBinderInternalPathName);
+
+    gBinderInternalOffsets.mClass = MakeGlobalRefOrDie(env, clazz);
+    gBinderInternalOffsets.mForceGc = GetStaticMethodIDOrDie(env, clazz, "forceBinderGc", "()V");
+
+    return RegisterMethodsOrDie(
+        env, kBinderInternalPathName,
+        gBinderInternalMethods, NELEM(gBinderInternalMethods));
+}
+</code></pre>
+</div>
+
+<p>注册BinderInternal类的jni方法，<code class="highlighter-rouge">gBinderInternalOffsets</code>保存了BinderInternal的<code class="highlighter-rouge">forceBinderGc()</code>方法。</p>
+
+<p>下面是BinderInternal类的JNI方法注册：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static const JNINativeMethod gBinderInternalMethods[] = {
+    { "getContextObject", "()Landroid/os/IBinder;", (void*)android_os_BinderInternal_getContextObject },
+    { "joinThreadPool", "()V", (void*)android_os_BinderInternal_joinThreadPool },
+    { "disableBackgroundScheduling", "(Z)V", (void*)android_os_BinderInternal_disableBackgroundScheduling },
+    { "handleGc", "()V", (void*)android_os_BinderInternal_handleGc }
+};
+</code></pre>
+</div>
+
+<p>该过程其【2.3】非常类似，也就是说该过程建立了是BinderInternal类在Native层与framework层之间的相互调用的桥梁。</p>
+
+<h3 id="binderproxy">2.5 注册BinderProxy</h3>
+
+<p>==&gt; android_util_Binder.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int int_register_android_os_BinderProxy(JNIEnv* env)
+{
+    //gErrorOffsets保存了Error类信息
+    jclass clazz = FindClassOrDie(env, "java/lang/Error");
+    gErrorOffsets.mClass = MakeGlobalRefOrDie(env, clazz);
+
+    //gBinderProxyOffsets保存了BinderProxy类的信息
+    //其中kBinderProxyPathName = "android/os/BinderProxy"
+    clazz = FindClassOrDie(env, kBinderProxyPathName);
+    gBinderProxyOffsets.mClass = MakeGlobalRefOrDie(env, clazz);
+    gBinderProxyOffsets.mConstructor = GetMethodIDOrDie(env, clazz, "&lt;init&gt;", "()V");
+    gBinderProxyOffsets.mSendDeathNotice = GetStaticMethodIDOrDie(env, clazz, "sendDeathNotice", "(Landroid/os/IBinder$DeathRecipient;)V");
+    gBinderProxyOffsets.mObject = GetFieldIDOrDie(env, clazz, "mObject", "J");
+    gBinderProxyOffsets.mSelf = GetFieldIDOrDie(env, clazz, "mSelf", "Ljava/lang/ref/WeakReference;");
+    gBinderProxyOffsets.mOrgue = GetFieldIDOrDie(env, clazz, "mOrgue", "J");
+
+    //gClassOffsets保存了Class.getName()方法
+    clazz = FindClassOrDie(env, "java/lang/Class");
+    gClassOffsets.mGetName = GetMethodIDOrDie(env, clazz, "getName", "()Ljava/lang/String;");
+
+    return RegisterMethodsOrDie(
+        env, kBinderProxyPathName,
+        gBinderProxyMethods, NELEM(gBinderProxyMethods));
+}
+</code></pre>
+</div>
+
+<p>注册BinderProxy类的jni方法，<code class="highlighter-rouge">gBinderProxyOffsets</code>保存了BinderProxy的<init>构造方法，sendDeathNotice(), mObject, mSelf, mOrgue信息。</init></p>
+
+<p>下面BinderProxy类的JNI方法注册：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static const JNINativeMethod gBinderProxyMethods[] = {
+     /* 名称, 签名, 函数指针 */
+    {"pingBinder",          "()Z", (void*)android_os_BinderProxy_pingBinder},
+    {"isBinderAlive",       "()Z", (void*)android_os_BinderProxy_isBinderAlive},
+    {"getInterfaceDescriptor", "()Ljava/lang/String;", (void*)android_os_BinderProxy_getInterfaceDescriptor},
+    {"transactNative",      "(ILandroid/os/Parcel;Landroid/os/Parcel;I)Z", (void*)android_os_BinderProxy_transact},
+    {"linkToDeath",         "(Landroid/os/IBinder$DeathRecipient;I)V", (void*)android_os_BinderProxy_linkToDeath},
+    {"unlinkToDeath",       "(Landroid/os/IBinder$DeathRecipient;I)Z", (void*)android_os_BinderProxy_unlinkToDeath},
+    {"destroy",             "()V", (void*)android_os_BinderProxy_destroy},
+};
+</code></pre>
+</div>
+
+<p>该过程其【2.3】非常类似，也就是说该过程建立了是BinderProxy类在Native层与framework层之间的相互调用的桥梁。</p>
+
+<h2 id="section-2">三、注册服务</h2>
+
+<h3 id="addservice">3.1 addService</h3>
+
+<p>==&gt; ServiceManager.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static void addService(String name, IBinder service, boolean allowIsolated) {
+    try {
+        getIServiceManager().addService(name, service, allowIsolated); //【见3.2和3.3】
+    } catch (RemoteException e) {
+        Log.e(TAG, "error in addService", e);
+    }
+}
+</code></pre>
+</div>
+
+<p>首先分析getIServiceManager()过程【见3.2】，再分析addService()过程【见3.3】。</p>
+
+<h3 id="getiservicemanager">3.2 getIServiceManager</h3>
+
+<p>==&gt; ServiceManager.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private static IServiceManager getIServiceManager() {
+    if (sServiceManager != null) {
+        return sServiceManager;
+    }
+    //【分别见3.2.1和3.2.3】
+    sServiceManager = ServiceManagerNative.asInterface(BinderInternal.getContextObject()); 
+    return sServiceManager;
+}
+</code></pre>
+</div>
+
+<p>采用了单例模式获取ServiceManager  getIServiceManager()返回的是ServiceManagerProxy(简称SMP)对象</p>
+
+<h4 id="getcontextobject">3.2.1 getContextObject()</h4>
+
+<p>==&gt; BinderInternal.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static final native IBinder getContextObject(); 
+</code></pre>
+</div>
+
+<p>这是一个native方法，根据BinderInternal进行的jni注册方式，可知具体工作交给了下面方法：</p>
+
+<p>==&gt; android_util_binder.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static jobject android_os_BinderInternal_getContextObject(JNIEnv* env, jobject clazz)
+{
+    sp&lt;IBinder&gt; b = ProcessState::self()-&gt;getContextObject(NULL);
+    return javaObjectForIBinder(env, b);  //【见3.2.2】
+}
+</code></pre>
+</div>
+
+<p>对于ProcessState::self()-&gt;getContextObject()，在<a href="http://gityuan.com/2015/11/08/binder-get-sm/">获取Service Manager</a>中详细介绍过。此处直接使用其结论：<code class="highlighter-rouge">ProcessState::self()-&gt;getContextObject()</code>等价于 <code class="highlighter-rouge">new BpBinder(0)</code>;</p>
+
+<h4 id="javaobjectforibinder">3.2.2 javaObjectForIBinder</h4>
+
+<p>==&gt; android_util_binder.cpp</p>
+
+<p>将Java对象转换为native对象，更准确地说是将BpBinder(Java对象)转换成一个BinderProxy(C++对象)。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>jobject javaObjectForIBinder(JNIEnv* env, const sp&lt;IBinder&gt;&amp; val)
+{
+    if (val == NULL) return NULL;
+
+    if (val-&gt;checkSubclass(&amp;gBinderOffsets)) { //返回false
+        jobject object = static_cast&lt;JavaBBinder*&gt;(val.get())-&gt;object();
+        return object;
+    }
+
+    AutoMutex _l(mProxyLock);
+
+    jobject object = (jobject)val-&gt;findObject(&amp;gBinderProxyOffsets);
+    if (object != NULL) { //第一次object为null
+        jobject res = jniGetReferent(env, object);
+        if (res != NULL) {
+            return res;
+        }
+        android_atomic_dec(&amp;gNumProxyRefs);
+        val-&gt;detachObject(&amp;gBinderProxyOffsets);
+        env-&gt;DeleteGlobalRef(object);
+    }
+
+    //创建BinderProxy对象
+    object = env-&gt;NewObject(gBinderProxyOffsets.mClass, gBinderProxyOffsets.mConstructor); 
+    if (object != NULL) {
+        //BinderProxy.mObject成员变量记录BpBinder对象
+        env-&gt;SetLongField(object, gBinderProxyOffsets.mObject, (jlong)val.get());
+        val-&gt;incStrong((void*)javaObjectForIBinder);
+
+        jobject refObject = env-&gt;NewGlobalRef(
+                env-&gt;GetObjectField(object, gBinderProxyOffsets.mSelf));
+        //将BinderProxy对象信息附加到BpBinder的成员变量mObjects中
+        val-&gt;attachObject(&amp;gBinderProxyOffsets, refObject,
+                jnienv_to_javavm(env), proxy_cleanup);
+
+        sp&lt;DeathRecipientList&gt; drl = new DeathRecipientList; 
+        drl-&gt;incStrong((void*)javaObjectForIBinder);
+        //BinderProxy.mOrgue成员变量记录死亡通知对象
+        env-&gt;SetLongField(object, gBinderProxyOffsets.mOrgue, reinterpret_cast&lt;jlong&gt;(drl.get())); 
+
+        android_atomic_inc(&amp;gNumProxyRefs);
+        incRefsCreated(env);
+    }	
+    return object;
+}
+</code></pre>
+</div>
+
+<p>BinderProxy.mObject成员变量记录着BpBinder对象.</p>
+
+<p>到此，可知ServiceManagerNative.asInterface(BinderInternal.getContextObject()) 等价于</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ServiceManagerNative.asInterface(new BinderProxy()) 
+</code></pre>
+</div>
+
+<h4 id="asinterface">3.2.3 asInterface</h4>
+
+<p>==&gt; ServiceManagerNative.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code> static public IServiceManager asInterface(IBinder obj)
+{
+    if (obj == null) { //obj为BpBinder
+        return null;
+    }
+
+    IServiceManager in = (IServiceManager)obj.queryLocalInterface(descriptor);
+    if (in != null) { //in ==null
+        return in;
+    }
+    
+    return new ServiceManagerProxy(obj);
+}
+</code></pre>
+</div>
+
+<p>由此，可知ServiceManagerNative.asInterface(new BinderProxy())  等价于</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>new ServiceManagerProxy(new BinderProxy()) 
+</code></pre>
+</div>
+
+<p><strong>getIServiceManager小结:</strong></p>
+
+<p><code class="highlighter-rouge">ServiceManager.getIServiceManager</code>最终等价于<code class="highlighter-rouge">new ServiceManagerProxy(new BinderProxy())</code>；
+framework层的ServiceManager的调用实际的工作确实交给远程接口ServiceManagerProxy的成员变量BinderProxy；而BinderProxy通过jni方式，最终会调用BpBinder对象；可见上层binder架构的核心功能基本都是靠native架构的服务来完成的。</p>
+
+<p>也就意味着【3.1】中的 getIServiceManager().addService()，等价于ServiceManagerProxy.addService()，ServiceManagerProxy简称为SMP，接下来再看SMP.addService方法。</p>
+
+<h3 id="smpaddservice">3.3 SMP.addService</h3>
+
+<p>==&gt; ServiceManagerNative.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void addService(String name, IBinder service, boolean allowIsolated)
+        throws RemoteException {
+    Parcel data = Parcel.obtain();
+    Parcel reply = Parcel.obtain();
+    data.writeInterfaceToken(IServiceManager.descriptor);
+    data.writeString(name);
+    data.writeStrongBinder(service); //【见3.4】
+    data.writeInt(allowIsolated ? 1 : 0);
+    //mRemote为BinderProxy【见3.9】
+    mRemote.transact(ADD_SERVICE_TRANSACTION, data, reply, 0);
+    reply.recycle();
+    data.recycle();
+}
+</code></pre>
+</div>
+
+<h3 id="writestrongbinder">3.4 writeStrongBinder</h3>
+
+<p>==&gt; Parcel.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public writeStrongBinder(IBinder val){
+    //此处为Native调用【见3.5】
+	nativewriteStrongBinder(mNativePtr, val);
+}
+</code></pre>
+</div>
+
+<h3 id="androidosparcelwritestrongbinder">3.5 android_os_Parcel_writeStrongBinder</h3>
+<p>==&gt; android_os_Parcel.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static void android_os_Parcel_writeStrongBinder(JNIEnv* env, jclass clazz, jlong nativePtr, jobject object)
+{
+    //将java层Parcel转换为native层Parcel
+    Parcel* parcel = reinterpret_cast&lt;Parcel*&gt;(nativePtr); 
+    if (parcel != NULL) {
+        //【见3.6】
+        const status_t err = parcel-&gt;writeStrongBinder(ibinderForJavaObject(env, object)); 
+        if (err != NO_ERROR) {
+            signalExceptionForError(env, clazz, err);
+        }
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="ibinderforjavaobject">3.6 ibinderForJavaObject</h3>
+<p>==&gt; android_os_Binder.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>sp&lt;IBinder&gt; ibinderForJavaObject(JNIEnv* env, jobject obj)
+{
+    if (obj == NULL) return NULL;
+
+    if (env-&gt;IsInstanceOf(obj, gBinderOffsets.mClass)) {
+        JavaBBinderHolder* jbh = (JavaBBinderHolder*)
+            env-&gt;GetLongField(obj, gBinderOffsets.mObject);
+        return jbh != NULL ? jbh-&gt;get(env, obj) : NULL; //【见3.7】
+    }
+
+    if (env-&gt;IsInstanceOf(obj, gBinderProxyOffsets.mClass)) {
+        return (IBinder*)env-&gt;GetLongField(obj, gBinderProxyOffsets.mObject);
+    }
+    return NULL;
+}
+</code></pre>
+</div>
+
+<h3 id="javabbinderholderget">3.7 JavaBBinderHolder.get()</h3>
+<p>==&gt; android_os_Binder.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>sp&lt;JavaBBinder&gt; get(JNIEnv* env, jobject obj)
+{
+    AutoMutex _l(mLock);
+    sp&lt;JavaBBinder&gt; b = mBinder.promote();
+    if (b == NULL) {
+        //首次进来，创建JavaBBinder对象【见3.8】
+        b = new JavaBBinder(env, obj); 
+        mBinder = b;
+    }
+    return b;
+}
+</code></pre>
+</div>
+
+<p>JavaBBinderHolder有一个成员变量mBinder，保存当前创建的JavaBBinder对象，这是一个wp类型的，可能会被垃圾回收器给回收，所以每次使用前，都需要先判断是否存在。</p>
+
+<h3 id="new-javabbinder">3.8 new JavaBBinder()</h3>
+<p>==&gt; android_os_Binder.cpp</p>
+
+<p>创建JavaBBinder，该对象继承于BBinder</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>JavaBBinder(JNIEnv* env, jobject object)
+    : mVM(jnienv_to_javavm(env)), mObject(env-&gt;NewGlobalRef(object))
+{
+    android_atomic_inc(&amp;gNumLocalRefs);
+    incRefsCreated(env);
+}
+</code></pre>
+</div>
+
+<p>从【3.4~3.8】，可知【3.3】中的data.writeStrongBinder(service)最终等价于<code class="highlighter-rouge">parcel-&gt;writeStrongBinder(new JavaBBinder(env, obj))</code>;接着再看看transact过程。</p>
+
+<h3 id="mremotetransact">3.9 mRemote.transact</h3>
+<p>==&gt; Binder.java</p>
+
+<p>回到ServiceManagerProxy.addService，其成员变量mRemote是BinderProxy。BinderProxy.transact如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean transact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
+    //用于检测Parcel大小是否大于800k
+    Binder.checkParcel(this, code, data, "Unreasonably large binder buffer");
+    return transactNative(code, data, reply, flags); //【见3.10】
+}
+</code></pre>
+</div>
+
+<p>transactNative经过jni调用，进入下面的方法</p>
+
+<h3 id="androidosbinderproxytransact">3.10 android_os_BinderProxy_transact</h3>
+<p>==&gt; android_os_Binder.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>//该方法可抛出RemoteException
+static jboolean android_os_BinderProxy_transact(JNIEnv* env, jobject obj,
+    jint code, jobject dataObj, jobject replyObj, jint flags)
+{
+    if (dataObj == NULL) {
+        jniThrowNullPointerException(env, NULL);
+        return JNI_FALSE;
+    }
+    //java Parcel转为native Parcel
+    Parcel* data = parcelForJavaObject(env, dataObj); 
+    if (data == NULL) {
+        return JNI_FALSE;
+    }
+    Parcel* reply = parcelForJavaObject(env, replyObj);
+    if (reply == NULL &amp;&amp; replyObj != NULL) {
+        return JNI_FALSE;
+    }
+    //gBinderProxyOffsets.mObject中保存的是new BpBinder(0)对象
+    IBinder* target = (IBinder*)
+        env-&gt;GetLongField(obj, gBinderProxyOffsets.mObject); 
+    if (target == NULL) {
+        jniThrowException(env, "java/lang/IllegalStateException", "Binder has been finalized!");
+        return JNI_FALSE;
+    }
+
+    //此处便是BpBinder::transact(), 经过native层，进入Binder驱动程序
+    status_t err = target-&gt;transact(code, *data, reply, flags);
+    ...
+    return JNI_FALSE;
+}
+</code></pre>
+</div>
+
+<p>Java层的BinderProxy.transact()最终交由Native层的BpBinder::transact()完成。Native Binder的<a href="http://gityuan.com/2015/11/14/binder-add-service/">注册服务(addService)</a>中有详细说明BpBinder执行过程。</p>
+
+<h3 id="section-3">小结</h3>
+
+<p>addService的核心过程：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void addService(String name, IBinder service, boolean allowIsolated)
+        throws RemoteException {
+	...
+	Parcel data = Parcel.obtain(); //此处还需要将java层的Parcel转为Native层的Parcel
+	data-&gt;writeStrongBinder(new JavaBBinder(env, obj));
+	BpBinder::transact(ADD_SERVICE_TRANSACTION, *data, reply, 0); //与Binder驱动交互
+	...
+}
+</code></pre>
+</div>
+
+<p>注册服务过程就是通过BpBinder来发送<code class="highlighter-rouge">ADD_SERVICE_TRANSACTION</code>命令，与实现与binder驱动进行数据交互。</p>
+
+<h2 id="section-4">四、获取服务</h2>
+
+<h3 id="getservice">4.1 getService</h3>
+<p>==&gt; ServiceManager.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static IBinder getService(String name) {
+    try {
+        IBinder service = sCache.get(name); //先从缓存中查看
+        if (service != null) {
+            return service;
+        } else {
+            return getIServiceManager().getService(name); 【见4.2】
+        }
+    } catch (RemoteException e) {
+        Log.e(TAG, "error in getService", e);
+    }
+    return null;
+}
+</code></pre>
+</div>
+
+<p>关于getIServiceManager()，在前面<a href="http://gityuan.com/2015/11/21/binder-framework/#getiservicemanager">小节3.2</a>已经讲述了，等价于new ServiceManagerProxy(new BinderProxy())。
+其中sCache = new HashMap&lt;String, IBinder&gt;()以hashmap格式缓存已组成的名称。请求获取服务过程中，先从缓存中查询是否存在，如果缓存中不存在的话，再通过binder交互来查询相应的服务。</p>
+
+<h3 id="smngetservice">4.2 SMN.getService</h3>
+
+<p>==&gt; ServiceManagerNative.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public IBinder getService(String name) throws RemoteException {
+    Parcel data = Parcel.obtain();
+    Parcel reply = Parcel.obtain();
+    data.writeInterfaceToken(IServiceManager.descriptor);
+    data.writeString(name);
+    mRemote.transact(GET_SERVICE_TRANSACTION, data, reply, 0); //mRemote为BinderProxy
+    IBinder binder = reply.readStrongBinder(); //【见4.3】
+    reply.recycle();
+    data.recycle();
+    return binder;
+}
+</code></pre>
+</div>
+
+<p>mRemote.transact()在前面，已经说明过，通过JNI调用，最终调用的是BpBinder::transact（)方法。</p>
+
+<h3 id="readstrongbinder">4.3 readStrongBinder</h3>
+<p>==&gt; Parcel.java</p>
+
+<p>readStrongBinder的过程基本与前面的writeStrongBinder时逆过程。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static jobject android_os_Parcel_readStrongBinder(JNIEnv* env, jclass clazz, jlong nativePtr)
+{
+    Parcel* parcel = reinterpret_cast&lt;Parcel*&gt;(nativePtr);
+    if (parcel != NULL) {
+        return javaObjectForIBinder(env, parcel-&gt;readStrongBinder());
+    }
+    return NULL;
+}
+</code></pre>
+</div>
+
+<p>javaObjectForIBinder在第【3.3】中已经介绍过javaObjectForIBinder(env, new BpBinder(handle));</p>
+
+<h3 id="section-5">4.4 小结</h3>
+
+<p>getServicee的核心过程：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static IBinder getService(String name) {
+    ...
+	Parcel reply = Parcel.obtain(); //此处还需要将java层的Parcel转为Native层的Parcel
+	BpBinder::transact(GET_SERVICE_TRANSACTION, *data, reply, 0);  //与Binder驱动交互
+	IBinder binder = javaObjectForIBinder(env, new BpBinder(handle)); 
+	...
+}
+</code></pre>
+</div>
+
+<p>javaObjectForIBinder作用是创建BinderProxy对象，并将BpBinder对象的地址保存到BinderProxy对象的mObjects中。</p>
+
+<p>获取服务过程就是通过BpBinder来发送<code class="highlighter-rouge">GET_SERVICE_TRANSACTION</code>命令，与实现与binder驱动进行数据交互。</p>
+
+<hr />
+
+<p>如果觉得本文对您有所帮助，请关注我的<strong>微信公众号：gityuan</strong>， <strong><a href="http://weibo.com/gityuan">微博：Gityuan</a></strong>。 或者<a href="http://gityuan.com/about/">点击这里查看更多关于我的信息</a></p>
+
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/11/22/binder-framework"
+                    data-title="Binder系列7—framework层分析"
+                    data-url="http://gityuan.com/2015/11/22/binder-framework/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  主要分析Binder在java framework层的框架，相关源码：
+
+
+/framework/base/core/java/android/os... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/11/16/binder-get-service/" data-toggle="tooltip" data-placement="top" title="Binder系列6—获取服务(getService)">
+                        Previous<br>
+                        <span>Binder系列6—获取服务(getService)</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/11/23/binder-use/" data-toggle="tooltip" data-placement="top" title="Binder系列8—如何使用Binder">
+                        Next<br>
+                        <span>Binder系列8—如何使用Binder</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/11/22/binder-framework"
+                        data-title="Binder系列7—framework层分析"
+                        data-url="http://gityuan.com/2015/11/22/binder-framework/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

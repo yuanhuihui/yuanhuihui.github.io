@@ -1,0 +1,160 @@
+<hr />
+<p>layout: post
+title:  “Android动画之入门篇（一）”
+date:   2015-9-3 20:10:00
+catalog:    true
+tags:
+    - android</p>
+
+<hr />
+
+<blockquote>
+  <p>作为Android开发者，动画是非常重要的知识点，本文主要从入门角度来探索动画。<br />
+Android的动画主要包括三大类：<strong>逐帧（Frame）动画</strong>，<strong>补间（Tween）动画</strong>，<strong>属性动画</strong>。</p>
+</blockquote>
+
+<h2 id="frame">1. 逐帧（Frame）动画</h2>
+
+<p>逐帧动画是最容易理解，最简单的动画。但需要把动画过程的每一帧静态图片都放到资源文件夹<code class="highlighter-rouge">res/drawbale</code>下，然后由Android来控制依次显示这些静态图片，利用人眼“视觉暂留”的原理，从而产生“动画”的错觉。实现方式与电影、动漫的原理一样。</p>
+
+<p>每一帧的图片，可以是比如.jpg, .png格式的图片文件，也可以是通过xml定义的图形。下面通过一个实例来讲解逐帧动画的使用。</p>
+
+<p><strong>1.1 动画资源文件</strong></p>
+
+<p><code class="highlighter-rouge">frame_animation.xml</code>放在文件夹<code class="highlighter-rouge">res/drawable/</code>下，该逐帧动画包含3张图片wheel0.png, wheel1.png, wheel2.png:</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code> &lt;animation-list android:id="@+id/selected" android:oneshot="false"&gt;
+    &lt;item android:drawable="@drawable/wheel0" android:duration="50" /&gt;
+    &lt;item android:drawable="@drawable/wheel1" android:duration="50" /&gt;
+    &lt;item android:drawable="@drawable/wheel2" android:duration="50" /&gt;
+ &lt;/animation-list&gt;
+</code></pre>
+</div>
+
+<p><strong>1.2 调用方法</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code> ImageView img = (ImageView)findViewById(R.id.wheel_image);
+ img.setBackgroundResource(R.drawable.frame_animation);
+ AnimationDrawable frameAnimation = (AnimationDrawable) img.getBackground();
+ frameAnimation.start();
+</code></pre>
+</div>
+
+<p><strong>1.3 参数说明</strong></p>
+
+<ul>
+  <li>android:oneshot,  true：动画只播放一遍, false：循环播放;</li>
+  <li>android:duration：该帧时长，单位ms(毫秒)。</li>
+</ul>
+
+<hr />
+
+<h2 id="tween">2. 补间（Tween）动画</h2>
+
+<p>补间动画，只需指定动画开始帧、结束帧，而对于动画中间的过程，都有系统计算来填充的，而无需定义中间的每一帧。<br />
+动画变化主要包括4类型： 透明度动画(<code class="highlighter-rouge">Alpha</code>)，缩放动画(<code class="highlighter-rouge">Scale</code>)，位移动画(<code class="highlighter-rouge">Translate</code>)，旋转动画(<code class="highlighter-rouge">RotateAnaimation</code>)</p>
+
+<p><strong>1.1 动画资源文件</strong></p>
+
+<p><code class="highlighter-rouge">tween_animation.xml</code>放在文件夹<code class="highlighter-rouge">res/anim/</code>下, 该动画同时包括透明度，缩放，位移，旋转4种变化，当然也可以是其中一种，或几种变化的组合。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="cp">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span>  
+<span class="nt">&lt;set</span> <span class="na">xmlns:android=</span><span class="s">"http://schemas.android.com/apk/res/android"</span>  
+	<span class="na">android:interpolator=</span><span class="s">"@[package:]anim/interpolator_resource"</span>  
+	<span class="na">android:shareInterpolator=</span><span class="s">["true"</span> <span class="err">|</span> <span class="err">"false"]</span> <span class="nt">&gt;</span>  
+
+	<span class="nt">&lt;alpha</span>  
+		<span class="na">android:fromAlpha=</span><span class="s">"0.5"</span>  
+		<span class="na">android:toAlpha=</span><span class="s">"1.0"</span>
+		<span class="na">android:duration=</span><span class="s">"1000"</span> <span class="nt">/&gt;</span>
+
+	<span class="nt">&lt;scale</span>  
+		<span class="na">android:fromXScale=</span><span class="s">"0.01"</span>  
+		<span class="na">android:toXScale=</span><span class="s">"1.0"</span>  
+		<span class="na">android:fromYScale=</span><span class="s">"0.01"</span>  
+		<span class="na">android:toYScale=</span><span class="s">"1.0"</span>  
+		<span class="na">android:pivotX=</span><span class="s">"50%"</span>  
+		<span class="na">android:pivotY=</span><span class="s">"50%"</span>
+		<span class="na">android:fillAfter=</span><span class="s">"true"</span> <span class="nt">/&gt;</span>  
+
+	<span class="nt">&lt;translate</span>  
+		<span class="na">android:fromXDelta=</span><span class="s">"0.01"</span>  
+		<span class="na">android:toXDelta=</span><span class="s">"0.95"</span>  
+		<span class="na">android:fromYDelta=</span><span class="s">"0.01"</span>  
+		<span class="na">android:toYDelta=</span><span class="s">"0.95"</span> <span class="nt">/&gt;</span>  
+
+	<span class="nt">&lt;rotate</span>  
+		<span class="na">android:fromDegrees=</span><span class="s">"0.01"</span>  
+		<span class="na">android:toDegrees=</span><span class="s">"360"</span>  
+		<span class="na">android:pivotX=</span><span class="s">"50%"</span>  
+		<span class="na">android:pivotY=</span><span class="s">"50%"</span> <span class="nt">/&gt;</span>  
+<span class="nt">&lt;set&gt;</span>
+</code></pre>
+</div>
+
+<p><strong>1.2 调用方法</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code> ImageView img = (ImageView)findViewById(R.id.wheel_image);
+ Animation tweenAnimation = AnimationUtils.loadAnimation(this, R.anim.tween_animation);
+ img.startAnimation(tweenAnimation);
+</code></pre>
+</div>
+
+<p><strong>1.3 参数说明</strong></p>
+
+<ul>
+  <li>android:interpolator   插值器，用于指定动画的效果; 插值器原理，请移步<a href="http://gityuan.com/2015/09/05/android-anaimator-3/"><strong>Android动画之原理篇（三）</strong></a>；</li>
+  <li>android:shareInterpolator， true：所有子元素共享同一插值器；false不共享；</li>
+  <li>android:fillBefore， true：动画执行完成后停留在动画的第一帧；</li>
+  <li>android:fillAfter ， true：动画执行完成后停留在动画的最后一帧；</li>
+  <li>android:fillEnabled，true：fillBefore/fillAfter才能生效</li>
+  <li>
+    <p>android:duration， 动画持续时长，每一个动画都可以单独指定duration；</p>
+  </li>
+  <li><strong>alpha，透明度动画，其中0表示完全透明，1表示完全不透明：</strong>
+    <ul>
+      <li>fromAlpha： 起始透明度</li>
+      <li>toAlpha  ： 结束透明度</li>
+    </ul>
+  </li>
+  <li><strong>scale，缩放动画，其中0表示收缩到无，1表示正常无缩放：</strong>
+    <ul>
+      <li>fromXScale： 起始X坐标的缩放比例</li>
+      <li>toXScale  ： 结束X坐标的缩放比例</li>
+      <li>fromYScale： 起始Y坐标的缩放比例</li>
+      <li>toYScale  ： 结束Y坐标的缩放比例</li>
+      <li>pivotX    ： 轴中点X坐标的位置比例</li>
+      <li>pivotY    ： 轴中点Y坐标的位置比例</li>
+    </ul>
+  </li>
+  <li><strong>translate，位移动画：</strong>
+    <ul>
+      <li>fromXDelta： 起始X方向位置比例</li>
+      <li>toXDelta  ： 结束X方向位置比例</li>
+      <li>fromYDelta： 起始Y方向位置比例</li>
+      <li>toYDelta  ： 结束Y方向位置比例</li>
+    </ul>
+  </li>
+  <li><strong>rotate， 旋转动画：</strong>
+    <ul>
+      <li>fromDegrees： 起始角度，单位度</li>
+      <li>toDegrees  ： 结束角度，单位度</li>
+      <li>pivotX    ： 旋转中点X坐标的位置比例</li>
+      <li>pivotY    ： 旋转中点Y坐标的位置比例</li>
+    </ul>
+  </li>
+</ul>
+
+<hr />
+
+<h2 id="section">3. 属性动画</h2>
+
+<p>属性动画，是补间动画的增强版，但更加灵活。可直接修改任何属性，使之形成动画，功能非常强大，也是最常用的动画。<strong>下面举个简单的例子:</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ObjectAnimator anim = ObjectAnimator.ofFloat(targetObject, "alpha", 0f, 1f);
+anim.setDuration(1000);
+anim.start();
+</code></pre>
+</div>
+
+<p>关于属性动画的详细介绍在下一篇文章中，详细介绍<a href="http://gityuan.com/2015/09/04/android-anaimator-2/"><strong>Android动画之入门篇（二）</strong></a></p>

@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Java注解(Annotation) - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2016/01/23/java-annotation/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#java" title="java">java</a>
+                        
+                        <a class="tag" href="/tags/#annotation" title="annotation">annotation</a>
+                        
+                    </div>
+                    <h1>Java注解(Annotation)</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on January 23, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>本文讲述Java Annotation的原理，如何自定义Java注解以及通过反射解析注解。</p>
+</blockquote>
+
+<h2 id="section">一、注解</h2>
+
+<h3 id="section-1">1.1 概述</h3>
+
+<p>注解(Annotation)在JDK1.5之后增加的一个新特性，注解的引入意义很大，有很多非常有名的框架，比如Hibernate、Spring等框架中都大量使用注解。注解作为程序的元数据嵌入到程序。注解可以被解析工具或编译工具解析，此处注意注解不同于注释(comment)。</p>
+
+<p>当一个接口直接继承java.lang.annotation.Annotation接口时，仍是接口，而并非注解。要想自定义注解类型，只能通过@interface关键字的方式，其实通过该方式会隐含地继承.Annotation接口。</p>
+
+<h3 id="api-">1.2 API 摘要</h3>
+
+<p>所有与Annotation相关的API摘要如下：</p>
+
+<p>(1). 注解类型(Annotation Types) API</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>注解类型</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Documented</td>
+      <td>表示含有该注解类型的元素(带有注释的)会通过javadoc或类似工具进行文档化</td>
+    </tr>
+    <tr>
+      <td>Inherited</td>
+      <td>表示注解类型能被自动继承</td>
+    </tr>
+    <tr>
+      <td>Retention</td>
+      <td>表示注解类型的存活时长</td>
+    </tr>
+    <tr>
+      <td>Target</td>
+      <td>表示注解类型所适用的程序元素的种类</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>(2). 枚举(Enum) API</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>枚举</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ElementType</td>
+      <td>程序元素类型，用于Target注解类型</td>
+    </tr>
+    <tr>
+      <td>RetentionPolicy</td>
+      <td>注解保留策略，用于Retention注解类型</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>(3). 异常和错误 API</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>异常/错误</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>AnnotationTypeMismatchException</td>
+      <td>当注解经过编译(或序列化)后，注解类型改变的情况下，程序视图访问该注解所对应的元素，则抛出此异常</td>
+    </tr>
+    <tr>
+      <td>IncompleteAnnotationException</td>
+      <td>当注解经过编译(或序列化)后，将其添加到注解类型定义的情况下，程序视图访问该注解所对应的元素，则抛出此异常。</td>
+    </tr>
+    <tr>
+      <td>AnnotationFormatError</td>
+      <td>当注解解析器试图从类文件中读取注解并确定注解出现异常时，抛出该错误</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="section-2">二、注解类型</h2>
+
+<p>前面讲到注解类型共4种，分别为Documented、Inherited、Retention、Target，接下来从jdk1.7的源码角度，来分别加以说明：</p>
+
+<h3 id="documented">2.1 Documented</h3>
+
+<p>源码：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
+public @interface Documented {
+}
+</code></pre>
+</div>
+
+<p>@Documented：表示拥有该注解的元素可通过javadoc此类的工具进行文档化。该类型应用于注解那些影响客户使用带注释(comment)的元素声明的类型。如果类型声明是用Documented来注解的，这种类型的注解被作为被标注的程序成员的公共API。</p>
+
+<p>例如，上面源码@Retention的定义中有一行<code class="highlighter-rouge">@Documented</code>，意思是指当前注解的元素会被javadoc工具进行文档化，那么在查看Java API文档时可查看当该注解元素。</p>
+
+<h3 id="inherited">2.2 Inherited</h3>
+
+<p>源码：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
+public @interface Inherited {
+}
+</code></pre>
+</div>
+
+<p>@Inherited：表示该注解类型被自动继承，如果用户在当前类中查询这个元注解类型并且当前类的声明中不包含这个元注解类型，那么也将自动查询当前类的父类是否存在Inherited元注解，这个动作将被重复执行知道这个标注类型被找到，或者是查询到顶层的父类。</p>
+
+<h3 id="retention">2.3 Retention</h3>
+
+<p>源码：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
+public @interface Retention {
+    RetentionPolicy value();
+}
+</code></pre>
+</div>
+
+<p>@Retention：表示该注解类型的注解保留的时长。当注解类型声明中没有@Retention元注解，则默认保留策略为RetentionPolicy.CLASS。关于保留策略(RetentionPolicy)是枚举类型，共定义3种保留策略，如下表：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>RetentionPolicy</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SOURCE</td>
+      <td>仅存在Java源文件，经过编译器后便丢弃相应的注解</td>
+    </tr>
+    <tr>
+      <td>CLASS</td>
+      <td>存在Java源文件，以及经编译器后生成的Class字节码文件，但在运行时VM不再保留注释</td>
+    </tr>
+    <tr>
+      <td>RUNTIME</td>
+      <td>存在源文件、编译生成的Class字节码文件，以及保留在运行时VM中，可通过反射性地读取注解</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>例如，上面源码@Retention的定义中有一行<code class="highlighter-rouge">@Retention(RetentionPolicy.RUNTIME)</code>，意思是指当前注解的保留策略为RUNTIME，即存在Java源文件，也存在经过编译器编译后的生成的Class字节码文件，同时在运行时虚拟机(VM)中也保留该注解，可通过反射机制获取当前注解内容。</p>
+
+<h3 id="target">2.4 Target</h3>
+
+<p>源码：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
+public @interface Target {
+    ElementType[] value();
+}
+</code></pre>
+</div>
+
+<p>@Target：表示该注解类型的所使用的程序元素类型。当注解类型声明中没有@Target元注解，则默认为可适用所有的程序元素。如果存在指定的@Target元注解，则编译器强制实施相应的使用限制。关于程序元素(ElementType)是枚举类型，共定义8种程序元素，如下表：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>ElementType</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ANNOTATION_TYPE</td>
+      <td>注解类型声明</td>
+    </tr>
+    <tr>
+      <td>CONSTRUCTOR</td>
+      <td>构造方法声明</td>
+    </tr>
+    <tr>
+      <td>FIELD</td>
+      <td>字段声明（包括枚举常量）</td>
+    </tr>
+    <tr>
+      <td>LOCAL_VARIABLE</td>
+      <td>局部变量声明</td>
+    </tr>
+    <tr>
+      <td>METHOD</td>
+      <td>方法声明</td>
+    </tr>
+    <tr>
+      <td>PACKAGE</td>
+      <td>包声明</td>
+    </tr>
+    <tr>
+      <td>PARAMETER</td>
+      <td>参数声明</td>
+    </tr>
+    <tr>
+      <td>TYPE</td>
+      <td>类、接口（包括注解类型）或枚举声明</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>例如，上面源码@Target的定义中有一行<code class="highlighter-rouge">@Target(ElementType.ANNOTATION_TYPE)</code>，意思是指当前注解的元素类型是注解类型。</p>
+
+<h2 id="section-3">三、内建注解</h2>
+
+<p>Java提供了多种内建的注解，下面接下几个比较常用的注解：@Override、@Deprecated、@SuppressWarnings这3个注解。</p>
+
+<h3 id="override">3.1 @Override(覆写)</h3>
+
+<p>源码：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.SOURCE)
+public @interface Override {
+}
+</code></pre>
+</div>
+
+<p>用途：用于告知编译器，我们需要覆写超类的当前方法。如果某个方法带有该注解但并没有覆写超类相应的方法，则编译器会生成一条错误信息。</p>
+
+<p>注解类型分析：@Override可适用元素为方法，仅仅保留在java源文件中。</p>
+
+<h3 id="deprecated">3.2 @Deprecated(不赞成使用)</h3>
+
+<p>源码：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(value={CONSTRUCTOR, FIELD, LOCAL_VARIABLE, METHOD, PACKAGE, PARAMETER, TYPE})
+public @interface Deprecated {
+}
+</code></pre>
+</div>
+
+<p>用途：用于告知编译器，某一程序元素(比如方法，成员变量)不建议使用时，应该使用这个注解。Java在javadoc中推荐使用该注解，一般应该提供为什么该方法不推荐使用以及相应替代方法。</p>
+
+<p>注解类型分析： @Deprecated可适合用于除注解类型声明之外的所有元素，保留时长为运行时VM。</p>
+
+<h3 id="suppresswarnings">3.3 @SuppressWarnings(压制警告)</h3>
+
+<p>源码：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Target({TYPE, FIELD, METHOD, PARAMETER, CONSTRUCTOR, LOCAL_VARIABLE})
+@Retention(RetentionPolicy.SOURCE)
+public @interface SuppressWarnings {
+    String[] value();
+}
+</code></pre>
+</div>
+
+<p>用于：用于告知编译器忽略特定的警告信息，例在泛型中使用原生数据类型。</p>
+
+<p>注解类型分析： @SuppressWarnings可适合用于除注解类型声明和包名之外的所有元素，仅仅保留在java源文件中。</p>
+
+<p>该注解有方法value(）,可支持多个字符串参数，例如：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@SupressWarning(value={"uncheck","deprecation"}) 
+</code></pre>
+</div>
+
+<p>前面讲的@Override，@Deprecated都是无需参数的，而压制警告是需要带有参数的，可用参数如下：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>参数</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>deprecation</td>
+      <td>使用了过时的类或方法时的警告</td>
+    </tr>
+    <tr>
+      <td>unchecked</td>
+      <td>执行了未检查的转换时的警告</td>
+    </tr>
+    <tr>
+      <td>fallthrough</td>
+      <td>当Switch程序块进入进入下一个case而没有Break时的警告</td>
+    </tr>
+    <tr>
+      <td>path</td>
+      <td>在类路径、源文件路径等有不存在路径时的警告</td>
+    </tr>
+    <tr>
+      <td>serial</td>
+      <td>当可序列化的类缺少serialVersionUID定义时的警告</td>
+    </tr>
+    <tr>
+      <td>finally</td>
+      <td>任意finally子句不能正常完成时的警告</td>
+    </tr>
+    <tr>
+      <td>all</td>
+      <td>以上所有情况的警告</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="section-4">3.4 对比</h3>
+
+<p>3种内建注解的对比：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>内建注解</th>
+      <th>Target</th>
+      <th>Retention</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Override</td>
+      <td>METHOD</td>
+      <td>SOURCE</td>
+    </tr>
+    <tr>
+      <td>SuppressWarnings</td>
+      <td>除ANNOTATION_TYPE和PACKAGE外的所有</td>
+      <td>SOURCE</td>
+    </tr>
+    <tr>
+      <td>Deprecated</td>
+      <td>除ANNOTATION_TYPE外的所有</td>
+      <td>RUNTIME</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="section-5">四、 实战</h2>
+
+<h3 id="section-6">4.1 自定义注解</h3>
+
+<p>创建自定义注解，与创建接口有几分相似，但注解需要以@开头，下面先声明一个自定义注解（AuthorAnno.java）文件：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>package com.yuanhh.annotation;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Documented
+@Target(ElementType.METHOD)
+@Inherited
+@Retention(RetentionPolicy.RUNTIME)
+public @interface AuthorAnno{
+    String name();
+    String website() default "gityuan.com";
+    int revision() default 1;
+}
+</code></pre>
+</div>
+
+<p>自定义注解规则：</p>
+
+<ol>
+  <li>注解方法不带参数，比如<code class="highlighter-rouge">name()</code>，<code class="highlighter-rouge">website()</code>；</li>
+  <li>注解方法返回值类型：基本类型、String、Enums、Annotation以及前面这些类型的数组类型</li>
+  <li>注解方法可有默认值，比如<code class="highlighter-rouge">default "gityuan.com"</code>，默认website=”gityuan.com”</li>
+</ol>
+
+<p>有了前面的自定义注解@AuthorAnno，那么我们便可以在代码中使用(AnnotationDemo.java)，如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>package com.yuanhh.annotation;
+
+public class AnnotationDemo {
+    @AuthorAnno(name="yuanhh", website="gityuan.com", revision=1)
+    public static void main(String[] args) {
+        System.out.println("I am main method");
+    }
+    
+    @SuppressWarnings({ "unchecked", "deprecation" })
+    @AuthorAnno(name="yuanhh", website="gityuan.com", revision=2)
+    public void demo(){
+        System.out.println("I am demo method");
+    }
+}
+</code></pre>
+</div>
+
+<p>由于该注解的保留策略为RetentionPolicy.RUNTIME，故可在运行期通过反射机制来使用，否则无法通过反射机制来获取。</p>
+
+<h3 id="section-7">4.2 注解解析</h3>
+
+<p>接下来，通过反射技术来解析自定义注解@AuthorAnno，关于反射类位于包java.lang.reflect，其中有一个接口<code class="highlighter-rouge">AnnotatedElement</code>，该接口定义了注释相关的几个核心方法，如下：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>返回值</th>
+      <th>方法</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><t extends="" annotation=""> T</t></td>
+      <td>getAnnotation(Class<t> annotationClass)</t></td>
+      <td>当存在该元素的指定类型注解，则返回相应注释，否则返回null</td>
+    </tr>
+    <tr>
+      <td>Annotation[]</td>
+      <td>getAnnotations()</td>
+      <td>返回此元素上存在的所有注解</td>
+    </tr>
+    <tr>
+      <td>Annotation[]</td>
+      <td>getDeclaredAnnotations()</td>
+      <td>返回直接存在于此元素上的所有注解。</td>
+    </tr>
+    <tr>
+      <td>boolean</td>
+      <td>isAnnotationPresent(Class&lt;? extends Annotation&gt; annotationClass)</td>
+      <td>当存在该元素的指定类型注解，则返回true，否则返回false</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>前面自定义的注解，适用对象为Method。类Method继承类AccessibleObject，而类AccessibleObject实现了AnnotatedElement接口，那么可以利用上面的反射方法，来实现解析@AuthorAnno的功能(AnnotationParser.java)，内容如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>package com.yuanhh.annotation;
+import java.lang.reflect.Method;
+
+public class AnnotationParser {
+    public static void main(String[] args) throws SecurityException, ClassNotFoundException {
+        String clazz = "com.yuanhh.annotation.AnnotationDemo";
+        Method[]  demoMethod = AnnotationParser.class
+                .getClassLoader().loadClass(clazz).getMethods();
+        
+        for (Method method : demoMethod) {
+            if (method.isAnnotationPresent(AuthorAnno.class)) {
+                 AuthorAnno authorInfo = method.getAnnotation(AuthorAnno.class);
+                 System.out.println("method: "+ method);
+                 System.out.println("name= "+ authorInfo.name() + 
+                         " , website= "+ authorInfo.website()
+                        + " , revision= "+authorInfo.revision());
+            }
+        }
+    }
+}
+</code></pre>
+</div>
+
+<p>程序运行的输出结果：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>method: public void com.yuanhh.annotation.AnnotationDemo.demo()
+name= yuanhh , website= gityuan.com , revision= 2
+method: public static void com.yuanhh.annotation.AnnotationDemo.main(java.lang.String[])
+name= yuanhh , website= gityuan.com , revision= 1
+</code></pre>
+</div>
+
+<p>这里通过反射将注解直接输出只是出于demo，完全可以根据拿到的注解信息做更多有意义的事。</p>
+
+<hr />
+
+<p>关于注解、反射的内容，可直接查看oracle提供的Java API： <a href="http://docs.oracle.com/javase/7/docs/api/">http://docs.oracle.com/javase/7/docs/api/</a></p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2016/01/23/java-annotation"
+                    data-title="Java注解(Annotation)"
+                    data-url="http://gityuan.com/2016/01/23/java-annotation/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  本文讲述Java Annotation的原理，如何自定义Java注解以及通过反射解析注解。
+
+
+一、注解
+
+1.1 概述
+
+注解(Annotatio... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/01/18/traceview/" data-toggle="tooltip" data-placement="top" title="性能工具Traceview">
+                        Previous<br>
+                        <span>性能工具Traceview</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/01/25/java-classloader/" data-toggle="tooltip" data-placement="top" title="Java类加载器(ClassLoader)">
+                        Next<br>
+                        <span>Java类加载器(ClassLoader)</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2016/01/23/java-annotation"
+                        data-title="Java注解(Annotation)"
+                        data-url="http://gityuan.com/2016/01/23/java-annotation/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

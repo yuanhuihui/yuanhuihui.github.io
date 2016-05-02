@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Android消息机制2-Handler(Native层) - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/12/28/handler-message-native/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#handler" title="handler">handler</a>
+                        
+                        <a class="tag" href="/tags/#native" title="native">native</a>
+                        
+                    </div>
+                    <h1>Android消息机制2-Handler(Native层)</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on December 28, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>本文基于Android 6.0的源代码，来分析native层的消息处理机制</p>
+</blockquote>
+
+<p><strong>相关源码</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>framework/base/core/java/andorid/os/MessageQueue.java
+
+framework/base/core/jni/android_os_MessageQueue.h
+framework/base/core/jni/android_os_MessageQueue.cpp
+
+system/core/include/utils/Looper.h
+system/core/libutils/Looper.cpp
+system/core/libutils/RefBase.cpp
+
+framework/native/include/android/looper.h
+framework/base/native/android/looper.cpp
+</code></pre>
+</div>
+
+<h2 id="section">一、概述</h2>
+
+<p>在文章<a href="http://gityuan.com/2015/12/26/handler-message-framework/">Android消息机制1-Handler(Java层)</a>中讲解了Java层的消息处理机制，其中<code class="highlighter-rouge">MessageQueue</code>类里面涉及到多个native方法，除了MessageQueue的native方法，native层本身也有一套完整的消息机制，用于处理native的消息。在整个消息机制中，而<code class="highlighter-rouge">MessageQueue</code>是连接Java层和Native层的纽带，换言之，Java层可以向<code class="highlighter-rouge">MessageQueue</code>消息队列中添加消息，Native层也可以向<code class="highlighter-rouge">MessageQueue</code>消息队列中添加消息。</p>
+
+<p><strong>Native层的关系图</strong></p>
+
+<p><img src="/images/handler/native.png" alt="native" /></p>
+
+<h2 id="messagequeue">二、MessageQueue</h2>
+
+<p>在MessageQueue中的native方法如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private native static long nativeInit(); 
+private native static void nativeDestroy(long ptr); 
+private native void nativePollOnce(long ptr, int timeoutMillis); 
+private native static void nativeWake(long ptr);
+private native static boolean nativeIsPolling(long ptr);
+private native static void nativeSetFileDescriptorEvents(long ptr, int fd, int events);
+</code></pre>
+</div>
+
+<h3 id="nativeinit">2.1 nativeInit()</h3>
+
+<p>初始化过程的调用链如下：</p>
+
+<p><img src="/images/handler/native_init.png" alt="native_init" /></p>
+
+<p>下面来进一步来看看调用链的过程：</p>
+
+<p><strong>【1】 new MessageQueue()</strong></p>
+
+<p>==&gt; MessageQueue.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>MessageQueue(boolean quitAllowed) {
+    mQuitAllowed = quitAllowed;
+    mPtr = nativeInit();  //mPtr记录native消息队列的信息 【2】
+}
+</code></pre>
+</div>
+
+<p><strong>【2】android_os_MessageQueue_nativeInit()</strong></p>
+
+<p>==&gt; android_os_MessageQueue.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static jlong android_os_MessageQueue_nativeInit(JNIEnv* env, jclass clazz) {
+    NativeMessageQueue* nativeMessageQueue = new NativeMessageQueue(); //初始化native消息队列 【3】
+    if (!nativeMessageQueue) {
+        jniThrowRuntimeException(env, "Unable to allocate native queue");
+        return 0;
+    }
+    nativeMessageQueue-&gt;incStrong(env);
+    return reinterpret_cast&lt;jlong&gt;(nativeMessageQueue);
+}
+</code></pre>
+</div>
+
+<p><strong>【3】new NativeMessageQueue()</strong></p>
+
+<p>==&gt; android_os_MessageQueue.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>NativeMessageQueue::NativeMessageQueue() : mPollEnv(NULL), mPollObj(NULL), mExceptionObj(NULL) {
+    mLooper = Looper::getForThread(); //获取TLS中的Looper对象
+    if (mLooper == NULL) {
+        mLooper = new Looper(false); //创建native层的Looper 【4】
+        Looper::setForThread(mLooper); //保存native层的Looper到TLS中 
+    }
+}
+</code></pre>
+</div>
+
+<ul>
+  <li>Looper::getForThread()，功能类比于Java层的Looper.myLooper();</li>
+  <li>Looper::setForThread(mLooper)，功能类比于Java层的ThreadLocal.set();</li>
+</ul>
+
+<p>MessageQueue是在Java层与Native层有着紧密的联系，但是此次Native层的Looper与Java层的Looper没有任何的关系，可以发现native基本等价于用C++重写了Java的Looper逻辑，故可以发现很多功能类似的地方。</p>
+
+<p><strong>【4】new Looper()</strong></p>
+
+<p>==&gt; Looper.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Looper::Looper(bool allowNonCallbacks) :
+        mAllowNonCallbacks(allowNonCallbacks), mSendingMessage(false),
+        mPolling(false), mEpollFd(-1), mEpollRebuildRequired(false),
+        mNextRequestSeq(0), mResponseIndex(0), mNextMessageUptime(LLONG_MAX) {
+    mWakeEventFd = eventfd(0, EFD_NONBLOCK); //构造唤醒事件的fd
+    AutoMutex _l(mLock);
+    rebuildEpollLocked();  //重建Epoll事件【5】
+}
+</code></pre>
+</div>
+
+<p><strong>【5】epoll_create/epoll_ctl</strong></p>
+
+<p>==&gt; Looper.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void Looper::rebuildEpollLocked() {
+    if (mEpollFd &gt;= 0) {
+        close(mEpollFd); //关闭旧的epoll实例
+    }
+    mEpollFd = epoll_create(EPOLL_SIZE_HINT); //创建新的epoll实例，并注册wake管道
+    struct epoll_event eventItem;
+    memset(&amp; eventItem, 0, sizeof(epoll_event)); //把未使用的数据区域进行置0操作
+    eventItem.events = EPOLLIN; //可读事件
+    eventItem.data.fd = mWakeEventFd;
+    //将唤醒事件(mWakeEventFd)添加到epoll实例(mEpollFd)
+    int result = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, mWakeEventFd, &amp; eventItem);
+
+    for (size_t i = 0; i &lt; mRequests.size(); i++) {
+        const Request&amp; request = mRequests.valueAt(i);
+        struct epoll_event eventItem;
+        request.initEventItem(&amp;eventItem);
+        //将request队列的事件，分别添加到epoll实例
+        int epollResult = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, request.fd, &amp; eventItem);
+        if (epollResult &lt; 0) {
+            ALOGE("Error adding epoll events for fd %d while rebuilding epoll set, errno=%d", request.fd, errno);
+        }
+    }
+}
+</code></pre>
+</div>
+
+<p>关于epoll的原理以及为什么选择epoll的方式，可查看文章<a href="http://gityuan.com/2015/12/06/linux_epoll/">select/poll/epoll对比分析</a>。</p>
+
+<p>另外，需要注意<code class="highlighter-rouge">Request</code>队列，也添加到epoll的监控范围内。</p>
+
+<h3 id="nativedestroy">2.2 nativeDestroy()</h3>
+
+<p>清理回收的调用链如下：</p>
+
+<p><img src="/images/handler/native_destroy.png" alt="native_destroy" /></p>
+
+<p>下面来进一步来看看调用链的过程：</p>
+
+<p><strong>【1】MessageQueue.dispose()</strong></p>
+
+<p>==&gt; MessageQueue.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private void dispose() {
+    if (mPtr != 0) {
+        nativeDestroy(mPtr); 【2】
+        mPtr = 0;
+    }
+}
+</code></pre>
+</div>
+
+<p><strong>【2】android_os_MessageQueue_nativeDestroy()</strong></p>
+
+<p>==&gt; android_os_MessageQueue.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static void android_os_MessageQueue_nativeDestroy(JNIEnv* env, jclass clazz, jlong ptr) {
+    NativeMessageQueue* nativeMessageQueue = reinterpret_cast&lt;NativeMessageQueue*&gt;(ptr);
+    nativeMessageQueue-&gt;decStrong(env); 【3】
+}
+</code></pre>
+</div>
+
+<p>nativeMessageQueue继承自RefBase类，所以decStrong最终调用的是RefBase.decStrong().</p>
+
+<p><strong>【3】RefBase::decStrong()</strong></p>
+
+<p>==&gt; RefBase.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void RefBase::decStrong(const void* id) const
+{
+    weakref_impl* const refs = mRefs;
+    refs-&gt;removeStrongRef(id); //移除强引用
+    const int32_t c = android_atomic_dec(&amp;refs-&gt;mStrong);
+    if (c == 1) {
+        refs-&gt;mBase-&gt;onLastStrongRef(id);
+        if ((refs-&gt;mFlags&amp;OBJECT_LIFETIME_MASK) == OBJECT_LIFETIME_STRONG) {
+            delete this;
+        }
+    }
+    refs-&gt;decWeak(id); // 移除弱引用
+}
+</code></pre>
+</div>
+
+<h3 id="nativepollonce">2.3 nativePollOnce()</h3>
+
+<p>nativePollOnce用于提取消息队列中的消息，提取消息的调用链，如下：</p>
+
+<p><img src="/images/handler/poll_once.png" alt="poll_once" /></p>
+
+<p>下面来进一步来看看调用链的过程：</p>
+
+<p><strong>【1】MessageQueue.next()</strong></p>
+
+<p>==&gt; MessageQueue.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Message next() {
+    final long ptr = mPtr;
+    if (ptr == 0) {
+        return null;
+    }
+
+    for (;;) {
+        ...
+        nativePollOnce(ptr, nextPollTimeoutMillis); //阻塞操作 【2】
+        ...
+    }
+</code></pre>
+</div>
+
+<p><strong>【2】android_os_MessageQueue_nativePollOnce()</strong></p>
+
+<p>==&gt; android_os_MessageQueue.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static void android_os_MessageQueue_nativePollOnce(JNIEnv* env, jobject obj, jlong ptr, jint timeoutMillis) {
+    //将Java层传递下来的mPtr转换为nativeMessageQueue
+    NativeMessageQueue* nativeMessageQueue = reinterpret_cast&lt;NativeMessageQueue*&gt;(ptr); 
+    nativeMessageQueue-&gt;pollOnce(env, obj, timeoutMillis); 【3】
+}
+</code></pre>
+</div>
+
+<p><strong>【3】NativeMessageQueue::pollOnce()</strong></p>
+
+<p>==&gt; android_os_MessageQueue.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void NativeMessageQueue::pollOnce(JNIEnv* env, jobject pollObj, int timeoutMillis) {
+    mPollEnv = env;
+    mPollObj = pollObj;
+    mLooper-&gt;pollOnce(timeoutMillis); 【4】
+    mPollObj = NULL;
+    mPollEnv = NULL;
+    if (mExceptionObj) {
+        env-&gt;Throw(mExceptionObj);
+        env-&gt;DeleteLocalRef(mExceptionObj);
+        mExceptionObj = NULL;
+    }
+}
+</code></pre>
+</div>
+
+<p><strong>【4】Looper::pollOnce()</strong></p>
+
+<p>==&gt; Looper.h</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>inline int pollOnce(int timeoutMillis) {
+    return pollOnce(timeoutMillis, NULL, NULL, NULL); 【5】
+}
+</code></pre>
+</div>
+
+<p><strong>【5】 Looper::pollOnce()</strong></p>
+
+<p>==&gt; Looper.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int Looper::pollOnce(int timeoutMillis, int* outFd, int* outEvents, void** outData) {
+    int result = 0;
+    for (;;) {
+        // 先处理没有Callback方法的 Response事件
+        while (mResponseIndex &lt; mResponses.size()) {
+            const Response&amp; response = mResponses.itemAt(mResponseIndex++);
+            int ident = response.request.ident;
+            if (ident &gt;= 0) { //ident大于0，则表示没有callback, 因为POLL_CALLBACK = -2,
+                int fd = response.request.fd;
+                int events = response.events;
+                void* data = response.request.data;
+                if (outFd != NULL) *outFd = fd;
+                if (outEvents != NULL) *outEvents = events;
+                if (outData != NULL) *outData = data;
+                return ident;
+            }
+        }
+        if (result != 0) {
+            if (outFd != NULL) *outFd = 0;
+            if (outEvents != NULL) *outEvents = 0;
+            if (outData != NULL) *outData = NULL;
+            return result;
+        }
+        // 再处理内部轮询
+        result = pollInner(timeoutMillis); 【6】
+    }
+}
+</code></pre>
+</div>
+
+<p>参数说明：</p>
+
+<ul>
+  <li>timeoutMillis：超时时长</li>
+  <li>outFd：发生事件的文件描述符</li>
+  <li>outEvents：当前outFd上发生的事件，包含以下4类事件
+    <ul>
+      <li>EVENT_INPUT  可读</li>
+      <li>EVENT_OUTPUT  可写</li>
+      <li>EVENT_ERROR 错误</li>
+      <li>EVENT_HANGUP 中断</li>
+    </ul>
+  </li>
+  <li>outData：上下文数据</li>
+</ul>
+
+<p><strong>【6】Looper::pollInner()</strong></p>
+
+<p>==&gt; Looper.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int Looper::pollInner(int timeoutMillis) {
+    ...
+    int result = POLL_WAKE;
+    mResponses.clear();
+    mResponseIndex = 0;
+    mPolling = true; //即将处于idle状态
+    struct epoll_event eventItems[EPOLL_MAX_EVENTS]; //fd最大个数为16
+    //等待事件发生或者超时，在nativeWake()方法，向管道写端写入字符，则该方法会返回；
+    int eventCount = epoll_wait(mEpollFd, eventItems, EPOLL_MAX_EVENTS, timeoutMillis);
+
+    mPolling = false; //不再处于idle状态
+    mLock.lock();  //请求锁
+    if (mEpollRebuildRequired) {
+        mEpollRebuildRequired = false;
+        rebuildEpollLocked();  // epoll重建，直接跳转Done;
+        goto Done;
+    }
+    if (eventCount &lt; 0) { 
+        if (errno == EINTR) {
+            goto Done;
+        }
+        result = POLL_ERROR; // epoll事件个数小于0，发生错误，直接跳转Done;
+        goto Done;
+    }
+    if (eventCount == 0) {  //epoll事件个数等于0，发生超时，直接跳转Done;
+        result = POLL_TIMEOUT;
+        goto Done;
+    }
+
+    //循环遍历，处理所有的事件
+    for (int i = 0; i &lt; eventCount; i++) {
+        int fd = eventItems[i].data.fd;
+        uint32_t epollEvents = eventItems[i].events;
+        if (fd == mWakeEventFd) {
+            if (epollEvents &amp; EPOLLIN) {
+                awoken(); //已经唤醒了，则读取并清空管道数据【7】
+            }
+        } else {
+            ssize_t requestIndex = mRequests.indexOfKey(fd);
+            if (requestIndex &gt;= 0) {
+                int events = 0;
+                if (epollEvents &amp; EPOLLIN) events |= EVENT_INPUT;
+                if (epollEvents &amp; EPOLLOUT) events |= EVENT_OUTPUT;
+                if (epollEvents &amp; EPOLLERR) events |= EVENT_ERROR;
+                if (epollEvents &amp; EPOLLHUP) events |= EVENT_HANGUP;
+                //处理request，生成对应的reponse对象，push到响应数组
+                pushResponse(events, mRequests.valueAt(requestIndex));
+            }
+        }
+    }
+Done: ;
+    //再处理Native的Message，调用相应回调方法
+    mNextMessageUptime = LLONG_MAX;
+    while (mMessageEnvelopes.size() != 0) {
+        nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
+        const MessageEnvelope&amp; messageEnvelope = mMessageEnvelopes.itemAt(0);
+        if (messageEnvelope.uptime &lt;= now) {
+            {
+                sp&lt;MessageHandler&gt; handler = messageEnvelope.handler;
+                Message message = messageEnvelope.message;
+                mMessageEnvelopes.removeAt(0);
+                mSendingMessage = true;
+                mLock.unlock();  //释放锁
+                handler-&gt;handleMessage(message);  // 处理消息事件
+            }
+            mLock.lock();  //请求锁
+            mSendingMessage = false;
+            result = POLL_CALLBACK; // 发生回调
+        } else {
+            mNextMessageUptime = messageEnvelope.uptime;
+            break;
+        }
+    }
+    mLock.unlock(); //释放锁
+
+    //处理带有Callback()方法的Response事件，执行Reponse相应的回调方法 
+    for (size_t i = 0; i &lt; mResponses.size(); i++) {
+        Response&amp; response = mResponses.editItemAt(i);
+        if (response.request.ident == POLL_CALLBACK) {
+            int fd = response.request.fd;
+            int events = response.events;
+            void* data = response.request.data;
+            // 处理请求的回调方法
+            int callbackResult = response.request.callback-&gt;handleEvent(fd, events, data);
+            if (callbackResult == 0) {
+                removeFd(fd, response.request.seq); //移除fd
+            }
+            response.request.callback.clear(); //清除reponse引用的回调方法
+            result = POLL_CALLBACK;  // 发生回调
+        }
+    }
+    return result;
+}
+</code></pre>
+</div>
+
+<p>pollOnce返回值说明：</p>
+
+<ul>
+  <li>POLL_WAKE： 表示由wake()触发，即pipe写端的write事件触发；</li>
+  <li>POLL_CALLBACK： 表示某个被监听fd被触发。</li>
+  <li>POLL_TIMEOUT： 表示等待超时；</li>
+  <li>POLL_ERROR：表示等待期间发生错误；</li>
+</ul>
+
+<p><strong>【7】Looper::awoken()</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void Looper::awoken() {
+    uint64_t counter;
+    //不断读取管道数据，目的就是为了清空管道内容
+    TEMP_FAILURE_RETRY(read(mWakeEventFd, &amp;counter, sizeof(uint64_t)));
+}
+</code></pre>
+</div>
+
+<p><strong>poll小结</strong></p>
+
+<p>pollInner()方法的处理流程：</p>
+
+<ol>
+  <li>先调用epoll_wait()，这是阻塞方法，用于等待事件发生或者超时；</li>
+  <li>对于epoll_wait()返回，当且仅当以下3种情况出现：
+    <ul>
+      <li>POLL_ERROR，发生错误，直接跳转到Done；</li>
+      <li>POLL_TIMEOUT，发生超时，直接跳转到Done；</li>
+      <li>检测到管道有事件发生，则再根据情况做相应处理：
+        <ul>
+          <li>如果是管道读端产生事件，则直接读取管道的数据；</li>
+          <li>如果是其他事件，则处理request，生成对应的reponse对象，push到reponse数组；</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li>进入Done标记位的代码段：
+    <ul>
+      <li>先处理Native的Message，调用Native 的Handler来处理该Message;</li>
+      <li>再处理Response数组，POLL_CALLBACK类型的事件；</li>
+    </ul>
+  </li>
+</ol>
+
+<p>从上面的流程，可以发现对于Request先收集，一并放入reponse数组，而不是马上执行。真正在Done开始执行的时候，是先处理native Message，再处理Request，说明native Message的优先级高于Request请求的优先级。</p>
+
+<p>另外pollOnce()方法中，先处理Response数组中不带Callback的事件，再调用了pollInner()方法。</p>
+
+<h3 id="nativewake">2.4 nativeWake()</h3>
+
+<p>nativeWake用于唤醒功能，在添加消息到消息队列<code class="highlighter-rouge">enqueueMessage()</code>, 或者把消息从消息队列中全部移除<code class="highlighter-rouge">quit()</code>，再有需要时都会调用
+<code class="highlighter-rouge">nativeWake</code>方法。包含唤醒过程的添加消息的调用链，如下：</p>
+
+<p><img src="/images/handler/native_wake.png" alt="native_wake" /></p>
+
+<p>下面来进一步来看看调用链的过程：</p>
+
+<p><strong>【1】MessageQueue.enqueueMessage()</strong></p>
+
+<p>==&gt; MessageQueue.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>boolean enqueueMessage(Message msg, long when) {
+    ... //将Message按时间顺序插入MessageQueue
+    if (needWake) {
+            nativeWake(mPtr); 【2】
+        }
+}
+</code></pre>
+</div>
+
+<p>往消息队列添加Message时，需要根据mBlocked情况来决定是否需要调用nativeWake。</p>
+
+<p><strong>【2】android_os_MessageQueue_nativeWake()</strong></p>
+
+<p>==&gt; android_os_MessageQueue.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static void android_os_MessageQueue_nativeWake(JNIEnv* env, jclass clazz, jlong ptr) {
+    NativeMessageQueue* nativeMessageQueue = reinterpret_cast&lt;NativeMessageQueue*&gt;(ptr);
+    nativeMessageQueue-&gt;wake(); 【3】
+}
+</code></pre>
+</div>
+
+<p><strong>【3】NativeMessageQueue::wake()</strong></p>
+
+<p>==&gt; android_os_MessageQueue.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void NativeMessageQueue::wake() {
+    mLooper-&gt;wake();  【4】
+}
+</code></pre>
+</div>
+
+<p><strong>【4】Looper::wake()</strong></p>
+
+<p>==&gt; Looper.cpp</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void Looper::wake() {
+    uint64_t inc = 1;
+    // 向管道mWakeEventFd写入字符1
+    ssize_t nWrite = TEMP_FAILURE_RETRY(write(mWakeEventFd, &amp;inc, sizeof(uint64_t)));
+    if (nWrite != sizeof(uint64_t)) {
+        if (errno != EAGAIN) {
+            ALOGW("Could not write wake signal, errno=%d", errno);
+        }
+    }
+}
+</code></pre>
+</div>
+
+<p>其中<code class="highlighter-rouge">TEMP_FAILURE_RETRY</code> 是一个宏定义， 当执行<code class="highlighter-rouge">write</code>失败后，会不断重复执行，直到执行成功为止。</p>
+
+<h3 id="sendmessage">2.5 sendMessage</h3>
+
+<p>在<a href="http://gityuan.com/2015/12/26/handler-message-framework/">Android消息机制1-Handler(Java层)</a>文中，讲述了Java层如何向MessageQueue类中添加消息，那么接下来讲讲Native层如何向MessageQueue发送消息。</p>
+
+<p><strong>【1】sendMessage</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void Looper::sendMessage(const sp&lt;MessageHandler&gt;&amp; handler, const Message&amp; message) {
+    nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
+    sendMessageAtTime(now, handler, message);
+}
+</code></pre>
+</div>
+
+<p><strong>【2】sendMessageDelayed</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void Looper::sendMessageDelayed(nsecs_t uptimeDelay, const sp&lt;MessageHandler&gt;&amp; handler,
+        const Message&amp; message) {
+    nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
+    sendMessageAtTime(now + uptimeDelay, handler, message);
+}
+</code></pre>
+</div>
+
+<p>sendMessage(),sendMessageDelayed() 都是调用sendMessageAtTime()来完成消息插入。</p>
+
+<p><strong>【3】sendMessageAtTime</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void Looper::sendMessageAtTime(nsecs_t uptime, const sp&lt;MessageHandler&gt;&amp; handler,
+        const Message&amp; message) {
+    size_t i = 0;
+    { //请求锁
+        AutoMutex _l(mLock);
+        size_t messageCount = mMessageEnvelopes.size();
+        //找到message应该插入的位置i
+        while (i &lt; messageCount &amp;&amp; uptime &gt;= mMessageEnvelopes.itemAt(i).uptime) {
+            i += 1;
+        }
+        MessageEnvelope messageEnvelope(uptime, handler, message);
+        mMessageEnvelopes.insertAt(messageEnvelope, i, 1);
+        //如果当前正在发送消息，那么不再调用wake()，直接返回。
+        if (mSendingMessage) {
+            return;
+        }
+    } //释放锁
+    //当把消息加入到消息队列的头部时，需要唤醒poll循环。
+    if (i == 0) {
+        wake();
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="section-1">2.6 小结</h3>
+
+<p>本节介绍MessageQueue的native()方法，经过层层调用：</p>
+
+<ul>
+  <li>nativeInit()方法，最终实现由epoll机制中的epoll_create()/epoll_ctl()完成；</li>
+  <li>nativeDestroy()方法，最终实现由RefBase::decStrong()完成；</li>
+  <li>nativePollOnce()方法，最终实现由Looper::pollOnce()完成；</li>
+  <li>nativeWake()方法，最终实现由Looper::wake()调用write方法，向管道写入字符；</li>
+  <li>nativeIsPolling()，nativeSetFileDescriptorEvents()这两个方法类似，此处就不一一列举。</li>
+</ul>
+
+<h2 id="native">三、Native结构体和类</h2>
+
+<p>Looper.h/ Looper.cpp文件中，定义了Message结构体，消息处理类，回调类，Looper类。</p>
+
+<h3 id="message">3.1 Message结构体</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>struct Message {
+    Message() : what(0) { }
+    Message(int what) : what(what) { }
+    int what; // 消息类型
+};
+</code></pre>
+</div>
+
+<h3 id="section-2">3.2 消息处理类</h3>
+
+<p>MessageHandler类</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>class MessageHandler : public virtual RefBase {
+protected:
+    virtual ~MessageHandler() { }
+public:
+    virtual void handleMessage(const Message&amp; message) = 0;
+};
+</code></pre>
+</div>
+
+<p>WeakMessageHandler类，继承于MessageHandler类</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>class WeakMessageHandler : public MessageHandler {
+protected:
+    virtual ~WeakMessageHandler();
+public:
+    WeakMessageHandler(const wp&lt;MessageHandler&gt;&amp; handler);
+    virtual void handleMessage(const Message&amp; message);
+private:
+    wp&lt;MessageHandler&gt; mHandler;
+};
+
+void WeakMessageHandler::handleMessage(const Message&amp; message) {
+    sp&lt;MessageHandler&gt; handler = mHandler.promote();
+    if (handler != NULL) {
+        handler-&gt;handleMessage(message); //调用MessageHandler类的处理方法()
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="section-3">3.3 回调类</h3>
+
+<p>LooperCallback类</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>class LooperCallback : public virtual RefBase {
+protected:
+    virtual ~LooperCallback() { }
+public:
+    //用于处理指定的文件描述符的poll事件
+    virtual int handleEvent(int fd, int events, void* data) = 0;
+};
+</code></pre>
+</div>
+
+<p>SimpleLooperCallback类， 继承于LooperCallback类</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>class SimpleLooperCallback : public LooperCallback {
+protected:
+    virtual ~SimpleLooperCallback();
+public:
+    SimpleLooperCallback(Looper_callbackFunc callback);
+    virtual int handleEvent(int fd, int events, void* data);
+private:
+    Looper_callbackFunc mCallback;
+};
+
+int SimpleLooperCallback::handleEvent(int fd, int events, void* data) {
+    return mCallback(fd, events, data); //调用回调方法
+}
+</code></pre>
+</div>
+
+<h3 id="looper">3.4 Looper类</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static const int EPOLL_SIZE_HINT = 8; //每个epoll实例默认的文件描述符个数
+static const int EPOLL_MAX_EVENTS = 16; //轮询事件的文件描述符的个数上限
+</code></pre>
+</div>
+
+<p>其中Looper类的内部定义了Request，Response，MessageEnvelope这3个结构体，关系图如下：</p>
+
+<p><img src="/images/handler/handler_struct.png" alt="handler_struct" /></p>
+
+<p>代码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>struct Request { //请求结构体
+    int fd;
+    int ident;
+    int events;
+    int seq;
+    sp&lt;LooperCallback&gt; callback;
+    void* data;
+    void initEventItem(struct epoll_event* eventItem) const;
+};
+
+struct Response { //响应结构体
+    int events;
+    Request request;
+};
+
+struct MessageEnvelope { //信封结构体
+    MessageEnvelope() : uptime(0) { }
+    MessageEnvelope(nsecs_t uptime, const sp&lt;MessageHandler&gt; handler,
+            const Message&amp; message) : uptime(uptime), handler(handler), message(message) {
+    }
+    nsecs_t uptime;
+    sp&lt;MessageHandler&gt; handler;
+    Message message;
+};
+</code></pre>
+</div>
+
+<p>MessageEnvelope正如其名字，信封。MessageEnvelope里面记录着收信人(handler)，发信时间(uptime)，信件内容(message)</p>
+
+<h3 id="alooper">3.5 ALooper类</h3>
+
+<p>ALooper类定义在通过looper.cpp/looper.h（注意此文件是小写字母开头，与Looper.cpp不同，具体源码路径，可通过查看文章最开头的 相关源码）</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static inline Looper* ALooper_to_Looper(ALooper* alooper) {
+    return reinterpret_cast&lt;Looper*&gt;(alooper);
+}
+static inline ALooper* Looper_to_ALooper(Looper* looper) {
+    return reinterpret_cast&lt;ALooper*&gt;(looper);
+}
+</code></pre>
+</div>
+
+<p>ALooper类 与前面介绍的Looper类，更多的操作是通过ALooper_to_Looper(), Looper_to_ALooper()这两个方法转换完成的，也就是说ALooper类中定义的所有方法，都是通过转换为Looper类，再执行Looper中的方法。</p>
+
+<h2 id="section-4">总结</h2>
+
+<p>MessageQueue通过mPtr变量保存NativeMessageQueue对象，从而使得MessageQueue成为Java层和Native层的枢纽，既能处理上层消息，也能处理native层消息；下面列举Java层与Native层的对应图</p>
+
+<p><img src="/images/handler/handler_arch.png" alt="handler_arch" /></p>
+
+<p>图解：</p>
+
+<ul>
+  <li>红色虚线关系：Java层和Native层的MessageQueue通过JNI建立关联，彼此之间能相互调用，搞明白这个互调关系，也就搞明白了Java如何调用C++代码，C++代码又是如何调用Java代码。</li>
+  <li>蓝色虚线关系：Handler/Looper/Message这三大类Java层与Native层并没有任何的真正关联，只是分别在Java层和Native层的handler消息模型中具有相似的功能。都是彼此独立的，各自实现相应的逻辑。</li>
+  <li>WeakMessageHandler继承于MessageHandler类，NativeMessageQueue继承于MessageQueue类</li>
+</ul>
+
+<p>另外，消息处理流程是先处理Native Message，再处理Native Request，最后处理Java Message。理解了该流程，也就明白有时上层消息很少，但响应时间却较长的真正原因。</p>
+
+<hr />
+
+<p>欢迎关注我的<strong><a href="http://weibo.com/gityuan">微博：Gityuan</a></strong>，微信公众号：gityuan，后面会持续分享更多原创技术干货。</p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/12/28/handler-message-native"
+                    data-title="Android消息机制2-Handler(Native层)"
+                    data-url="http://gityuan.com/2015/12/28/handler-message-native/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  本文基于Android 6.0的源代码，来分析native层的消息处理机制
+
+
+相关源码
+
+framework/base/core/java/and... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/12/27/handler-message-framework/" data-toggle="tooltip" data-placement="top" title="Android消息机制1-Handler(Java层)">
+                        Previous<br>
+                        <span>Android消息机制1-Handler(Java层)</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/01/01/handler-message-usage/" data-toggle="tooltip" data-placement="top" title="Android消息机制3-Handler(实战)">
+                        Next<br>
+                        <span>Android消息机制3-Handler(实战)</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/12/28/handler-message-native"
+                        data-title="Android消息机制2-Handler(Native层)"
+                        data-url="http://gityuan.com/2015/12/28/handler-message-native/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

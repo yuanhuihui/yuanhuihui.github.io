@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Android多屏适配 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/09/03/Android-multi-screen-adapter/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                    </div>
+                    <h1>Android多屏适配</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on September 3, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>相信有不少开发者对于dp/sp/px，这些概念比较模糊，本文将讲解其含义和用途。</p>
+</blockquote>
+
+<h2 id="section">基本概念</h2>
+<ul>
+  <li><strong>px：</strong> 像素（pixel），设备上的物理像素点。</li>
+  <li><strong>dp：</strong>跟dip是同一个概念，与屏幕物理像素点无关，而是基于屏幕密度抽象单位，被称作“设备独立像素”,会随着屏幕的密度进行自动的大小调整。</li>
+  <li><strong>sp：</strong> 专用于文字大小的设置，可根据字体大小首选项进行缩放。</li>
+  <li><strong>inch：</strong> 英寸，1英寸 = 2.54厘米。</li>
+  <li><strong>dpi：</strong> 屏幕像素密度, 单位英寸上像素点的数量。</li>
+  <li><strong>分辨率：</strong> 是指横纵方向上的像素点数，单位是px。一般是纵向像素*横向像素，比如1920 * 1080</li>
+  <li><strong>屏幕尺寸：</strong> 屏幕对角线的长度，单位是inch。比如我们平时常说的5寸手机，是指手机屏幕的对角线长度为5英寸。</li>
+</ul>
+
+<hr />
+
+<h2 id="section-1">转换关系</h2>
+
+<p>常见尺寸表</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>level</th>
+      <th>dpi</th>
+      <th>scale</th>
+      <th>resolution</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ldpi</td>
+      <td>120</td>
+      <td>0.75</td>
+      <td>320*240</td>
+    </tr>
+    <tr>
+      <td>mdpi</td>
+      <td>160</td>
+      <td>1</td>
+      <td>480*320</td>
+    </tr>
+    <tr>
+      <td>hdpi</td>
+      <td>240</td>
+      <td>1.5</td>
+      <td>800*480</td>
+    </tr>
+    <tr>
+      <td>xhdpi</td>
+      <td>320</td>
+      <td>2</td>
+      <td>1280*720</td>
+    </tr>
+    <tr>
+      <td>xxhdpi</td>
+      <td>480</td>
+      <td>3</td>
+      <td>1920*1080</td>
+    </tr>
+    <tr>
+      <td>xxxhdpi</td>
+      <td>640</td>
+      <td>4</td>
+      <td>2560*1440</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>说明：</p>
+
+<ul>
+  <li>google官方用的词是approximately，比如ldpi是值近似等于120dpi；</li>
+  <li>分辨率列只是比较有代表性的而已，但设备的dpi，还需要根据相应的设备尺寸来计算。同一分辨率，设备尺寸越大，那么dpi就越小，单位英寸上像素点越稀疏。</li>
+</ul>
+
+<hr />
+
+<h3 id="section-2">换算公式</h3>
+<p>android.util.TypedValue类提供了一个函数，提供所有单位与px的换算关系。</p>
+
+<ul>
+  <li>
+    <p><strong>dpi如何计算</strong>？<br />
+dpi，英文全称dot per inch，是指每英寸上的像素点个数。
+计算公式：dpi=√(X²+Y²)/Z (其中 X：纵向的像素个数；Y：横向的像素个数；Z：屏幕尺寸)</p>
+  </li>
+  <li>
+    <p><strong>scale是如何计算的</strong>？<br />
+定义以160dpi作为基准，当前设备的dpi/160dpi = scale值。也就是当设备的dpi为160时1dp=1px.</p>
+  </li>
+  <li>
+    <p><strong>dp与px如何转换</strong>？<br />
+计算公式：pxs = dps * (dpi/160)，<br />
+比如：320dpi的设备，10dp转换为px为 10 *（320/160）px = 20 px，即320dpi下10dp=20px.</p>
+  </li>
+  <li>
+    <p><strong>1dp到底等于多长呢</strong>？<br />
+假设设备的dpi=320, 是指320px对应的长度为1英寸, 那么1px=1/320 英寸。再根据前面的公式， 1dp = （320/160） px = 2px。故1dp对应的长度为2 * (1/320)英寸，即1/160英寸。 <br />
+同理，假设设备的dpi =N，那么1dp = (N/160) px = (N/160) * (1/N) inch = 1/160 inch，再加上前面提到的近似，可以得出结论为<strong>1dp约等于1/160英寸</strong>。</p>
+  </li>
+</ul>
+
+<hr />
+
+<h2 id="section-3">多屏适配</h2>
+
+<h3 id="section-4">适配原则</h3>
+<ul>
+  <li>layout中，最好采用wap_content, fill_parent，dp，可保证在屏幕上有合适的大小;</li>
+  <li>像素单位使用dp, 文字单位使用sp；</li>
+  <li>程序代码中不要出现具体的px;</li>
+  <li>图片应多使用.9.png；</li>
+  <li>使用百分比布局；</li>
+</ul>
+
+<h3 id="section-5">适配方法</h3>
+
+<ul>
+  <li>查看不同分辨率的设备市场占有率，分析出需要支持的设备分辨率：
+    <ul>
+      <li><a href="http://screensiz.es">http://screensiz.es</a></li>
+      <li><a href="http://opensignal.com/reports/2015/08/android-fragmentation">http://opensignal.com/reports/2015/08/android-fragmentation</a></li>
+    </ul>
+  </li>
+  <li>对不同大小的屏幕提供不同的layout；</li>
+  <li>对不同密度的屏幕提供不同的图片；</li>
+</ul>
+
+<hr />
+
+<p><strong><a href="http://gityuan.com/about/">如果您觉得文章对您有所帮助，不妨点我，关注我的微信、微博. ^_^</a></strong></p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/09/03/Android-multi-screen-adapter"
+                    data-title="Android多屏适配"
+                    data-url="http://gityuan.com/2015/09/03/Android-multi-screen-adapter/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  相信有不少开发者对于dp/sp/px，这些概念比较模糊，本文将讲解其含义和用途。
+
+
+基本概念
+
+  px： 像素（pixel），设备上的物理像素点... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/09/03/android-anaimator-1/" data-toggle="tooltip" data-placement="top" title="Android Anaimator 1">
+                        Previous<br>
+                        <span>Android Anaimator 1</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/09/04/android-anaimator-2/" data-toggle="tooltip" data-placement="top" title="Android Anaimator 2">
+                        Next<br>
+                        <span>Android Anaimator 2</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/09/03/Android-multi-screen-adapter"
+                        data-title="Android多屏适配"
+                        data-url="http://gityuan.com/2015/09/03/Android-multi-screen-adapter/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

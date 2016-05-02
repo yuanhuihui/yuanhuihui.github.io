@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>理解Android编译命令 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2016/03/20/android-build/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#make" title="make">make</a>
+                        
+                        <a class="tag" href="/tags/#command" title="command">command</a>
+                        
+                    </div>
+                    <h1>理解Android编译命令</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on March 20, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>工欲善其事，必先利其器，对于想要深入学习Android源码，必须先掌握Android编译命令.</p>
+</blockquote>
+
+<h2 id="section">一、引言</h2>
+
+<p>关于Android Build系统，这个话题很早就打算整理下，迟迟没有下笔，决定跟大家分享下。先看下面几条指令，相信编译过Android源码的人都再熟悉不过的。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>source /opt/android1204_17.conf 
+source setenv.sh
+lunch
+make -j12
+</code></pre>
+</div>
+
+<p>记得最初刚接触Android时，同事告诉我用上面的指令就可以编译Android源码，指令虽短但过几天就记不全或者忘记顺序，每次编译时还需要看看自己的云笔记，冰冷的指令总是难以让我记忆。后来我决定认真研究下这个指令的含义。知其然还需知其所以然，这样能更深层次的理解并记忆，才能与自身的知识体系建立强连接，或许<strong>还有意外收获</strong>，果然如此，接下来跟大家分享一下在研究上述几条指令含义的过程中，深入了解到的Android Build(编译)系统。</p>
+
+<h2 id="section-1">二、编译命令</h2>
+
+<p>准备好编译环境后，编译Android源码的第一步是 <code class="highlighter-rouge">source build/envsetup.sh</code>，其中source命令就是用于运行shell脚本命令，功能等价于”.”，因此该命令也等价于<code class="highlighter-rouge">. build/envsetup.sh</code>。在文件<code class="highlighter-rouge">envsetup.sh</code>声明了当前会话终端可用的命令，这里需要注意的是当前会话终端，也就意味着每次新打开一个终端都必须再一次执行这些指令。起初并不理解为什么新开的终端不能直接执行make指令，到这里总算明白了。</p>
+
+<p>接下来，解释一下<strong>本文开头的引用</strong>的命令：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>source /opt/android1204_17.conf  //初始化jdk环境变量（这个不是必需的，因厂商而异）
+source setenv.sh  //初始化编译环境，包括后面的lunch和make指令
+lunch  //指定此次编译的目标设备以及编译类型
+make  -j12 //开始编译，默认为编译整个系统，其中-j12代表的是编译的job数量为12。
+</code></pre>
+</div>
+
+<p>所有的编译命令都在<code class="highlighter-rouge">envsetup.sh</code>文件能找到相对应的function，比如上述的命令<code class="highlighter-rouge">lunch</code>，<code class="highlighter-rouge">make</code>，在文件一定能找到</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>function lunch(){
+	...
+}
+
+function make(){
+	...
+}
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">source envsetup.sh</code>，需要cd到setenv.sh文件所在路径执行，路径可能在build/envsetup.sh，或者integrate/envsetup.sh，再或者不排除有些厂商会封装自己的.sh脚本，但核心思路是一致的。</p>
+
+<p>具体实现这里就不展开说明，下面精炼地总结了一下各个指令用法和功效。</p>
+
+<h4 id="section-2">2.1 代码编译</h4>
+
+<table>
+  <thead>
+    <tr>
+      <th>编译指令</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>m</td>
+      <td>在源码树的根目录执行编译</td>
+    </tr>
+    <tr>
+      <td>mm</td>
+      <td>编译当前路径下所有模块，但不包含依赖</td>
+    </tr>
+    <tr>
+      <td>mmm [module_path]</td>
+      <td>编译指定路径下所有模块，但不包含依赖</td>
+    </tr>
+    <tr>
+      <td>mma</td>
+      <td>编译当前路径下所有模块，且包含依赖</td>
+    </tr>
+    <tr>
+      <td>mmma [module_path]</td>
+      <td>编译指定路径下所有模块，且包含依赖</td>
+    </tr>
+    <tr>
+      <td>make [module_name]</td>
+      <td>无参数，则表示编译整个Android代码</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>下面列举部分模块的编译指令：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>模块</th>
+      <th>make命令</th>
+      <th>mmm命令</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>init</td>
+      <td>make init</td>
+      <td>mmm system/core/init</td>
+    </tr>
+    <tr>
+      <td>zygote</td>
+      <td>make app_process</td>
+      <td>mmm frameworks/base/cmds/app_process</td>
+    </tr>
+    <tr>
+      <td>system_server</td>
+      <td>make services</td>
+      <td>mmm frameworks/base/services</td>
+    </tr>
+    <tr>
+      <td>java framework</td>
+      <td>make framework</td>
+      <td>mmm frameworks/base</td>
+    </tr>
+    <tr>
+      <td>framework资源</td>
+      <td>make framework-res</td>
+      <td>mmm frameworks/base/core/res</td>
+    </tr>
+    <tr>
+      <td>jni framework</td>
+      <td>make libandroid_runtime</td>
+      <td>mmm frameworks/base/core/jni</td>
+    </tr>
+    <tr>
+      <td>binder</td>
+      <td>make libbinder</td>
+      <td>mmm frameworks/native/libs/binder</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>上述mmm命令同样适用于mm/mma/mmma，编译系统采用的是增量编译，只会编译发生变化的目标文件。当需要重新编译所有的相关模块，则需要编译命令后增加参数<code class="highlighter-rouge">-B</code>，比如make -B [module_name]，或者 mm -B [module_path]。</p>
+
+<p><strong>Tips:</strong></p>
+
+<ul>
+  <li>对于<code class="highlighter-rouge">m、mm、mmm、mma、mmma</code>这些命令的实现都是通过<code class="highlighter-rouge">make</code>方式来完成的。</li>
+  <li>mmm/mm编译的效率很高，而make/mma/mmma编译较缓慢；</li>
+  <li>make/mma/mmma编译时会把所有的依赖模块一同编译，但mmm/mm不会;</li>
+  <li>建议：首次编译时采用make/mma/mmma编译；当依赖模块已经编译过的情况，则使用mmm/mm编译。</li>
+</ul>
+
+<h3 id="section-3">2.2 代码搜索</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>搜索指令</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>cgrep</td>
+      <td>所有<strong>C/C++</strong>文件执行搜索操作</td>
+    </tr>
+    <tr>
+      <td>jgrep</td>
+      <td>所有<strong>Java</strong>文件执行搜索操作</td>
+    </tr>
+    <tr>
+      <td>ggrep</td>
+      <td>所有<strong>Gradle</strong>文件执行搜索操作</td>
+    </tr>
+    <tr>
+      <td>mangrep [keyword]</td>
+      <td>所有<strong>AndroidManifest.xml</strong>文件执行搜索操作</td>
+    </tr>
+    <tr>
+      <td>sepgrep [keyword]</td>
+      <td>所有<strong>sepolicy</strong>文件执行搜索操作</td>
+    </tr>
+    <tr>
+      <td>resgrep [keyword]</td>
+      <td>所有本地res/*.xml文件执行搜索操作</td>
+    </tr>
+    <tr>
+      <td>sgrep [keyword]</td>
+      <td>所有资源文件执行搜索操作</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>上述指令用法最终实现方式都是基于<code class="highlighter-rouge">grep</code>指令，各个指令用法格式：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>xgrep [keyword]  //x代表的是上表的搜索指令
+</code></pre>
+</div>
+
+<p>例如，搜索所有AndroidManifest.xml文件中的<code class="highlighter-rouge">launcher</code>关键字所在文件的具体位置，指令</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>mangrep launcher
+</code></pre>
+</div>
+
+<p>再如，搜索所有Java代码中包含zygote所在文件</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>jgrep zygote
+</code></pre>
+</div>
+
+<p>又如，搜索所有system_app的selinux权限信息</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>sepgrep system_app
+</code></pre>
+</div>
+
+<p><strong>Tips:</strong> Android源码非常庞大，直接采用grep来搜索代码，不仅方法笨拙、浪费时间，而且搜索出很多无意义的混淆结果。根据具体需求，来选择合适的代码搜索指令，能节省代码搜索时间，提高搜索结果的精准度，方便定位目标代码。</p>
+
+<h3 id="section-4">2.3 导航指令</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>导航指令</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>croot</td>
+      <td>切换至Android根目录</td>
+    </tr>
+    <tr>
+      <td>cproj</td>
+      <td>切换至工程的根目录</td>
+    </tr>
+    <tr>
+      <td>godir [filename]</td>
+      <td>跳转到包含某个文件的目录</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Tips:</strong>  当每次修改完某个文件后需要编译时，执行<code class="highlighter-rouge">cproj</code>后会跳转到当前模块的根目录，也就是Android.mk文件所在目录，然后再执行mm指令，即可编译目标模块；当进入源码层级很深后，需要返回到根目录，使用<code class="highlighter-rouge">croot</code>一条指令完成；另外<code class="highlighter-rouge">cd -</code> 指令可用于快速切换至上次目录。</p>
+
+<h3 id="section-5">2.4 信息查询</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>查询指令</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>hmm</td>
+      <td>查询所有的指令help信息</td>
+    </tr>
+    <tr>
+      <td><strong>findmakefile</strong></td>
+      <td>查询当前目录所在工程的Android.mk文件路径</td>
+    </tr>
+    <tr>
+      <td>print_lunch_menu</td>
+      <td>查询lunch可选的product</td>
+    </tr>
+    <tr>
+      <td>printconfig</td>
+      <td>查询各项编译变量值</td>
+    </tr>
+    <tr>
+      <td>gettop</td>
+      <td>查询Android源码的根目录</td>
+    </tr>
+    <tr>
+      <td>gettargetarch</td>
+      <td>获取TARGET_ARCH值</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="section-6">2.5 其他指令</h3>
+
+<p>上述只是列举比较常用的指令，还有其他指令，而且不同的build编译系统，支持的指令可能会存在一些差异，当忘记这些编译指令，可以通过执行<code class="highlighter-rouge">hmm</code>，查询指令的帮助信息。</p>
+
+<p>最后再列举两个比较常用的指令：</p>
+
+<ul>
+  <li>make clean：执行清理操作，等价于 <code class="highlighter-rouge">rm -rf out/</code></li>
+  <li>make update-api：更新API，在framework API改动后需执行该指令，Api记录在目录<code class="highlighter-rouge">frameworks/base/api</code>；</li>
+</ul>
+
+<h2 id="section-7">三、编译系统</h2>
+
+<p>Android 编译系统是Android源码的一部分，用于编译Android系统，Android SDK以及相关文档。该编译系统是由Make文件、Shell以及Python脚本共同组成，其中最为重要的便是Make文件。关于编译系统可参考 <a href="http://www.ibm.com/developerworks/cn/opensource/os-cn-android-build/">理解 Android Build 系统</a>。</p>
+
+<h3 id="makefile">3.1 Makefile分类</h3>
+
+<p>整个Build系统的Make文件分为三大类：</p>
+
+<ul>
+  <li><strong>系统核心的Make文件：</strong>定义了Build系统的框架，文件全部位于路径<code class="highlighter-rouge">/build/core</code>，其他Make文件都是基于该框架编写的；</li>
+  <li><strong>针对产品的Make文件：</strong>定义了具体某个型号手机的Make文件，文件路径位于<code class="highlighter-rouge">/device</code>，该目录下往往又以公司名和产品名划分两个子级目录，比如<code class="highlighter-rouge">/device/qcom/msm8916</code>；</li>
+  <li><strong>针对模块的Make文件：</strong>整个系统分为各个独立的模块，每个模块都一个专门的Make文件，名称统一为”Android.mk”，该文件定义了当前模块的编译方式。Build系统会扫描整个源码树中名为”Android.mk”的问题，并执行相应模块的编译工作。</li>
+</ul>
+
+<h3 id="section-8">3.2 编译产物</h3>
+
+<p>经过<code class="highlighter-rouge">make</code>编译后的产物，都位于<code class="highlighter-rouge">/out目录</code>，该目录下主要关注下面几个目录：</p>
+
+<ul>
+  <li>/out/host：Android开发工具的产物，包含SDK各种工具，比如adb，dex2oat，aapt等。</li>
+  <li>/out/target/common：通用的一些编译产物，包含Java应用代码和Java库；</li>
+  <li>/out/target/product/[product_name]：针对特定设备的编译产物以及平台相关C/C++代码和二进制文件；</li>
+</ul>
+
+<p>在/out/target/product/[product_name]目录下，有几个重量级的镜像文件：</p>
+
+<ul>
+  <li>system.img:挂载为根分区，主要包含Android OS的系统文件；</li>
+  <li>ramdisk.img:主要包含init.rc文件和配置文件等；</li>
+  <li>userdata.img:被挂载在/data，主要包含用户以及应用程序相关的数据；</li>
+</ul>
+
+<p>当然还有boot.img，reocovery.img等镜像文件，这里就不介绍了。</p>
+
+<h3 id="androidmk">3.3 Android.mk解析</h3>
+
+<p>在源码树中每一个模块的所有文件通常都相应有一个自己的文件夹，在该模块的根目录下有一个名称为“Android.mk”
+的文件。编译系统正是以模块为单位进行编译，每个模块都有唯一的模块名，一个模块可以有依赖多个其他模块，模块间的依赖关系就是通过模块名来引用的。也就是说当模块需要依赖一个jar包或者apk时，必须先将jar包或apk定义为一个模块，然后再依赖相应的模块。</p>
+
+<p>对于Android.mk文件，通常都是以下面两行</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>LOCAL_PATH := $(call my-dir)  //设置当编译路径为当前文件夹所在路径
+include $(CLEAR_VARS)  //清空编译环境的变量（由其他模块设置过的变量）
+</code></pre>
+</div>
+
+<p>为方便模块编译，编译系统设置了很多的编译环境变量，如下：</p>
+
+<ul>
+  <li>LOCAL_SRC_FILES：当前模块包含的所有源码文件；</li>
+  <li>LOCAL_MODULE：当前模块的名称（具有唯一性）；</li>
+  <li>LOCAL_PACKAGE_NAME：当前APK应用的名称（具有唯一性）；</li>
+  <li>LOCAL_C_INCLUDES：C/C++所需的头文件路径;</li>
+  <li>LOCAL_STATIC_LIBRARIES：当前模块在静态链接时需要的库名;</li>
+  <li>LOCAL_SHARED_LIBRARIES：当前模块在运行时依赖的动态库名;</li>
+  <li>LOCAL_STATIC_JAVA_LIBRARIES：当前模块依赖的Java静态库;</li>
+  <li>LOCAL_JAVA_LIBRARIES：当前模块依赖的Java共享库;</li>
+  <li>LOCAL_CERTIFICATE：签署当前应用的证书名称，比如platform。</li>
+  <li>LOCAL_MODULE_TAGS：当前模块所包含的标签，可以包含多标签，可能值为debgu,eng,user,development或optional（默认值）</li>
+</ul>
+
+<p>针对这些环境变量，编译系统还定义了一些便捷函数，如下：</p>
+
+<ul>
+  <li>$(call my-dir)：获取当前文件夹路径；</li>
+  <li>$(call all-java-files-under, <src>)：获取指定目录下的所有Java文件；</src></li>
+  <li>$(call all-c-files-under, <src>)：获取指定目录下的所有C文件；</src></li>
+  <li>$(call all-Iaidl-files-under, <src>) ：获取指定目录下的所有AIDL文件；</src></li>
+  <li>$(call all-makefiles-under, <folder>)：获取指定目录下的所有Make文件；</folder></li>
+</ul>
+
+<p>示例：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>  LOCAL_PATH := $(call my-dir) 
+  include $(CLEAR_VARS) 
+   
+  # 获取所有子目录中的Java文件
+  LOCAL_SRC_FILES := $(call all-subdir-java-files) 
+   
+  # 当前模块依赖的动态Java库名称
+  LOCAL_JAVA_LIBRARIES := com.gityuan.lib 
+   
+  # 当前模块的名称
+  LOCAL_MODULE := demo 
+   
+  # 将当前模块编译成一个静态的Java库
+  include $(BUILD_STATIC_JAVA_LIBRARY)
+</code></pre>
+</div>
+
+<hr />
+<p>如果觉得本文对您有所帮助，请关注我的<strong>微信公众号：gityuan</strong>， <strong><a href="http://weibo.com/gityuan">微博：Gityuan</a></strong>。 或者<a href="http://gityuan.com/about/">点击这里查看更多关于gityuan个人信息</a></p>
+
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2016/03/20/android-build"
+                    data-title="理解Android编译命令"
+                    data-url="http://gityuan.com/2016/03/20/android-build/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  工欲善其事，必先利其器，对于想要深入学习Android源码，必须先掌握Android编译命令.
+
+
+一、引言
+
+关于Android Build系统，... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/03/13/start-activity/" data-toggle="tooltip" data-placement="top" title="startActivity流程分析(一)">
+                        Previous<br>
+                        <span>startActivity流程分析(一)</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/03/27/app-process-create/" data-toggle="tooltip" data-placement="top" title="理解Android进程创建流程">
+                        Next<br>
+                        <span>理解Android进程创建流程</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2016/03/20/android-build"
+                        data-title="理解Android编译命令"
+                        data-url="http://gityuan.com/2016/03/20/android-build/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>如何自学Android - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2016/04/25/how-to-study-android/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#自学编程" title="自学编程">自学编程</a>
+                        
+                    </div>
+                    <h1>如何自学Android</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on April 25, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>引言：在知乎上回答了 <a href="https://www.zhihu.com/question/41198536/answer/90560766?from=profile_answer_card">自学编程一年，压力过大，该怎么办？ - Gityuan 的回答</a>，之后有不少知乎朋友私信或email给我，希望能讲讲学习Android的心得。已有不少人士写过自学Android相关文章，那么本文则是Gityuan的学习经历，仅供大家参考。</p>
+</blockquote>
+
+<p>看到很多人提问<strong>非科班该如何学习编程</strong>，其实科班也基本靠自学。有句话叫“师傅领进门修行靠个人”，再厉害的老师能教你的东西都是很有限的，真正的修行还是要靠自己。我本科是学数学的，虽然研究生是计算机专业，但研究生往往是做研究工作，并不会接触编程这么基本的东西，关于编程相关我都是靠自学。对于Android这一块，是参加工作还开始接触，开始自己学习的。</p>
+
+<p>学习级别，很多人都往往划分成入门、初级、中间..骨灰级等。这里就简单地划分为两级：基础篇和进阶篇。另外，本文涉及到的所有书籍都是<a href="http://weibo.com/gityuan">Gityuan</a> 在学习过程中所读过的比较经典的一些书籍，才推荐给大家。</p>
+
+<h2 id="section">一、基础篇</h2>
+
+<p><strong>看书的姿态：</strong>学习过程往往大家都需要看书，网上一搜，往往会有一大推的书推荐给大家去阅读，面对这么多书，该如何选择，如何阅读的呢，对于同一个层级的书籍选择一本精读，其余的粗读、略读即可，大同小异，对于精读的书籍需要反复的阅读。</p>
+
+<h3 id="java">1.1 Java篇</h3>
+
+<p>Java是Android的基础，建议初学者一定要先学习Java基本知识，进而再学习Android，循序渐进，切莫心急，只有扎实的基础才能建造牢固的上层建筑。</p>
+
+<p><strong>Java书籍</strong></p>
+
+<ul>
+  <li><strong>Thinking in Java</strong>： 中文版《Java编程思想 》，这是一本非常经典的Java书籍，很多人都说这个书不适合初学者，我记得自己当初看的第一本Java书便是这本书。看完第一遍对Java有了整体的理解，但很多细节没有完全理解，查了资源又看了第二遍，对Java有了更深地理解。再后来一段时间后，能力也有所提升，再拿起这本书又看了第三遍，发现对面向对象有了更深一步的理解，这本书就是适合反复的阅读。</li>
+  <li><strong>Effective Java</strong>：Java进阶书，这本书采用“条目”的方式来展开的，总提出了78条Java具体的建议，对Java平台精妙之处的独到见解，还提供优秀的代码范例。作为Java进阶之书，对Java水平的提升大有裨益。</li>
+  <li><strong>Java concurrency in Practice</strong>：中文版《Java并发编程实战》，本书采用循序渐进的讲解方式，从并发编程的基本理论讲起，再讲述了结构化并发应用，性能与测试，最后将显式锁、原子变量、非阻塞算法这些高级主题。对于Java并发这一块算得上是一本很棒的书。</li>
+  <li><strong>Java Performance</strong>：中文版《Java性能优化权威指南》，Java之父James Gosling推荐的一本Java应用性能优化的经典之作，包含算法结构、内存、I/O、磁盘使用方式，内容通俗易懂，还介绍了大量的监控和测量工具。关于优化都是属于较深的领域，对Java有一定基础后，很有必要了解看看。</li>
+</ul>
+
+<p><strong>Java虚拟机</strong>，这是作为进阶Java高手必需有所了解：</p>
+
+<ul>
+  <li><a href="https://docs.oracle.com/javase/specs/jls/se7/html/index.html">The Java Language Specification</a>，官方Java文档（英文版）</li>
+  <li><a href="https://docs.oracle.com/javase/specs/jvms/se7/html/">The Java® Virtual Machine Specification</a>，官方Jvm文档（英文版）</li>
+  <li>深入理解java虚拟机：这是国内关于Java虚拟机讲得非常全面的一本书，从Java GC到Java虚拟机内部实现以及优化策略，作为Java高手非常值得一看的书籍。</li>
+</ul>
+
+<p>本文的重点是讲如何学习Android，所以姑且把Java基础与进阶的书都放到Android学习的基础篇里。作为Android开发者来说，完全没有必要一开始都对Java理解得那么深，只有要看一两本Java基本书，掌握Java面向对象的思想的核心要义即万物皆为对象，掌握Java基本语法，基本就可以开启Android的学习之路。在后续对Android也有一定理解后，再慢慢不断提升Java和Android水平。</p>
+
+<p>有朋友私信我觉着这个java书难度有点高，可能是本人在看Java书籍之前，还看过些许C和C++的入门书的缘故，所以看的第一本书《Java编程思想》。如果你真的是零基础，第一次接触编程，想以Java作为自己的入门语言，那么你可以先看看《Java语言程序设计》(基础篇) 或者《Java从入门到精通》，作为初学者险掌握Java基本语法，平时遇到不熟悉的方法，多查看API文档即可，慢慢地就熟悉了。</p>
+
+<h3 id="android">1.2 Android基础篇</h3>
+
+<p>有了一定的Java基础（不需要精通Java），就可以开始入门Android。建议初学Android者，一定要先搭建自己的开发环境，先准备jdk和Android Studio环境。再看书的过程，一边看知识点一边写示例程序，一来加深印象，二来提高动手能力。</p>
+
+<ul>
+  <li>《疯狂Android讲义》：作者李刚，这是我看过的第一个Android书籍，目前有第三版了，我当时看的是第二版基于Android 4.2，书中有大量的实例，记得当时每看完一个实例就跟着敲了一遍，大概花了一周时间把这本书看完并把大部分的实例代码都亲手敲了一遍。</li>
+  <li>《第一行代码》：作者郭霖，网上有不少人都推荐这本书作为Android入门书，但我当时没有看过。这是图灵系列图书，前段时间图灵的编辑看到我的博客gityuan.com，于是联系到我问是否有兴趣出书，便提到郭霖的《第一行代码》也是他们出版社推出的，然后就给我邮寄了一本。我大概扫了一扫这本书，内容的确比较基础，作者文笔不错，书中还穿插了不少打怪涨经验升级的片段，比较风趣，初学者可以看看。</li>
+</ul>
+
+<p>Android的基本书籍，只需一两本即可，没有必要看太多基础书籍，不同能力就该有不同的追求，这里就不再介绍其他基础书籍。 另外，Android开发过程中总是需要各种开发环境、工具的下载，再这里推荐一个不错的网站 <a href="http://www.androiddevtools.cn/">AndroidDevTools.cn</a>，收集整理了 Android开发、设计等相关的各种工具大集合，非常全面，而且速度也不错哦，最重要的不用翻墙就可下载到最新的工具。</p>
+
+<p>有朋友好奇私信我是否即将要出书了，目前没有相关计划，能力尚不及很多前辈，还需加深内功修为，自己的所学所悟写成博客，还请大家多多指点！</p>
+
+<h3 id="android-1">1.3 Android一手资料</h3>
+
+<p>何为Android一手资料？那就是<strong>Google官方给出的资料</strong>，这里往往是英文版的，营养价值极高。其实你只要英文还凑合+翻墙工具，强烈建议你直接看Android官网的资料，千万别被英语所吓倒，因为很多专业名称，大家一看就明白比如Activity/Service等这些代码名称本身就是英语，剩下地都就非常基础语法，不懂可以随时翻译，我一般都是<strong>用Chrome浏览器+Google翻译插件</strong>，哪里不会点哪里，妈妈再也不用担心我的英语了。</p>
+
+<p>言归正传，如果你能看完并理解下列的内容，那么你完全可以没有必要再看前面介绍的书籍，并且对于Android已有相当熟悉了。</p>
+
+<ul>
+  <li><a href="http://developer.android.com/intl/zh-cn/index.html">developer.android.com</a>：Android开发官网，下面列举常用的资料：
+    <ul>
+      <li><a href="http://developer.android.com/training/index.html">Android training</a>：Android培训文档；
+        <ul>
+          <li>另外由胡凯发起了<a href="http://hukai.me/android-training-course-in-chinese/index.html">Android培训课程中文版</a>；对官方文档进行翻译；</li>
+        </ul>
+      </li>
+      <li><a href="http://developer.android.com/guide/index.html">Android API指南</a>：Android组件、Manifest配置文件，动画/图像等相关介绍；</li>
+      <li><a href="http://developer.android.com/tools/performance/index.html">Android Tools</a>：性能、测试、Android Studio等各种工具说明文档；</li>
+      <li><a href="https://source.android.com/">source.android.com</a>：介绍Android开源码相关的内容；</li>
+    </ul>
+  </li>
+  <li><a href="https://www.youtube.com/playlist?list=PLOU2XLYxmsIKEOXh5TwZEv89aofHzNCiu">Android Performance Patterns</a>：2015年Google陆续在Youtube上发布的Android性能优化的视频，目前已更新第4季。
+    <ul>
+      <li>国内Google组织，优酷上发布了相应的 <a href="http://v.youku.com/v_show/id_XMTUyMTM0MzgyNA==.html?f=26946827">(中文)Android 性能模式 第四季</a>；</li>
+      <li>另外由胡凯发起了<a href="http://hukai.me">Android性能优化典范中文版文档</a>；对官方视频进行翻译并整理；</li>
+    </ul>
+  </li>
+  <li><a href="http://android-developers.blogspot.com/">android-developers.blogspot.com</a>：Android官方博客，有一些比较不错的feature，博客会第一时间呈现。</li>
+</ul>
+
+<h3 id="android-2">1.4 Android资源整理</h3>
+
+<p>到这里，那么你已经具备开发App的本领。平时需要自己动手多写写App，另外就是看看别人优秀的App是如何写的，下面列举一些开源库、工具以及App：</p>
+
+<ul>
+  <li><a href="http://android-arsenal.com/">android-arsenal.com</a>：作者<a href="https://github.com/vbauer">vbauer</a>整理收集Github中各种开源库与工具，并提供搜索功能，是国外整理得最全面的库；</li>
+  <li><a href="https://github.com/Trinea/android-open-project">Android 开源项目汇总</a>：作者<a href="https://github.com/Trinea">Trinea</a>整理的各种开源库，是国内整理得最全面的库；</li>
+  <li><a href="http://a.codekk.com/">codeKK 开源项目源码分析</a>：从源码的角度，分析Android较流行的优秀开源框架；</li>
+  <li><a href="http://www.codota.com/">codota.com</a>：这是一个代码搜索引擎，收集的是各种API的优秀示例Java代码。</li>
+</ul>
+
+<p>当然还有很多优秀的博客和网站值得推荐… //TODO</p>
+
+<h2 id="section-1">二、进阶篇</h2>
+
+<p>作为程序员，不去阅读源码，仅仅看API文档，只是浮于表象，这是远远不够的。.真正最能锻炼能力的便是直接去阅读源码，不仅限于阅读Andoid系统源码，也包括阅读各种优秀的开源库。</p>
+
+<h3 id="section-2">2.1 阅读源码的重要性</h3>
+
+<p>借用Linux之父Linus Torvalds的一句名言：<strong>Read the fucking source code</strong>。不管是阅读Andoid系统源码还是优秀的开源框架，对能力那都会有一个巨大的提升；首先，能学习到优秀的代码风格和设计思想；能真正做到“知其然，还需知其所以然”；能指导自己更加灵活的使用API，能更加快速地找到系统bug的根源。</p>
+
+<h3 id="section-3">2.2 阅读源码的准备</h3>
+
+<ol>
+  <li>Java基础：上层framework以及App层都是采用Java语法；</li>
+  <li>C/C++基础：Android的jni/native层代码采用C++，Linux 采用C；</li>
+  <li>Linux：Android内核基于Linux的，了解Linux相关知识对深入掌握Android还是很有必要。</li>
+  <li>Git：Android源码采用git和repo进行管理；</li>
+  <li>Make：Android源码采用Make系统编译，源码系统中会看到很多Android.mk之类的文件；</li>
+  <li>Source Insight：这绝对是看源码的神器；可以在Java、C++、C代码之间无缝衔接；</li>
+  <li>Eclipse：熟悉常用快捷键，工欲善其事必先利其器；虽然Source Insight很方便，但由于对Eclipse的熟悉感，对于framework Java层面的代码，我还是更习惯用Eclipse来看，对于Native代码以及linux代码则采用Source Insight来看；</li>
+  <li>Android Studio：这是Google官方支持的App开发环境，关于Android Studiod使用教程；</li>
+  <li>Google Drawings：这是画图工具，Gityuan博客中的文章都是采用Google Drawing完成，比如<a href="http://gityuan.com/2015/10/31/binder-prepare/#binder-1">Binder开篇</a>文中的图。</li>
+  <li>StarUML：这是类图，Gityuan博客文章的类图和流程图都是采用StarUML完成，比如<a href="http://gityuan.com/2016/03/26/app-process-create/#forkandspecialize-1">理解Android进程创建流程</a>文中时序图。</li>
+</ol>
+
+<h3 id="section-4">2.3 阅读源码的姿态</h3>
+
+<p>阅读源码绝不是从源码工程按顺序一个个的文件，从首行看到尾行。正确而高效地阅读源码的姿态应该是以某一个主线为起点，从上层往底层，不断地追溯，在各个模块、文件、方法之间来回跳转，反复地阅读，理清整个流程的逻辑。同时带着思考去看源码，尝试去揣测作者的用意，去理解代码的精妙之处，去思考代码可能存在的缺陷，去总结优秀的代码设计思想。下面说说我在阅读Android源码过程常涉及的库。</p>
+
+<p><strong>阅读Android源码：</strong></p>
+
+<p>下面是我以Android开机过程为主线，展开一系列的文章 <a href="http://gityuan.com/android/">Android开篇</a>中的一副流程图，在公司内部分享时我曾多次以下图为流程整个Android架构，如下图：</p>
+
+<p>点击查看<a href="http://gityuan.com/images/android-process/android-boot.jpg">大图</a></p>
+
+<p><img src="/images/android-process/android-boot.jpg" alt="process_status" /></p>
+
+<p><strong>Android系统源码</strong></p>
+
+<p><a href="https://android.googlesource.com/">android.googlesource.com</a>：Google官方源码，国内无法直接访问，需要翻墙，对于一个程序员来说具备翻墙的能力是非常有必要的。Android源码中包含的库非常之多，下面列举我在看Android源码过程中涉及较多，也是比较常看的一些库：</p>
+
+<ul>
+  <li><a href="https://android.googlesource.com/platform/packages/apps/">android/platform/packages/apps</a>：Android自带的app，比如Email,Camera, Music等，对于应用开发工程师主要关注的目录；</li>
+  <li><a href="https://android.googlesource.com/platform/packages/apps/">android/platform/frameworks/base</a>： Java framework，这是framework工程师看得最多的目录；</li>
+  <li><a href="https://android.googlesource.com/platform/frameworks/native/">android/platform/frameworks/native</a>：Native framework;</li>
+  <li><a href="https://android.googlesource.com/platform/art/">android/platform/art</a>：Art虚拟机;</li>
+  <li><a href="https://android.googlesource.com/kernel/common/">android/kernel/common</a>：Android内核，这是驱动工程师最关注的模块；</li>
+  <li><a href="https://android.googlesource.com/platform/system/core/">android/platform/system/core</a> ：核心系统;</li>
+  <li><a href="https://android.googlesource.com/platform/libcore/">android/platform/libcore</a>：平台的lib库;
+另外，对于无法翻墙的朋友来说，还可以通过上Github通过 <a href="https://github.com/android">Android主页</a> 下载Android源码，这些都是定时从Google官方源码的镜像同步而来的。</li>
+</ul>
+
+<h3 id="section-5">2.4 优秀资源</h3>
+
+<p>牛顿曾说过：<strong>“如果我看得更远一点的话，是因为我站在巨人的肩膀上”</strong>，这句话很具有实用价值，看完前面的介绍，你千万不要一上来就一头扎进源码的世界，小心你会进入二次元世界，处于混沌状态，最后崩溃乃至放弃求知之路，一定要合理利用现有的优秀资源。</p>
+
+<p><strong>Android 系统源码分析</strong></p>
+
+<ul>
+  <li><a href="http://blog.csdn.net/innost?viewmode=contents">Innost的专栏</a>
+    <ul>
+      <li>邓凡平前辈所写博客，条例有序，覆盖了Android系统大部分内容；</li>
+      <li>《深入理解Android》 （卷I，卷II，卷III）</li>
+    </ul>
+  </li>
+  <li><a href="http://blog.csdn.net/luoshengyang/article/details/8923485">老罗的Android之旅</a>
+    <ul>
+      <li>罗升阳前辈所写博客，从各个层面介绍Android系统；</li>
+      <li>《Android系统源代码情景分析 》</li>
+    </ul>
+  </li>
+  <li><a href="http://gityuan.com/android/">Gityuan源码分析</a>
+    <ul>
+      <li>对于邓凡平和罗升阳两位前辈的博客基于Android 2.x或4.x，目前Android已发展到Android 6.0。不管Android如何变化，其核心思维变化并没有很大，所以两位前辈的博客还是很有值得学习和参考的地方。话又说回来，Android经过了几个大版本的迭代，无论是从代码结构还是整体逻辑仍有不少变化。故博主计划写一关于Android 6.0源码系列的博文。</li>
+      <li>Gityuan作为Android界新秀，能力尚不及很多前辈，但有一颗乐于分享的心，有一份痴于Android的品质，有一种坚持的态度，已经并一直还在努力奋斗的道路上…</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="section-6">2.5 进阶书籍</h3>
+
+<ul>
+  <li>深入理解Linux内核</li>
+  <li>深入Linux内核架构</li>
+  <li>Linux内核设计与实现</li>
+  <li>Linux设备驱动程序</li>
+  <li>重构 改善既有代码的设计</li>
+  <li>编程珠玑 （卷1, 卷2）</li>
+  <li>设计模式</li>
+  <li>设计模式之禅</li>
+  <li>人月神话</li>
+</ul>
+
+<p>前4本书都是关于Linux，如果你不是需要从事Linux相关开发，只想提升对Android整体的理解，那么只需看一到两本，对Linux的进程、内存、IO以及驱动有所了解，对CPU调度、进程间通信有所熟悉就基本可以。另外，优秀的书还有很多，这里只介绍/列举我看过的书，目前还在看一些优秀的书，后续再更新。</p>
+
+<h2 id="section-7">三、其他</h2>
+
+<p>最后，再说说关于学习编程的番外篇：</p>
+
+<ul>
+  <li>好奇心比雄心走得更远：很多人对未来空有满腔的雄心壮志，往往不如对技术要有一份好奇心，一份探索欲，再加上一份执着的人。</li>
+  <li>要有open的心态：曾经的我也只是把自己的所思所得都放入自己的云笔记，很少整理，这其实不利于技术发展，有空应该多整理自己零散的知识点，觉得不错的点可以拿出来写成博客，那是对能力的又一层提升。另外，在低头做技术的同时，还应该有空抬头看世界，不能闭门造车。</li>
+  <li>天道酬勤：学历只能代表过去，能力代表现在，潜力代表未来！ 你不把自己逼一把，你压根不知道自己有多优秀，只要努力去学习，去挖掘潜力，进而提升自我技术修为，未来不再是梦！共勉之！</li>
+  <li>解决问题的方式：遇到问题，一定要先尝试自己解决，解决不了再请教他人。这是对自己的一个锻炼，也是对他人的一个尊重，可以有多种途径自行搜索：
+    <ul>
+      <li>百度一下，很多时候还是能有所帮助的，不要过分强调google，完全抛弃百度，毕竟中文看起来比较快；</li>
+      <li>先中文关键词google一下；再英文关键词google一下；</li>
+      <li><a href="http://stackoverflow.com/">stackoverflow.com</a>、<a href="http://zhihu.com">知乎</a>等技术问答网站内直接搜索；</li>
+      <li>查看官方文档；</li>
+      <li>如果有源码，尝试直接看源码，看能否解决；</li>
+    </ul>
+  </li>
+  <li>有空可以多逛逛github，多看看Google官方文档，多关注社区，定会收获不少；</li>
+  <li>当然，最最重要的是能静得下心，持之以恒地专研技术。</li>
+</ul>
+
+<hr />
+
+<blockquote>
+  <p>欢迎关注我的微博：<a href="http://weibo.com/gityuan">Gityuan</a></p>
+
+  <p>Android全栈工程师：上至能写App，中间能改framework和Native代码，下至能调驱动，整体上解决性能/稳定性/功耗问题。这是我对自己的追求，并一直在努力。</p>
+</blockquote>
+
+<p>如果觉得不错，可以到我的知乎文章<a href="https://zhuanlan.zhihu.com/p/20708611">如何自学Android</a>点个赞支持。</p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2016/04/25/how-to-study-android"
+                    data-title="如何自学Android"
+                    data-url="http://gityuan.com/2016/04/25/how-to-study-android/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  引言：在知乎上回答了 自学编程一年，压力过大，该怎么办？ - Gityuan 的回答，之后有不少知乎朋友私信或email给我，希望能讲讲学习Andr... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/04/16/kill-signal/" data-toggle="tooltip" data-placement="top" title="理解杀进程的实现原理">
+                        Previous<br>
+                        <span>理解杀进程的实现原理</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/05/01/android/" data-toggle="tooltip" data-placement="top" title="Android">
+                        Next<br>
+                        <span>Android</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2016/04/25/how-to-study-android"
+                        data-title="如何自学Android"
+                        data-url="http://gityuan.com/2016/04/25/how-to-study-android/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

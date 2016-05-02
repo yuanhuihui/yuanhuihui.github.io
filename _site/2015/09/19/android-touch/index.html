@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Android事件分发机制 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/09/19/android-touch/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#input" title="input">input</a>
+                        
+                    </div>
+                    <h1>Android事件分发机制</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on September 19, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>本文源码来自andorid sdk 22，不同版本会有细微差别，但核心机制是一致的</p>
+</blockquote>
+
+<h2 id="section">概述</h2>
+
+<p>在开始讲述touch事件流程之前，还简单介绍下TouchEvent,View和ViewGroup。</p>
+
+<h3 id="motionevent">1. MotionEvent</h3>
+
+<ul>
+  <li>整个事件分发流程中，会有大量MotionEvent对象，该对象用于记录所有与移动相关的事件，比如手指触摸屏幕事件。</li>
+  <li>一次完整的MotionEvent事件，是从用户触摸屏幕到离开屏幕。整个过程的动作序列：<code class="highlighter-rouge">ACTION_DOWN</code>(1次)  -&gt;  <code class="highlighter-rouge">ACTION_MOVE</code>(N次)  -&gt;  <code class="highlighter-rouge">ACTION_UP</code>(1次),</li>
+  <li>多点触摸，每一个触摸点<code class="highlighter-rouge">Pointer</code>会有一个id和index。对于多指操作，通过pointerindex来获取指定Pointer的触屏位置。比如，对于单点操作时获取x坐标通过<code class="highlighter-rouge">getX()</code>，而多点操作获取x坐标通过<code class="highlighter-rouge">getX(pointerindex)</code></li>
+</ul>
+
+<h3 id="view">2. View</h3>
+<ul>
+  <li>View是所有视图对象的父类，实现了动画相关的接口<code class="highlighter-rouge">Drawable.Callback</code>， 按键相关的接口<code class="highlighter-rouge">KeyEvent.Callback</code>， 交互相关的接口<code class="highlighter-rouge">AccessibilityEventSource</code>。比如Button继承自View。</li>
+  <li>TouchEvent事件处理相关的方法：
+    <ul>
+      <li>dispatchTouchEvent(MotionEvent event)</li>
+      <li>onTouchEvent(MotionEvent event)</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="viewgroup">3. ViewGroup</h3>
+<ul>
+  <li>ViewGroup，是一个<code class="highlighter-rouge">abstract</code>类，一组View的集合，可以包含View和ViewGroup,是所有布局的父类或间接父类。继承了<code class="highlighter-rouge">View</code>，实现了<code class="highlighter-rouge">ViewParent</code>（用于与父视图交互的接口）， <code class="highlighter-rouge">ViewManager</code>（用于添加、删除、更新子视图到Activity的接口）。比如常用的LinearLayout，RelativeLayout都是继承自ViewGroup。</li>
+  <li>TouchEvent事件处理相关的方法：
+    <ul>
+      <li>dispatchTouchEvent(MotionEvent event)</li>
+      <li>onInterceptTouchEvent(MotionEvent ev)</li>
+      <li>onTouchEvent(MotionEvent event)</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="activity">4. Activity</h3>
+<ul>
+  <li><strong>4.1</strong>  Activity是Android四大基本组件之一，这里只介绍Activity与touch相关的方法。当手指触摸到屏幕时，屏幕硬件一行行不断地扫描每个像素点，获取到触摸事件后，从底层产生中断上报。再通过native层调用Java层<code class="highlighter-rouge">InputEventReceiver</code>中的<code class="highlighter-rouge">dispatchInputEvent</code>方法。经过层层调用，交由Activity的<code class="highlighter-rouge">dispatchTouchEvent</code>方法来处理。</li>
+  <li><strong>4.2</strong> TouchEvent事件处理相关的方法：
+    <ul>
+      <li>dispatchTouchEvent(MotionEvent event)</li>
+      <li>onTouchEvent(MotionEvent event)</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="section-1">流程图</h2>
+<p>当用户触摸屏幕时会产生一系列MotionEvent，那么Activity,ViewGroup,View之间是如何处理呢？先通过一张图来从全局性描述整个流程，后面再详细介绍。</p>
+
+<p><img src="/images/touch/touch1.jpg" alt="touch" /></p>
+
+<h2 id="section-2">结论</h2>
+<p>下面先给出通过对源码分析的一些结论，并在后面段落的<strong>源码分析</strong>中，详细分析了整个过程，并解释了结论。</p>
+
+<ol>
+  <li>
+    <p><code class="highlighter-rouge">onInterceptTouchEvent</code>返回值true表示事件拦截， <code class="highlighter-rouge">onTouch/onTouchEvent</code> 返回值true表示事件消费。</p>
+  </li>
+  <li>
+    <p>触摸事件先交由<code class="highlighter-rouge">Activity.dispatchTouchEvent</code>。再一层层往下分发，当中间的ViewGroup都不拦截时，进入最底层的View后，开始由最底层的<code class="highlighter-rouge">OnTouchEvent</code>来处理，如果一直不消费，则最后返回到<code class="highlighter-rouge">Activity.OnTouchEvent</code>。</p>
+  </li>
+  <li>
+    <p>ViewGroup才有<code class="highlighter-rouge">onInterceptTouchEvent</code>拦截方法。在分发过程中，中间任何一层ViewGroup都可以直接拦截，则不再往下分发，而是交由发生拦截操作的ViewGroup的<code class="highlighter-rouge">OnTouchEvent</code>来处理。</p>
+  </li>
+  <li>
+    <p>子View可调用<code class="highlighter-rouge">requestDisallowInterceptTouchEvent</code>方法，来设置<code class="highlighter-rouge">disallowIntercept=true</code>，从而阻止父ViewGroup的<code class="highlighter-rouge">onInterceptTouchEvent</code>拦截操作。</p>
+  </li>
+  <li>
+    <p>OnTouchEvent由下往上冒泡时，当中间任何一层的OnTouchEvent消费该事件，则不再往上传递，表示事件已处理。</p>
+  </li>
+  <li>
+    <p>如果View没有消费ACTION_DOWN事件，则之后的ACTION_MOVE等事件都不会再接收。</p>
+  </li>
+  <li>
+    <p>只要<code class="highlighter-rouge">View.onTouchEvent</code>是可点击或可长按，则消费该事件.</p>
+  </li>
+  <li>
+    <p><code class="highlighter-rouge">onTouch</code>优先于<code class="highlighter-rouge">onTouchEvent</code>执行，上面流程图中省略，<code class="highlighter-rouge">onTouch</code>的位置在<code class="highlighter-rouge">onTouchEvent</code>前面。当<code class="highlighter-rouge">onTouch</code>返回true,则不执行<code class="highlighter-rouge">onTouchEvent</code>,否则会执行onTouchEvent。<code class="highlighter-rouge">onTouch</code>只有View设置了<code class="highlighter-rouge">OnTouchListener</code>，且是enable的才执行该方法。</p>
+  </li>
+</ol>
+
+<hr />
+
+<h2 id="section-3">源码分析</h2>
+
+<h3 id="activity-1">1. Activity</h3>
+
+<p>####1.1 dispatchTouchEvent</p>
+
+<p>这是Touch事件传递到上层的第一个处理方法，是由触屏事件调用。如果重写该方法，则会在分发事件之前拦截所有的触摸事件，源码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean dispatchTouchEvent(MotionEvent ev) {
+    if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+        //第一次按下操作时，用户希望能与设备进行交互，可通过实现该方法
+        onUserInteraction();
+    }
+    
+    //获取当前Activity的顶层窗口是PhoneWindow
+    if (getWindow().superDispatchTouchEvent(ev)) { //见代码(1-1-1)
+        return true;
+    }
+    //当没有任何view处理时，交由activity的onTouchEvent处理
+    return onTouchEvent(ev); // 见代码(1.2)
+}
+</code></pre>
+</div>
+
+<p><strong>(1-1-1)</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean superDispatchTouchEvent(KeyEvent event) {
+    return mDecor.superDispatcTouchEvent(event); // 见代码(2.1)
+}  
+</code></pre>
+</div>
+
+<p>PhoneWindow的最顶View是DecorView，再交由DecorView处理。而DecorView的间距父类是ViewGroup,接着调用
+ViewGroup.dispatchTouchEvent()方法。为了精简篇幅，有些中间函数调用不涉及关键逻辑，可能会直接跳过。</p>
+
+<p>####1.2 onTouchEvent</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean onTouchEvent(MotionEvent event) {
+    //当窗口需要关闭时，消费掉当前event
+    if (mWindow.shouldCloseOnTouch(this, event)) {
+        finish();
+        return true;
+    }
+
+    return false;
+}
+</code></pre>
+</div>
+
+<h3 id="viewgroup-1">2. ViewGroup</h3>
+
+<p>####2.1 dispatchTouchEvent</p>
+
+<p>这是整个touch事件流程中，最核心的方法，涵盖了大部分的事件分发的逻辑，这个方法由200多行（这么冗长的方法，阅读起来很费劲，下面通过分割线把整个方法划分几个区域），言归正传，下面重点讲解。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Override
+public boolean dispatchTouchEvent(MotionEvent ev) {
+    
+    if (mInputEventConsistencyVerifier != null) {
+        //用于Debug，通知verifier来检查Touch事件
+        mInputEventConsistencyVerifier.onTouchEvent(ev, 1);
+    }
+
+    if (ev.isTargetAccessibilityFocus() &amp;&amp; isAccessibilityFocusedViewOrHost()) {
+        ev.setTargetAccessibilityFocus(false);
+    }
+
+    boolean handled = false;
+    //根据隐私策略而来决定是否过滤本次触摸事件
+    if (onFilterTouchEventForSecurity(ev)) {  //见代码(2-1-1)
+        final int action = ev.getAction();
+        final int actionMasked = action &amp; MotionEvent.ACTION_MASK;
+
+        //发生ACTION_DOWN事件
+        if (actionMasked == MotionEvent.ACTION_DOWN) {
+            // 取消并清除之前所有的触摸targets，可能是由于ANR或者其他状态改变
+            cancelAndClearTouchTargets(ev);
+            // 重置触摸状态
+            resetTouchState();
+        }
+
+//---------------------------------start--------------------------------------           
+        // 发生ACTION_DOWN事件或者已经发生过ACTION_DOWN;才进入此区域，主要功能是拦截器
+        //只有发生过ACTION_DOWN事件，则mFirstTouchTarget != null;
+        final boolean intercepted;
+        if (actionMasked == MotionEvent.ACTION_DOWN
+                || mFirstTouchTarget != null) {
+            //可通过调用requestDisallowInterceptTouchEvent，不让父View拦截事件
+            final boolean disallowIntercept = (mGroupFlags &amp; FLAG_DISALLOW_INTERCEPT) != 0;
+            //判断是否允许调用拦截器
+            if (!disallowIntercept) { 
+                //调用拦截方法
+                intercepted = onInterceptTouchEvent(ev); //见代码(2.2)
+                ev.setAction(action); 
+            } else {
+                intercepted = false;
+            }
+        } else {
+            // 当没有触摸targets，且不是down事件时，开始持续拦截触摸。
+            intercepted = true;
+        }
+//----------------------------------end-----------------------------------------
+
+        // 如果已拦截或者某个view正在处理gesture时，开始正常的事件分发
+        if (intercepted || mFirstTouchTarget != null) {
+            ev.setTargetAccessibilityFocus(false);
+        }
+
+        // 检测取消器.
+        final boolean canceled = resetCancelNextUpFlag(this)
+                || actionMasked == MotionEvent.ACTION_CANCEL;
+
+        //更新触摸targets列表
+        final boolean split = (mGroupFlags &amp; FLAG_SPLIT_MOTION_EVENTS) != 0;
+        TouchTarget newTouchTarget = null;
+        boolean alreadyDispatchedToNewTouchTarget = false; 
+
+//---------------------------------start-------------------------------------- 
+        //不取消事件，同时不拦截事件, 并且是Down事件才进入该区域
+        if (!canceled &amp;&amp; !intercepted) {
+
+            //把事件分发给所有的子视图，寻找可以获取焦点的视图。
+            View childWithAccessibilityFocus = ev.isTargetAccessibilityFocus()
+                    ? findChildWithAccessibilityFocus() : null;
+
+            if (actionMasked == MotionEvent.ACTION_DOWN
+                    || (split &amp;&amp; actionMasked == MotionEvent.ACTION_POINTER_DOWN)
+                    || actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
+                final int actionIndex = ev.getActionIndex(); // down事件等于0
+                final int idBitsToAssign = split ? 1 &lt;&lt; ev.getPointerId(actionIndex)
+                        : TouchTarget.ALL_POINTER_IDS; 
+
+                removePointersFromTouchTargets(idBitsToAssign); //清空早先的触摸对象
+
+                final int childrenCount = mChildrenCount;
+                //第一次down事件，同时子视图不会空时
+                if (newTouchTarget == null &amp;&amp; childrenCount != 0) {
+                    final float x = ev.getX(actionIndex);
+                    final float y = ev.getY(actionIndex);
+                    // 从视图最上层到下层，获取所有能接收该事件的子视图
+                    final ArrayList&lt;View&gt; preorderedList = buildOrderedChildList(); //见代码(2-1-2)
+                    final boolean customOrder = preorderedList == null
+                            &amp;&amp; isChildrenDrawingOrderEnabled();
+                    final View[] children = mChildren;
+
+                    /* 从最底层的父视图开始遍历，
+                    ** 找寻newTouchTarget，并赋予view与 pointerIdBits；
+                    ** 如果已经存在找寻newTouchTarget，说明正在接收触摸事件，则跳出循环。
+                    */
+                    for (int i = childrenCount - 1; i &gt;= 0; i--) {
+                        final int childIndex = customOrder
+                                ? getChildDrawingOrder(childrenCount, i) : i;
+                        final View child = (preorderedList == null)
+                                ? children[childIndex] : preorderedList.get(childIndex);
+
+                        // 如果当前视图无法获取用户焦点，则跳过本次循环
+                        if (childWithAccessibilityFocus != null) {
+                            if (childWithAccessibilityFocus != child) {
+                                continue;
+                            }
+                            childWithAccessibilityFocus = null;
+                            i = childrenCount - 1;
+                        }
+                        //如果view不可见，或者触摸的坐标点不在view的范围内，则跳过本次循环
+                        if (!canViewReceivePointerEvents(child)
+                                || !isTransformedTouchPointInView(x, y, child, null)) {
+                            ev.setTargetAccessibilityFocus(false);
+                            continue;
+                        }
+
+                        newTouchTarget = getTouchTarget(child);
+                        // 已经开始接收触摸事件,并退出整个循环。
+                        if (newTouchTarget != null) {
+                            newTouchTarget.pointerIdBits |= idBitsToAssign;
+                            break;
+                        }
+    
+                        //重置取消或抬起标志位
+                        resetCancelNextUpFlag(child);     
+                        //如果触摸位置在child的区域内，则把事件分发给子View或ViewGroup        
+                        if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign)) { //见代码(2-1-3)  
+                            // 获取TouchDown的时间点
+                            mLastTouchDownTime = ev.getDownTime();
+                            // 获取TouchDown的Index
+                            if (preorderedList != null) {
+                                for (int j = 0; j &lt; childrenCount; j++) {
+                                    if (children[childIndex] == mChildren[j]) {
+                                        mLastTouchDownIndex = j;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                mLastTouchDownIndex = childIndex;
+                            }
+
+                            //获取TouchDown的x,y坐标
+                            mLastTouchDownX = ev.getX();
+                            mLastTouchDownY = ev.getY();
+                            //添加TouchTarget,则mFirstTouchTarget != null。
+                            newTouchTarget = addTouchTarget(child, idBitsToAssign); //见代码(2-1-4)
+                            //表示以及分发给NewTouchTarget
+                            alreadyDispatchedToNewTouchTarget = true;
+                            break;
+                        }
+                        ev.setTargetAccessibilityFocus(false);
+                    }
+                    // 清除视图列表
+                    if (preorderedList != null) preorderedList.clear();
+                }
+
+                if (newTouchTarget == null &amp;&amp; mFirstTouchTarget != null) {
+                    //将mFirstTouchTarget的链表最后的touchTarget赋给newTouchTarget
+                    newTouchTarget = mFirstTouchTarget;
+                    while (newTouchTarget.next != null) {
+                        newTouchTarget = newTouchTarget.next;
+                    }
+                    newTouchTarget.pointerIdBits |= idBitsToAssign;
+                }
+            }
+        }
+//----------------------------------end-----------------------------------------
+
+//---------------------------------start-------------------------------------- 
+        // mFirstTouchTarget赋值是在通过addTouchTarget方法获取的；
+        // 只有处理ACTION_DOWN事件，才会进入addTouchTarget方法。
+        // 这也正是当View没有消费ACTION_DOWN事件，则不会接收其他MOVE,UP等事件的原因
+        if (mFirstTouchTarget == null) {
+            //没有触摸target,则由当前ViewGroup来处理
+            handled = dispatchTransformedTouchEvent(ev, canceled, null,
+                    TouchTarget.ALL_POINTER_IDS); //见代码(2-1-3) 
+        } else {
+            //如果View消费ACTION_DOWN事件，那么MOVE,UP等事件相继开始执行
+            TouchTarget predecessor = null;
+            TouchTarget target = mFirstTouchTarget;
+            while (target != null) {
+                final TouchTarget next = target.next;
+                if (alreadyDispatchedToNewTouchTarget &amp;&amp; target == newTouchTarget) {
+                    handled = true;
+                } else {
+                    final boolean cancelChild = resetCancelNextUpFlag(target.child)
+                            || intercepted;
+                    if (dispatchTransformedTouchEvent(ev, cancelChild,
+                            target.child, target.pointerIdBits)) { //见代码(2-1-3) 
+                        handled = true;
+                    }
+                    if (cancelChild) {
+                        if (predecessor == null) {
+                            mFirstTouchTarget = next;
+                        } else {
+                            predecessor.next = next;
+                        }
+                        target.recycle();
+                        target = next;
+                        continue;
+                    }
+                }
+                predecessor = target;
+                target = next;
+            }
+        }
+//----------------------------------end-----------------------------------------
+
+        //当发生抬起或取消事件，更新触摸targets 
+        if (canceled
+                || actionMasked == MotionEvent.ACTION_UP
+                || actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
+            resetTouchState();
+        } else if (split &amp;&amp; actionMasked == MotionEvent.ACTION_POINTER_UP) {
+            final int actionIndex = ev.getActionIndex();
+            final int idBitsToRemove = 1 &lt;&lt; ev.getPointerId(actionIndex);
+            removePointersFromTouchTargets(idBitsToRemove);
+        }
+    } //此处大括号，是if (onFilterTouchEventForSecurity(ev))的结尾
+
+    //通知verifier由于当前时间未处理，那么该事件其余的都将被忽略
+    if (!handled &amp;&amp; mInputEventConsistencyVerifier != null) {
+        mInputEventConsistencyVerifier.onUnhandledEvent(ev, 1);
+    }
+    return handled;
+}
+</code></pre>
+</div>
+
+<p><strong>(2-1-1)</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean onFilterTouchEventForSecurity(MotionEvent event) {
+    //noinspection RedundantIfStatement
+    if ((mViewFlags &amp; FILTER_TOUCHES_WHEN_OBSCURED) != 0
+            &amp;&amp; (event.getFlags() &amp; MotionEvent.FLAG_WINDOW_IS_OBSCURED) != 0) {
+        // Window is obscured, drop this touch.
+        return false;
+    }
+    return true;
+} 根据隐私策略来过滤触摸事件。当返回true，表示继续分发事件；当返回flase,表示该事件应该被过滤掉，不再进行任何分发。
+</code></pre>
+</div>
+
+<p><strong>(2-1-2)</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ArrayList&lt;View&gt; buildOrderedChildList() {
+    final int count = mChildrenCount;
+    if (count &lt;= 1 || !hasChildWithZ()) return null;
+
+    if (mPreSortedChildren == null) {
+        mPreSortedChildren = new ArrayList&lt;View&gt;(count);
+    } else {
+        mPreSortedChildren.ensureCapacity(count);
+    }
+
+    final boolean useCustomOrder = isChildrenDrawingOrderEnabled();
+    for (int i = 0; i &lt; mChildrenCount; i++) {
+        // 添加下一个子视图到列表
+        int childIndex = useCustomOrder ? getChildDrawingOrder(mChildrenCount, i) : i;
+        View nextChild = mChildren[childIndex];
+        float currentZ = nextChild.getZ(); //见代码(2-1-2-1)
+
+        int insertIndex = i;
+        //按Z轴，从小到大排序所有的子视图
+        while (insertIndex &gt; 0 &amp;&amp; mPreSortedChildren.get(insertIndex - 1).getZ() &gt; currentZ) {
+            insertIndex--;
+        }
+        mPreSortedChildren.add(insertIndex, nextChild);
+    }
+    return mPreSortedChildren;
+} 获取一个视图组的先序列表，通过虚拟的Z轴来排序。   
+</code></pre>
+</div>
+
+<p><strong>(2-1-2-1)</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public float getZ() {
+    return getElevation() + getTranslationZ();
+}
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">getZ()</code>用于获取Z轴坐标。屏幕只有x,y坐标，而Z是虚拟的，可通过<code class="highlighter-rouge">setElevation()</code>,<code class="highlighter-rouge">setTranslationZ()</code>或者<code class="highlighter-rouge">setZ()</code>方法来修改Z轴的坐标值。</p>
+
+<p><strong>(2-1-3)</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
+        View child, int desiredPointerIdBits) {
+    final boolean handled;
+
+    // 发生取消操作时，不再执行后续的任何操作
+    final int oldAction = event.getAction();
+    if (cancel || oldAction == MotionEvent.ACTION_CANCEL) {
+        event.setAction(MotionEvent.ACTION_CANCEL);
+        if (child == null) {
+            handled = super.dispatchTouchEvent(event);
+        } else {
+            handled = child.dispatchTouchEvent(event);
+        }
+        event.setAction(oldAction);
+        return handled;
+    }
+
+    final int oldPointerIdBits = event.getPointerIdBits();
+    final int newPointerIdBits = oldPointerIdBits &amp; desiredPointerIdBits;
+
+    //由于某些原因，发生不一致的操作，那么将抛弃该事件
+    if (newPointerIdBits == 0) {
+        return false;
+    }
+
+//---------------------------------start-------------------------------------- 
+    //分发的主要区域
+    final MotionEvent transformedEvent;
+    //判断预期的pointer id与事件的pointer id是否相等
+    if (newPointerIdBits == oldPointerIdBits) {
+        if (child == null || child.hasIdentityMatrix()) {
+            if (child == null) {
+                //不存在子视图时，ViewGroup调用View.dispatchTouchEvent分发事件，再调用ViewGroup.onTouchEvent来处理事件
+                handled = super.dispatchTouchEvent(event);  // 见代码(3.1)
+            } else {
+                final float offsetX = mScrollX - child.mLeft;
+                final float offsetY = mScrollY - child.mTop;
+                event.offsetLocation(offsetX, offsetY);
+                //将触摸事件分发给子ViewGroup或View;
+                //如果是ViewGroup，则调用代码(2.1)；
+                //如果是View，则调用代码(3.1)；
+                handled = child.dispatchTouchEvent(event);
+                
+                event.offsetLocation(-offsetX, -offsetY); //调整该事件的位置
+            }
+            return handled;
+        }
+        transformedEvent = MotionEvent.obtain(event); //拷贝该事件，来创建一个新的MotionEvent
+    } else {
+        //分离事件，获取包含newPointerIdBits的MotionEvent
+        transformedEvent = event.split(newPointerIdBits); 
+    }
+
+    if (child == null) {
+        //不存在子视图时，ViewGroup调用View.dispatchTouchEvent分发事件，再调用ViewGroup.onTouchEvent来处理事件
+        handled = super.dispatchTouchEvent(transformedEvent); //见代码(3.1) 
+    } else {
+        final float offsetX = mScrollX - child.mLeft;
+        final float offsetY = mScrollY - child.mTop;
+        transformedEvent.offsetLocation(offsetX, offsetY);
+        if (! child.hasIdentityMatrix()) {
+            //将该视图的矩阵进行转换
+            transformedEvent.transform(child.getInverseMatrix());
+        }
+        //将触摸事件分发给子ViewGroup或View;
+        /如果是ViewGroup，则调用代码(2.1)；
+        //如果是View，则调用代码(3.1)；
+        handled = child.dispatchTouchEvent(transformedEvent);  
+    }
+//----------------------------------end-----------------------------------------
+
+    //回收transformedEvent
+    transformedEvent.recycle();
+    return handled;
+}  
+</code></pre>
+</div>
+
+<p>该方法是ViewGroup真正处理事件的地方，分发子View来处理事件，过滤掉不相干的pointer ids。当子视图为null时，MotionEvent将会发送给该ViewGroup。最终调用View.dispatchTouchEvent方法来分发事件。</p>
+
+<p><strong>(2-1-4)</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private TouchTarget addTouchTarget(View child, int pointerIdBits) {
+    TouchTarget target = TouchTarget.obtain(child, pointerIdBits);
+    target.next = mFirstTouchTarget;
+    mFirstTouchTarget = target;
+    return target;
+}
+</code></pre>
+</div>
+
+<p>调用该方法，获取了TouchTarget，同时mFirstTouchTarget不再为null。</p>
+
+<p>####2.2 onInterceptTouchEvent</p>
+
+<p>当返回true，表示该事件被当前视图拦截；当返回false，继续执行事件分发。如果在Activity中直接拦截了，那么将事件不会再往其他View分发，而是由Activity.onTouchEvent()方法处理。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean onInterceptTouchEvent(MotionEvent ev) {
+    return false;
+}
+</code></pre>
+</div>
+
+<h3 id="view-1">3. View</h3>
+<p>#### 3.1 dispatchTouchEvent</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean dispatchTouchEvent(MotionEvent event) {
+    if (event.isTargetAccessibilityFocus()) {           
+        if (!isAccessibilityFocusedViewOrHost()) {
+            return false;
+        }
+        event.setTargetAccessibilityFocus(false);
+    }
+
+    boolean result = false;
+
+    if (mInputEventConsistencyVerifier != null) {
+        mInputEventConsistencyVerifier.onTouchEvent(event, 0);
+    }
+
+    final int actionMasked = event.getActionMasked();
+    if (actionMasked == MotionEvent.ACTION_DOWN) {
+        //在Down事件之前，如果存在滚动操作则停止。不存在则不进行操作
+        stopNestedScroll();
+    }
+
+//---------------------------------start-------------------------------------- 
+    // 该区域说明了mOnTouchListener.onTouch优先于onTouchEvent。
+    if (onFilterTouchEventForSecurity(event)) {
+        //当存在OnTouchListener，且视图状态为ENABLED时，调用onTouch()方法
+        ListenerInfo li = mListenerInfo;
+        if (li != null &amp;&amp; li.mOnTouchListener != null
+                &amp;&amp; (mViewFlags &amp; ENABLED_MASK) == ENABLED
+                &amp;&amp; li.mOnTouchListener.onTouch(this, event)) {
+            //如果已经消费事件，则返回True
+            result = true;
+        }
+        //如果OnTouch（)没有消费Touch事件则调用OnTouchEvent()
+        if (!result &amp;&amp; onTouchEvent(event)) { // 见代码(2.6)
+            //如果已经消费事件，则返回True
+            result = true;
+        }
+    }
+//----------------------------------end-----------------------------------------
+
+    if (!result &amp;&amp; mInputEventConsistencyVerifier != null) {
+        mInputEventConsistencyVerifier.onUnhandledEvent(event, 0);
+    }
+
+    // 处理取消或抬起操作
+    if (actionMasked == MotionEvent.ACTION_UP ||
+            actionMasked == MotionEvent.ACTION_CANCEL ||
+            (actionMasked == MotionEvent.ACTION_DOWN &amp;&amp; !result)) {
+        stopNestedScroll();
+    }
+
+    return result;
+}
+</code></pre>
+</div>
+
+<ul>
+  <li>
+    <ol>
+      <li>先由OnTouchListener的OnTouch()来处理事件，当返回True，则消费该事件，否则进入2。</li>
+    </ol>
+  </li>
+  <li>
+    <ol>
+      <li>onTouchEvent处理事件，的那个返回True时，消费该事件。否则不会处理</li>
+    </ol>
+  </li>
+</ul>
+
+<h4 id="ontouchevent">3.2 onTouchEvent</h4>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean onTouchEvent(MotionEvent event) {
+    final float x = event.getX();
+    final float y = event.getY();
+    final int viewFlags = mViewFlags;
+
+//---------------------------------start-------------------------------------- 
+    // 当View状态为DISABLED，如果可点击或可长按，则返回True，即消费事件
+    if ((viewFlags &amp; ENABLED_MASK) == DISABLED) {
+        if (event.getAction() == MotionEvent.ACTION_UP &amp;&amp; (mPrivateFlags &amp; PFLAG_PRESSED) != 0) {
+            setPressed(false);
+        }
+        return (((viewFlags &amp; CLICKABLE) == CLICKABLE ||
+                (viewFlags &amp; LONG_CLICKABLE) == LONG_CLICKABLE));
+    }
+//----------------------------------end-----------------------------------------
+
+    if (mTouchDelegate != null) {
+        if (mTouchDelegate.onTouchEvent(event)) {
+            return true;
+        }
+    }
+
+//---------------------------------start-------------------------------------- 
+    //当View状态为ENABLED，如果可点击或可长按，则返回True，即消费事件;
+    //与前面的的结合，可得出结论:只要view是可点击或可长按，则消费该事件.
+    if (((viewFlags &amp; CLICKABLE) == CLICKABLE ||
+            (viewFlags &amp; LONG_CLICKABLE) == LONG_CLICKABLE)) {
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_UP:
+                boolean prepressed = (mPrivateFlags &amp; PFLAG_PREPRESSED) != 0;
+                if ((mPrivateFlags &amp; PFLAG_PRESSED) != 0 || prepressed) {
+                    // take focus if we don't have it already and we should in
+                    // touch mode.
+                    boolean focusTaken = false;
+                    if (isFocusable() &amp;&amp; isFocusableInTouchMode() &amp;&amp; !isFocused()) {
+                        focusTaken = requestFocus();
+                    }
+
+                    if (prepressed) {
+                        // The button is being released before we actually
+                        // showed it as pressed.  Make it show the pressed
+                        // state now (before scheduling the click) to ensure
+                        // the user sees it.
+                        setPressed(true, x, y);
+                   }
+
+                    if (!mHasPerformedLongPress) {
+                        //这是Tap操作，移除长按回调方法
+                        removeLongPressCallback();
+
+                        // Only perform take click actions if we were in the pressed state
+                        if (!focusTaken) {
+                            // Use a Runnable and post this rather than calling
+                            // performClick directly. This lets other visual state
+                            // of the view update before click actions start.
+                            if (mPerformClick == null) {
+                                mPerformClick = new PerformClick();
+                            }
+                            //调用View.OnClickListener
+                            if (!post(mPerformClick)) {
+                                performClick();
+                            }
+                        }
+                    }
+
+                    if (mUnsetPressedState == null) {
+                        mUnsetPressedState = new UnsetPressedState();
+                    }
+
+                    if (prepressed) {
+                        postDelayed(mUnsetPressedState,
+                                ViewConfiguration.getPressedStateDuration());
+                    } else if (!post(mUnsetPressedState)) {
+                        // If the post failed, unpress right now
+                        mUnsetPressedState.run();
+                    }
+
+                    removeTapCallback();
+                }
+                break;
+
+            case MotionEvent.ACTION_DOWN:
+                mHasPerformedLongPress = false;
+
+                if (performButtonActionOnTouchDown(event)) {
+                    break;
+                }
+
+                //获取是否处于可滚动的视图内
+                boolean isInScrollingContainer = isInScrollingContainer();
+
+                if (isInScrollingContainer) {
+                    mPrivateFlags |= PFLAG_PREPRESSED;
+                    if (mPendingCheckForTap == null) {
+                        mPendingCheckForTap = new CheckForTap();
+                    }
+                    mPendingCheckForTap.x = event.getX();
+                    mPendingCheckForTap.y = event.getY();
+                    //当处于可滚动视图内，则延迟TAP_TIMEOUT，再反馈按压状态，用来判断用户是否想要滚动。默认延时为100ms
+                    postDelayed(mPendingCheckForTap, ViewConfiguration.getTapTimeout());
+                } else {
+                    //当不再滚动视图内，则立刻反馈按压状态
+                    setPressed(true, x, y);
+                    //检测是否是长按
+                    checkForLongClick(0);
+                }
+                break;
+
+            case MotionEvent.ACTION_CANCEL:
+                setPressed(false);
+                removeTapCallback();
+                removeLongPressCallback();
+                break;
+
+            case MotionEvent.ACTION_MOVE:
+                drawableHotspotChanged(x, y);
+
+                // Be lenient about moving outside of buttons
+                if (!pointInView(x, y, mTouchSlop)) {
+                    // Outside button
+                    removeTapCallback();
+                    if ((mPrivateFlags &amp; PFLAG_PRESSED) != 0) {
+                        // Remove any future long press/tap checks
+                        removeLongPressCallback();
+
+                        setPressed(false);
+                    }
+                }
+                break;
+        }
+
+        return true;
+    }
+//----------------------------------end-----------------------------------------
+
+    return false;
+}
+</code></pre>
+</div>
+
+<h2 id="section-4">参考</h2>
+
+<ol>
+  <li><a href="http://blog.csdn.net/guolin_blog/article/details/9097463">Android事件分发机制完全解析，带你从源码的角度彻底理解(上)</a></li>
+  <li><a href="http://blog.csdn.net/guolin_blog/article/details/9153747">Android事件分发机制完全解析，带你从源码的角度彻底理解(下)</a></li>
+  <li><a href="http://blog.csdn.net/xiaanming/article/details/21696315">Andriod 从源码的角度详解View,ViewGroup的Touch事件的分发机制</a></li>
+  <li><a href="http://a.codekk.com/detail/Android/Trinea/%E5%85%AC%E5%85%B1%E6%8A%80%E6%9C%AF%E7%82%B9%E4%B9%8B%20View%20%E4%BA%8B%E4%BB%B6%E4%BC%A0%E9%80%92">公共技术点之 View 事件传递</a></li>
+</ol>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/09/19/android-touch"
+                    data-title="Android事件分发机制"
+                    data-url="http://gityuan.com/2015/09/19/android-touch/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  本文源码来自andorid sdk 22，不同版本会有细微差别，但核心机制是一致的
+
+
+概述
+
+在开始讲述touch事件流程之前，还简单介绍下Tou... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/09/19/adb-1/" data-toggle="tooltip" data-placement="top" title="adb连接不上手机的解决方法">
+                        Previous<br>
+                        <span>adb连接不上手机的解决方法</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/09/20/android-launcher-1/" data-toggle="tooltip" data-placement="top" title="Android Launcher 1">
+                        Next<br>
+                        <span>Android Launcher 1</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/09/19/android-touch"
+                        data-title="Android事件分发机制"
+                        data-url="http://gityuan.com/2015/09/19/android-touch/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

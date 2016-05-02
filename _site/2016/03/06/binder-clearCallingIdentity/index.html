@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Binder IPC的权限控制 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2016/03/06/binder-clearCallingIdentity/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#binder" title="binder">binder</a>
+                        
+                        <a class="tag" href="/tags/#permission" title="permission">permission</a>
+                        
+                    </div>
+                    <h1>Binder IPC的权限控制</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on March 6, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>基于Android 6.0的源码剖析， 分析Binder IPC通信的权限控制方法clearCallingIdentity和restoreCallingIdentity的原理和用途。</p>
+</blockquote>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>/frameworks/base/core/java/android/os/Binder.java
+/frameworks/base/core/jni/android_util_Binder.cpp
+/frameworks/native/libs/binder/IPCThreadState.cpp
+</code></pre>
+</div>
+
+<h2 id="section">一、概述</h2>
+
+<p>在<a href="http://gityuan.com/2015/10/31/binder-prepare/">Binder系列</a>中通过十篇文章，深入探讨了Android M的Binder IPC机制。看过Android系统源代码的朋友，一定看到过<code class="highlighter-rouge">Binder.clearCallingIdentity()</code>和<code class="highlighter-rouge">Binder.restoreCallingIdentity()</code>这两个方法，其定义在<code class="highlighter-rouge">Binder.java</code>文件：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>//作用是清空远程调用端的uid和pid，用当前本地进程的uid和pid替代；
+public static final native long clearCallingIdentity();
+//作用是恢复远程调用端的uid和pid信息，正好是`clearCallingIdentity`的反过程;
+public static final native void restoreCallingIdentity(long token);
+</code></pre>
+</div>
+
+<p>这两个方法涉及的uid和pid，每个线程都有自己独一无二的<code class="highlighter-rouge">IPCThreadState</code>对象，记录当前线程的pid和uid，可通过方法<code class="highlighter-rouge">Binder.getCallingPid()</code>和<code class="highlighter-rouge">Binder.getCallingUid()</code>获取相应的pid和uid。</p>
+
+<p>clearCallingIdentity(), restoreCallingIdentity()这两个方法使用过程都是成对使用的，这两个方法配合使用，用于权限控制检测功能。</p>
+
+<h2 id="section-1">二、原理</h2>
+
+<p>从定义这两个方法是native方法，通过<a href="http://gityuan.com/2015/11/21/binder-framework/#registerandroidosbinder">Binder的JNI调用</a>，在<code class="highlighter-rouge">android_util_Binder.cpp</code>文件中定义了native方法所对应的jni方法。</p>
+
+<h3 id="clearcallingidentity">2.1 clearCallingIdentity</h3>
+
+<p><strong>[–&gt;android_util_Binder.cpp]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static jlong android_os_Binder_clearCallingIdentity(JNIEnv* env, jobject clazz)
+{
+    //调用IPCThreadState类的方法执行
+    return IPCThreadState::self()-&gt;clearCallingIdentity();
+}
+</code></pre>
+</div>
+
+<p><strong>[–&gt;IPCThreadState.cpp]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int64_t IPCThreadState::clearCallingIdentity()
+{
+    int64_t token = ((int64_t)mCallingUid&lt;&lt;32) | mCallingPid;
+    clearCaller();
+    return token;
+}
+
+void IPCThreadState::clearCaller()
+{
+    mCallingPid = getpid(); //当前进程pid赋值给mCallingPid
+    mCallingUid = getuid(); //当前进程uid赋值给mCallingUid
+}
+</code></pre>
+</div>
+
+<ul>
+  <li>mCallingUid(记为UID)，保存Binder IPC通信的调用方进程的Uid；</li>
+  <li>mCallingPid(记为PID)，保存Binder IPC通信的调用方进程的Pid；</li>
+</ul>
+
+<p>UID和PID是IPCThreadState的成员变量， 都是32位的int型数据，通过移位操作，将UID和PID的信息保存到<code class="highlighter-rouge">token</code>，其中高32位保存UID，低32位保存PID。然后调用clearCaller()方法将当前本地进程pid和uid分别赋值给PID和UID，最后返回<code class="highlighter-rouge">token</code>。</p>
+
+<h3 id="restorecallingidentity">2.2 restoreCallingIdentity</h3>
+
+<p><strong>[–&gt;android_util_Binder.cpp]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static void android_os_Binder_restoreCallingIdentity(JNIEnv* env, jobject clazz, jlong token)
+{
+    //token记录着uid信息，将其右移32位得到的是uid
+    int uid = (int)(token&gt;&gt;32);
+    if (uid &gt; 0 &amp;&amp; uid &lt; 999) {
+        //目前Android中不存在小于999的uid，当uid&lt;999则抛出异常。
+        char buf[128];
+        jniThrowException(env, "java/lang/IllegalStateException", buf);
+        return;
+    }
+    //调用IPCThreadState类的方法执行
+    IPCThreadState::self()-&gt;restoreCallingIdentity(token);
+}
+</code></pre>
+</div>
+
+<p><strong>[–&gt;IPCThreadState.cpp]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void IPCThreadState::restoreCallingIdentity(int64_t token)
+{
+    mCallingUid = (int)(token&gt;&gt;32);
+    mCallingPid = (int)token;
+}
+</code></pre>
+</div>
+
+<p>从<code class="highlighter-rouge">token</code>中解析出PID和UID，并赋值给相应的变量。该方法正好是<code class="highlighter-rouge">clearCallingIdentity</code>的反过程。</p>
+
+<h2 id="section-2">三、用途</h2>
+
+<h3 id="section-3">3.1 场景分析</h3>
+
+<p><strong>场景：</strong>首先线程A通过Binder远程调用线程B，然后线程B通过Binder调用当前线程的另一个service或者activity之类的组件。</p>
+
+<p><strong>分析：</strong></p>
+
+<ol>
+  <li>线程A通过Binder远程调用线程B：则线程B的IPCThreadState中的<code class="highlighter-rouge">mCallingUid</code>和<code class="highlighter-rouge">mCallingPid</code>保存的就是线程A的UID和PID。这时在线程B中调用<code class="highlighter-rouge">Binder.getCallingPid()</code>和<code class="highlighter-rouge">Binder.getCallingUid()</code>方法便可获取线程A的UID和PID，然后利用UID和PID进行权限比对，判断线程A是否有权限调用线程B的某个方法。</li>
+  <li>线程B通过Binder调用当前线程的某个组件：此时线程B是线程B某个组件的调用端，则<code class="highlighter-rouge">mCallingUid</code>和<code class="highlighter-rouge">mCallingPid</code>应该保存当前线程B的PID和UID，故需要调用<code class="highlighter-rouge">clearCallingIdentity()</code>方法完成这个功能。当线程B调用完某个组件，由于线程B仍然处于线程A的被调用端，因此<code class="highlighter-rouge">mCallingUid</code>和<code class="highlighter-rouge">mCallingPid</code>需要恢复成线程A的UID和PID，这是调用<code class="highlighter-rouge">restoreCallingIdentity()</code>即可完成。</li>
+</ol>
+
+<p><img src="/images/binder/binder_clearCallingIdentity.jpg" alt="binder_clearCallingIdentity" /></p>
+
+<p>一句话：图中过程2（调用组件2开始之前）执行<code class="highlighter-rouge">clearCallingIdentity()</code>，过程3（调用组件2结束之后）执行<code class="highlighter-rouge">restoreCallingIdentity()</code>。</p>
+
+<h3 id="section-4">3.2 类比分析</h3>
+
+<p>看完场景分析，估计还有不少朋友感到迷惑，为何需要这两个方法来多此一举，直接检测最初调用端的权限不就行了吗？为了更加形象明了地说明其用途，下面用一个生活中的场景来类比说明。</p>
+
+<p><strong>场景：</strong>假如你的朋友请你帮忙，给她(他)到你的公司以内部价购买公司的某个产品。</p>
+
+<p><strong>分析：</strong>这个过程分为两个阶段</p>
+
+<p><img src="/images/binder/binder_clearCallingIdentity_2.jpg" alt="binder_clearCallingIdentity_2" /></p>
+
+<ul>
+  <li>第一阶段：你的朋友请你帮忙的过程，这个过程并不一定所有朋友都会帮的，这时就需要一个权限检测，那么在你的朋友”远程调用”你执行任务时，你会记录他的”Identity”信息（比如是性别），有了信息那么就可以权限检测，不妨令权限规则是如果这个朋友是女性则答应帮忙，否则就认定权限不够拒绝执行（可能黑客会想到先去一趟泰国，权限控制可能相应需要打补丁了），若答应帮忙则进入第二阶段，否则直接返回。</li>
+  <li>第二阶段：你向自己所在公司的相关部门内购产品的过程，这个过程也并不是所有人都能权限能够内购的，只有自己公司的员工才行，否则你的朋友也不会找你帮忙了。 这个过程同样需要权限检测，但是”Identity”保存的是性别女的信息，公司内购产品如果也以性别来判断，那岂不是公司的所有男员工没有权限内购，那这公司就有点太坑了，这明显不符合实情。 <code class="highlighter-rouge">clearCallingIdentity()</code>是时候该登场了，在第二阶段开始之前，先执行<code class="highlighter-rouge">clearCallingIdentity()</code>过程，也就是把”Identity”信息清空，替换为你的信息（比如员工编码ITCode之类的），那公司相关部门通过ITCode就可以直接判断是否允许内购某产品。当第二阶段完成后，也就是你已经购买到了公司产品，这时你需要将产品交付给你的朋友，需要<code class="highlighter-rouge">restoreCallingIdentity</code>，恢复”Identity”为女的信息，这样就嗯呢该顺便交付给你的女朋友。如果不恢复信息，还是原来的ITCode，你交付的朋友可能是男的，另有其人，这样就不科学了。</li>
+</ul>
+
+<p>相信到此，大家应该都能明白这两个方法的作用，缺一不可，而且要成对出现。</p>
+
+<h3 id="section-5">3.3 实例分析</h3>
+
+<p>上述过程主要在system_server进程的各个线程中比较常见（普通的app应用很少出现），比如system_server进程中的ActivityManagerService子线程，代码如下：</p>
+
+<p>[–&gt;ActivityManagerService.java]</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Override
+public final void attachApplication(IApplicationThread thread) {
+    synchronized (this) {
+        //获取远程Binder调用端的pid
+        int callingPid = Binder.getCallingPid();
+        //清除远程Binder调用端uid和pid信息，并保存到origId变量
+        final long origId = Binder.clearCallingIdentity();
+        attachApplicationLocked(thread, callingPid);
+        //通过origId变量，还原远程Binder调用端的uid和pid信息
+        Binder.restoreCallingIdentity(origId);
+    }
+}
+</code></pre>
+</div>
+
+<p>文章<a href="http://gityuan.com/2016/02/21/start-service/#activitymanagerproxyattachapplication">startService流程分析</a>中有讲到<code class="highlighter-rouge">attachApplication()</code>的调用。该方法一般是system_server进程的子线程调用远程进程时使用，而<code class="highlighter-rouge">attachApplicationLocked</code>方法则是在同一个线程中，故需要在调用该方法前清空远程调用者的uid和pid，调用结束后恢复远程调用者的uid和pid。</p>
+
+<hr />
+
+<p>如果觉得本文对您有所帮助，请关注我的<strong>微信公众号：gityuan</strong>， <strong><a href="http://weibo.com/gityuan">微博：Gityuan</a></strong>。 或者<a href="http://gityuan.com/about/">点击这里查看更多关于我的信息</a></p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2016/03/06/binder-clearCallingIdentity"
+                    data-title="Binder IPC的权限控制"
+                    data-url="http://gityuan.com/2016/03/06/binder-clearCallingIdentity/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  基于Android 6.0的源码剖析， 分析Binder IPC通信的权限控制方法clearCallingIdentity和restoreCalli... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/02/29/pm-command/" data-toggle="tooltip" data-placement="top" title="Pm命令用法">
+                        Previous<br>
+                        <span>Pm命令用法</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/03/07/start-service/" data-toggle="tooltip" data-placement="top" title="startService流程分析">
+                        Next<br>
+                        <span>startService流程分析</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2016/03/06/binder-clearCallingIdentity"
+                        data-title="Binder IPC的权限控制"
+                        data-url="http://gityuan.com/2016/03/06/binder-clearCallingIdentity/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

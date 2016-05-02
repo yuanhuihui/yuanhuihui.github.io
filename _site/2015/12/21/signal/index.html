@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Linux信号(signal)机制 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/12/21/signal/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#linux" title="linux">linux</a>
+                        
+                        <a class="tag" href="/tags/#signal" title="signal">signal</a>
+                        
+                    </div>
+                    <h1>Linux信号(signal)机制</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on December 21, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>信号(signal)是一种软中断，信号机制是进程间通信的一种方式，采用异步通信方式</p>
+</blockquote>
+
+<h2 id="section">一、信号类型</h2>
+
+<p>Linux系统共定义了64种信号，分为两大类：可靠信号与不可靠信号，前32种信号为不可靠信号，后32种为可靠信号。</p>
+
+<h3 id="section-1">1.1 概念</h3>
+
+<ul>
+  <li>
+    <p>不可靠信号： 也称为非实时信号，不支持排队，信号可能会丢失, 比如发送多次相同的信号, 进程只能收到一次. 信号值取值区间为1~31；</p>
+  </li>
+  <li>
+    <p>可靠信号： 也称为实时信号，支持排队, 信号不会丢失, 发多少次, 就可以收到多少次. 信号值取值区间为32~64</p>
+  </li>
+</ul>
+
+<h3 id="section-2">1.2 信号表</h3>
+
+<p>在终端，可通过<code class="highlighter-rouge">kill -l</code>查看所有的signal信号</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>取值</th>
+      <th>名称</th>
+      <th>解释</th>
+      <th>默认动作</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>SIGHUP</td>
+      <td>挂起</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>SIGINT</td>
+      <td>中断</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>SIGQUIT</td>
+      <td>退出</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>SIGILL</td>
+      <td>非法指令</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>SIGTRAP</td>
+      <td>断点或陷阱指令</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>SIGABRT</td>
+      <td>abort发出的信号</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>SIGBUS</td>
+      <td>非法内存访问</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>SIGFPE</td>
+      <td>浮点异常</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>SIGKILL</td>
+      <td>kill信号</td>
+      <td>不能被忽略、处理和阻塞</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>SIGUSR1</td>
+      <td>用户信号1</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td>SIGSEGV</td>
+      <td>无效内存访问</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td>SIGUSR2</td>
+      <td>用户信号2</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>13</td>
+      <td>SIGPIPE</td>
+      <td>管道破损，没有读端的管道写数据</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>14</td>
+      <td>SIGALRM</td>
+      <td>alarm发出的信号</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>15</td>
+      <td>SIGTERM</td>
+      <td>终止信号</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>16</td>
+      <td>SIGSTKFLT</td>
+      <td>栈溢出</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>17</td>
+      <td>SIGCHLD</td>
+      <td>子进程退出</td>
+      <td>默认忽略</td>
+    </tr>
+    <tr>
+      <td>18</td>
+      <td>SIGCONT</td>
+      <td>进程继续</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>19</td>
+      <td>SIGSTOP</td>
+      <td>进程停止</td>
+      <td>不能被忽略、处理和阻塞</td>
+    </tr>
+    <tr>
+      <td>20</td>
+      <td>SIGTSTP</td>
+      <td>进程停止</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>21</td>
+      <td>SIGTTIN</td>
+      <td>进程停止，后台进程从终端读数据时</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>22</td>
+      <td>SIGTTOU</td>
+      <td>进程停止，后台进程想终端写数据时</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>23</td>
+      <td>SIGURG</td>
+      <td>I/O有紧急数据到达当前进程</td>
+      <td>默认忽略</td>
+    </tr>
+    <tr>
+      <td>24</td>
+      <td>SIGXCPU</td>
+      <td>进程的CPU时间片到期</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>25</td>
+      <td>SIGXFSZ</td>
+      <td>文件大小的超出上限</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>26</td>
+      <td>SIGVTALRM</td>
+      <td>虚拟时钟超时</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>27</td>
+      <td>SIGPROF</td>
+      <td>profile时钟超时</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>28</td>
+      <td>SIGWINCH</td>
+      <td>窗口大小改变</td>
+      <td>默认忽略</td>
+    </tr>
+    <tr>
+      <td>29</td>
+      <td>SIGIO</td>
+      <td>I/O相关</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>30</td>
+      <td>SIGPWR</td>
+      <td>关机</td>
+      <td>默认忽略</td>
+    </tr>
+    <tr>
+      <td>31</td>
+      <td>SIGSYS</td>
+      <td>系统调用异常</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>对于signal信号，绝大部分的默认处理都是终止进程或停止进程，或dump内核映像转储。
+上述的31的信号为非实时信号，其他的信号32-64 都是实时信号。</p>
+
+<h2 id="section-3">二、信号产生</h2>
+
+<p>信号来源分为硬件类和软件类：</p>
+
+<h3 id="section-4">2.1 硬件方式</h3>
+<ul>
+  <li>用户输入：比如在终端上按下组合键ctrl+C，产生SIGINT信号；</li>
+  <li>硬件异常：CPU检测到内存非法访问等异常，通知内核生成相应信号，并发送给发生事件的进程；</li>
+</ul>
+
+<h3 id="section-5">2.2 软件方式</h3>
+<p>通过系统调用，发送signal信号：kill()，raise()，sigqueue()，alarm()，setitimer()，abort()</p>
+
+<ul>
+  <li>kernel,使用 kill_proc_info(）等</li>
+  <li>native,使用 kill() 或者raise()等</li>
+  <li>java,使用 Procees.sendSignal()等</li>
+</ul>
+
+<h2 id="section-6">三、信号注册和注销</h2>
+
+<h3 id="section-7">3.1 注册</h3>
+<p>在进程task_struct结构体中有一个未决信号的成员变量 <code class="highlighter-rouge">struct sigpending pending</code>。每个信号在进程中注册都会把信号值加入到进程的未决信号集。</p>
+
+<ul>
+  <li>非实时信号发送给进程时，如果该信息已经在进程中注册过，不会再次注册，故信号会丢失；</li>
+  <li>实时信号发送给进程时，不管该信号是否在进程中注册过，都会再次注册。故信号不会丢失；</li>
+</ul>
+
+<h3 id="section-8">3.2 注销</h3>
+
+<ul>
+  <li>非实时信号：不可重复注册，最多只有一个sigqueue结构；当该结构被释放后，把该信号从进程未决信号集中删除，则信号注销完毕；</li>
+  <li>实时信号：可重复注册，可能存在多个sigqueue结构；当该信号的所有sigqueue处理完毕后，把该信号从进程未决信号集中删除，则信号注销完毕；</li>
+</ul>
+
+<h2 id="section-9">四、信号处理</h2>
+
+<p>内核处理进程收到的signal是在当前进程的上下文，故进程必须是Running状态。当进程唤醒或者调度后获取CPU，则会从内核态转到用户态时检测是否有signal等待处理，处理完，进程会把相应的未决信号从链表中去掉。</p>
+
+<h3 id="section-10">4.1 处理时机</h3>
+<p>signal信号处理时机： 内核态 -&gt; signal信号处理 -&gt; 用户态：</p>
+
+<ul>
+  <li>在内核态，signal信号不起作用；</li>
+  <li>在用户态，signal所有未被屏蔽的信号都处理完毕；</li>
+  <li>当屏蔽信号，取消屏蔽时，会在下一次内核转用户态的过程中执行；</li>
+</ul>
+
+<h3 id="section-11">4.2 处理方式</h3>
+
+<p>进程对信号的处理方式： 有3种</p>
+
+<ul>
+  <li>默认  接收到信号后按默认的行为处理该信号。 这是多数应用采取的处理方式。</li>
+  <li>自定义  用自定义的信号处理函数来执行特定的动作</li>
+  <li>忽略  接收到信号后不做任何反应。</li>
+</ul>
+
+<h3 id="section-12">4.3 信号安装</h3>
+
+<p>进程处理某个信号前，需要先在进程中安装此信号。安装过程主要是建立信号值和进程对相应信息值的动作。</p>
+
+<p>信号安装函数</p>
+
+<ul>
+  <li>signal()：不支持信号传递信息，主要用于非实时信号安装；</li>
+  <li>sigaction():支持信号传递信息，可用于所有信号安装；</li>
+</ul>
+
+<p>其中 sigaction结构体</p>
+
+<ul>
+  <li>sa_handler:信号处理函数</li>
+  <li>sa_mask：指定信号处理程序执行过程中需要阻塞的信号；</li>
+  <li>sa_flags：标示位
+    <ul>
+      <li>SA_RESTART：使被信号打断的syscall重新发起。</li>
+      <li>SA_NOCLDSTOP：使父进程在它的子进程暂停或继续运行时不会收到 SIGCHLD 信号。</li>
+      <li>SA_NOCLDWAIT：使父进程在它的子进程退出时不会收到SIGCHLD信号，这时子进程如果退出也不会成为僵
+尸进程。</li>
+      <li>SA_NODEFER：使对信号的屏蔽无效，即在信号处理函数执行期间仍能发出这个信号。</li>
+      <li>SA_RESETHAND：信号处理之后重新设置为默认的处理方式。</li>
+      <li>SA_SIGINFO：使用sa_sigaction成员而不是sa_handler作为信号处理函数。</li>
+    </ul>
+  </li>
+</ul>
+
+<p>函数原型：</p>
+
+<p>int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);</p>
+
+<ul>
+  <li>signum：要操作的signal信号。</li>
+  <li>act：设置对signal信号的新处理方式。</li>
+  <li>oldact：原来对信号的处理方式。</li>
+  <li>返回值：0 表示成功，-1 表示有错误发生。</li>
+</ul>
+
+<h3 id="section-13">4.4 信号发送</h3>
+
+<ul>
+  <li>kill()：用于向进程或进程组发送信号；</li>
+  <li>sigqueue()：只能向一个进程发送信号，不能像进程组发送信号；主要针对实时信号提出，与sigaction()组合使用，当然也支持非实时信号的发送；</li>
+  <li>alarm()：用于调用进程指定时间后发出SIGALARM信号；</li>
+  <li>setitimer()：设置定时器，计时达到后给进程发送SIGALRM信号，功能比alarm更强大；</li>
+  <li>abort()：向进程发送SIGABORT信号，默认进程会异常退出。</li>
+  <li>raise()：用于向进程自身发送信号；</li>
+</ul>
+
+<h3 id="section-14">4.5 信号相关函数</h3>
+
+<p>信号集操作函数</p>
+
+<ul>
+  <li>sigemptyset(sigset_t *set)：信号集全部清0；</li>
+  <li>sigfillset(sigset_t *set)： 信号集全部置1，则信号集包含linux支持的64种信号；</li>
+  <li>sigaddset(sigset_t *set, int signum)：向信号集中加入signum信号；</li>
+  <li>sigdelset(sigset_t *set, int signum)：向信号集中删除signum信号；</li>
+  <li>sigismember(const sigset_t *set, int signum)：判定信号signum是否存在信号集中。</li>
+</ul>
+
+<p>信号阻塞函数</p>
+
+<ul>
+  <li>sigprocmask(int  how,  const  sigset_t *set, sigset_t *oldset))； 不同how参数，实现不同功能
+    <ul>
+      <li>SIG_BLOCK：将set指向信号集中的信号，添加到进程阻塞信号集；</li>
+      <li>SIG_UNBLOCK：将set指向信号集中的信号，从进程阻塞信号集删除；</li>
+      <li>SIG_SETMASK：将set指向信号集中的信号，设置成进程阻塞信号集；</li>
+    </ul>
+  </li>
+  <li>sigpending(sigset_t *set))：获取已发送到进程，却被阻塞的所有信号；</li>
+  <li>sigsuspend(const sigset_t *mask))：用mask代替进程的原有掩码，并暂停进程执行，直到收到信号再恢复原有掩码并继续执行进程。</li>
+</ul>
+
+<hr />
+
+<p>想更进一步了解关于信号，可查看 <a href="http://akaedu.github.io/book/ch33.html">http://akaedu.github.io/book/ch33.html</a></p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/12/21/signal"
+                    data-title="Linux信号(signal)机制"
+                    data-url="http://gityuan.com/2015/12/21/signal/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  信号(signal)是一种软中断，信号机制是进程间通信的一种方式，采用异步通信方式
+
+
+一、信号类型
+
+Linux系统共定义了64种信号，分为两大类... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/12/20/android-process-category/" data-toggle="tooltip" data-placement="top" title="进程篇—进程整理">
+                        Previous<br>
+                        <span>进程篇—进程整理</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/12/27/handler-message-framework/" data-toggle="tooltip" data-placement="top" title="Android消息机制1-Handler(Java层)">
+                        Next<br>
+                        <span>Android消息机制1-Handler(Java层)</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/12/21/signal"
+                        data-title="Linux信号(signal)机制"
+                        data-url="http://gityuan.com/2015/12/21/signal/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

@@ -1,0 +1,246 @@
+<hr />
+<p>layout: post
+title:  “Android Launcher原理分析”
+date:   2015-9-20 15:30:00
+catalog:  true
+tags:
+    - android
+    - launcher</p>
+
+<hr />
+
+<h2 id="section">基本概念</h2>
+<p>本文主要讲述Launcher3屏幕滑动过程，首先需要了解Android的触摸事件分发机制。关于分发机制，可查看文章<a href="http://gityuan.com/2015/09/19/android-touch/">Android事件分发机制</a>。</p>
+
+<h3 id="section-1">常用类介绍</h3>
+
+<ol>
+  <li><strong>Launcher.java:</strong> launcher主要的activity，是launcher桌面第一次启动的activity.</li>
+  <li><strong>Workspace.java:</strong> 抽象的桌面。由N个cellLayout组成,从cellLayout更高一级的层面上对事件的处理。</li>
+  <li><strong>PagedView.java:</strong> 是workspace的父类，用来桌面的左右滑屏</li>
+  <li><strong>CellLayout.java：</strong> 组成workspace的view,继承自viewgroup，既是一个dragSource，又是一个dropTarget,可以将它里面的item拖出去，也可以容纳拖动过来的item。在workspace_screen里面定了一些它的view参数。</li>
+  <li><strong>LauncherModel.java:</strong> 辅助的文件。里面有许多封装的对数据库的操作。包含几个线程，其中最主要的是ApplicationsLoader和DesktopItemsLoader。ApplicationsLoader在加载所有应用程序时使用，DesktopItemsLoader在加载workspace的时候使用。其他的函数就是对数据库的封装，比如在删除，替换，添加程序的时候做更新数据库和UI的工作。</li>
+  <li><strong>LauncherProvider.java:</strong> launcher的数据库，里面存储了桌面的item的信息。在创建数据库的时候会loadFavorites(db)方法，loadFavorites()会解析xml目录下的default_workspace.xml文件，把其中的内容读出来写到数据库中，这样就做到了桌面的预制。</li>
+</ol>
+
+<h3 id="section-2">初始化参数</h3>
+<p>PagedView是滑屏最主要的类,下面是init()方法出初始化参数，假设以1080*1440分辨率，即densiy=3为例，来计算各个阈值。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>protected void init() {
+    mDirtyPageContent = new ArrayList&lt;Boolean&gt;();
+    mDirtyPageContent.ensureCapacity(32);
+    mScroller = new LauncherScroller(getContext()); //初始化滚动器LauncherScroller
+    setDefaultInterpolator(new ScrollInterpolator()); //设置插值器为ScrollInterpolator
+    mCurrentPage = 0;
+    mCenterPagesVertically = true;
+
+    // 获取ViewConfiguration
+    final ViewConfiguration configuration = ViewConfiguration.get(getContext());
+
+    //mTouchSlop = 16dp；
+    mTouchSlop = configuration.getScaledPagingTouchSlop(); 
+    //mPagingTouchSlop = 16dp; 
+    mPagingTouchSlop = configuration.getScaledPagingTouchSlop(); 
+    //最大速度8000dp/s;
+    mMaximumVelocity = configuration.getScaledMaximumFlingVelocity(); 
+    //获取屏幕密度系数mDensity
+    mDensity = getResources().getDisplayMetrics().density;  
+
+    //用于删除的抛出阈值: -1440*3
+    mFlingToDeleteThresholdVelocity =
+            (int) (mFlingToDeleteThresholdVelocity * mDensity);
+
+    //滚动速度阈值 500 *3 px/s
+    mFlingThresholdVelocity = (int) (FLING_THRESHOLD_VELOCITY * mDensity);
+    //最小滚动速度值 250 *3  px/s
+    mMinFlingVelocity = (int) (MIN_FLING_VELOCITY * mDensity);
+    //最小snap速度值1500 *3 px/s
+    mMinSnapVelocity = (int) (MIN_SNAP_VELOCITY * mDensity);
+    setOnHierarchyChangeListener(this);
+}
+</code></pre>
+</div>
+
+<p>下面主要讲述：Workspace，PagedView 这两个关于滑屏最为核心的类，也是代码量最大的类。</p>
+
+<h2 id="section-3">2. 滑动原理：</h2>
+<p>先来看看launcher桌面的整体UI布局图：</p>
+
+<p><img src="/images/launcher/1.png" alt="launcher ui" /></p>
+
+<h3 id="section-4">1. 手指按下：</h3>
+<p>当手指按下时，触发ACTION_DOWN事件，由Activity</p>
+
+<p><img src="/images/launcher/launcher_down.jpg" alt="launcher_down" /></p>
+
+<p>当手指按下时，还没有准备滚动，此时<code class="highlighter-rouge">mTouchState = TOUCH_STATE_REST</code>，故Worksapce，PagedView并不会拦截事件，虽然没有拦截器进行拦截，也没有onTouchEvent消费，但由于CellLayout的clickable=”true”，故ACTION_DOWN事件仍然是被消费了，具体说明见上一篇文章<a href="http://gityuan.com/2015/09/19/android-touch/">Android事件分发机制</a>.</p>
+
+<h3 id="section-5">2. 手指移动：</h3>
+
+<p><img src="/images/launcher/launcher_move.jpg" alt="launcher_move" /></p>
+
+<p>决定是否屏幕是否开始滑动的阈值计算：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>mTouchSlop = configuration.getScaledPagingTouchSlop()
+mTouchSlop = res.getDimensionPixelSize(
+            com.android.internal.R.dimen.config_viewConfigurationTouchSlop)*2; 常量定义在文件`data/res/values/config.xml`中`&lt;dimen name="config_viewConfigurationTouchSlop"&gt;8dp&lt;/dimen&gt;`。   故mTouchSlop = 8dp * 2 = 16dp，这是系统默认值。  
+</code></pre>
+</div>
+
+<p>当手指移动距离&gt;mTouchSlop时，Wokespace开始拦截ACTION_MOVE事件，并调用<code class="highlighter-rouge">scrollBy()</code>,<strong>这是整个过程第一次屏幕移动</strong>。每收到一次ACTION_MOVE事件，并执行<code class="highlighter-rouge">scrollBy()</code>事件，直到用户手指离开屏幕。并执行<code class="highlighter-rouge">scrollBy()</code>事件，最终调用的还是<code class="highlighter-rouge">View.scrollTo()</code>来进行屏幕的滚动操作。</p>
+
+<h3 id="section-6">3. 手指离开屏幕</h3>
+
+<p><img src="/images/launcher/launcher_up.jpg" alt="launcher_up" /></p>
+
+<p>达到下面两种情况之一，都可以触发launcher滑屏事件:</p>
+
+<ul>
+  <li>
+    <p>滑动距离超过屏幕宽度的0.4倍,SIGNIFICANT_MOVE_THRESHOLD = 0.4
+  <code class="highlighter-rouge">boolean isSignificantMove = Math.abs(deltaX) &gt; pageWidth * SIGNIFICANT_MOVE_THRESHOLD;</code></p>
+  </li>
+  <li>
+    <p>速度 大于500dp/s, 且滑动距离大于 25px。<br />
+ <code class="highlighter-rouge">boolean isFling = mTotalMotionX &gt; MIN_LENGTH_FOR_FLING &amp;&amp;  Math.abs(velocityX) &gt; mFlingThresholdVelocity;</code></p>
+  </li>
+</ul>
+
+<p>当满足屏幕翻页的条件时，开始执行翻页动画，通过插值器<code class="highlighter-rouge">ScrollInterpolator</code>来计算每一步需要移动的距离。
+插值函数为：<code class="highlighter-rouge">f(t)=1+(t-1)^5</code>。不断循环，直到timePassed &gt; mDuration时，动画结束。</p>
+
+<h2 id="section-7">部分源码</h2>
+
+<h3 id="determinescrollingstart">1. determineScrollingStart滑动检测</h3>
+<p>用于判断是否进行滑动操作</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>protected void determineScrollingStart(MotionEvent ev, float touchSlopScale) {
+    // Disallow scrolling if we don't have a valid pointer index
+    final int pointerIndex = ev.findPointerIndex(mActivePointerId);
+    if (pointerIndex == -1) return;
+
+    // Disallow scrolling if we started the gesture from outside the viewport
+    final float x = ev.getX(pointerIndex);
+    final float y = ev.getY(pointerIndex);
+    if (!isTouchPointInViewportWithBuffer((int) x, (int) y)) return;
+
+    final int xDiff = (int) Math.abs(x - mLastMotionX);
+    final int yDiff = (int) Math.abs(y - mLastMotionY);
+
+    final int touchSlop = Math.round(touchSlopScale * mTouchSlop);
+    boolean xPaged = xDiff &gt; mPagingTouchSlop;
+    boolean xMoved = xDiff &gt; touchSlop;
+    boolean yMoved = yDiff &gt; touchSlop;
+
+    //当滑动距离足够时，才开始滑动
+    if (xMoved || xPaged || yMoved) {
+        if (mUsePagingTouchSlop ? xPaged : xMoved) {
+            // Scroll if the user moved far enough along the X axis
+            mTouchState = TOUCH_STATE_SCROLLING;
+            mTotalMotionX += Math.abs(mLastMotionX - x);
+            mLastMotionX = x;
+            mLastMotionXRemainder = 0;
+            mTouchX = getViewportOffsetX() + getScrollX();
+            mSmoothingTime = System.nanoTime() / NANOTIME_DIV;
+            onScrollInteractionBegin();
+            pageBeginMoving();
+        }
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="snaptopage">2. snapToPage滑屏方法</h3>
+<p>手指离开屏幕后，调用的滑动动画的方法</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>protected void snapToPage(int whichPage, int delta, int duration, boolean immediate,
+                          TimeInterpolator interpolator) {
+
+    whichPage = validateNewPage(whichPage);
+
+    mNextPage = whichPage;
+    View focusedChild = getFocusedChild();
+    if (focusedChild != null &amp;&amp; whichPage != mCurrentPage &amp;&amp;
+            focusedChild == getPageAt(mCurrentPage)) {
+        focusedChild.clearFocus();
+    }
+
+    sendScrollAccessibilityEvent();
+
+    pageBeginMoving();
+    awakenScrollBars(duration);
+    if (immediate) {
+        duration = 0;
+    } else if (duration == 0) {
+        duration = Math.abs(delta);
+    }
+
+    if (!mScroller.isFinished()) {
+        abortScrollerAnimation(false);
+    }
+
+    if (interpolator != null) {
+        mScroller.setInterpolator(interpolator);
+    } else {
+        // 插值器为ScrollInterpolator
+        mScroller.setInterpolator(mDefaultInterpolator); 
+    }
+
+    //这个整个滑动的开始点
+    mScroller.startScroll(mUnboundedScrollX, 0, delta, 0, duration);
+
+    updatePageIndicator();
+
+    // Trigger a compute() to finish switching pages if necessary
+    if (immediate) {
+        computeScroll();
+    }
+
+    // Defer loading associated pages until the scroll settles
+    mDeferLoadAssociatedPagesUntilScrollCompletes = true;
+
+    mForceScreenScrolled = true;
+    invalidate();
+}
+</code></pre>
+</div>
+
+<h3 id="scrollinterpolator">3.ScrollInterpolator插值器</h3>
+<p>滑屏时的插值器</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private static class ScrollInterpolator implements Interpolator {
+    public ScrollInterpolator() {
+    }
+
+    public float getInterpolation(float t) {
+        t -= 1.0f;
+        return t * t * t * t * t + 1;
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="launcherscroller">4. LauncherScroller滑动器</h3>
+<p>launcher桌面的滑动器
+	mDeceleration = computeDeceleration(ViewConfiguration.getScrollFriction());
+    mPhysicalCoeff = computeDeceleration(0.84f); // look and feel tuning</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>//计算 pixels/(s^2)
+private float computeDeceleration(float friction) {
+    return SensorManager.GRAVITY_EARTH   // g (m/s^2)
+                  * 39.37f               // inch/meter
+                  * mPpi                 // pixels per inch
+                  * friction;
+}
+
+//获取速度
+public float getCurrVelocity() {
+    return mMode == FLING_MODE ?
+            mCurrVelocity : mVelocity - mDeceleration * timePassed() / 2000.0f;
+}
+</code></pre>
+</div>
+
+<h3 id="computescroll">5.computeScroll</h3>
+<p>computeScroll()：重写了父类的computeScroll()；主要功能是计算拖动的位移量、更新背景、设置要显示的屏幕</p>
+

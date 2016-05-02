@@ -1,0 +1,2104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>startService流程分析 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2016/03/07/start-service/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#boot" title="boot">boot</a>
+                        
+                        <a class="tag" href="/tags/#service" title="service">service</a>
+                        
+                    </div>
+                    <h1>startService流程分析</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on March 7, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>基于Android 6.0的源码剖析， 分析android Service启动流程中ActivityManagerService所扮演的角色</p>
+</blockquote>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>/frameworks/base/services/core/java/com/android/server/am/ActiveServices.java
+/frameworks/base/services/core/java/com/android/server/am/ServiceRecord.java
+/frameworks/base/services/core/java/com/android/server/am/ProcessRecord.java
+
+/frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+/frameworks/base/core/java/android/app/IActivityManager.java
+/frameworks/base/core/java/android/app/ActivityManagerNative.java (内含ActivityManagerProxy类)
+/frameworks/base/core/java/android/app/ActivityManager.java
+
+/frameworks/base/core/java/android/app/IApplicationThread.java
+/frameworks/base/core/java/android/app/ApplicationThreadNative.java (内含ApplicationThreadProxy类)
+/frameworks/base/core/java/android/app/ActivityThread.java (内含ApplicationThread类)
+
+/frameworks/base/core/java/android/app/ContextImpl.java
+</code></pre>
+</div>
+
+<h3 id="section">概述</h3>
+
+<p>看过前面介绍<a href="http://gityuan.com/2015/10/31/binder-prepare/">Binder系列</a>文章，相信对Binder架构有了较深地理解。在<a href="http://gityuan.com/2016/01/03/android-boot/">Android系统启动-开篇</a>中讲述了Binder的地位是非常之重要，整个Java framework的提供ActivityManagerService、PackageManagerService等服务都是基于Binder架构来通信的，另外
+<a href="http://gityuan.com/2015/12/26/handler-message/">handle消息机制</a>在进程内的通信使用非常多。本文将开启对ActivityManagerService的分析。</p>
+
+<p>ActivityManagerService是Android的Java framework的服务框架最重要的服务之一。对于Andorid的Activity、Service、Broadcast、ContentProvider四剑客的管理，包含其生命周期都是通过ActivityManagerService来完成的。对于这四剑客的介绍，此处先略过，后续博主会针对这4剑客分别阐述。</p>
+
+<p><strong>类图</strong></p>
+
+<p>下面先看看ActivityManagerService相关的类图：</p>
+
+<p><img src="/images/android-service/am/activity_manager_classes.png" alt="activity_manager_classes" /></p>
+
+<p>单单就一个ActivityManagerService.java文件就代码超过20000万行，我们需要需要一个线，再结合binder的知识，来把我们想要了解的东西串起来，那么本文将从App启动的视角来分析ActivityManagerService。</p>
+
+<p><strong>启动服务</strong></p>
+
+<p>在app中启动一个service，就一行语句搞定，</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>startService()； //或 binderService()
+</code></pre>
+</div>
+
+<p>该过程如下：</p>
+
+<p><img src="/images/android-service/am/start_service.png" alt="start_service" /></p>
+
+<p>当App通过调用Android API方法startService()或binderService()来生成并启动服务的过程，主要是由ActivityManagerService来完成的。</p>
+
+<ol>
+  <li>ActivityManagerService通过Socket通信方式向Zygote进程请求生成(fork)用于承载服务的进程ActivityThread。此处讲述启动远程服务的过程，即服务运行于单独的进程中，对于运行本地服务则不需要启动服务的过程。ActivityThread是应用程序的主线程；</li>
+  <li>Zygote通过fork的方法，将zygote进程复制生成新的进程，并将ActivityThread相关的资源加载到新进程；</li>
+  <li>ActivityManagerService向新生成的ActivityThread进程，通过Binder方式发送生成服务的请求；</li>
+  <li>ActivityThread启动运行服务，这便于服务启动的简易过程，真正流程远比这服务；</li>
+</ol>
+
+<p><strong>启动服务的流程图：</strong></p>
+
+<p>点击查看<a href="http://gityuan.com/images/android-service/am/Seq_start_service.png">大图</a></p>
+
+<p><img src="/images/android-service/am/Seq_start_service.png" alt="Seq_start_service" /></p>
+
+<p>图中涉及的首字母缩写：</p>
+
+<ul>
+  <li>AMP:ActivityManagerProxy</li>
+  <li>AMN:ActivityManagerNative</li>
+  <li>AMS:ActivityManagerService</li>
+  <li>AT:ApplicationThread</li>
+  <li>ATP:ApplicationThreadProxy</li>
+  <li>ATN:ApplicationThreadNative</li>
+</ul>
+
+<hr />
+
+<p>接下来，我们正式从代码角度来分析服务启动的过程。首先在我们应用程序的Activity类的调用startService()方法，该方法调用【流程1】的方法。</p>
+
+<h3 id="contextwrapperstartservice">1. ContextWrapper.startService</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public class ContextWrapper extends Context {
+    @Override
+    public ComponentName startService(Intent service) {
+        return mBase.startService(service); //其中mBase为ContextImpl对象 【见流程2-1】
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="contextimplstartservice">2. ContextImpl.startService</h3>
+
+<p><strong>[2-1]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>class ContextImpl extends Context {
+	@Override
+    public ComponentName startService(Intent service) {
+        //当system进程调用此方法时输出warn信息，system进程建立调用startServiceAsUser方法
+        warnIfCallingFromSystemProcess(); 
+        return startServiceCommon(service, mUser); //【见流程2-2】
+    }
+</code></pre>
+</div>
+
+<p><strong>[2-2]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private ComponentName startServiceCommon(Intent service, UserHandle user) {
+    try {
+        //检验service，当service为空则throw异常
+        validateServiceIntent(service); 
+        service.prepareToLeaveProcess();
+        // 调用ActivityManagerNative类 【见流程3】
+        ComponentName cn = ActivityManagerNative.getDefault().startService(
+            mMainThread.getApplicationThread(), service, service.resolveTypeIfNeeded(getContentResolver()), getOpPackageName(), user.getIdentifier());
+        if (cn != null) {
+            if (cn.getPackageName().equals("!")) {
+                throw new SecurityException("Not allowed to start service " + 
+                    service + " without permission " + cn.getClassName());
+            } else if (cn.getPackageName().equals("!!")) {
+                throw new SecurityException("Unable to start service " + 
+                    service  ": " + cn.getClassName());
+            }
+        }
+        return cn;
+    } catch (RemoteException e) {
+        throw new RuntimeException("Failure from system", e);
+    }
+}
+</code></pre>
+</div>
+
+<p><strong>ActivityManagerNative.getDefault()</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static public IActivityManager getDefault() {
+    return gDefault.get();
+}
+
+//获取IActivityManager的代理类
+private static final Singleton&lt;IActivityManager&gt; gDefault = new Singleton&lt;IActivityManager&gt;() {
+    protected IActivityManager create() {
+        //获取名为"activity"的服务，服务都注册到ServiceManager来统一管理
+        IBinder b = ServiceManager.getService("activity");
+        IActivityManager am = asInterface(b);
+        return am;
+    }
+};
+
+//单例模式，此处的mInstance为IActivityManager类的代理对象，即ActivityManagerProxy。
+public abstract class Singleton&lt;T&gt; {
+    public final T get() {
+        synchronized (this) {
+            if (mInstance == null) {
+                mInstance = create();
+            }
+            return mInstance;
+        }
+    }
+}
+</code></pre>
+</div>
+
+<p>该方法返回的是ActivityManagerProxy对象，那么下一步调用ActivityManagerProxy.startService()方法。</p>
+
+<p>通过Binder通信过程中，提供了一个IActivityManager服务接口，ActivityManagerProxy类与ActivityManagerService类都实现了IActivityManager接口。ActivityManagerProxy作为binder通信的客户端，ActivityManagerService作为binder通信的服务端，根据<a href="http://gityuan.com/2015/10/31/binder-prepare/">Binder系列</a>文章，ActivityManagerProxy.startService()最终调用ActivityManagerService.startService()，整个流程图如下：</p>
+
+<p><img src="/images/android-service/am/Activity_Manager_Service.png" alt="Activity_Manager_Service" /></p>
+
+<h3 id="ampstartservice">3. AMP.startService</h3>
+
+<p>该类位于文件ActivityManagerNative.java</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public ComponentName startService(IApplicationThread caller, Intent service,
+            String resolvedType, String callingPackage, int userId) throws RemoteException
+{
+    Parcel data = Parcel.obtain();
+    Parcel reply = Parcel.obtain();
+    data.writeInterfaceToken(IActivityManager.descriptor);
+    data.writeStrongBinder(caller != null ? caller.asBinder() : null);
+    service.writeToParcel(data, 0);
+    data.writeString(resolvedType);
+    data.writeString(callingPackage);
+    data.writeInt(userId);
+    //通过Binder 传递数据　【见流程4】
+    mRemote.transact(START_SERVICE_TRANSACTION, data, reply, 0);
+    reply.readException();
+    ComponentName res = ComponentName.readFromParcel(reply);
+    data.recycle();
+    reply.recycle();
+    return res;
+}
+</code></pre>
+</div>
+
+<p>mRemote.transact()是binder通信的客户端发起方法，经过binder驱动，最后回到binder服务端ActivityManagerNative的onTransact()方法。</p>
+
+<h3 id="amnontransact">4. AMN.onTransact</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Override
+public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+        throws RemoteException {
+    switch (code) {
+    ...
+     case START_SERVICE_TRANSACTION: {
+        data.enforceInterface(IActivityManager.descriptor);
+        IBinder b = data.readStrongBinder();
+        //生成ApplicationThreadNative的代理对象，即ApplicationThreadProxy对象
+        IApplicationThread app = ApplicationThreadNative.asInterface(b);
+        Intent service = Intent.CREATOR.createFromParcel(data);
+        String resolvedType = data.readString();
+        String callingPackage = data.readString();
+        int userId = data.readInt();
+        //调用ActivityManagerService的startService()方法【见流程5】
+        ComponentName cn = startService(app, service, resolvedType, callingPackage, userId);
+        reply.writeNoException();
+        ComponentName.writeToParcel(cn, reply);
+        return true;
+    }
+}
+</code></pre>
+</div>
+
+<p>在整个调用过程涉及两个进程，不妨令startService的发起进程记为进程A，ServiceManagerService记为进程B；那么进程A通过Binder机制（采用IActivityManager接口）向进程B发起请求服务，进程B则通过Binder机制(采用IApplicationThread接口)向进程A发起请求服务。也就是说进程A与进程B能相互间主动发起请求，进程通信。</p>
+
+<p>这里涉及IApplicationThread，那么下面直接把其相关的类图展示如下：</p>
+
+<p><img src="/images/android-service/am/application_thread_classes.png" alt="application_thread_classes" /></p>
+
+<p>与IActivityManager的binder通信原理一样，ApplicationThreadProxy作为binder通信的客户端，ApplicationThreadNative作为Binder通信的服务端,ApplicationThread继承ApplicationThreadProxy类，覆写其中的部分方法。</p>
+
+<h3 id="amsstartservice">5. AMS.startService</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Override
+public ComponentName startService(IApplicationThread caller, Intent service,
+        String resolvedType, String callingPackage, int userId)
+        throws TransactionTooLargeException {
+    //当调用者是孤立进程，则抛出异常。
+    enforceNotIsolatedCaller("startService"); 
+    
+    if (service != null &amp;&amp; service.hasFileDescriptors() == true) {
+        throw new IllegalArgumentException("File descriptors passed in Intent");
+    }
+    if (callingPackage == null) {
+        throw new IllegalArgumentException("callingPackage cannot be null");
+    }
+    if (DEBUG_SERVICE) Slog.v(TAG_SERVICE,
+            "startService: " + service + " type=" + resolvedType);
+
+    synchronized(this) {
+        final int callingPid = Binder.getCallingPid(); //调用者pid
+        final int callingUid = Binder.getCallingUid(); //调用者uid
+        final long origId = Binder.clearCallingIdentity();
+        //此次的mServices为ActiveServices对象 【见流程6-1】
+        ComponentName res = mServices.startServiceLocked(caller, service,
+                resolvedType, callingPid, callingUid, callingPackage, userId);
+        Binder.restoreCallingIdentity(origId);
+        return res;
+    }
+}
+</code></pre>
+</div>
+
+<p>该方法参数说明：</p>
+
+<ul>
+  <li>caller：IApplicationThread类型，复杂处理</li>
+  <li>service：Intent类型，包含需要运行的service信息</li>
+  <li>resolvedType：String类型</li>
+  <li>callingPackage: String类型，调用该方法的package</li>
+  <li>userId: int类型，用户的id</li>
+</ul>
+
+<h3 id="activeservicesstartservicelocked">6. ActiveServices.startServiceLocked</h3>
+
+<p><strong>[6-1]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ComponentName startServiceLocked(IApplicationThread caller, Intent service, String resolvedType,
+        int callingPid, int callingUid, String callingPackage, int userId)
+        throws TransactionTooLargeException {
+
+    final boolean callerFg;
+    if (caller != null) {
+        final ProcessRecord callerApp = mAm.getRecordForAppLocked(caller);
+        if (callerApp == null) 
+            throw new SecurityException(""); //抛出异常，此处省略异常字符串
+        callerFg = callerApp.setSchedGroup != Process.THREAD_GROUP_BG_NONINTERACTIVE;
+    } else {
+        callerFg = true;
+    }
+    //检索服务信息 
+    ServiceLookupResult res =  retrieveServiceLocked(service, resolvedType, callingPackage,
+                callingPid, callingUid, userId, true, callerFg);
+    if (res == null) {
+        return null;
+    }
+    if (res.record == null) {
+        return new ComponentName("!", res.permission != null
+                ? res.permission : "private to package");
+    }
+    ServiceRecord r = res.record;
+    if (!mAm.getUserManagerLocked().exists(r.userId)) { //检查是否存在启动服务的user
+        return null;
+    }
+    NeededUriGrants neededGrants = mAm.checkGrantUriPermissionFromIntentLocked(
+            callingUid, r.packageName, service, service.getFlags(), null, r.userId);
+
+    r.lastActivity = SystemClock.uptimeMillis();
+    r.startRequested = true;
+    r.delayedStop = false;
+    r.pendingStarts.add(new ServiceRecord.StartItem(r, false, r.makeNextStartId(),
+            service, neededGrants));
+    final ServiceMap smap = getServiceMap(r.userId);
+    boolean addToStarting = false;
+    //对于非前台进程的调度
+    if (!callerFg &amp;&amp; r.app == null &amp;&amp; mAm.mStartedUsers.get(r.userId) != null) {
+        ProcessRecord proc = mAm.getProcessRecordLocked(r.processName, r.appInfo.uid, false);
+        if (proc == null || proc.curProcState &gt; ActivityManager.PROCESS_STATE_RECEIVER) {
+            if (r.delayed) {  //已计划延迟启动
+                return r.name;
+            }
+            if (smap.mStartingBackground.size() &gt;= mMaxStartingBackground) {
+                //当超出 同一时间允许后续启动的最大服务数，则将该服务加入延迟启动的队列。
+                smap.mDelayedStartList.add(r);
+                r.delayed = true;
+                return r.name;
+            }
+            addToStarting = true;
+        } else if (proc.curProcState &gt;= ActivityManager.PROCESS_STATE_SERVICE) {
+            //将新的服务加入到后台启动队列，该队列也包含当前正在运行其他services或者receivers的进程
+            addToStarting = true;
+        } 
+    } 
+    return startServiceInnerLocked(smap, service, r, callerFg, addToStarting); //【见流程6-2】
+}
+</code></pre>
+</div>
+
+<p><strong>[6-2]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ComponentName startServiceInnerLocked(ServiceMap smap, Intent service, ServiceRecord r,
+        boolean callerFg, boolean addToStarting) throws TransactionTooLargeException {
+    ProcessStats.ServiceState stracker = r.getTracker();
+    if (stracker != null) {
+        stracker.setStarted(true, mAm.mProcessStats.getMemFactorLocked(), r.lastActivity);
+    }
+    r.callStart = false;
+    synchronized (r.stats.getBatteryStats()) {
+        r.stats.startRunningLocked(); //用于耗电统计，开启运行的状态
+    }
+    String error = bringUpServiceLocked(r, service.getFlags(), callerFg, false); //【见流程6-3】
+    if (error != null) {
+        return new ComponentName("!!", error);
+    }
+    if (r.startRequested &amp;&amp; addToStarting) {
+        boolean first = smap.mStartingBackground.size() == 0;
+        smap.mStartingBackground.add(r);
+        r.startingBgTimeout = SystemClock.uptimeMillis() + BG_START_TIMEOUT;
+        if (first) {
+            smap.rescheduleDelayedStarts();
+        }
+    } else if (callerFg) {
+        smap.ensureNotStartingBackground(r);
+    }
+    return r.name;
+}
+</code></pre>
+</div>
+
+<p><strong>[6-3]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private final String bringUpServiceLocked(ServiceRecord r, int intentFlags, boolean execInFg,
+        boolean whileRestarting) throws TransactionTooLargeException {
+    if (r.app != null &amp;&amp; r.app.thread != null) {
+        sendServiceArgsLocked(r, execInFg, false);
+        return null;
+    }
+    if (!whileRestarting &amp;&amp; r.restartDelay &gt; 0) {
+        return null; //等待延迟重启的过程，则直接返回
+    }
+
+    // 启动service前，把service从重启服务队列中移除
+    if (mRestartingServices.remove(r)) {
+        r.resetRestartCounter();
+        clearRestartingIfNeededLocked(r);
+    }
+    //service正在启动，将delayed设置为false
+    if (r.delayed) {
+        getServiceMap(r.userId).mDelayedStartList.remove(r);
+        r.delayed = false;
+    }
+
+    //确保拥有该服务的user已经启动，否则停止；
+    if (mAm.mStartedUsers.get(r.userId) == null) {
+        String msg = "";
+        bringDownServiceLocked(r);
+        return msg;
+    }
+    //服务正在启动，设置package停止状态为false
+    try {
+        AppGlobals.getPackageManager().setPackageStoppedState(
+                r.packageName, false, r.userId);
+    } catch (RemoteException e) {
+    } catch (IllegalArgumentException e) {
+        Slog.w(TAG, "Failed trying to unstop package " + r.packageName + ": " + e);
+    }
+
+    final boolean isolated = (r.serviceInfo.flags&amp;ServiceInfo.FLAG_ISOLATED_PROCESS) != 0;
+    final String procName = r.processName;
+    ProcessRecord app;
+    if (!isolated) {
+        //根据进程名和uid，查询ProcessRecord
+        app = mAm.getProcessRecordLocked(procName, r.appInfo.uid, false);
+        if (app != null &amp;&amp; app.thread != null) {
+            try {
+                app.addPackage(r.appInfo.packageName, r.appInfo.versionCode, mAm.mProcessStats);
+                // 启动服务 【见流程10-2】
+                realStartServiceLocked(r, app, execInFg); 
+                return null;
+            } catch (TransactionTooLargeException e) {
+                throw e;
+            } catch (RemoteException e) {
+                Slog.w(TAG, "Exception when starting service " + r.shortName, e);
+            }
+        }
+    } else {
+        app = r.isolatedProc;
+    }
+
+    //对于进程没有启动的情况
+    if (app == null) {
+        //启动service所要运行的进程 【见流程7-1】
+        if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
+                "service", r.name, false, isolated, false)) == null) {
+            String msg = "" 
+            bringDownServiceLocked(r); // 进程启动失败
+            return msg;
+        }
+        if (isolated) {
+            r.isolatedProc = app;
+        }
+    }
+    if (!mPendingServices.contains(r)) {
+        mPendingServices.add(r); 
+    }
+    if (r.delayedStop) {
+        r.delayedStop = false;
+        if (r.startRequested) {
+            stopServiceLocked(r); //停止服务
+        }
+    }
+    return null;
+}
+</code></pre>
+</div>
+
+<p>对于非前台进程调用而需要启动的服务，如果已经有其他的后台服务正在启动中，那么我们可能希望延迟其启动。这是用来避免启动同时启动过多的进程(非必须的)。</p>
+
+<h3 id="amsstartprocesslocked">7. AMS.startProcessLocked</h3>
+
+<p><strong>[7-1]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>final ProcessRecord startProcessLocked(String processName,
+        ApplicationInfo info, boolean knownToBeDead, int intentFlags,
+        String hostingType, ComponentName hostingName, boolean allowWhileBooting,
+        boolean isolated, boolean keepIfLarge) {
+    return startProcessLocked(processName, info, knownToBeDead, intentFlags, hostingType,
+            hostingName, allowWhileBooting, isolated, 0 /* isolatedUid */, keepIfLarge,
+            null /* ABI override */, null /* entryPoint */, null /* entryPointArgs */,
+            null /* crashHandler */);  //【见7-2】
+}
+</code></pre>
+</div>
+
+<p><strong>[7-2]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>final ProcessRecord startProcessLocked(String processName, ApplicationInfo info,
+        boolean knownToBeDead, int intentFlags, String hostingType, ComponentName hostingName,
+        boolean allowWhileBooting, boolean isolated, int isolatedUid, boolean keepIfLarge,
+        String abiOverride, String entryPoint, String[] entryPointArgs, Runnable crashHandler) {
+    long startTime = SystemClock.elapsedRealtime();
+    ProcessRecord app;
+    if (!isolated) {
+        //根据进程名和uid检查相应的ProcessRecord
+        app = getProcessRecordLocked(processName, info.uid, keepIfLarge);
+
+        if ((intentFlags &amp; Intent.FLAG_FROM_BACKGROUND) != 0) {
+            //如果当前处理后台进程，检查当前进程是否处理bad进程列表
+            if (mBadProcesses.get(info.processName, info.uid) != null) {
+                return null;
+            }
+        } else {
+            //当用户明确地启动进程，则清空crash次数，以保证其不处于bad进程直到下次再弹出crash对话框。
+            mProcessCrashTimes.remove(info.processName, info.uid);
+            if (mBadProcesses.get(info.processName, info.uid) != null) {
+                mBadProcesses.remove(info.processName, info.uid);
+                if (app != null) {
+                    app.bad = false;
+                }
+            }
+        }
+    } else {
+        //对于孤立进程，无法再利用已存在的进程
+        app = null;
+    }
+
+    if (app != null &amp;&amp; app.pid &gt; 0) {
+        if (!knownToBeDead || app.thread == null) {
+            //如果这是进程中新package，则添加到列表
+            app.addPackage(info.packageName, info.versionCode, mProcessStats);
+            return app;
+        }
+        //当application record已经被attached到先前的一个进程，则杀死该进程
+        // clean it up now.
+        killProcessGroup(app.info.uid, app.pid);
+        handleAppDiedLocked(app, true, true);
+    }
+    String hostingNameStr = hostingName != null? hostingName.flattenToShortString() : null;
+    if (app == null) {
+        // 创建新的Process Record对象
+        app = newProcessRecordLocked(info, processName, isolated, isolatedUid);
+        if (app == null) {
+            return null;
+        }
+        app.crashHandler = crashHandler;
+    } else {
+        ////如果这是进程中新package，则添加到列表
+        app.addPackage(info.packageName, info.versionCode, mProcessStats);
+    }
+    //当系统未准备完毕，则将当前进程加入到mProcessesOnHold
+    if (!mProcessesReady &amp;&amp; !isAllowedWhileBooting(info) &amp;&amp; !allowWhileBooting) {
+        if (!mProcessesOnHold.contains(app)) {
+            mProcessesOnHold.add(app);
+        }
+        return app;
+    }
+    // 启动进程【7-3】
+    startProcessLocked(app, hostingType, hostingNameStr, abiOverride, entryPoint, entryPointArgs);
+    return (app.pid != 0) ? app : null;
+}
+</code></pre>
+</div>
+
+<p><strong>[7-3]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private final void startProcessLocked(ProcessRecord app, String hostingType,
+        String hostingNameStr, String abiOverride, String entryPoint, String[] entryPointArgs) {
+    long startTime = SystemClock.elapsedRealtime();
+    //当app的pid大于0且不是当前进程的pid，则从mPidsSelfLocked中移除该app.pid
+    if (app.pid &gt; 0 &amp;&amp; app.pid != MY_PID) {
+        synchronized (mPidsSelfLocked) {
+            mPidsSelfLocked.remove(app.pid);
+            mHandler.removeMessages(PROC_START_TIMEOUT_MSG, app);
+        }
+        app.setPid(0);
+    }
+
+    mProcessesOnHold.remove(app);
+    updateCpuStats(); //更新cpu统计信息
+    try {
+        try {
+            if (AppGlobals.getPackageManager().isPackageFrozen(app.info.packageName)) {
+                //当前package已被冻结
+                throw new RuntimeException("Package " + app.info.packageName + " is frozen!");
+            }
+        } catch (RemoteException e) {
+            throw e.rethrowAsRuntimeException();
+        }
+        int uid = app.uid;
+        int[] gids = null;
+        int mountExternal = Zygote.MOUNT_EXTERNAL_NONE;
+        if (!app.isolated) {
+            int[] permGids = null;
+            try {
+                //通过Package Manager获取gids
+                final IPackageManager pm = AppGlobals.getPackageManager();
+                permGids = pm.getPackageGids(app.info.packageName, app.userId);
+                MountServiceInternal mountServiceInternal = LocalServices.getService(
+                        MountServiceInternal.class);
+                mountExternal = mountServiceInternal.getExternalStorageMountMode(uid,
+                        app.info.packageName);
+            } catch (RemoteException e) {
+                throw e.rethrowAsRuntimeException();
+            }
+            
+            //添加共享app和gids，用于app直接共享资源
+            if (ArrayUtils.isEmpty(permGids)) {
+                gids = new int[2];
+            } else {
+                gids = new int[permGids.length + 2];
+                System.arraycopy(permGids, 0, gids, 2, permGids.length);
+            }
+            gids[0] = UserHandle.getSharedAppGid(UserHandle.getAppId(uid));
+            gids[1] = UserHandle.getUserGid(UserHandle.getUserId(uid));
+        }
+
+        if (mFactoryTest != FactoryTest.FACTORY_TEST_OFF) {
+            if (mFactoryTest == FactoryTest.FACTORY_TEST_LOW_LEVEL
+                    &amp;&amp; mTopComponent != null &amp;&amp; app.processName.equals(mTopComponent.getPackageName())) {
+                uid = 0;
+            }
+            if (mFactoryTest == FactoryTest.FACTORY_TEST_HIGH_LEVEL
+                    &amp;&amp; (app.info.flags&amp;ApplicationInfo.FLAG_FACTORY_TEST) != 0) {
+                uid = 0;
+            }
+        }
+        int debugFlags = 0;
+        //在AndroidManifest.xml中设置androidd:debuggable为true，代表app运行在debug模式
+        if ((app.info.flags &amp; ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            debugFlags |= Zygote.DEBUG_ENABLE_DEBUGGER;
+            //开启 检查JNI功能
+            debugFlags |= Zygote.DEBUG_ENABLE_CHECKJNI;
+        }
+        // 在AndroidManifest.xml中设置androidd:vmSafeMode为true，代表app运行在安全模式
+        if ((app.info.flags &amp; ApplicationInfo.FLAG_VM_SAFE_MODE) != 0 || mSafeMode == true) {
+            debugFlags |= Zygote.DEBUG_ENABLE_SAFEMODE;
+        }
+        if ("1".equals(SystemProperties.get("debug.checkjni"))) {
+            debugFlags |= Zygote.DEBUG_ENABLE_CHECKJNI;
+        }
+        String jitDebugProperty = SystemProperties.get("debug.usejit");
+        if ("true".equals(jitDebugProperty)) {
+            debugFlags |= Zygote.DEBUG_ENABLE_JIT;
+        } else if (!"false".equals(jitDebugProperty)) {
+            if ("true".equals(SystemProperties.get("dalvik.vm.usejit"))) {
+                debugFlags |= Zygote.DEBUG_ENABLE_JIT;
+            }
+        }
+        String genDebugInfoProperty = SystemProperties.get("debug.generate-debug-info");
+        if ("true".equals(genDebugInfoProperty)) {
+            debugFlags |= Zygote.DEBUG_GENERATE_DEBUG_INFO;
+        }
+        if ("1".equals(SystemProperties.get("debug.jni.logging"))) {
+            debugFlags |= Zygote.DEBUG_ENABLE_JNI_LOGGING;
+        }
+        if ("1".equals(SystemProperties.get("debug.assert"))) {
+            debugFlags |= Zygote.DEBUG_ENABLE_ASSERT;
+        }
+        String requiredAbi = (abiOverride != null) ? abiOverride : app.info.primaryCpuAbi;
+        if (requiredAbi == null) {
+            requiredAbi = Build.SUPPORTED_ABIS[0];
+        }
+        String instructionSet = null;
+        if (app.info.primaryCpuAbi != null) {
+            instructionSet = VMRuntime.getInstructionSet(app.info.primaryCpuAbi);
+        }
+        app.gids = gids;
+        app.requiredAbi = requiredAbi;
+        app.instructionSet = instructionSet;
+
+        boolean isActivityProcess = (entryPoint == null);
+        if (entryPoint == null) entryPoint = "android.app.ActivityThread";
+        //请求Zygote创建新进程 【见流程8，此处跳级见后面说明】 
+        Process.ProcessStartResult startResult = Process.start(entryPoint,
+                app.processName, uid, uid, gids, debugFlags, mountExternal,
+                app.info.targetSdkVersion, app.info.seinfo, requiredAbi, instructionSet,
+                app.info.dataDir, entryPointArgs);
+
+        if (app.isolated) {
+            mBatteryStatsService.addIsolatedUid(app.uid, app.info.uid);
+        }
+        mBatteryStatsService.noteProcessStart(app.processName, app.info.uid);
+        if (app.persistent) {
+            Watchdog.getInstance().processStarted(app.processName, startResult.pid);
+        }
+
+        app.setPid(startResult.pid);
+        app.usingWrapper = startResult.usingWrapper;
+        app.removed = false;
+        app.killed = false;
+        app.killedByAm = false;
+        //将新创建的进程加入到mPidsSelfLocked
+        synchronized (mPidsSelfLocked) {
+            this.mPidsSelfLocked.put(startResult.pid, app);
+            if (isActivityProcess) {
+                Message msg = mHandler.obtainMessage(PROC_START_TIMEOUT_MSG);
+                msg.obj = app;
+                //延迟发送消息PROC_START_TIMEOUT_MSG
+                mHandler.sendMessageDelayed(msg, startResult.usingWrapper
+                        ? PROC_START_TIMEOUT_WITH_WRAPPER : PROC_START_TIMEOUT);
+            }
+        }
+    } catch (RuntimeException e) {
+        //进程创建失败
+        app.setPid(0);
+        mBatteryStatsService.noteProcessFinish(app.processName, app.info.uid);
+        if (app.isolated) {
+            mBatteryStatsService.removeIsolatedUid(app.uid, app.info.uid);
+        }
+    }
+}
+</code></pre>
+</div>
+
+<p>关于<strong>Process.start()</strong>是通过socket通信，告知<a href="http://gityuan.com/2016/02/13/android-zygote/">Zygote</a>创建fork子进程，创建完新进程，将ActivityThread类加载到新进程，并调用ActivityThread.main()方法。该过程详细情况，见<a href="http://gityuan.com/2016/03/26/app-process-create/">Android Process创建过程分析</a>。</p>
+
+<h3 id="activitythreadmain">8. ActivityThread.main</h3>
+
+<p><strong>[8-1]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static void main(String[] args) {
+    //性能统计默认是关闭的
+    SamplingProfilerIntegration.start();
+    CloseGuard.setEnabled(false);
+    Environment.initForCurrentUser();
+    EventLogger.setReporter(new EventLoggingReporter());
+    AndroidKeyStoreProvider.install();
+    //确保可信任的CA证书存放在正确的位置
+    final File configDir = Environment.getUserConfigDirectory(UserHandle.myUserId());
+    TrustedCertificateStore.setDefaultUserDirectory(configDir);
+    Process.setArgV0("&lt;pre-initialized&gt;");
+
+    Looper.prepareMainLooper();
+    //创建ActivityThread对象
+    ActivityThread thread = new ActivityThread(); 
+    //建立Binder通道 【见流程8-2】
+    thread.attach(false);
+    if (sMainThreadHandler == null) {
+        sMainThreadHandler = thread.getHandler();
+    }
+    // 当设置为true时，可打开消息队列的debug log信息
+    if (false) {
+        Looper.myLooper().setMessageLogging(new LogPrinter(Log.DEBUG, "ActivityThread"));
+    }
+    Looper.loop(); //消息循环运行
+    throw new RuntimeException("Main thread loop unexpectedly exited");
+}
+</code></pre>
+</div>
+
+<p>此处的<code class="highlighter-rouge">mAppThread = new ApplicationThread()</code>；</p>
+
+<p><strong>[8-2]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private void attach(boolean system) {
+    sCurrentActivityThread = this;
+    mSystemThread = system;
+    if (!system) {
+        ViewRootImpl.addFirstDrawHandler(new Runnable() {
+            @Override
+            public void run() {
+                ensureJitEnabled(); //开启虚拟机的jit即时编译功能
+            }
+        });
+        android.ddm.DdmHandleAppName.setAppName("&lt;pre-initialized&gt;", UserHandle.myUserId());
+        RuntimeInit.setApplicationObject(mAppThread.asBinder());
+        //创建ActivityManagerProxy对象
+        final IActivityManager mgr = ActivityManagerNative.getDefault();
+        try {
+            //调用基于IActivityManager接口的Binder通道【见流程9-1】
+            mgr.attachApplication(mAppThread); 
+        } catch (RemoteException ex) {
+            // Ignore
+        }
+
+        //观察是否快接近heap的上限 
+        BinderInternal.addGcWatcher(new Runnable() {
+            @Override public void run() {
+                if (!mSomeActivitiesChanged) {
+                    return;
+                }
+                Runtime runtime = Runtime.getRuntime();
+                long dalvikMax = runtime.maxMemory();
+                long dalvikUsed = runtime.totalMemory() - runtime.freeMemory();
+                if (dalvikUsed &gt; ((3*dalvikMax)/4)) {
+                    mSomeActivitiesChanged = false;
+                    try {
+                        mgr.releaseSomeActivities(mAppThread); //释放空间
+                    } catch (RemoteException e) {
+                    }
+                }
+            }
+        });
+    } else {
+        android.ddm.DdmHandleAppName.setAppName("system_process", UserHandle.myUserId());
+        try {
+            mInstrumentation = new Instrumentation();
+            ContextImpl context = ContextImpl.createAppContext(
+                    this, getSystemContext().mPackageInfo);
+            mInitialApplication = context.mPackageInfo.makeApplication(true, null);
+            mInitialApplication.onCreate();
+        } catch (Exception e) {
+            throw new RuntimeException("Unable to instantiate Application():" + e.toString(), e);
+        }
+    }
+    //添加dropbox日志到libcore
+    DropBox.setReporter(new DropBoxReporter());
+    ViewRootImpl.addConfigCallback(new ComponentCallbacks2() {
+        @Override
+        public void onConfigurationChanged(Configuration newConfig) {
+            synchronized (mResourcesManager) {
+                if (mResourcesManager.applyConfigurationToResourcesLocked(newConfig, null)) {
+                    if (mPendingConfiguration == null ||
+                            mPendingConfiguration.isOtherSeqNewer(newConfig)) {
+                        mPendingConfiguration = newConfig;
+                        sendMessage(H.CONFIGURATION_CHANGED, newConfig);
+                    }
+                }
+            }
+        }
+        @Override
+        public void onLowMemory() {
+        }
+        @Override
+        public void onTrimMemory(int level) {
+        }
+    });
+}
+</code></pre>
+</div>
+
+<h3 id="ampattachapplication">9. AMP.attachApplication</h3>
+
+<p><strong>[9-1] ActivityManagerProxy.attachApplication</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void attachApplication(IApplicationThread app) throws RemoteException
+{
+    Parcel data = Parcel.obtain();
+    Parcel reply = Parcel.obtain();
+    data.writeInterfaceToken(IActivityManager.descriptor);
+    data.writeStrongBinder(app.asBinder());
+    mRemote.transact(ATTACH_APPLICATION_TRANSACTION, data, reply, 0); //【见流程9-2】
+    reply.readException();
+    data.recycle();
+    reply.recycle();
+}
+</code></pre>
+</div>
+
+<p><strong>[9-2] ActivityManagerNative.onTransact</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Override
+public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+        throws RemoteException {
+    switch (code) {
+    ...
+     case ATTACH_APPLICATION_TRANSACTION: {
+        data.enforceInterface(IActivityManager.descriptor);
+        IApplicationThread app = ApplicationThreadNative.asInterface(
+                data.readStrongBinder());
+        if (app != null) {
+            attachApplication(app); //此处是ActivityManagerService类中的方法 【见流程9-3】
+        }
+        reply.writeNoException();
+        return true;
+    }
+    }
+}
+</code></pre>
+</div>
+
+<p><strong>[9-3] ActivityManagerService.attachApplication</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>@Override
+public final void attachApplication(IApplicationThread thread) {
+    synchronized (this) {
+        int callingPid = Binder.getCallingPid();
+        final long origId = Binder.clearCallingIdentity();
+        attachApplicationLocked(thread, callingPid); // 【见流程9-4】
+        Binder.restoreCallingIdentity(origId);
+    }
+}
+</code></pre>
+</div>
+
+<p><strong>[9-4]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private final boolean attachApplicationLocked(IApplicationThread thread,
+        int pid) {
+    ProcessRecord app;
+    if (pid != MY_PID &amp;&amp; pid &gt;= 0) {
+        synchronized (mPidsSelfLocked) {
+            app = mPidsSelfLocked.get(pid); // 根据pid获取 ProcessRecord
+        }
+    } else {
+        app = null;
+    }
+    if (app == null) {
+        //ProcessRecord为空，则杀掉该进程
+        if (pid &gt; 0 &amp;&amp; pid != MY_PID) {
+            Process.killProcessQuiet(pid);
+        } else {
+            try {
+                thread.scheduleExit();
+            } catch (Exception e) {
+                // Ignore exceptions.
+            }
+        }
+        return false;
+    }
+    //如果这个ProcessRecord附到上一个进程，则立刻清空
+    if (app.thread != null) {
+        handleAppDiedLocked(app, true, true);
+    }
+
+    final String processName = app.processName;
+    try {
+        AppDeathRecipient adr = new AppDeathRecipient(app, pid, thread);
+        thread.asBinder().linkToDeath(adr, 0);//绑定死亡通知
+        app.deathRecipient = adr;
+    } catch (RemoteException e) {
+        app.resetPackageList(mProcessStats);
+        startProcessLocked(app, "link fail", processName); //重新启动进程
+        return false;
+    }
+
+    app.makeActive(thread, mProcessStats);
+    app.curAdj = app.setAdj = -100;
+    app.curSchedGroup = app.setSchedGroup = Process.THREAD_GROUP_DEFAULT;
+    app.forcingToForeground = null;
+    // 更新前台进程
+    updateProcessForegroundLocked(app, false, false);
+    app.hasShownUi = false;
+    app.debugging = false;
+    app.cached = false;
+    app.killedByAm = false;
+    mHandler.removeMessages(PROC_START_TIMEOUT_MSG, app); //移除进程启动超时的消息
+    boolean normalMode = mProcessesReady || isAllowedWhileBooting(app.info);
+    List&lt;ProviderInfo&gt; providers = normalMode ? generateApplicationProvidersLocked(app) : null;
+    
+    try {
+        int testMode = IApplicationThread.DEBUG_OFF;
+        if (mDebugApp != null &amp;&amp; mDebugApp.equals(processName)) {
+            testMode = mWaitForDebugger
+                ? IApplicationThread.DEBUG_WAIT: IApplicationThread.DEBUG_ON;
+            app.debugging = true;
+            if (mDebugTransient) {
+                mDebugApp = mOrigDebugApp;
+                mWaitForDebugger = mOrigWaitForDebugger;
+            }
+        }
+        String profileFile = app.instrumentationProfileFile;
+        ParcelFileDescriptor profileFd = null;
+        int samplingInterval = 0;
+        boolean profileAutoStop = false;
+        if (mProfileApp != null &amp;&amp; mProfileApp.equals(processName)) {
+            mProfileProc = app;
+            profileFile = mProfileFile;
+            profileFd = mProfileFd;
+            samplingInterval = mSamplingInterval;
+            profileAutoStop = mAutoStopProfiler;
+        }
+        boolean enableOpenGlTrace = false;
+        if (mOpenGlTraceApp != null &amp;&amp; mOpenGlTraceApp.equals(processName)) {
+            enableOpenGlTrace = true;
+            mOpenGlTraceApp = null;
+        }
+
+        boolean isRestrictedBackupMode = false;
+        if (mBackupTarget != null &amp;&amp; mBackupAppName.equals(processName)) {
+            isRestrictedBackupMode = (mBackupTarget.backupMode == BackupRecord.RESTORE)
+                    || (mBackupTarget.backupMode == BackupRecord.RESTORE_FULL)
+                    || (mBackupTarget.backupMode == BackupRecord.BACKUP_FULL);
+        }
+        ensurePackageDexOpt(app.instrumentationInfo != null
+                ? app.instrumentationInfo.packageName
+                : app.info.packageName);
+        if (app.instrumentationClass != null) {
+            ensurePackageDexOpt(app.instrumentationClass.getPackageName());
+        }
+      
+        ApplicationInfo appInfo = app.instrumentationInfo != null
+                ? app.instrumentationInfo : app.info;
+        app.compat = compatibilityInfoForPackageLocked(appInfo);
+        if (profileFd != null) {
+            profileFd = profileFd.dup();
+        }
+        ProfilerInfo profilerInfo = profileFile == null ? null
+                : new ProfilerInfo(profileFile, profileFd, samplingInterval, profileAutoStop);
+        // 绑定应用
+        thread.bindApplication(processName, appInfo, providers, app.instrumentationClass,
+                profilerInfo, app.instrumentationArguments, app.instrumentationWatcher,
+                app.instrumentationUiAutomationConnection, testMode, enableOpenGlTrace,
+                isRestrictedBackupMode || !normalMode, app.persistent,
+                new Configuration(mConfiguration), app.compat,
+                getCommonServicesLocked(app.isolated),
+                mCoreSettingsObserver.getCoreSettingsLocked());
+        //更新进程LRU队列
+        updateLruProcessLocked(app, false, null);
+        app.lastRequestedGc = app.lastLowMemory = SystemClock.uptimeMillis();
+    } catch (Exception e) {
+        //这里有很可能会导致进程无限重启
+        app.resetPackageList(mProcessStats);
+        app.unlinkDeathRecipient();
+        startProcessLocked(app, "bind fail", processName);
+        return false;
+    }
+    
+    mPersistentStartingProcesses.remove(app);
+    mProcessesOnHold.remove(app);
+    boolean badApp = false;
+    boolean didSomething = false;
+    //检查最顶层可见的Activity是否等待在该进程中运行
+    if (normalMode) {
+        try {
+            if (mStackSupervisor.attachApplicationLocked(app)) {
+                didSomething = true;
+            }
+        } catch (Exception e) {
+            badApp = true;
+        }
+    }
+    //寻找所有需要在该进程中运行的服务 【见流程10-1】
+    if (!badApp) {
+        try { 
+            didSomething |= mServices.attachApplicationLocked(app, processName);
+        } catch (Exception e) {
+            badApp = true;
+        }
+    }
+    //检查是否在这个进程中有下一个广播接收者
+    if (!badApp &amp;&amp; isPendingBroadcastProcessLocked(pid)) {
+        try {
+            didSomething |= sendPendingBroadcastsLocked(app);
+        } catch (Exception e) {
+            badApp = true;
+        }
+    }
+    //检查是否在这个进程中有下一个backup代理
+    if (!badApp &amp;&amp; mBackupTarget != null &amp;&amp; mBackupTarget.appInfo.uid == app.uid) {
+        ensurePackageDexOpt(mBackupTarget.appInfo.packageName);
+        try {
+            thread.scheduleCreateBackupAgent(mBackupTarget.appInfo,
+                    compatibilityInfoForPackageLocked(mBackupTarget.appInfo),
+                    mBackupTarget.backupMode);
+        } catch (Exception e) {
+            badApp = true;
+        }
+    }
+    if (badApp) { //杀掉bad应用
+        app.kill("error during init", true);
+        handleAppDiedLocked(app, false, true);
+        return false;
+    }
+    if (!didSomething) {
+        updateOomAdjLocked(); //更新adj的值
+    }
+    return true;
+}
+</code></pre>
+</div>
+
+<h3 id="attachapplicationlocked">10. attachApplicationLocked</h3>
+
+<p>[-&gt; ActiveServices.java]</p>
+
+<p><strong>[10-1]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>boolean attachApplicationLocked(ProcessRecord proc, String processName)
+        throws RemoteException {
+    boolean didSomething = false;
+    //启动mPendingServices队列中，等待在该进程启动的服务
+    if (mPendingServices.size() &gt; 0) {
+        ServiceRecord sr = null;
+        try {
+            for (int i=0; i&lt;mPendingServices.size(); i++) {
+                sr = mPendingServices.get(i);
+                if (proc != sr.isolatedProc &amp;&amp; (proc.uid != sr.appInfo.uid
+                        || !processName.equals(sr.processName))) {
+                    continue;
+                }
+                mPendingServices.remove(i);
+                i--;
+                // 将当前服务的包信息加入到proc
+                proc.addPackage(sr.appInfo.packageName, sr.appInfo.versionCode,
+                        mAm.mProcessStats);
+                // 启动服务，即将进入服务的生命周期 【见流程10-2】
+                realStartServiceLocked(sr, proc, sr.createdFromFg);
+                didSomething = true;
+            }
+        } catch (RemoteException e) {
+            Slog.w(TAG, "Exception in new application when starting service "
+                    + sr.shortName, e);
+            throw e;
+        }
+    }
+    // 对于正在等待重启并需要运行在该进程的服务，现在是启动它们的大好时机
+    if (mRestartingServices.size() &gt; 0) {
+        ServiceRecord sr = null;
+        for (int i=0; i&lt;mRestartingServices.size(); i++) {
+            sr = mRestartingServices.get(i);
+            if (proc != sr.isolatedProc &amp;&amp; (proc.uid != sr.appInfo.uid
+                    || !processName.equals(sr.processName))) {
+                continue;
+            }
+            mAm.mHandler.removeCallbacks(sr.restarter);
+            mAm.mHandler.post(sr.restarter);
+        }
+    }
+    return didSomething;
+}
+</code></pre>
+</div>
+
+<p><strong>[10-2]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private final void realStartServiceLocked(ServiceRecord r,
+        ProcessRecord app, boolean execInFg) throws RemoteException {
+    if (app.thread == null) {
+        throw new RemoteException();
+    }
+
+    r.app = app;
+    r.restartTime = r.lastActivity = SystemClock.uptimeMillis();
+    final boolean newService = app.services.add(r);
+    bumpServiceExecutingLocked(r, execInFg, "create");
+    mAm.updateLruProcessLocked(app, false, null);
+    mAm.updateOomAdjLocked();
+    boolean created = false;
+    try {
+        synchronized (r.stats.getBatteryStats()) {
+            r.stats.startLaunchedLocked();
+        }
+        mAm.ensurePackageDexOpt(r.serviceInfo.packageName);
+        app.forceProcessStateUpTo(ActivityManager.PROCESS_STATE_SERVICE);
+        //服务 进入 onCreate() 【见流程11】
+        app.thread.scheduleCreateService(r, r.serviceInfo,
+                mAm.compatibilityInfoForPackageLocked(r.serviceInfo.applicationInfo),
+                app.repProcState);
+        r.postNotification();
+        created = true;
+    } catch (DeadObjectException e) {
+        mAm.appDiedLocked(app); //应用死亡处理
+        throw e;
+    } finally {
+        if (!created) {
+            final boolean inDestroying = mDestroyingServices.contains(r);
+            serviceDoneExecutingLocked(r, inDestroying, inDestroying);
+            if (newService) {
+                app.services.remove(r);
+                r.app = null;
+            }
+            //尝试重新启动服务
+            if (!inDestroying) {
+                scheduleServiceRestartLocked(r, false);
+            }
+        }
+    }
+    requestServiceBindingsLocked(r, execInFg);
+    updateServiceClientActivitiesLocked(app, null, true);
+    // If the service is in the started state, and there are no
+    // pending arguments, then fake up one so its onStartCommand() will
+    // be called.
+    if (r.startRequested &amp;&amp; r.callStart &amp;&amp; r.pendingStarts.size() == 0) {
+        r.pendingStarts.add(new ServiceRecord.StartItem(r, false, r.makeNextStartId(),
+                null, null));
+    }
+    //服务 进入onStartCommand() 【见流程12-1】
+    sendServiceArgsLocked(r, execInFg, true);
+    if (r.delayed) {
+        getServiceMap(r.userId).mDelayedStartList.remove(r);
+        r.delayed = false;
+    }
+    if (r.delayedStop) {
+        r.delayedStop = false;
+        if (r.startRequested) {
+            stopServiceLocked(r); //停止服务
+        }
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="schedulecreateservice">11. scheduleCreateService</h3>
+
+<p><strong>[11-1] ApplicationThreadProxy.scheduleCreateService</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final void scheduleCreateService(IBinder token, ServiceInfo info,
+        CompatibilityInfo compatInfo, int processState) throws RemoteException {
+    Parcel data = Parcel.obtain();
+    data.writeInterfaceToken(IApplicationThread.descriptor);
+    data.writeStrongBinder(token);
+    info.writeToParcel(data, 0);
+    compatInfo.writeToParcel(data, 0);
+    data.writeInt(processState);
+    try {
+        //【见流程11-2】
+        mRemote.transact(SCHEDULE_CREATE_SERVICE_TRANSACTION, data, null, IBinder.FLAG_ONEWAY);
+    } catch (TransactionTooLargeException e) {
+        throw e;
+    }
+    data.recycle();
+}
+</code></pre>
+</div>
+
+<p><strong>[11-2] ApplicationThreadNative.onTransact</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+        throws RemoteException {
+    switch (code) {
+    case SCHEDULE_CREATE_SERVICE_TRANSACTION: {
+        data.enforceInterface(IApplicationThread.descriptor);
+        IBinder token = data.readStrongBinder();
+        ServiceInfo info = ServiceInfo.CREATOR.createFromParcel(data);
+        CompatibilityInfo compatInfo = CompatibilityInfo.CREATOR.createFromParcel(data);
+        int processState = data.readInt();
+        // 【见流程11-3】
+        scheduleCreateService(token, info, compatInfo, processState);
+        return true;
+    }
+}
+</code></pre>
+</div>
+
+<p><strong>[11-3] ApplicationThread.scheduleCreateService</strong></p>
+
+<p>位于ActivityThread线程</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final void scheduleCreateService(IBinder token,
+            ServiceInfo info, CompatibilityInfo compatInfo, int processState) {
+    updateProcessState(processState, false);
+    CreateServiceData s = new CreateServiceData(); //准备服务创建所需的数据
+    s.token = token;
+    s.info = info;
+    s.compatInfo = compatInfo;
+    sendMessage(H.CREATE_SERVICE, s); //发送消息 【见流程12-1】
+}
+</code></pre>
+</div>
+
+<h3 id="handlecreateservice">12. handleCreateService</h3>
+
+<p><strong>[12-1] ActivityThread.H</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void handleMessage(Message msg) {
+    switch (msg.what) {
+        ...
+
+        case CREATE_SERVICE:
+            handleCreateService((CreateServiceData)msg.obj); //【见流程12-2】
+            break;
+        case BIND_SERVICE:
+            handleBindService((BindServiceData)msg.obj);
+            break;
+        case UNBIND_SERVICE:
+            handleUnbindService((BindServiceData)msg.obj);
+            break;
+        case SERVICE_ARGS: 
+            handleServiceArgs((ServiceArgsData)msg.obj);  // serviceStart
+            break;
+        case STOP_SERVICE:
+            handleStopService((IBinder)msg.obj);
+            maybeSnapshot();
+            break;
+    }
+}
+</code></pre>
+</div>
+
+<p><strong>[12-2]</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private void handleCreateService(CreateServiceData data) {
+    //当应用处于后台即将进行GC，而此时被调回到活动状态，则跳过本次gc。
+    unscheduleGcIdler();
+    //生成服务对象
+    LoadedApk packageInfo = getPackageInfoNoCheck(data.info.applicationInfo, data.compatInfo);
+    Service service = null;
+    try {
+        java.lang.ClassLoader cl = packageInfo.getClassLoader();
+        //
+        service = (Service) cl.loadClass(data.info.name).newInstance();
+    } catch (Exception e) {
+        if (!mInstrumentation.onException(service, e)) {
+            throw new RuntimeException(
+                "Unable to instantiate service " + data.info.name + ": " + e.toString(), e);
+        }
+    }
+    try {
+        //创建ContextImpl对象
+        ContextImpl context = ContextImpl.createAppContext(this, packageInfo);
+        context.setOuterContext(service);
+        Application app = packageInfo.makeApplication(false, mInstrumentation);
+        service.attach(context, this, data.info.name, data.token, app,
+                ActivityManagerNative.getDefault());
+        service.onCreate(); //调用服务的 onCreate()方法 【见流程13】
+        mServices.put(data.token, service);
+        try {
+            ActivityManagerNative.getDefault().serviceDoneExecuting(
+                    data.token, SERVICE_DONE_EXECUTING_ANON, 0, 0);
+        } catch (RemoteException e) {
+            // nothing to do.
+        }
+    } catch (Exception e) {
+        if (!mInstrumentation.onException(service, e)) {
+            throw new RuntimeException(
+                "Unable to create service " + data.info.name
+                + ": " + e.toString(), e);
+        }
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="serviceoncreate">13. Service.onCreate</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public abstract class Service extends ContextWrapper implements ComponentCallbacks2 {
+    public void onCreate(){	}
+}
+</code></pre>
+</div>
+
+<p>最终调用到抽象类Service.onCreate()方法，对于真正的Service都会通过覆写该方式，调用真正的onCreate()方法。拨云见日，到此总算是进入了Service的生命周期。</p>
+
+<h3 id="section-1">总结</h3>
+
+<p>在整个startService过程，从进程角度看服务启动过程</p>
+
+<ul>
+  <li><strong>Process A进程：</strong>是指调用startService命令所在的进程，也就是启动服务的发起端进程，比如点击桌面App图标，此处Process A便是Launcher所在进程。</li>
+  <li><strong>system_server进程：</strong>系统进程，是java framework框架的核心载体，里面运行了大量的系统服务，比如这里提供ApplicationThreadProxy（简称ATP），ActivityManagerService（简称AMS），这个两个服务都运行在system_server进程的不同线程中，由于ATP和AMS都是基于IBinder接口，都是binder线程，binder线程的创建与销毁都是由binder驱动来决定的，每个进程binder线程个数的上限为16。</li>
+  <li><strong>Zygote进程：</strong>是由<code class="highlighter-rouge">init</code>进程孵化而来的，用于创建Java层进程的母体，所有的Java层进程都是由Zygote进程孵化而来；</li>
+  <li><strong>Remote Service进程：</strong>远程服务所在进程，是由Zygote进程孵化而来的用于运行Remote服务的进程。主线程主要负责Activity/Service等组件的生命周期以及UI相关操作都运行在这个线程； 另外，每个App进程中至少会有两个binder线程 ApplicationThread(简称AT)和ActivityManagerProxy（简称AMP），当然还有其他线程，这里不是重点就不提了。</li>
+</ul>
+
+<p><img src="/images/android-service/start_service/start_service_processes.jpg" alt="start_service_process" /></p>
+
+<p>图中涉及3种IPC通信方式：<code class="highlighter-rouge">Binder</code>、<code class="highlighter-rouge">Socket</code>以及<code class="highlighter-rouge">Handler</code>，在图中分别用3种不同的颜色来代表这3种通信方式。一般来说，同一进程内的线程间通信采用的是 <a href="http://gityuan.com/2015/12/26/handler-message/">Handler消息队列机制</a>，不同进程间的通信采用的是<a href="http://gityuan.com/2015/10/31/binder-prepare/">binder机制</a>，另外与Zygote进程通信采用的<code class="highlighter-rouge">Socket</code>。</p>
+
+<p>启动流程：</p>
+
+<ol>
+  <li>Process A进程采用Binder IPC向system_server进程发起startService请求；</li>
+  <li>system_server进程接收到请求后，向zygote进程发送创建进程的请求；</li>
+  <li>zygote进程fork出新的子进程Remote Service进程；</li>
+  <li>Remote Service进程，通过Binder IPC向sytem_server进程发起attachApplication请求；</li>
+  <li>system_server进程在收到请求后，进行一系列准备工作后，再通过binder IPC向remote Service进程发送scheduleCreateService请求；</li>
+  <li>Remote Service进程的binder线程在收到请求后，通过handler向主线程发送CREATE_SERVICE消息；</li>
+  <li>主线程在收到Message后，通过发射机制创建目标Service，并回调Service.onCreate()方法。</li>
+</ol>
+
+<p>到此，服务便正式启动完成。当创建的是本地服务时，无需经过上述步骤2、3，直接创建服务即可。</p>
+
+<hr />
+<p>如果觉得本文对您有所帮助，请关注我的<strong>微信公众号：gityuan</strong>， <strong><a href="http://weibo.com/gityuan">微博：Gityuan</a></strong>。 或者<a href="http://gityuan.com/about/">点击这里查看更多关于我的信息</a></p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2016/03/07/start-service"
+                    data-title="startService流程分析"
+                    data-url="http://gityuan.com/2016/03/07/start-service/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  基于Android 6.0的源码剖析， 分析android Service启动流程中ActivityManagerService所扮演的角色
+
+
+/... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/03/06/binder-clearCallingIdentity/" data-toggle="tooltip" data-placement="top" title="Binder IPC的权限控制">
+                        Previous<br>
+                        <span>Binder IPC的权限控制</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/03/13/start-activity/" data-toggle="tooltip" data-placement="top" title="startActivity流程分析(一)">
+                        Next<br>
+                        <span>startActivity流程分析(一)</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2016/03/07/start-service"
+                        data-title="startService流程分析"
+                        data-url="http://gityuan.com/2016/03/07/start-service/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

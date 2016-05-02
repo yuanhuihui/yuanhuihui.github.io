@@ -1,0 +1,2077 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Binder系列1—Binder Driver初探 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/11/02/binder-driver/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#binder" title="binder">binder</a>
+                        
+                    </div>
+                    <h1>Binder系列1—Binder Driver初探</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on November 2, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>基于Android 6.0的源码剖析，在讲解Binder原理之前，先从kernel的角度来讲解Binder Driver.</p>
+</blockquote>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>/kernel/drivers/android/binder.c
+/kernel/include/uapi/linux/android/binder.h
+</code></pre>
+</div>
+
+<h2 id="binder">一、Binder驱动概述</h2>
+
+<h3 id="section">1.1 概述</h3>
+
+<p>Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样。binder驱动在以misc设备进行注册，作为虚拟设备，没有直接操作硬件，只是对设备内存的处理。主要是驱动设备的初始化(binder_init)，打开
+(binder_open)，映射(binder_mmap)，数据操作(binder_ioctl)。</p>
+
+<p><img src="/images/binder/binder_dev/binder_driver.png" alt="binder_driver" /></p>
+
+<h3 id="section-1">1.2 系统调用</h3>
+
+<p>用户态的程序调用Kernel层驱动是需要陷入内核态，进行系统调用(<code class="highlighter-rouge">syscall</code>)，比如打开Binder驱动方法的调用链为： open-&gt; __open() -&gt; binder_open()。 open()为用户空间的方法，__open()便是系统调用中相应的处理方法，通过查找，对应调用到内核binder驱动的binder_open()方法，至于其他的从用户态陷入内核态的流程也基本一致。</p>
+
+<p><img src="/images/binder/binder_dev/binder_syscall.png" alt="binder_syscall" /></p>
+
+<p>简单说，当用户空间调用open()方法，最终会调用binder驱动的binder_open()方法；mmap()/ioctl()方法也是同理，在BInder系列的后续文章从用户态进入内核态，都依赖于系统调用过程。</p>
+
+<h2 id="binder-1">二、 Binder核心方法</h2>
+
+<h3 id="binderinit">2.1 binder_init</h3>
+
+<p>主要工作是为了注册misc设备</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int __init binder_init(void)
+{
+	int ret;
+	//创建名为binder的工作队列
+	binder_deferred_workqueue = create_singlethread_workqueue("binder"); 
+	if (!binder_deferred_workqueue)
+		return -ENOMEM;
+
+	binder_debugfs_dir_entry_root = debugfs_create_dir("binder", NULL); 
+	if (binder_debugfs_dir_entry_root)
+		binder_debugfs_dir_entry_proc = debugfs_create_dir("proc",
+						 binder_debugfs_dir_entry_root);
+
+	 // 注册misc设备
+	ret = misc_register(&amp;binder_miscdev);   
+	if (binder_debugfs_dir_entry_root) {
+		... //在debugfs文件系统中创建一系列的文件
+	}
+	return ret;
+}
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">debugfs_create_dir</code>是指在debugfs文件系统中创建一个目录，返回值是指向dentry的指针。当kernel中禁用debugfs的话，返回值是-%ENODEV。默认是禁用的。如果需要打开，在目录<code class="highlighter-rouge">/kernel/arch/arm64/configs/</code>下找到目标defconfig文件中添加一行<code class="highlighter-rouge">CONFIG_DEBUG_FS=y</code>，再重新编译版本，即可打开debug_fs。</p>
+
+<p><strong>misc_register</strong></p>
+
+<p>注册misc设备，<code class="highlighter-rouge">miscdevice</code>结构体，便是前面注册misc设备时传递进去的参数</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static struct miscdevice binder_miscdev = {
+	.minor = MISC_DYNAMIC_MINOR, //次设备号 动态分配
+	.name = "binder",     //设备名
+	.fops = &amp;binder_fops  //设备的文件操作结构，这是file_operations结构
+};
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">file_operations</code>结构体,指定相应文件操作的方法</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static const struct file_operations binder_fops = {
+	.owner = THIS_MODULE,
+	.poll = binder_poll,
+	.unlocked_ioctl = binder_ioctl,
+	.compat_ioctl = binder_ioctl,
+	.mmap = binder_mmap,
+	.open = binder_open,
+	.flush = binder_flush,
+	.release = binder_release,
+};
+</code></pre>
+</div>
+
+<h3 id="binderopen">2.2 binder_open</h3>
+
+<p>打开binder驱动设备</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int binder_open(struct inode *nodp, struct file *filp)
+{
+	struct binder_proc *proc; // binder进程 【见附录3.1】
+
+	proc = kzalloc(sizeof(*proc), GFP_KERNEL); // 为binder_proc结构体在分配kernel内存空间
+	if (proc == NULL)
+		return -ENOMEM;
+	get_task_struct(current);
+	proc-&gt;tsk = current;   //将当前线程的task保存到binder进程的tsk
+	INIT_LIST_HEAD(&amp;proc-&gt;todo); //初始化todo列表
+	init_waitqueue_head(&amp;proc-&gt;wait); //初始化wait队列
+	proc-&gt;default_priority = task_nice(current);  //将当前进程的nice值转换为进程优先级
+
+	binder_lock(__func__);   //同步锁，因为binder支持多线程访问
+	binder_stats_created(BINDER_STAT_PROC); //BINDER_PROC对象创建数加1
+	hlist_add_head(&amp;proc-&gt;proc_node, &amp;binder_procs); //将proc_node节点添加到binder_procs为表头的队列
+	proc-&gt;pid = current-&gt;group_leader-&gt;pid;
+	INIT_LIST_HEAD(&amp;proc-&gt;delivered_death);
+	filp-&gt;private_data = proc;       //file文件指针的private_data变量指向binder_proc数据
+	binder_unlock(__func__); //释放同步锁
+
+	return 0;
+}
+</code></pre>
+</div>
+
+<p>创建binder_proc对象，并把当前进程等信息保存到binder_proc对象，该对象管理IPC所需的各种信息并拥有其他结构体的根结构体；再把binder_proc对象保存到文件指针filp，以及把binder_proc加入到全局链表<code class="highlighter-rouge">binder_procs</code>。</p>
+
+<p><img src="/images/binder/binder_dev/binder_procs.png" alt="binder_procs" /></p>
+
+<p>Binder驱动中通过<code class="highlighter-rouge">static HLIST_HEAD(binder_procs);</code>，创建了全局的哈希链表binder_procs，用于保存所有的binder_proc队列，每次新创建的binder_proc对象都会加入binder_procs链表中。</p>
+
+<h3 id="bindermmap">2.3 binder_mmap</h3>
+
+<blockquote>
+  <p>binder_mmap(文件描述符，用户虚拟内存空间)</p>
+</blockquote>
+
+<p>主要功能：首先在内核虚拟地址空间，申请一块与用户虚拟内存相同大小的内存；然后再申请1个page大小的物理内存，再将同一块物理内存分别映射到内核虚拟地址空间和用户虚拟内存空间，从而实现了用户空间的Buffer和内核空间的Buffer同步操作的功能。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	int ret;
+	struct vm_struct *area; //内核虚拟空间
+	struct binder_proc *proc = filp-&gt;private_data; 
+	const char *failure_string;
+	struct binder_buffer *buffer;  //【见附录3.3】
+
+	if (proc-&gt;tsk != current)
+		return -EINVAL;
+
+	if ((vma-&gt;vm_end - vma-&gt;vm_start) &gt; SZ_4M)
+		vma-&gt;vm_end = vma-&gt;vm_start + SZ_4M;  //保证映射内存大小不超过4M
+
+	mutex_lock(&amp;binder_mmap_lock);  //同步锁
+	//分配一个连续的内核虚拟空间，与进程虚拟空间大小一致
+	area = get_vm_area(vma-&gt;vm_end - vma-&gt;vm_start, VM_IOREMAP); 
+	if (area == NULL) {
+		ret = -ENOMEM;
+		failure_string = "get_vm_area";
+		goto err_get_vm_area_failed;
+	}
+	proc-&gt;buffer = area-&gt;addr; //指向内核虚拟空间的地址
+	//地址偏移量 = 用户虚拟地址空间 - 内核虚拟地址空间
+	proc-&gt;user_buffer_offset = vma-&gt;vm_start - (uintptr_t)proc-&gt;buffer; 
+	mutex_unlock(&amp;binder_mmap_lock); //释放锁
+    
+	...
+	//分配物理页的指针数组，大小等于用户虚拟地址内存/4k；
+	proc-&gt;pages = kzalloc(sizeof(proc-&gt;pages[0]) * ((vma-&gt;vm_end - vma-&gt;vm_start) / PAGE_SIZE), GFP_KERNEL);
+	if (proc-&gt;pages == NULL) {
+		ret = -ENOMEM;
+		failure_string = "alloc page array";
+		goto err_alloc_pages_failed;
+	}
+	proc-&gt;buffer_size = vma-&gt;vm_end - vma-&gt;vm_start;
+
+	vma-&gt;vm_ops = &amp;binder_vm_ops;
+	vma-&gt;vm_private_data = proc;
+ 
+	//分配物理页面，同时映射到内核空间和进程空间，目前只分配1个page的物理页 【见下文】
+	if (binder_update_page_range(proc, 1, proc-&gt;buffer, proc-&gt;buffer + PAGE_SIZE, vma)) {
+		ret = -ENOMEM;
+		failure_string = "alloc small buf";
+		goto err_alloc_small_buf_failed;
+	}
+	buffer = proc-&gt;buffer; //binder_buffer对象 指向proc的buffer地址
+	INIT_LIST_HEAD(&amp;proc-&gt;buffers); //创建进程的buffers链表头
+	list_add(&amp;buffer-&gt;entry, &amp;proc-&gt;buffers); //将binder_buffer地址 加入到所属进程的buffers队列
+	buffer-&gt;free = 1;
+	//将空闲buffer放入proc-&gt;free_buffers中
+	binder_insert_free_buffer(proc, buffer); 
+	//异步可用空间大小为buffer总大小的一半。
+	proc-&gt;free_async_space = proc-&gt;buffer_size / 2;
+	barrier();
+	proc-&gt;files = get_files_struct(current);
+	proc-&gt;vma = vma;
+	proc-&gt;vma_vm_mm = vma-&gt;vm_mm;
+	return 0;
+
+	...// 错误flags跳转处，free释放内存之类的操作
+	return ret;
+}
+</code></pre>
+</div>
+
+<p>binder_mmap通过加锁，保证一次只有一个进程分配内存，保证多进程间的并发访问。其中<code class="highlighter-rouge">user_buffer_offset</code>是虚拟进程地址与虚拟内核地址的差值，也就是说同一物理地址，当内核地址为kernel_addr，则进程地址为proc_addr = kernel_addr + user_buffer_offset。</p>
+
+<p>主要工作可用下面的图来表达：</p>
+
+<p><img src="/images/binder/binder_dev/binder_mmap.png" alt="binder_mmap" /></p>
+
+<p><code class="highlighter-rouge">binder_update_page_range</code>主要完成工作：分配物理空间，将物理空间映射到内核空间，将物理空间映射到进程空间。  当然<code class="highlighter-rouge">binder_update_page_range</code>既可以分配物理页面，也可以释放物理页面。</p>
+
+<p>代码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int binder_update_page_range(struct binder_proc *proc, int allocate,
+				    void *start, void *end,  struct vm_area_struct *vma)	
+{
+	...
+	for (page_addr = start; page_addr &lt; end; page_addr += PAGE_SIZE) {
+		int ret;
+		struct page **page_array_ptr;
+		page = &amp;proc-&gt;pages[(page_addr - proc-&gt;buffer) / PAGE_SIZE];
+		*page = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);  //分配物理内存
+		if (*page == NULL) {
+			goto err_alloc_page_failed;
+		}
+		tmp_area.addr = page_addr;
+		tmp_area.size = PAGE_SIZE + PAGE_SIZE;
+		page_array_ptr = page;
+		ret = map_vm_area(&amp;tmp_area, PAGE_KERNEL, &amp;page_array_ptr); //物理空间映射到虚拟内核空间
+		if (ret) {
+			goto err_map_kernel_failed;
+		}
+		user_page_addr = (uintptr_t)page_addr + proc-&gt;user_buffer_offset;
+		ret = vm_insert_page(vma, user_page_addr, page[0]); //物理空间映射到虚拟进程空间
+		if (ret) {
+			goto err_vm_insert_page_failed;
+		}
+	}
+	...
+}
+</code></pre>
+</div>
+
+<h3 id="binderioctl">2.4 binder_ioctl</h3>
+
+<p>binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。</p>
+
+<blockquote>
+  <p>ioctl(文件描述符，ioctl命令，数据类型)</p>
+</blockquote>
+
+<p>(1) 文件描述符，是通过open()方法打开Binder Driver后返回值；</p>
+
+<p>(2) ioctl命令和数据类型是一体的，不同的命令对应不同的数据类型</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>ioctl命令</th>
+      <th>数据类型</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>BINDER_WRITE_READ</strong></td>
+      <td>struct binder_write_read</td>
+      <td>收发Binder IPC数据</td>
+    </tr>
+    <tr>
+      <td>BINDER_SET_MAX_THREADS</td>
+      <td>__u32</td>
+      <td>设置Binder线程最大个数</td>
+    </tr>
+    <tr>
+      <td>BINDER_SET_CONTEXT_MGR</td>
+      <td>__s32</td>
+      <td>设置Service Manager节点</td>
+    </tr>
+    <tr>
+      <td>BINDER_THREAD_EXIT</td>
+      <td>__s32</td>
+      <td>释放Binder线程</td>
+    </tr>
+    <tr>
+      <td>BINDER_VERSION</td>
+      <td>struct binder_version</td>
+      <td>获取Binder版本信息</td>
+    </tr>
+    <tr>
+      <td>BINDER_SET_IDLE_TIMEOUT</td>
+      <td>__s64</td>
+      <td>没有使用</td>
+    </tr>
+    <tr>
+      <td>BINDER_SET_IDLE_PRIORITY</td>
+      <td>__s32</td>
+      <td>没有使用</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>这些命令中<code class="highlighter-rouge">BINDER_WRITE_READ</code>命令使用率最为频繁，也是ioctl最为核心的命令。</p>
+
+<p><strong>源码</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	int ret;
+	struct binder_proc *proc = filp-&gt;private_data;
+	struct binder_thread *thread;  // binder线程
+	unsigned int size = _IOC_SIZE(cmd);
+	void __user *ubuf = (void __user *)arg;
+	//进入休眠状态，直到中断唤醒
+	ret = wait_event_interruptible(binder_user_error_wait, binder_stop_on_user_error &lt; 2);
+	if (ret)
+		goto err_unlocked;
+
+	binder_lock(__func__);
+	//获取binder_thread【见2.4.1】
+	thread = binder_get_thread(proc); 
+	if (thread == NULL) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	switch (cmd) {
+	case BINDER_WRITE_READ:  //进行binder的读写操作
+		ret = binder_ioctl_write_read(filp, cmd, arg, thread); //【见2.4.2】
+		if (ret)
+			goto err;
+		break;
+	case BINDER_SET_MAX_THREADS: //设置binder最大支持的线程数
+		if (copy_from_user(&amp;proc-&gt;max_threads, ubuf, sizeof(proc-&gt;max_threads))) {
+			ret = -EINVAL;
+			goto err;
+		}
+		break;
+	case BINDER_SET_CONTEXT_MGR: //成为binder的上下文管理者，也就是ServiceManager成为守护进程
+		ret = binder_ioctl_set_ctx_mgr(filp);
+		if (ret)
+			goto err;
+		break;
+	case BINDER_THREAD_EXIT:   //当binder线程退出，释放binder线程
+		binder_free_thread(proc, thread);
+		thread = NULL;
+		break;
+	case BINDER_VERSION: {  //获取binder的版本号
+		struct binder_version __user *ver = ubuf;
+
+		if (size != sizeof(struct binder_version)) {
+			ret = -EINVAL;
+			goto err;
+		}
+		if (put_user(BINDER_CURRENT_PROTOCOL_VERSION,
+			     &amp;ver-&gt;protocol_version)) {
+			ret = -EINVAL;
+			goto err;
+		}
+		break;
+	}
+	default:
+		ret = -EINVAL;
+		goto err;
+	}
+	ret = 0;
+err:
+	if (thread)
+		thread-&gt;looper &amp;= ~BINDER_LOOPER_STATE_NEED_RETURN;
+	binder_unlock(__func__);
+	wait_event_interruptible(binder_user_error_wait, binder_stop_on_user_error &lt; 2);
+		
+err_unlocked:
+	trace_binder_ioctl_done(ret);
+	return ret;
+}
+</code></pre>
+</div>
+
+<p><strong>2.4.1 binder_get_thread()</strong></p>
+
+<p>从binder_proc中查找binder_thread,如果存在则直接返回，如果不存在则新建一个，并添加到当前的proc</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static struct binder_thread *binder_get_thread(struct binder_proc *proc)
+{
+	struct binder_thread *thread = NULL;
+	struct rb_node *parent = NULL;
+	struct rb_node **p = &amp;proc-&gt;threads.rb_node;
+	while (*p) {  //根据当前进程的pid，从binder_proc中查找相应的binder_thread
+		parent = *p;
+		thread = rb_entry(parent, struct binder_thread, rb_node);
+		if (current-&gt;pid &lt; thread-&gt;pid)
+			p = &amp;(*p)-&gt;rb_left;
+		else if (current-&gt;pid &gt; thread-&gt;pid)
+			p = &amp;(*p)-&gt;rb_right;
+		else
+			break;
+	}
+	if (*p == NULL) {
+		thread = kzalloc(sizeof(*thread), GFP_KERNEL); //新建binder_thread结构体
+		if (thread == NULL)
+			return NULL;
+		binder_stats_created(BINDER_STAT_THREAD);
+		thread-&gt;proc = proc;
+		thread-&gt;pid = current-&gt;pid;  //保存当前进程(线程)的pid
+		init_waitqueue_head(&amp;thread-&gt;wait);
+		INIT_LIST_HEAD(&amp;thread-&gt;todo);
+		rb_link_node(&amp;thread-&gt;rb_node, parent, p);
+		rb_insert_color(&amp;thread-&gt;rb_node, &amp;proc-&gt;threads);
+		thread-&gt;looper |= BINDER_LOOPER_STATE_NEED_RETURN;
+		thread-&gt;return_error = BR_OK;
+		thread-&gt;return_error2 = BR_OK;
+	}
+	return thread;
+}
+</code></pre>
+</div>
+
+<p><strong>2.4.2 binder_ioctl_write_read()</strong></p>
+
+<p>对于ioctl()方法中，传递进来的命令是cmd = <code class="highlighter-rouge">BINDER_WRITE_READ</code>时执行该方法，arg是一个<code class="highlighter-rouge">binder_write_read</code>结构体</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int binder_ioctl_write_read(struct file *filp,
+				unsigned int cmd, unsigned long arg,
+				struct binder_thread *thread)
+{
+	int ret = 0;
+	struct binder_proc *proc = filp-&gt;private_data;
+	unsigned int size = _IOC_SIZE(cmd);
+	void __user *ubuf = (void __user *)arg;
+	struct binder_write_read bwr;
+
+	if (size != sizeof(struct binder_write_read)) {
+		ret = -EINVAL;
+		goto out;
+	}
+	if (copy_from_user(&amp;bwr, ubuf, sizeof(bwr))) { //把用户空间数据ubuf拷贝到bwr
+		ret = -EFAULT;
+		goto out;
+	}
+
+	if (bwr.write_size &gt; 0) {
+		//当写缓存中有数据，则执行binder写操作
+		ret = binder_thread_write(proc, thread,
+					  bwr.write_buffer, bwr.write_size, &amp;bwr.write_consumed); 
+		trace_binder_write_done(ret); 
+		if (ret &lt; 0) { //当写失败，再将bwr数据写回用户空间，并返回
+			bwr.read_consumed = 0;
+			if (copy_to_user(ubuf, &amp;bwr, sizeof(bwr))) 
+				ret = -EFAULT;
+			goto out;
+		}
+	}
+	if (bwr.read_size &gt; 0) {
+		//当读缓存中有数据，则执行binder读操作
+		ret = binder_thread_read(proc, thread, 
+					  bwr.read_buffer, bwr.read_size, &amp;bwr.read_consumed,
+					  filp-&gt;f_flags &amp; O_NONBLOCK); 
+		trace_binder_read_done(ret);
+		if (!list_empty(&amp;proc-&gt;todo))
+			wake_up_interruptible(&amp;proc-&gt;wait); //进入休眠，等待中断唤醒
+		if (ret &lt; 0) { //当读失败，再将bwr数据写回用户空间，并返回
+			if (copy_to_user(ubuf, &amp;bwr, sizeof(bwr))) 
+				ret = -EFAULT;
+			goto out;
+		}
+	}
+
+	if (copy_to_user(ubuf, &amp;bwr, sizeof(bwr))) { //将内核数据bwr拷贝到用户空间ubuf
+		ret = -EFAULT;
+		goto out;
+	}
+out:
+	return ret;
+}
+</code></pre>
+</div>
+
+<p>对于<code class="highlighter-rouge">binder_ioctl_write_read</code>的流程图，如下：</p>
+
+<p><img src="/images/binder/binder_dev/binder_write_read.png" alt="binder_write_read" /></p>
+
+<p>流程：</p>
+
+<ul>
+  <li>首先把用户空间数据拷贝到内核空间bwr；</li>
+  <li>当bwr写缓存中有数据，则执行binder写操作；当写失败，再将bwr数据写回用户空间，并退出；</li>
+  <li>当bwr读缓存中有数据，则执行binder读操作；当读失败，再将bwr数据写回用户空间，并退出；</li>
+  <li>最后把内核数据bwr拷贝到用户空间。</li>
+</ul>
+
+<p>这里涉及两个核心方法<code class="highlighter-rouge">binder_thread_write()</code>和<code class="highlighter-rouge">binder_thread_read()</code>方法，在Binder系列的后续文章<a href="http://gityuan.com/2015/11/02/binder-driver-2/">Binder Driver再探</a>中详细介绍。</p>
+
+<h2 id="section-2">三、 结构体附录</h2>
+
+<p>下面列举Binder相关的核心结构体，并解释其中的比较重要的参数。</p>
+
+<h3 id="binderproc">3.1 binder_proc</h3>
+
+<p>binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构体的跟结构体。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>struct hlist_node</td>
+      <td>proc_node</td>
+      <td>进程节点</td>
+    </tr>
+    <tr>
+      <td>struct rb_root</td>
+      <td>threads</td>
+      <td>binder_thread红黑树的根节点</td>
+    </tr>
+    <tr>
+      <td>struct rb_root</td>
+      <td>nodes</td>
+      <td>binder_node红黑树的根节点</td>
+    </tr>
+    <tr>
+      <td>struct rb_root</td>
+      <td>refs_by_desc</td>
+      <td>binder_ref红黑树的根节点(以handle为key)</td>
+    </tr>
+    <tr>
+      <td>struct rb_root</td>
+      <td>refs_by_node</td>
+      <td>binder_ref红黑树的根节点（以ptr为key）</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>pid</td>
+      <td>创建binder_proc的进程id</td>
+    </tr>
+    <tr>
+      <td>struct vm_area_struct *</td>
+      <td>vma</td>
+      <td>指向进程虚拟地址空间的指针</td>
+    </tr>
+    <tr>
+      <td>struct mm_struct *</td>
+      <td>vma_vm_mm;</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct task_struct *</td>
+      <td>tsk</td>
+      <td>创建binder_proc的进程</td>
+    </tr>
+    <tr>
+      <td>struct files_struct *</td>
+      <td>files</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct hlist_node</td>
+      <td>deferred_work_node</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>deferred_work</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>void *</td>
+      <td>buffer</td>
+      <td>映射的内核空间的起始地址</td>
+    </tr>
+    <tr>
+      <td>ptrdiff_t</td>
+      <td>user_buffer_offset</td>
+      <td>内核空间与用户空间的地址偏移量</td>
+    </tr>
+    <tr>
+      <td>struct list_head</td>
+      <td>buffers</td>
+      <td>所有的buffer</td>
+    </tr>
+    <tr>
+      <td>struct rb_root</td>
+      <td>free_buffers</td>
+      <td>空闲的buffer</td>
+    </tr>
+    <tr>
+      <td>struct rb_root</td>
+      <td>allocated_buffers</td>
+      <td>已分配的buffer</td>
+    </tr>
+    <tr>
+      <td>size_t</td>
+      <td>free_async_space</td>
+      <td>异步的可用空闲空间大小</td>
+    </tr>
+    <tr>
+      <td>struct page **</td>
+      <td>pages</td>
+      <td>描述物理内存页面的数据结构</td>
+    </tr>
+    <tr>
+      <td>size_t</td>
+      <td>buffer_size</td>
+      <td>映射的内核空间大小</td>
+    </tr>
+    <tr>
+      <td>uint32_t</td>
+      <td>buffer_free</td>
+      <td>可用内存总大小</td>
+    </tr>
+    <tr>
+      <td>struct list_head</td>
+      <td>todo</td>
+      <td>进程将要做的事</td>
+    </tr>
+    <tr>
+      <td>wait_queue_head_t</td>
+      <td>wait</td>
+      <td>等待队列</td>
+    </tr>
+    <tr>
+      <td>struct binder_stats</td>
+      <td>stats</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct list_head</td>
+      <td>delivered_death</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>max_threads</td>
+      <td>最大线程数</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>requested_threads</td>
+      <td>请求的线程数</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>requested_threads_started</td>
+      <td>已启动的请求线程数</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>ready_threads</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>long</td>
+      <td>default_priority</td>
+      <td>默认优先级</td>
+    </tr>
+    <tr>
+      <td>struct dentry *</td>
+      <td>debugfs_entry</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>free_buffers：记录所有空闲的buffer，记录以buffer_size为key的binder_buffer的红黑树结构</li>
+  <li>allocated_buffers:记录所有已分配的buffer，记录以buffer_size为key的binder_buffer的红黑树结构</li>
+  <li>buffers: 所有buffer（包含空闲的和已分配的buffer）的按地址由从低到高都连入到buffers链表中</li>
+</ul>
+
+<h3 id="binderthread">3.2 binder_thread</h3>
+
+<p>binder_thread结构体代表当前binder操作所在的线程</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>struct binder_proc *</td>
+      <td>proc</td>
+      <td>线程所属的进程</td>
+    </tr>
+    <tr>
+      <td>struct rb_node</td>
+      <td>rb_node</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>pid</td>
+      <td>线程pid</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>looper</td>
+      <td>looper的状态</td>
+    </tr>
+    <tr>
+      <td>struct binder_transaction *</td>
+      <td>transaction_stack</td>
+      <td>线程正在处理的事务</td>
+    </tr>
+    <tr>
+      <td>struct list_head</td>
+      <td>todo</td>
+      <td>将要处理的链表</td>
+    </tr>
+    <tr>
+      <td>uint32_t</td>
+      <td>return_error</td>
+      <td>write失败后，返回的错误码</td>
+    </tr>
+    <tr>
+      <td>uint32_t</td>
+      <td>return_error2</td>
+      <td>write失败后，返回的错误码2</td>
+    </tr>
+    <tr>
+      <td>wait_queue_head_t</td>
+      <td>wait</td>
+      <td>等待队列的队头</td>
+    </tr>
+    <tr>
+      <td>struct binder_stats</td>
+      <td>stats</td>
+      <td>binder线程的统计信息</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>looper的状态如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>enum {
+	BINDER_LOOPER_STATE_REGISTERED  = 0x01, // 已注册
+	BINDER_LOOPER_STATE_ENTERED     = 0x02, // 已进入
+	BINDER_LOOPER_STATE_EXITED      = 0x04, // 已退出
+	BINDER_LOOPER_STATE_INVALID     = 0x08, // 非法
+	BINDER_LOOPER_STATE_WAITING     = 0x10, // 等待中
+	BINDER_LOOPER_STATE_NEED_RETURN = 0x20, // 需要返回
+};
+</code></pre>
+</div>
+
+<h3 id="binderbuffer">3.3 binder_buffer</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>struct list_head</td>
+      <td>entry</td>
+      <td>buffer实体的地址</td>
+    </tr>
+    <tr>
+      <td>struct rb_node</td>
+      <td>rb_node</td>
+      <td>buffer实体的地址</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>free</td>
+      <td>标记是否是空闲buffer，占位1bit</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>allow_user_free</td>
+      <td>是否允许用户释放，占位1bit</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>async_transaction</td>
+      <td>占位1bit</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>debug_id</td>
+      <td>占位29bit</td>
+    </tr>
+    <tr>
+      <td>struct binder_transaction *</td>
+      <td>transaction</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct binder_node *</td>
+      <td>target_node</td>
+      <td>Binder实体</td>
+    </tr>
+    <tr>
+      <td>size_t</td>
+      <td>data_size</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>size_t</td>
+      <td>offsets_size</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>uint8_t</td>
+      <td>data[0]</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>每一个binder_buffer分为空闲和已分配的，通过free标记来区分。空闲和已分配的binder_buffer通过各自的成员变量rb_node分别连入binder_proc的free_buffers(红黑树)和allocated_buffers(红黑树)。</p>
+
+<h3 id="bindertransactiondata">3.4 binder_transaction_data</h3>
+
+<p>当BINDER_WRITE_READ命令的目标是本地Binder node时，target使用ptr，否则使用handle。只有当这是Binder node时，cookie才有意义，表示附加数据，由进程自己解释。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>struct binder_transaction_data {
+	union {
+		__u32	handle;	   //binder_ref（即handle）
+		binder_uintptr_t ptr;	 //Binder_node的内存地址
+	} target;  //RPC目标
+	binder_uintptr_t	cookie;	
+	__u32		code;		//RPC代码，代表Client与Server双方约定的命令码
+
+	__u32	        flags; //标志位，比如TF_ONE_WAY代表异步，即不等待Server端回复
+	pid_t		sender_pid;  //发送端进程的pid
+	uid_t		sender_euid; //发送端进程的uid
+	binder_size_t	data_size;	//dta.buffer所指向的buffer的数据长度
+	binder_size_t	offsets_size; //现规定与data.buffer偏移量
+
+	union {
+		struct {
+			binder_uintptr_t	buffer;
+			binder_uintptr_t	offsets;
+		} ptr;
+		__u8	buf[8];
+	} data;   //RPC数据
+};
+</code></pre>
+</div>
+
+<h3 id="bindertransaction">3.5 binder_transaction</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>int</td>
+      <td>debug_id</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct binder_work</td>
+      <td>work</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct binder_thread *</td>
+      <td>from</td>
+      <td>发送端线程</td>
+    </tr>
+    <tr>
+      <td>struct binder_transaction *</td>
+      <td>from_parent</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct binder_proc *</td>
+      <td>to_proc</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct binder_thread *</td>
+      <td>to_thread</td>
+      <td>接收端线程</td>
+    </tr>
+    <tr>
+      <td>struct binder_transaction *</td>
+      <td>to_parent</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>need_reply</td>
+      <td>是否需要回应</td>
+    </tr>
+    <tr>
+      <td>struct binder_buffer *</td>
+      <td>buffer</td>
+      <td>数据buffer</td>
+    </tr>
+    <tr>
+      <td>unsigned int</td>
+      <td>code</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>unsigned int</td>
+      <td>flags</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>long</td>
+      <td>priority</td>
+      <td>优先级</td>
+    </tr>
+    <tr>
+      <td>long</td>
+      <td>saved_priority</td>
+      <td>保存的优先级</td>
+    </tr>
+    <tr>
+      <td>kuid_t</td>
+      <td>sender_euid</td>
+      <td>发送端uid</td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>debug_id：是一个全局静态变量，每当创建一个<code class="highlighter-rouge">binder_transaction</code>或<code class="highlighter-rouge">binder_node</code>或<code class="highlighter-rouge">binder_ref</code>对象，则++debug_id</li>
+</ul>
+
+<h3 id="binderwriteread">3.6 binder_write_read</h3>
+<p>用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>binder_size_t</td>
+      <td>rite_size</td>
+      <td>write_buffer的字节数</td>
+    </tr>
+    <tr>
+      <td>binder_size_t</td>
+      <td>write_consumed</td>
+      <td>已处理的write字节数</td>
+    </tr>
+    <tr>
+      <td>binder_uintptr_t</td>
+      <td>write_buffer</td>
+      <td>指向write数据区</td>
+    </tr>
+    <tr>
+      <td>binder_size_t</td>
+      <td>read_size</td>
+      <td>read_buffer的字节数</td>
+    </tr>
+    <tr>
+      <td>binder_size_t</td>
+      <td>read_consumed</td>
+      <td>已处理的read字节数</td>
+    </tr>
+    <tr>
+      <td>binder_uintptr_t</td>
+      <td>read_buffer</td>
+      <td>指向read数据区</td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>write_buffer变量：用于发送IPC(或IPC reply)数据，即传递经由Binder Driver的数据时使用。</li>
+  <li>read_buffer 变量：用于接收来自Binder Driver的数据，即Binder Driver在接收IPC(或IPC reply)数据后，保存到read_buffer，再传递到用户空间；</li>
+</ul>
+
+<p>write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_data结构体。</p>
+
+<ul>
+  <li>copy_from_user()将用户空间IPC数据拷贝到内核态binder_write_read结构体；</li>
+  <li>copy_to_user()将用内核态binder_write_read结构体数据拷贝到用户空间；</li>
+</ul>
+
+<h3 id="bindernode">3.7 binder_node</h3>
+
+<p>binder_node代表一个binder实体</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>int</td>
+      <td>debug_id</td>
+      <td>用于调试使用</td>
+    </tr>
+    <tr>
+      <td>struct binder_work</td>
+      <td>work</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct rb_node</td>
+      <td>rb_node</td>
+      <td>binder节点正常使用，union</td>
+    </tr>
+    <tr>
+      <td>struct hlist_node</td>
+      <td>dead_node</td>
+      <td>binder节点已销毁，union</td>
+    </tr>
+    <tr>
+      <td>struct binder_proc *</td>
+      <td>proc</td>
+      <td>binder所在的进程</td>
+    </tr>
+    <tr>
+      <td>struct hlist_head</td>
+      <td>refs</td>
+      <td>所有指向该节点的binder引用队列</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>internal_strong_refs</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>local_weak_refs</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>local_strong_refs</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>binder_uintptr_t</td>
+      <td>ptr</td>
+      <td>指向用户空间binder_node的指针</td>
+    </tr>
+    <tr>
+      <td>binder_uintptr_t</td>
+      <td>cookie</td>
+      <td>附件数据</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>has_strong_ref</td>
+      <td>占位1bit</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>pending_strong_ref</td>
+      <td>占位1bit</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>has_weak_ref</td>
+      <td>占位1bit</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>pending_weak_ref</td>
+      <td>占位1bit</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>has_async_transaction</td>
+      <td>占位1bit</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>accept_fds</td>
+      <td>占位1bit</td>
+    </tr>
+    <tr>
+      <td>unsigned</td>
+      <td>min_priority</td>
+      <td>占位8bit，最小优先级</td>
+    </tr>
+    <tr>
+      <td>struct list_head</td>
+      <td>async_todo</td>
+      <td>异步todo队列</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>其中ptr与flat_binder_object的binder成员是一致的；cookie与flat_binder_object的cookie成员是一致的</p>
+
+<h3 id="binderref">3.8 binder_ref</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>int</td>
+      <td>debug_id</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct rb_node</td>
+      <td>rb_node_desc</td>
+      <td>以desc为索引的红黑树</td>
+    </tr>
+    <tr>
+      <td>struct rb_node</td>
+      <td>rb_node_node</td>
+      <td>以node为索引的红黑树</td>
+    </tr>
+    <tr>
+      <td>struct hlist_node</td>
+      <td>node_entry</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>struct binder_proc *</td>
+      <td>proc</td>
+      <td>binder进程</td>
+    </tr>
+    <tr>
+      <td>struct binder_node *</td>
+      <td>node</td>
+      <td>binder节点</td>
+    </tr>
+    <tr>
+      <td>uint32_t</td>
+      <td>desc</td>
+      <td>handle</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>strong</td>
+      <td>强引用次数</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>weak</td>
+      <td>弱引用次数</td>
+    </tr>
+    <tr>
+      <td>struct binder_ref_death *</td>
+      <td>death</td>
+      <td>当应用注册死亡通知时，此域不为空</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>binder引用的查询方式如下：</p>
+
+<ul>
+  <li>node + proc =&gt; ref (transaction)</li>
+  <li>desc + proc =&gt; ref (transaction, inc/dec ref)</li>
+  <li>node =&gt; refs + procs (proc exit)</li>
+</ul>
+
+<h3 id="binderrefdeath">3.9 binder_ref_death</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>struct binder_ref_death {
+	struct binder_work work;
+	binder_uintptr_t cookie;
+};
+</code></pre>
+</div>
+
+<h3 id="binderwork">3.10 binder_work</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>struct binder_work {
+	struct list_head entry;
+	enum {
+		BINDER_WORK_TRANSACTION = 1, //binder_transaction()方法设置
+		BINDER_WORK_TRANSACTION_COMPLETE, //binder_transaction()方法设置
+		BINDER_WORK_NODE, // binder_new_node()/binder_transaction()方法设置
+		BINDER_WORK_DEAD_BINDER, // binder_thread_write()等多个方法可设置
+		BINDER_WORK_DEAD_BINDER_AND_CLEAR, // binder_thread_write()等多个方法可设置
+		BINDER_WORK_CLEAR_DEATH_NOTIFICATION,// binder_thread_write()等多个方法可设置
+	} type;
+};
+</code></pre>
+</div>
+
+<h3 id="binderstate">3.11 binder_state</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>int</td>
+      <td>fd</td>
+      <td>文件描述符</td>
+    </tr>
+    <tr>
+      <td>void *</td>
+      <td>mapped</td>
+      <td>映射到进程空间的起始地址</td>
+    </tr>
+    <tr>
+      <td>size_t</td>
+      <td>mapsize</td>
+      <td>内存空间的映射大小</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="flatbinderobject">3.12 flat_binder_object</h3>
+
+<p>flat_binder_object结构体代表Binder对象在两个进程间传递的扁平结构。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>__u32</td>
+      <td>type</td>
+      <td>类型</td>
+    </tr>
+    <tr>
+      <td>__u32</td>
+      <td>flags</td>
+      <td>记录优先级、文件描述符许可</td>
+    </tr>
+    <tr>
+      <td>binder_uintptr_t</td>
+      <td>binder</td>
+      <td>（union）当传递的是binder_node时使用，指向binder_node在应用程序的地址</td>
+    </tr>
+    <tr>
+      <td>__u32</td>
+      <td>handle</td>
+      <td>（union）当传递的是binder_ref时使用，存放Binder在进程中的引用号</td>
+    </tr>
+    <tr>
+      <td>binder_uintptr_t</td>
+      <td>cookie</td>
+      <td>该域支队binder_node有效，存放binder_nod的额外数据</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>此处的类型type的可能取值来自于<code class="highlighter-rouge">enum</code>，成员如下：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>BINDER_TYPE_BINDER</td>
+      <td>binder_node的强引用</td>
+    </tr>
+    <tr>
+      <td>BINDER_TYPE_WEAK_BINDER</td>
+      <td>binder_node的弱引用</td>
+    </tr>
+    <tr>
+      <td>BINDER_TYPE_HANDLE</td>
+      <td>binder_ref强引用</td>
+    </tr>
+    <tr>
+      <td>BINDER_TYPE_WEAK_HANDLE</td>
+      <td>binder_ref弱引用</td>
+    </tr>
+    <tr>
+      <td>BINDER_TYPE_FD</td>
+      <td>binder文件描述符</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>当传输的flat_binder_object的成员变量type等于BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER类型时，代表该过程为Server进程向Service Manager进程进行服务注册的过程，则创建binder_node对象；当其type等于BINDER_TYPE_HANDLE或BINDER_TYPE_WEAK_HEANDLE类型时，代表该过程为Client进程向另一个进程发送Service代理，则创建binder_ref对象；当其type等于BINDER_TYPE_FD时，代表该过程为一个进程向另一个进程发送文件描述符(file descriptor)，只是打开文件，则无需创建任何对象。</p>
+
+<hr />
+
+<p>如果觉得本文对您有所帮助，请关注我的<strong>微信公众号：gityuan</strong>， <strong><a href="http://weibo.com/gityuan">微博：Gityuan</a></strong>。 或者<a href="http://gityuan.com/about/">点击这里查看更多关于我的信息</a></p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/11/02/binder-driver"
+                    data-title="Binder系列1—Binder Driver初探"
+                    data-url="http://gityuan.com/2015/11/02/binder-driver/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  基于Android 6.0的源码剖析，在讲解Binder原理之前，先从kernel的角度来讲解Binder Driver.
+
+
+/kernel/dr... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/10/31/binder-prepare/" data-toggle="tooltip" data-placement="top" title="Binder系列—开篇">
+                        Previous<br>
+                        <span>Binder系列—开篇</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/11/03/binder-driver-2/" data-toggle="tooltip" data-placement="top" title="Binder系列2—Binder Driver再探">
+                        Next<br>
+                        <span>Binder系列2—Binder Driver再探</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/11/02/binder-driver"
+                        data-title="Binder系列1—Binder Driver初探"
+                        data-url="http://gityuan.com/2015/11/02/binder-driver/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

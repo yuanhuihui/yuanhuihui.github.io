@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Android系统启动-SystemServer下篇 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2016/02/21/android-system-server-2/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#boot" title="boot">boot</a>
+                        
+                        <a class="tag" href="/tags/#SystemServer" title="SystemServer">SystemServer</a>
+                        
+                    </div>
+                    <h1>Android系统启动-SystemServer下篇</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on February 21, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>基于Android 6.0的源码剖析， 分析Android启动过程的system_server进程</p>
+</blockquote>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>frameworks/base/core/java/android/app/ActivityThread.java
+frameworks/base/core/java/android/app/LoadedApk.java
+frameworks/base/core/java/android/app/ContextImpl.java
+frameworks/base/core/java/com/android/server/LocalServices.java
+frameworks/base/services/java/com/android/server/SystemServer.java
+frameworks/base/services/core/java/com/android/server/SystemServiceManager.java
+frameworks/base/services/core/java/com/android/server/ServiceThread.java
+frameworks/base/services/core/java/com/android/server/pm/Installer.java
+frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+</code></pre>
+</div>
+
+<h3 id="section">一、启动调用栈</h3>
+
+<p>System_server启动函数调用类的栈关系：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>SystemServer.main
+	SystemServer.run
+		createSystemContext
+			ActivityThread.systemMain
+				ActivityThread.attach
+					LoadedApk.makeApplication
+			ActivityThread.getSystemContext
+				ContextImpl.createSystemContext
+		startBootstrapServices(); 
+		startCoreServices();    
+		startOtherServices();
+		Looper.loop();
+</code></pre>
+</div>
+
+<h3 id="systemserver">二、 SystemServer分析</h3>
+
+<p>上一篇文章<a href="http://gityuan.com/2016/02/14/android-system-server/">Android系统启动-systemServer上篇</a>讲解了从Zygote一路启动到SystemServer的过程，本文重要是讲述system_server所承载的java framework的系统服务框架，是如何一路路启动的。</p>
+
+<p><strong>Step 1.</strong> SystemServer.main</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static void main(String[] args) {
+    //先初始化SystemServer对象，再调用对象的run()方法， 【见Step 2】
+    new SystemServer().run(); 
+}
+</code></pre>
+</div>
+
+<p><strong>Step 2.</strong> SystemServer.run</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private void run() {
+    //当系统时间比1970年更早，就设置当前系统时间为1970年
+    if (System.currentTimeMillis() &lt; EARLIEST_SUPPORTED_TIME) {
+        SystemClock.setCurrentTimeMillis(EARLIEST_SUPPORTED_TIME);
+    }
+
+    //变更虚拟机的库文件，对于Android 6.0默认采用的是libart.so
+    SystemProperties.set("persist.sys.dalvik.vm.lib.2", VMRuntime.getRuntime().vmLibrary());
+
+    //isEnabled()为true，则开启采用分析器
+    if (SamplingProfilerIntegration.isEnabled()) {
+        SamplingProfilerIntegration.start();
+        mProfilerSnapshotTimer = new Timer();
+        //system_server每隔1小时采用一次，并保存结果到system_server文件
+        mProfilerSnapshotTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                SamplingProfilerIntegration.writeSnapshot("system_server", null);
+            }
+        }, SNAPSHOT_INTERVAL, SNAPSHOT_INTERVAL);
+    }
+
+    //清除vm内存增长上限，由于启动过程需要较多的虚拟机内存空间
+    VMRuntime.getRuntime().clearGrowthLimit();
+
+    //设置内存的可能有效使用率为0.8
+    VMRuntime.getRuntime().setTargetHeapUtilization(0.8f);
+    // 针对部分设备依赖于运行时就产生指纹信息，因此需要在开机完成前已经定义
+    Build.ensureFingerprintProperty();
+
+    //访问环境变量前，需要明确地指定用户
+    Environment.setUserRequired(true);
+
+    //确保当前系统进程的binder调用，总是运行在前台优先级(foreground priority)
+    BinderInternal.disableBackgroundScheduling(true);
+    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_FOREGROUND);
+    android.os.Process.setCanSelfBackground(false);
+
+    // 主线程looper就在当前线程运行
+    Looper.prepareMainLooper();
+
+    //加载android_servers.so库，该库包含的源码在frameworks/base/services/目录下
+    System.loadLibrary("android_servers");
+
+    //检测上次关机过程是否失败，该方法可能不会返回
+    performPendingShutdown();
+
+    //初始化系统上下文 【见Step 3】
+    createSystemContext();
+
+    //创建系统服务管理
+    mSystemServiceManager = new SystemServiceManager(mSystemContext);
+    //将mSystemServiceManager添加到本地服务的成员sLocalServiceObjects
+    LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
+
+    
+    //启动各种系统服务
+    try {
+        startBootstrapServices(); // 启动引导服务【见Step 4】
+        startCoreServices();      // 启动核心服务【见Step 5】
+        startOtherServices();     // 启动其他服务【见Step 6】
+    } catch (Throwable ex) {
+        Slog.e("System", "************ Failure starting system services", ex);
+        throw ex;
+    }
+
+    //用于debug版本，将log事件不断循环地输出到dropbox（用于分析）
+    if (StrictMode.conditionallyEnableDebugLogging()) {
+        Slog.i(TAG, "Enabled StrictMode for system server main thread.");
+    }
+    //一直循环执行
+    Looper.loop();
+    throw new RuntimeException("Main thread loop unexpectedly exited");
+}
+</code></pre>
+</div>
+
+<p>LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务类名为key，以具体服务对象为value的Map结构。</p>
+
+<p><strong>Step 3.</strong> SystemServer.createSystemContext</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private void createSystemContext() {
+    //创建ActivityThread对象【见Step 3-1】
+    ActivityThread activityThread = ActivityThread.systemMain();
+    //创建ContextImpl、LoadedApk对象【见Step 3-2】
+    mSystemContext = activityThread.getSystemContext();
+    //设置主题
+    mSystemContext.setTheme(android.R.style.Theme_DeviceDefault_Light_DarkActionBar);
+}
+</code></pre>
+</div>
+
+<p><strong>Step 3-1.</strong>  ActivityThread.systemMain</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static ActivityThread systemMain() {
+    //对于低内存的设备，禁用硬件加速
+    if (!ActivityManager.isHighEndGfx()) {
+        HardwareRenderer.disable(true);
+    } else {
+        HardwareRenderer.enableForegroundTrimming();
+    }
+    // 创建ActivityThread
+    ActivityThread thread = new ActivityThread();
+    // 创建Application以及调用其onCreate()方法【见Step 3-1-1】
+    thread.attach(true);
+    return thread;
+}
+</code></pre>
+</div>
+
+<p><strong>Step 3-1-1.</strong>  ActivityThread.attach</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private void attach(boolean system) {
+    sCurrentActivityThread = this;
+    mSystemThread = system;
+
+    if (!system) {
+    ...
+
+    } else {
+        //system=true,进入此分支
+        android.ddm.DdmHandleAppName.setAppName("system_process",
+                UserHandle.myUserId());
+        try {
+            mInstrumentation = new Instrumentation();
+            // 创建应用上下文
+            ContextImpl context = ContextImpl.createAppContext(
+                    this, getSystemContext().mPackageInfo);
+            //创建Application 【见Step 3-1-1-1】
+            mInitialApplication = context.mPackageInfo.makeApplication(true, null);
+            //调用Application.onCreate()方法
+            mInitialApplication.onCreate();
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Unable to instantiate Application():" + e.toString(), e);
+        }
+    }
+
+    //添加dropbox log信息到libcore
+    DropBox.setReporter(new DropBoxReporter());
+
+    // 设置回调方法
+    ViewRootImpl.addConfigCallback(new ComponentCallbacks2() {
+        @Override
+        public void onConfigurationChanged(Configuration newConfig) {
+            synchronized (mResourcesManager) {
+                if (mResourcesManager.applyConfigurationToResourcesLocked(newConfig, null)) {
+                    if (mPendingConfiguration == null ||
+                            mPendingConfiguration.isOtherSeqNewer(newConfig)) {
+                        mPendingConfiguration = newConfig;
+
+                        sendMessage(H.CONFIGURATION_CHANGED, newConfig);
+                    }
+                }
+            }
+        }
+        @Override
+        public void onLowMemory() {
+        }
+        @Override
+        public void onTrimMemory(int level) {
+        }
+    });
+}
+</code></pre>
+</div>
+
+<p>主要工作是创建应用上下文ContextImpl，创建Application以及调用其onCreate()方法，设置DropBox以及ComponentCallbacks2回调方法。</p>
+
+<p><strong>Step 3-1-1-1.</strong>  LoadedApk.makeApplication</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public Application makeApplication(boolean forceDefaultAppClass,
+        Instrumentation instrumentation) {
+    if (mApplication != null) {
+        return mApplication;
+    }
+
+    Application app = null;
+
+    String appClass = mApplicationInfo.className;
+    if (forceDefaultAppClass || (appClass == null)) {
+        appClass = "android.app.Application"; //设置class名
+    }
+
+    try {
+        java.lang.ClassLoader cl = getClassLoader();
+        if (!mPackageName.equals("android")) {
+            initializeJavaContextClassLoader(); //不进入该分支
+        }
+        ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
+        // 创建Application
+        app = mActivityThread.mInstrumentation.newApplication(
+                cl, appClass, appContext);
+        appContext.setOuterContext(app);
+    } catch (Exception e) {
+		...
+    }
+    // 将前面创建的app添加到应用列表。
+    mActivityThread.mAllApplications.add(app);
+    mApplication = app;
+    ...
+
+    return app;
+}
+</code></pre>
+</div>
+
+<p>在该方法调用之前，已经创建了LoadedApk对象，该对象的成员变量mPackageName=”android”; mClassLoader = ClassLoader.getSystemClassLoader();</p>
+
+<p><strong>Step 3-2.</strong> ActivityThread.getSystemContext</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public ContextImpl getSystemContext() {
+    synchronized (this) {
+        if (mSystemContext == null) {
+            //创建ContextImpl对象【见Step 3-2-1】
+            mSystemContext = ContextImpl.createSystemContext(this);
+        }
+        return mSystemContext;
+    }
+}
+</code></pre>
+</div>
+
+<p><strong>Step 3-2-1.</strong> ContextImpl.createSystemContext</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static ContextImpl createSystemContext(ActivityThread mainThread) {
+    //创建LoadedApk对象
+    LoadedApk packageInfo = new LoadedApk(mainThread);
+    //创建ContextImpl对象
+    ContextImpl context = new ContextImpl(null, mainThread,
+            packageInfo, null, null, false, null, null, Display.INVALID_DISPLAY);
+    context.mResources.updateConfiguration(context.mResourcesManager.getConfiguration(), 
+            context.mResourcesManager.getDisplayMetricsLocked());
+    return context;
+}
+</code></pre>
+</div>
+
+<p>运行到这里，system_server的准备环境基本完成，接下来开始system_server中最为核心的过程，启动系统服务。
+通过<code class="highlighter-rouge">startBootstrapServices()</code>, <code class="highlighter-rouge">startCoreServices()</code>, <code class="highlighter-rouge">startOtherServices()</code>3个方法。</p>
+
+<p><strong>Step 4.</strong> startBootstrapServices</p>
+
+<p>[–&gt;SystemServer.java]</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private void startBootstrapServices() {
+    //阻塞等待与installd建立socket通道
+    Installer installer = mSystemServiceManager.startService(Installer.class);
+
+    //启动服务ActivityManagerService
+    mActivityManagerService = mSystemServiceManager.startService(
+            ActivityManagerService.Lifecycle.class).getService();
+    mActivityManagerService.setSystemServiceManager(mSystemServiceManager);
+    mActivityManagerService.setInstaller(installer);
+
+    //启动服务PowerManagerService
+    mPowerManagerService = mSystemServiceManager.startService(PowerManagerService.class);
+
+    //初始化power management
+    mActivityManagerService.initPowerManagement();
+
+    //启动服务LightsService 
+    mSystemServiceManager.startService(LightsService.class);
+
+    //启动服务DisplayManagerService
+    mDisplayManagerService = mSystemServiceManager.startService(DisplayManagerService.class);
+
+    //在初始化package manager之前，需要默认的显示
+    mSystemServiceManager.startBootPhase(SystemService.PHASE_WAIT_FOR_DEFAULT_DISPLAY);
+
+    //当设备正在加密时，仅运行核心
+    String cryptState = SystemProperties.get("vold.decrypt");
+    if (ENCRYPTING_STATE.equals(cryptState)) {
+        mOnlyCore = true;
+    } else if (ENCRYPTED_STATE.equals(cryptState)) {
+        mOnlyCore = true;
+    }
+
+    //启动服务PackageManagerService
+    mPackageManagerService = PackageManagerService.main(mSystemContext, installer,
+            mFactoryTestMode != FactoryTest.FACTORY_TEST_OFF, mOnlyCore);
+    mFirstBoot = mPackageManagerService.isFirstBoot();
+    mPackageManager = mSystemContext.getPackageManager();
+
+    //启动服务UserManagerService，新建目录/data/user/
+    ServiceManager.addService(Context.USER_SERVICE, UserManagerService.getInstance());
+
+    AttributeCache.init(mSystemContext);
+
+    //设置AMS
+    mActivityManagerService.setSystemProcess();
+
+    //启动传感器服务
+    startSensorService();
+}
+</code></pre>
+</div>
+
+<p>该方法所创建的服务：ActivityManagerService, PowerManagerService, LightsService, DisplayManagerService， PackageManagerService， UserManagerService， sensor服务.</p>
+
+<p><strong>Step 5.</strong> startCoreServices</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private void startCoreServices() {
+    //启动服务BatteryService，用于统计电池电量，需要LightService.
+    mSystemServiceManager.startService(BatteryService.class);
+
+    //启动服务UsageStatsService，用于统计应用使用情况
+    mSystemServiceManager.startService(UsageStatsService.class);
+    mActivityManagerService.setUsageStatsManager(
+            LocalServices.getService(UsageStatsManagerInternal.class));
+
+    mPackageManagerService.getUsageStatsIfNoPackageUsageInfo();
+
+    //启动服务WebViewUpdateService
+    mSystemServiceManager.startService(WebViewUpdateService.class);
+}
+</code></pre>
+</div>
+
+<p>启动服务BatteryService，UsageStatsService，WebViewUpdateService。</p>
+
+<p><strong>Step 6.</strong> startOtherServices</p>
+
+<p>该方法比较长，有近千行代码，逻辑很简单，主要是启动一系列的服务，这里就不列举源码了，在第四节直接对其中的服务进行一个简单分类。</p>
+
+<h3 id="service">三、Service启动过程</h3>
+
+<p>接下来，开始正式进入启动系统服务的过程。</p>
+
+<h4 id="section-1">启动方式</h4>
+<p>system_server进程中的服务启动方式有两种，</p>
+
+<ol>
+  <li>一种是通过SystemServiceManager的<code class="highlighter-rouge">startService()</code>，该方法用于启动继承于SystemService的服务。主要功能：创建serviceClass类的对象，将刚创建对象添加到SystemServiceManager的成员变量mServices，再调用刚创建对象的onStart()方法。对于服务启动到一定阶段，进入相应的Phase时，会调用SystemServiceManager的<code class="highlighter-rouge">startBootPhase()</code>回调方法，该方法会循环遍历所有向<code class="highlighter-rouge">SystemServiceManager</code>注册过的service的<code class="highlighter-rouge">onBootPhase()</code>方法。</li>
+  <li>另一种是通过ServiceManager的<code class="highlighter-rouge">addService(String name, IBinder service)</code>，该方法用于初始化继承于IBinder的服务。主要功能将该服务向Native层的<a href="http://gityuan.com/2015/11/14/binder-add-service/#addservice">service Manager注册服务</a>。</li>
+</ol>
+
+<h4 id="section-2">启动流程</h4>
+<p>SystemServiceManager的<code class="highlighter-rouge">startBootPhase(）</code>方法贯穿整个阶段，启动阶段从<code class="highlighter-rouge">PHASE_WAIT_FOR_DEFAULT_DISPLAY</code>到<code class="highlighter-rouge">PHASE_BOOT_COMPLETED</code>，如下图：</p>
+
+<p><img src="/images/boot/systemServer/system_server_boot_process.jpg" alt="system_server服务启动流程" /></p>
+
+<p><strong>启动流程分析：</strong></p>
+
+<ol>
+  <li><code class="highlighter-rouge">PHASE_WAIT_FOR_DEFAULT_DISPLAY=100</code>，该阶段等待Display有默认显示;</li>
+  <li><code class="highlighter-rouge">PHASE_LOCK_SETTINGS_READY=480</code>，进入该阶段服务能获取锁屏设置的数据;</li>
+  <li><code class="highlighter-rouge">PHASE_SYSTEM_SERVICES_READY=500</code>，进入该阶段服务能安全地调用核心系统服务，如PMS;</li>
+  <li><code class="highlighter-rouge">PHASE_ACTIVITY_MANAGER_READY=550</code>，进入该阶段服务能广播Intent;</li>
+  <li><code class="highlighter-rouge">PHASE_THIRD_PARTY_APPS_CAN_START=600</code>，进入该阶段服务能start/bind第三方apps，app能通过BInder调用service;</li>
+  <li><code class="highlighter-rouge">PHASE_BOOT_COMPLETED=1000</code>，该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。</li>
+</ol>
+
+<p><strong>Phase 100</strong></p>
+
+<p>创建ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService共4项服务；</p>
+
+<p>接着则进入阶段<code class="highlighter-rouge">100</code>，该阶段调用DisplayManagerService的<code class="highlighter-rouge">onBootPhase()</code>方法。</p>
+
+<p><strong>Phase 480&amp;&amp;500</strong></p>
+
+<p>创建PackageManagerService、WindowManagerService、InputManagerService、NetworkManagerService、DropBoxManagerService/FingerprintService等服务</p>
+
+<p>接着则进入阶段<code class="highlighter-rouge">480</code>，该阶段调用DevicePolicyManagerService的<code class="highlighter-rouge">onBootPhase()</code>方法；
+紧接着进入阶段<code class="highlighter-rouge">500</code>，实现该阶段的回调方法的服务较多。</p>
+
+<p><strong>Phase 550</strong></p>
+
+<p>WindowManagerService、PowerManagerService、PackageManagerService、DisplayManagerService分别依次执行<code class="highlighter-rouge">systemReady()</code>方法；然后ActivityManagerService进入<code class="highlighter-rouge">systemReady()</code>方法;</p>
+
+<p>接着则进入阶段<code class="highlighter-rouge">550</code>，实现该阶段的回调方法的服务较多。</p>
+
+<p><strong>Phase 600</strong></p>
+
+<p>AMS启动native crash监控,，加载WebView，启动SystemUi；然后是NetworkScoreService、NetworkManagementService、NetworkStatsService、NetworkPolicyManagerService、ConnectivityService、AudioService分别依次执行<code class="highlighter-rouge">systemReady()</code>方法，然后是启动Watchdog。</p>
+
+<p>接着则进入阶段<code class="highlighter-rouge">600</code>，实现该阶段的回调方法的服务较多。</p>
+
+<p><strong>Phase 1000</strong></p>
+
+<p>WallpaperManagerService、InputMethodManagerService、LocationManagerService、CountryDetectorService、NetworkTimeUpdateService、CommonTimeManagementService、TextServicesManagerService、AssetAtlasService、InputManagerService、TelephonyRegistry、MediaRouterService、MmsServiceBroker这些服务依次执行其<code class="highlighter-rouge">systemRunning()</code>方法。经过一定流程，当ActivityManagerServer进入<code class="highlighter-rouge">finishBooting()</code>时，则启动流程进入阶段<code class="highlighter-rouge">PHASE_BOOT_COMPLETED=1000</code>。</p>
+
+<p>到此所有服务启动完成，system_server进程启动完成，则进入<code class="highlighter-rouge">Looper.loop()</code>状态，随时待命，等待MessageQueue中的消息到来，则马上进入执行状态。</p>
+
+<h3 id="section-3">四、服务分类</h3>
+
+<p>system_server进程，从源码角度划分为引导服务、核心服务、其他服务3类。</p>
+
+<ol>
+  <li>引导服务：ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService、PackageManagerService、UserManagerService、SensorService共7项服务；</li>
+  <li>核心服务：BatteryService、UsageStatsService、WebViewUpdateService共3项服务；</li>
+  <li>其他服务：AlarmManagerService、VibratorService等共70多项服务</li>
+</ol>
+
+<p>合计总大约80多个服务，下面只是简单地对所有服务分类（个人划分，便于后期分析）：</p>
+
+<ol>
+  <li><strong>重量级服务：</strong><strong>ActivityManagerService</strong>、<strong>PackageManagerService</strong>、<strong>WindowManagerService</strong></li>
+  <li><strong>功耗相关：</strong><strong>PowerManagerService</strong>、BatteryService、BatteryStatsService、DreamManagerService</li>
+  <li><strong>统计调度相关：</strong><strong>DropBoxManagerService</strong>、<strong>SamplingProfilerService</strong>、UsageStatsService、DiskStatsService、SchedulingPolicyService、DeviceStorageMonitorService、AlarmManagerService、DeviceIdleController、DockObserver、ThermalObserver、JobSchedulerService、AccessibilityManagerService</li>
+  <li><strong>UI相关：</strong>DisplayManagerService、LightsService、GraphicsStatsService、StatusBarManagerService、NotificationManagerService、WallpaperManagerService、UiModeManagerService、AppWidgetService、LauncherAppsService、TextServicesManagerService、ContentService、LockSettingsService、InputManagerService、InputMethodManagerServiceMountService、FingerprintService、TvInputManagerService</li>
+  <li><strong>网络相关：</strong>NetworkManagementService、NetworkScoreService、NetworkStatsService、NetworkPolicyManagerService、ConnectivityService、BluetoothService、WifiP2pService、WifiService、WifiScanningService、EthernetService、WebViewUpdateService</li>
+  <li><strong>Media相关：</strong>AudioService、MediaRouterService、VoiceInteractionManagerService、MediaProjectionManagerService、MediaSessionService、</li>
+  <li><strong>设备相关：</strong>DevicePolicyManagerService、PrintManagerService、BackupManagerService、UserManagerService、AccountManagerService、TrustManagerService、<strong>SensorService</strong>、LocationManagerService、VibratorService、CountryDetectorService、GestureLauncherService、PersistentDataBlockService、ClipboardService</li>
+  <li><strong>其他：</strong>TelephonyRegistry、TelecomLoaderService、NsdService、UpdateLockService、SerialService、SearchManagerService、CommonTimeManagementService、AssetAtlasService、ConsumerIrService、MidiServiceCameraService、TwilightService、RestrictionsManagerService、MmsServiceBroker、RttService、UsbService。</li>
+</ol>
+
+<p>后续，会针对其中比较重要的服务进行展开详解。</p>
+
+<hr />
+
+<p>如果觉得本文对您有所帮助，请关注我的<strong>微信公众号：gityuan</strong>， <strong><a href="http://weibo.com/gityuan">微博：Gityuan</a></strong>。 或者<a href="http://gityuan.com/about/">点击这里查看更多关于我的信息</a></p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2016/02/21/android-system-server-2"
+                    data-title="Android系统启动-SystemServer下篇"
+                    data-url="http://gityuan.com/2016/02/21/android-system-server-2/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  基于Android 6.0的源码剖析， 分析Android启动过程的system_server进程
+
+
+frameworks/base/core/j... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/02/15/android-system-server/" data-toggle="tooltip" data-placement="top" title="Android系统启动-SystemServer上篇">
+                        Previous<br>
+                        <span>Android系统启动-SystemServer上篇</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/02/22/activity-manager-service/" data-toggle="tooltip" data-placement="top" title="ActivityManagerService启动过程(一)">
+                        Next<br>
+                        <span>ActivityManagerService启动过程(一)</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2016/02/21/android-system-server-2"
+                        data-title="Android系统启动-SystemServer下篇"
+                        data-url="http://gityuan.com/2016/02/21/android-system-server-2/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

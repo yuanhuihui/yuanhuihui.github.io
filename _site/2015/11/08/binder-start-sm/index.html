@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Binder系列3—启动ServiceManager - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/11/08/binder-start-sm/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#binder" title="binder">binder</a>
+                        
+                    </div>
+                    <h1>Binder系列3—启动ServiceManager</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on November 8, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>基于Android 6.0的源码剖析， 本文详细地讲解了Service Manager如何产生</p>
+</blockquote>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>/framework/native/cmds/servicemanager/service_manager.c
+/framework/native/cmds/servicemanager/binder.c
+/kernel/drivers/android/binder.c
+</code></pre>
+</div>
+
+<h3 id="section">入口</h3>
+
+<p>Service Manager是整个Binder IPC通信过程中的守护进程，启动Service Manager的入口函数是service_manager.c中的main()方法。代码如下：</p>
+
+<p>==&gt; <code class="highlighter-rouge">/framework/native/cmds/servicemanager/service_manager.c</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int main(int argc, char **argv)
+{
+    struct binder_state *bs;
+
+    //打开binder驱动，申请128k大小的内存空间 【见流程1】
+    bs = binder_open(128*1024);
+    if (!bs) {
+        return -1;
+    }
+
+    //成为上下文管理者 【见流程5】
+    if (binder_become_context_manager(bs)) {  
+        return -1;
+    }
+
+    selinux_enabled = is_selinux_enabled(); //判断selinux权限问题
+    sehandle = selinux_android_service_context_handle();
+    selinux_status_open(true);
+
+    if (selinux_enabled &gt; 0) {
+        if (sehandle == NULL) {  //无法获取sehandle
+            abort();
+        }
+
+        if (getcon(&amp;service_manager_context) != 0) { //无法获取service_manager上下文
+            abort();
+        }
+    }
+
+    union selinux_callback cb;
+    cb.func_audit = audit_callback;
+    selinux_set_callback(SELINUX_CB_AUDIT, cb);
+    cb.func_log = selinux_log_callback;
+    selinux_set_callback(SELINUX_CB_LOG, cb);
+
+    //进入无限循环，处理client端发来的请求 【见流程9】
+    binder_loop(bs, svcmgr_handler); 
+
+    return 0;
+}
+</code></pre>
+</div>
+
+<p>该过程的<strong>时序图</strong>，如下：</p>
+
+<p><img src="/images/binder/create_servicemanager/create_servicemanager.jpg" alt="create_servicemanager" /></p>
+
+<blockquote>
+  <p>注意小节前的<strong>数字</strong>是与时序图所处的<strong>顺序编号</strong>一一对应，中间会省略部分方法，所以看到的小节并非连续的。</p>
+</blockquote>
+
+<p>Service Manager成为IPC守护进程的整个过程分为4大步骤：</p>
+
+<ol>
+  <li>打开binder驱动，并调用mmap()方法分配128k的内存映射空间：binder_open();</li>
+  <li>通知binder驱动使其成为守护进程：binder_become_context_manager()；</li>
+  <li>验证selinux权限；</li>
+  <li>进入循环状态，等待Client端的请求：binder_loop()。</li>
+</ol>
+
+<h3 id="section-1">类图</h3>
+
+<p>Binder在Native framework层所有涉及的类的关系图：</p>
+
+<p>点击查看<a href="http://gityuan.com/images/binder/create_servicemanager/classes_service_manager.png">大图</a></p>
+
+<p><img src="/images/binder/create_servicemanager/classes_service_manager.png" alt="service_manager_classes" /></p>
+
+<h3 id="binderopen">[1] binder_open</h3>
+<p>==&gt; <code class="highlighter-rouge">/framework/native/cmds/servicemanager/binder.c</code></p>
+
+<p>打开binder驱动相关操作</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>struct binder_state *binder_open(size_t mapsize)
+{
+    struct binder_state *bs;
+    struct binder_version vers;
+
+    bs = malloc(sizeof(*bs));
+    if (!bs) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    //通过系统调用，陷入内核，打开Binder设备驱动 【流程2】
+    bs-&gt;fd = open("/dev/binder", O_RDWR);  
+    if (bs-&gt;fd &lt; 0) {   
+        goto fail_open; // 无法打开binder设备
+    }
+
+     //通过系统调用，ioctl获取binder版本信息【流程3】
+    if ((ioctl(bs-&gt;fd, BINDER_VERSION, &amp;vers) == -1) ||
+        (vers.protocol_version != BINDER_CURRENT_PROTOCOL_VERSION)) {  
+        goto fail_open; //内核空间与用户空间的binder不是同一版本
+    }
+
+    bs-&gt;mapsize = mapsize;
+    //通过系统调用，mmap内存映射 【流程4】
+    bs-&gt;mapped = mmap(NULL, mapsize, PROT_READ, MAP_PRIVATE, bs-&gt;fd, 0); 
+    if (bs-&gt;mapped == MAP_FAILED) { 
+        goto fail_map; // binder设备内存无法映射
+    }
+
+    return bs;
+
+fail_map:
+    close(bs-&gt;fd);
+fail_open:
+    free(bs);
+    return NULL;
+}
+</code></pre>
+</div>
+
+<p>先调用open()打开binder设备，open()方法经过系统调用，对应于Binder驱动层的<a href="http://gityuan.com/2015/11/01/binder-driver/#binderopen">binder_open()</a>方法，该方法会在Binder驱动层创建一个<code class="highlighter-rouge">binder_proc</code>对象，并将<code class="highlighter-rouge">binder_proc</code>对象赋值给fd-&gt;private_data，同时放入全局链表<code class="highlighter-rouge">binder_procs</code>。再通过ioctl()检验当前binder版本与Binder驱动层的版本是否一致。</p>
+
+<p>最后调用mmap()进行内存映射，同理，mmap()方法经过系统调用，对应于Binder驱动层的<a href="http://gityuan.com/2015/11/01/binder-driver/#bindermmap">binder_mmap()</a>方法，该方法会在Binder驱动层创建<code class="highlighter-rouge">Binder_buffer</code>对象，并放入当前binder_proc的<code class="highlighter-rouge">proc-&gt;buffers</code>链表。</p>
+
+<h3 id="binderbecomecontextmanager">[5] binder_become_context_manager</h3>
+<p>==&gt; <code class="highlighter-rouge">/framework/native/cmds/servicemanager/binder.c</code></p>
+
+<p>成为上下文的管理者，整个系统中只有一个这样的管理者。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int binder_become_context_manager(struct binder_state *bs)
+{
+    //通过ioctl，传递BINDER_SET_CONTEXT_MGR指令。再调用【流程7】
+    return ioctl(bs-&gt;fd, BINDER_SET_CONTEXT_MGR, 0);
+}
+</code></pre>
+</div>
+
+<p>通过ioctl()方法经过系统调用，对应于Binder驱动层的<a href="http://gityuan.com/2015/11/01/binder-driver/#binderioctl">binder_ioctl()</a>方法，根据参数<code class="highlighter-rouge">BINDER_SET_CONTEXT_MGR</code>，最终调用binder_ioctl_set_ctx_mgr()方法。</p>
+
+<h3 id="binderioctlsetctxmgr">[7] binder_ioctl_set_ctx_mgr</h3>
+<p>==&gt; <code class="highlighter-rouge">kernel/drivers/android/binder.c</code></p>
+
+<p>binder驱动操作</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int binder_ioctl_set_ctx_mgr(struct file *filp)
+{
+	int ret = 0;
+	struct binder_proc *proc = filp-&gt;private_data;
+	kuid_t curr_euid = current_euid();
+
+	if (binder_context_mgr_node != NULL) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	if (uid_valid(binder_context_mgr_uid)) {
+		if (!uid_eq(binder_context_mgr_uid, curr_euid)) {
+			ret = -EPERM;
+			goto out;
+		}
+	} else {
+		binder_context_mgr_uid = curr_euid; //设置当前线程euid作为Service Manager的uid
+	}
+
+    //创建Service Manager实体【流程8】
+	binder_context_mgr_node = binder_new_node(proc, 0, 0); 
+	if (binder_context_mgr_node == NULL) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	binder_context_mgr_node-&gt;local_weak_refs++;
+	binder_context_mgr_node-&gt;local_strong_refs++;
+	binder_context_mgr_node-&gt;has_strong_ref = 1;
+	binder_context_mgr_node-&gt;has_weak_ref = 1;
+out:
+	return ret;
+}
+</code></pre>
+</div>
+
+<p>在Binder驱动中定义的静态变量</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>// service manager所对应的binder_node;
+static struct binder_node *binder_context_mgr_node; 
+// 运行service manager的线程uid
+static kuid_t binder_context_mgr_uid = INVALID_UID; 
+</code></pre>
+</div>
+
+<p>通过<code class="highlighter-rouge">binder_new_node()</code>创建了全局的<code class="highlighter-rouge">binder_context_mgr_node</code>对象，并且增加binder_context_mgr_node的强弱引用各自加1.
+`
+### [8] binder_new_node 
+==&gt; <code class="highlighter-rouge">kernel/drivers/android/binder.c</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static struct binder_node *binder_new_node(struct binder_proc *proc,
+					   binder_uintptr_t ptr,
+					   binder_uintptr_t cookie)
+{
+	struct rb_node **p = &amp;proc-&gt;nodes.rb_node; 
+	struct rb_node *parent = NULL;
+	struct binder_node *node;
+	//首次进来为空
+	while (*p) {
+		parent = *p;
+		node = rb_entry(parent, struct binder_node, rb_node);
+
+		if (ptr &lt; node-&gt;ptr)
+			p = &amp;(*p)-&gt;rb_left;
+		else if (ptr &gt; node-&gt;ptr)
+			p = &amp;(*p)-&gt;rb_right;
+		else
+			return NULL;
+	}
+	//给新创建的binder_node 分配内核空间
+	node = kzalloc(sizeof(*node), GFP_KERNEL);
+	if (node == NULL)
+		return NULL;
+	binder_stats_created(BINDER_STAT_NODE);
+	// 将新创建的node对象添加到proc红黑树；
+	rb_link_node(&amp;node-&gt;rb_node, parent, p);
+	rb_insert_color(&amp;node-&gt;rb_node, &amp;proc-&gt;nodes);
+	node-&gt;debug_id = ++binder_last_id;
+	node-&gt;proc = proc;
+	node-&gt;ptr = ptr;
+	node-&gt;cookie = cookie;
+	node-&gt;work.type = BINDER_WORK_NODE; //设置binder_work的type
+	INIT_LIST_HEAD(&amp;node-&gt;work.entry);
+	INIT_LIST_HEAD(&amp;node-&gt;async_todo);
+	return node;
+}
+</code></pre>
+</div>
+
+<p>在Binder驱动层创建<a href="http://gityuan.com/2015/11/01/binder-driver/#bindernode">binder_node结构体</a>对象，并将当前binder_proc加入到<code class="highlighter-rouge">binder_node</code>的<code class="highlighter-rouge">node-&gt;proc</code>。并创建binder_node的async_todo和binder_work两个队列。</p>
+
+<h3 id="binderloop">[9] binder_loop</h3>
+<p>==&gt; <code class="highlighter-rouge">/framework/native/cmds/servicemanager/binder.c</code></p>
+
+<p>进入循环读写操作</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void binder_loop(struct binder_state *bs, binder_handler func)
+{
+    int res;
+    struct binder_write_read bwr;
+    uint32_t readbuf[32];
+
+    bwr.write_size = 0;
+    bwr.write_consumed = 0;
+    bwr.write_buffer = 0;
+
+    readbuf[0] = BC_ENTER_LOOPER;
+    //将BC_ENTER_LOOPER命令发送给binder驱动，让Service Manager进入循环 【流程10】
+    binder_write(bs, readbuf, sizeof(uint32_t)); 
+
+    for (;;) {
+        bwr.read_size = sizeof(readbuf);
+        bwr.read_consumed = 0;
+        bwr.read_buffer = (uintptr_t) readbuf;
+
+        res = ioctl(bs-&gt;fd, BINDER_WRITE_READ, &amp;bwr); //进入循环，不断地binder读写过程
+        if (res &lt; 0) {
+            break;
+        }
+
+        // 解析binder信息 【流程13】
+        res = binder_parse(bs, 0, (uintptr_t) readbuf, bwr.read_consumed, func);
+        if (res == 0) {
+            break;
+        }
+        if (res &lt; 0) {
+            break;
+        }
+    }
+}
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">binder_write</code>通过ioctl()将BC_ENTER_LOOPER命令发送给binder驱动，此时bwr只有write_buffer有数据，进入<a href="http://gityuan.com/2015/11/02/binder-driver-2//#section-1">binder_thread_write()</a>方法。
+接下来进入for循环，执行ioctl()，此时bwr只有read_buffer有数据，那么进入<a href="http://gityuan.com/2015/11/02/binder-driver-2//#section-4">binder_thread_read()</a>方法。</p>
+
+<h3 id="binderwrite">[10] binder_write</h3>
+<p>==&gt; <code class="highlighter-rouge">/framework/native/cmds/servicemanager/binder.c</code></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int binder_write(struct binder_state *bs, void *data, size_t len)
+{
+    struct binder_write_read bwr;
+    int res;
+
+    bwr.write_size = len;
+    bwr.write_consumed = 0;
+    bwr.write_buffer = (uintptr_t) data; //此处data为BC_ENTER_LOOPER
+    bwr.read_size = 0;
+    bwr.read_consumed = 0;
+    bwr.read_buffer = 0;
+    res = ioctl(bs-&gt;fd, BINDER_WRITE_READ, &amp;bwr);
+
+    return res;
+}
+</code></pre>
+</div>
+
+<p>根据传递进来的参数，初始化bwr，其中write_size大小为4，write_buffer指向缓冲区的起始地址，其内容为BC_ENTER_LOOPER请求协议号。通过ioctl将bwr数据发送给binder驱动，让Service Manager进入循环。</p>
+
+<h3 id="binderparse">[13] binder_parse</h3>
+<p>==&gt; <code class="highlighter-rouge">/framework/native/cmds/servicemanager/binder.c</code></p>
+
+<p>解析binder信息，此处参数ptr指向BC_ENTER_LOOPER。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int binder_parse(struct binder_state *bs, struct binder_io *bio,
+                 uintptr_t ptr, size_t size, binder_handler func)
+{
+    int r = 1;
+    uintptr_t end = ptr + (uintptr_t) size;
+
+    while (ptr &lt; end) {
+        uint32_t cmd = *(uint32_t *) ptr;
+        ptr += sizeof(uint32_t);
+        switch(cmd) {
+        case BR_NOOP:  //无操作，退出循环
+            break;
+        case BR_TRANSACTION_COMPLETE:
+            break;
+        case BR_INCREFS:
+        case BR_ACQUIRE:
+        case BR_RELEASE:
+        case BR_DECREFS:
+            ptr += sizeof(struct binder_ptr_cookie);
+            break;
+        case BR_TRANSACTION: {
+            struct binder_transaction_data *txn = (struct binder_transaction_data *) ptr;
+            if ((end - ptr) &lt; sizeof(*txn)) {
+                ALOGE("parse: txn too small!\n");
+                return -1;
+            }
+            binder_dump_txn(txn);
+            if (func) {
+                unsigned rdata[256/4];
+                struct binder_io msg;
+                struct binder_io reply;
+                int res;
+
+                bio_init(&amp;reply, rdata, sizeof(rdata), 4);
+                bio_init_from_txn(&amp;msg, txn);
+                res = func(bs, txn, &amp;msg, &amp;reply); // 收到Binder事务【见流程14】
+                binder_send_reply(bs, &amp;reply, txn-&gt;data.ptr.buffer, res);
+            }
+            ptr += sizeof(*txn);
+            break;
+        }
+        case BR_REPLY: {
+            struct binder_transaction_data *txn = (struct binder_transaction_data *) ptr;
+            if ((end - ptr) &lt; sizeof(*txn)) {
+                ALOGE("parse: reply too small!\n");
+                return -1;
+            }
+            binder_dump_txn(txn);
+            if (bio) {
+                bio_init_from_txn(bio, txn);
+                bio = 0;
+            } else {
+                /* todo FREE BUFFER */
+            }
+            ptr += sizeof(*txn);
+            r = 0;
+            break;
+        }
+        case BR_DEAD_BINDER: {
+            struct binder_death *death = (struct binder_death *)(uintptr_t) *(binder_uintptr_t *)ptr;
+            ptr += sizeof(binder_uintptr_t);
+            death-&gt;func(bs, death-&gt;ptr); // binder死亡消息【见流程14】
+            break;
+        }
+        case BR_FAILED_REPLY:
+            r = -1;
+            break;
+        case BR_DEAD_REPLY:
+            r = -1;
+            break;
+        default:
+            return -1;
+        }
+    }
+
+    return r;
+} 
+</code></pre>
+</div>
+
+<p>此处func函数指针 指向 svcmgr_handler，将接受到的请求，最终调用svcmgr_handler。</p>
+
+<h3 id="svcmgrhandler">[14] svcmgr_handler</h3>
+<p>==&gt; <code class="highlighter-rouge">/framework/native/cmds/servicemanager/service_manager.c</code></p>
+
+<p>service manager操作的真正处理函数</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int svcmgr_handler(struct binder_state *bs,
+                   struct binder_transaction_data *txn,
+                   struct binder_io *msg,
+                   struct binder_io *reply)
+{
+    struct svcinfo *si;
+    uint16_t *s;
+    size_t len;
+    uint32_t handle;
+    uint32_t strict_policy;
+    int allow_isolated;
+
+    if (txn-&gt;target.ptr != BINDER_SERVICE_MANAGER) //判断target是否是Service Manager
+        return -1;
+
+    if (txn-&gt;code == PING_TRANSACTION)
+        return 0;
+
+    strict_policy = bio_get_uint32(msg);
+    s = bio_get_string16(msg, &amp;len);
+    if (s == NULL) {
+        return -1;
+    }
+    //svcmgr_id是由“android.os.IServiceManager”字符组成的。svcmgr_id与s的内存块的内容是否一致。
+    if ((len != (sizeof(svcmgr_id) / 2)) ||
+        memcmp(svcmgr_id, s, sizeof(svcmgr_id))) { 
+        return -1;
+    }
+
+    if (sehandle &amp;&amp; selinux_status_updated() &gt; 0) {
+        struct selabel_handle *tmp_sehandle = selinux_android_service_context_handle();
+        if (tmp_sehandle) {
+            selabel_close(sehandle);
+            sehandle = tmp_sehandle;
+        }
+    }
+
+    switch(txn-&gt;code) {
+    case SVC_MGR_GET_SERVICE:  //对应于getService
+    case SVC_MGR_CHECK_SERVICE:  //对应于checkService
+        s = bio_get_string16(msg, &amp;len);
+        if (s == NULL) {
+            return -1;
+        }
+        //根据名称查找service 【见流程15】
+        handle = do_find_service(bs, s, len, txn-&gt;sender_euid, txn-&gt;sender_pid); 
+        if (!handle)
+            break;
+        bio_put_ref(reply, handle);
+        return 0;
+
+    case SVC_MGR_ADD_SERVICE:  //对应于addService
+        s = bio_get_string16(msg, &amp;len);
+        if (s == NULL) {
+            return -1;
+        }
+        handle = bio_get_ref(msg);
+        allow_isolated = bio_get_uint32(msg) ? 1 : 0;
+        if (do_add_service(bs, s, len, handle, txn-&gt;sender_euid,
+            allow_isolated, txn-&gt;sender_pid)) //【见流程16】
+            return -1;
+        break;
+
+    case SVC_MGR_LIST_SERVICES: {   // 对应于listService
+        uint32_t n = bio_get_uint32(msg);
+
+        if (!svc_can_list(txn-&gt;sender_pid)) {
+            return -1;
+        }
+        si = svclist;
+        while ((n-- &gt; 0) &amp;&amp; si)
+            si = si-&gt;next;
+        if (si) {
+            bio_put_string16(reply, si-&gt;name);
+            return 0;
+        }
+        return -1;
+    }
+    default:
+        return -1;
+    }
+
+    bio_put_uint32(reply, 0);
+    return 0;
+}
+</code></pre>
+</div>
+
+<h3 id="doaddservice">[15] do_add_service</h3>
+<p>==&gt; <code class="highlighter-rouge">/framework/native/cmds/servicemanager/service_manager.c</code></p>
+
+<p>注册服务</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>int do_add_service(struct binder_state *bs,
+                   const uint16_t *s, size_t len,
+                   uint32_t handle, uid_t uid, int allow_isolated,
+                   pid_t spid)
+{
+    struct svcinfo *si;
+
+    if (!handle || (len == 0) || (len &gt; 127))
+        return -1;
+
+    if (!svc_can_register(s, len, spid)) { //权限检查
+        return -1;
+    }
+
+    si = find_svc(s, len); //服务检索
+    if (si) {
+        if (si-&gt;handle) { 
+            svcinfo_death(bs, si); //服务已注册时，释放相应的服务
+        }
+        si-&gt;handle = handle;
+    } else {
+        si = malloc(sizeof(*si) + (len + 1) * sizeof(uint16_t));
+        if (!si) {  //内存不足，无法分配足够内存
+            return -1;
+        }
+        si-&gt;handle = handle;
+        si-&gt;len = len;
+        memcpy(si-&gt;name, s, (len + 1) * sizeof(uint16_t)); //内存拷贝服务信息
+        si-&gt;name[len] = '\0';
+        si-&gt;death.func = (void*) svcinfo_death;
+        si-&gt;death.ptr = si;
+        si-&gt;allow_isolated = allow_isolated;
+        si-&gt;next = svclist; // svclist保存所有已注册的服务
+        svclist = si;
+    }
+
+    //以BC_ACQUIRE命令，handle为目标的信息，通过ioctl发送给binder驱动
+    binder_acquire(bs, handle); 
+    //以BC_REQUEST_DEATH_NOTIFICATION命令的信息，通过ioctl发送给binder驱动，主要用于清理内存等收尾工作。
+    binder_link_to_death(bs, handle, &amp;si-&gt;death); 
+    return 0;
+}
+</code></pre>
+</div>
+
+<p>(1)检查权限</p>
+
+<p>检查selinux权限是否满足，</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static int svc_can_register(const uint16_t *name, size_t name_len, pid_t spid)
+{
+    const char *perm = "add";
+    return check_mac_perms_from_lookup(spid, perm, str8(name, name_len)) ? 1 : 0;
+}
+</code></pre>
+</div>
+
+<p>(2)查询服务</p>
+
+<p>从svclist服务列表中，根据服务名遍历查找是否已经注册。当服务已存在svclist，则返回相应的服务名，否则返回NULL。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>struct svcinfo *find_svc(const uint16_t *s16, size_t len)
+{
+    struct svcinfo *si;
+
+    for (si = svclist; si; si = si-&gt;next) {
+        if ((len == si-&gt;len) &amp;&amp;
+            !memcmp(s16, si-&gt;name, len * sizeof(uint16_t))) {
+            return si;
+        }
+    }
+    return NULL;
+}
+</code></pre>
+</div>
+
+<p>(3)释放服务</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void svcinfo_death(struct binder_state *bs, void *ptr)
+{
+    struct svcinfo *si = (struct svcinfo* ) ptr;
+
+    if (si-&gt;handle) {
+        binder_release(bs, si-&gt;handle);
+        si-&gt;handle = 0;
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="dofindservice">[16] do_find_service</h3>
+<p>==&gt; <code class="highlighter-rouge">/framework/native/cmds/servicemanager/service_manager.c</code></p>
+
+<p>查询服务</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>uint32_t do_find_service(struct binder_state *bs, const uint16_t *s, size_t len, uid_t uid, pid_t spid)
+{
+    //查询相应的服务
+    struct svcinfo *si = find_svc(s, len); 
+
+    if (!si || !si-&gt;handle) {
+        return 0;
+    }
+
+    if (!si-&gt;allow_isolated) {
+        uid_t appid = uid % AID_USER;
+        //检查该服务是否允许孤立于进程而单独存在
+        if (appid &gt;= AID_ISOLATED_START &amp;&amp; appid &lt;= AID_ISOLATED_END) {
+            return 0;
+        }
+    }
+
+    //服务是否满足查询条件
+    if (!svc_can_find(s, len, spid)) {  
+        return 0;
+    }
+
+    return si-&gt;handle;
+}
+</code></pre>
+</div>
+
+<p>在前面注册服务的过程中，其实已经涉及了查询服务的具体方法<code class="highlighter-rouge">find_svc</code>，该方法比较简单。</p>
+
+<h3 id="section-2">小结</h3>
+
+<p>Service Manger意义：</p>
+
+<ol>
+  <li>ServiceManger能集中管理系统内的所有服务，它能施加权限控制，并不是任何进程都能注册服务；</li>
+  <li>ServiceManager支持通过字符串名称来查找对应的Service。这个功能很像DNS；</li>
+  <li>Server进程随时可能会挂了，如果让每个Client都去检测会导致负载过重。但有了ServiceManager，Client只需要查询ServiceManager，就能把握动向，得到最新信息。</li>
+</ol>
+
+<hr />
+
+<p>如果觉得本文对您有所帮助，请关注我的<strong>微信公众号：gityuan</strong>， <strong><a href="http://weibo.com/gityuan">微博：Gityuan</a></strong>。 或者<a href="http://gityuan.com/about/">点击这里查看更多关于我的信息</a></p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/11/08/binder-start-sm"
+                    data-title="Binder系列3—启动ServiceManager"
+                    data-url="http://gityuan.com/2015/11/08/binder-start-sm/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  基于Android 6.0的源码剖析， 本文详细地讲解了Service Manager如何产生
+
+
+/framework/native/cmds/s... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/11/03/binder-driver-2/" data-toggle="tooltip" data-placement="top" title="Binder系列2—Binder Driver再探">
+                        Previous<br>
+                        <span>Binder系列2—Binder Driver再探</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/11/08/binder-get-sm/" data-toggle="tooltip" data-placement="top" title="Binder系列4—获取ServiceManager">
+                        Next<br>
+                        <span>Binder系列4—获取ServiceManager</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/11/08/binder-start-sm"
+                        data-title="Binder系列3—启动ServiceManager"
+                        data-url="http://gityuan.com/2015/11/08/binder-start-sm/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

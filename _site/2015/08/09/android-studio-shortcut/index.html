@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Android Studio 快捷键 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/08/09/android-studio-shortcut/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#android studio" title="android studio">android studio</a>
+                        
+                    </div>
+                    <h1>Android Studio 快捷键</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on August 9, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<p>本文的快捷键是在windows下，且Keymaps为default的情况下的映射关系，从以下几个方面来详细介绍快捷键：</p>
+
+<blockquote>
+  <ul>
+    <li>导航</li>
+    <li>搜索</li>
+    <li>编辑代码</li>
+    <li>查看代码</li>
+    <li>视图切换</li>
+    <li>重构</li>
+    <li>运行与调试</li>
+    <li>其他</li>
+  </ul>
+</blockquote>
+
+<h2 id="section">一、导航</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>功能</th>
+      <th style="text-align: left">快捷键组合</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>前进</td>
+      <td style="text-align: left">Ctrl + Alt + ←</td>
+    </tr>
+    <tr>
+      <td>后退</td>
+      <td style="text-align: left">Ctrl + Alt + →</td>
+    </tr>
+    <tr>
+      <td>跳转到大括号开头</td>
+      <td style="text-align: left">Ctrl + [</td>
+    </tr>
+    <tr>
+      <td>跳转到大括号结尾</td>
+      <td style="text-align: left">Ctrl + ]</td>
+    </tr>
+    <tr>
+      <td>跳转上一次编辑的位置</td>
+      <td style="text-align: left">Ctrl + Shift +　Backspace</td>
+    </tr>
+    <tr>
+      <td>关闭当前Tabs</td>
+      <td style="text-align: left">Ctrl + F4</td>
+    </tr>
+    <tr>
+      <td>跳转至某个Class</td>
+      <td style="text-align: left">Ctrl + N</td>
+    </tr>
+    <tr>
+      <td>跳转至某个文件</td>
+      <td style="text-align: left">Ctrl + + Shift + N</td>
+    </tr>
+    <tr>
+      <td>跳转至某一行</td>
+      <td style="text-align: left">Ctrl + G</td>
+    </tr>
+    <tr>
+      <td>跳转导航栏</td>
+      <td style="text-align: left">Alt + Home</td>
+    </tr>
+    <tr>
+      <td>跳转至声明</td>
+      <td style="text-align: left">Ctrl + B</td>
+    </tr>
+    <tr>
+      <td>跳转至实现</td>
+      <td style="text-align: left">Ctrl + Alt + B</td>
+    </tr>
+    <tr>
+      <td>跳转至超类的方法</td>
+      <td style="text-align: left">Ctrl + U</td>
+    </tr>
+    <tr>
+      <td>跳转至测试</td>
+      <td style="text-align: left">Ctrl + Shift + T</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="section-1">二、搜索</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">功能</th>
+      <th style="text-align: left">快捷键组合</th>
+      <th style="text-align: left">组合2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">当前查找</td>
+      <td style="text-align: left">Ctrl + F</td>
+      <td style="text-align: left">Alt + F3</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">当前替换</td>
+      <td style="text-align: left">Ctrl + R</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">全局查找</td>
+      <td style="text-align: left">Ctrl + Shift + F</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">全局替换</td>
+      <td style="text-align: left">Ctrl + Shift + R</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">查找下一处出现</td>
+      <td style="text-align: left">Ctrl + L</td>
+      <td style="text-align: left">F3</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">查找上一处出现</td>
+      <td style="text-align: left">Ctrl + Shift + L　</td>
+      <td style="text-align: left">Shift + F3</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">搜索任意内容</td>
+      <td style="text-align: left"><strong>双击 Shift</strong></td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">当前查找（光标处）</td>
+      <td style="text-align: left">Ctrl + F7</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">全局查找（光标处）</td>
+      <td style="text-align: left">Alt + F7</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">同时选中所有被引用点（光标处）</td>
+      <td style="text-align: left">Ctrl + Alt +Shift + J　</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">显示所有被引用点（光标处）</td>
+      <td style="text-align: left">Ctrl + Alt +　F7</td>
+      <td style="text-align: left"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<blockquote>
+  <p>小技巧： 所有搜索都支持基本的正则表达式和无序匹配关键字</p>
+</blockquote>
+
+<h2 id="section-2">三、编辑代码</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">功能</th>
+      <th style="text-align: left">快捷键组合</th>
+      <th style="text-align: left">组合2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">调出live Template</td>
+      <td style="text-align: left"><strong>Ctrl + J</strong></td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">操作提示</td>
+      <td style="text-align: left"><strong>Alt + Enter</strong></td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">当前行下移</td>
+      <td style="text-align: left">Alt + Shift +　↓</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">当前行上移</td>
+      <td style="text-align: left">Alt + Shift +　↑</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">撤消</td>
+      <td style="text-align: left">Ctrl + Z</td>
+      <td style="text-align: left">Alt + BackSpace</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">取消撤消</td>
+      <td style="text-align: left">Ctrl + Shift + Z</td>
+      <td style="text-align: left">Alt + Shift+ BackSpace</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">剪切</td>
+      <td style="text-align: left">Ctrl + X</td>
+      <td style="text-align: left">Ctrl + Delete</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">复制</td>
+      <td style="text-align: left">Ctrl + C</td>
+      <td style="text-align: left">Ctrl +Insert</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">复制（不保留格式）</td>
+      <td style="text-align: left">Ctrl + Shift +　C</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">复制（包含引用）</td>
+      <td style="text-align: left">Ctrl + Alt + Shift +　C</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">粘贴</td>
+      <td style="text-align: left">Ctrl + V</td>
+      <td style="text-align: left">Shift + Insert</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">删除行</td>
+      <td style="text-align: left">Ctrl + Y</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">删除单词至词尾</td>
+      <td style="text-align: left">Ctrl + Delete</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">删除单词至词首</td>
+      <td style="text-align: left">Ctrl + Backspace</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">复制当前行至下一行</td>
+      <td style="text-align: left">Ctrl + D</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">合并行</td>
+      <td style="text-align: left">Ctrl + Shift +Ｊ</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">开始新的一行(光标之下)</td>
+      <td style="text-align: left">Shift + Enter</td>
+      <td style="text-align: left"> </td>
+    </tr>
+    <tr>
+      <td style="text-align: left">开始新的一行(光标之上)</td>
+      <td style="text-align: left">Shift +Alt Enter</td>
+      <td style="text-align: left"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<blockquote>
+  <p>小技巧： live Template中有大量的模板,对于提高编程效率有极大帮助,比如编辑器中输入fnc按回车则生成 () findViewById(R.id.);再比如输入logd则生成 Log.d(TAG, “ “);输入inn则生成if (= null) {}等等</p>
+</blockquote>
+
+<h2 id="section-3">四、查看代码</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">功能</th>
+      <th style="text-align: left">快捷键组合</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">上一个方法</td>
+      <td style="text-align: left">Alt + ↑</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">下一个方法</td>
+      <td style="text-align: left">Alt + ↓</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">展开</td>
+      <td style="text-align: left">Ctrl + +</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">收缩</td>
+      <td style="text-align: left">Ctrl + -</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">全部展开</td>
+      <td style="text-align: left">Ctrl + Shift + +</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">全部收缩</td>
+      <td style="text-align: left">Ctrl + Shift + -</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">跳转至源码</td>
+      <td style="text-align: left"><strong>F4</strong></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">移动光标至行首</td>
+      <td style="text-align: left">Home</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">移动光标至行尾</td>
+      <td style="text-align: left">End</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">移动光标至页首</td>
+      <td style="text-align: left">Ctrl + Page Up</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">移动光标至页尾</td>
+      <td style="text-align: left">Ctrl + Page Down</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">将光标所在行移动至页面居中</td>
+      <td style="text-align: left">Ctrl + M</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">查看方法参数信息</td>
+      <td style="text-align: left">Ctrl + P</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">查询上下文信息</td>
+      <td style="text-align: left">Alt + Q</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">打开Override方法</td>
+      <td style="text-align: left">Ctrl + O</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Surround With</td>
+      <td style="text-align: left">Ctrl +Alt＋T</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">格式化代码</td>
+      <td style="text-align: left">Ctrl + Alt + L</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">优化Imports</td>
+      <td style="text-align: left">Ctrl + Alt + O</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="section-4">五、视图切换</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>功能</th>
+      <th style="text-align: left">快捷键组合</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>显示目录窗口</td>
+      <td style="text-align: left">Alt + 1</td>
+    </tr>
+    <tr>
+      <td>显示收藏窗口</td>
+      <td style="text-align: left">Alt + 2</td>
+    </tr>
+    <tr>
+      <td>显示Android窗口</td>
+      <td style="text-align: left">Alt + 6</td>
+    </tr>
+    <tr>
+      <td>显示结构窗口</td>
+      <td style="text-align: left"><strong>Alt + 7</strong></td>
+    </tr>
+    <tr>
+      <td>显示VCS窗口</td>
+      <td style="text-align: left">Alt + 9</td>
+    </tr>
+  </tbody>
+</table>
+
+<blockquote>
+  <p>小技巧： 窗口切换过程后若想快速回到编辑界面，可重复切换操作，或者点击<strong>ESC</strong>键。</p>
+</blockquote>
+
+<h2 id="section-5">六、重构</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">功能</th>
+      <th style="text-align: left">快捷键组合</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">重命名</td>
+      <td style="text-align: left"><strong>Shift  + F6</strong></td>
+    </tr>
+    <tr>
+      <td style="text-align: left">修改方法签名</td>
+      <td style="text-align: left">Ctrl + F6</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">拷贝文件</td>
+      <td style="text-align: left">F5</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">移动文件</td>
+      <td style="text-align: left">F6</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">安全删除</td>
+      <td style="text-align: left">Alt + Delete</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">引入属性</td>
+      <td style="text-align: left">Ctrl + Alt + E</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">引入定义</td>
+      <td style="text-align: left">Ctrl + Alt + D</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">引入常量</td>
+      <td style="text-align: left">Ctrl + Alt + C</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">引入类型定义</td>
+      <td style="text-align: left">Ctrl + Alt + K</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">引入局部变量</td>
+      <td style="text-align: left">Ctrl + Alt + V</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">引入类变量</td>
+      <td style="text-align: left">Ctrl + Alt + F</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">引入参数</td>
+      <td style="text-align: left">Ctrl + Alt + P</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">引入方法</td>
+      <td style="text-align: left">Ctrl + Alt + M</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="debug">七、运行与Debug</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">功能</th>
+      <th style="text-align: left">快捷键组合</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">运行</td>
+      <td style="text-align: left">Shift + F10</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Debug</td>
+      <td style="text-align: left">Shift + F9</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">单步进入</td>
+      <td style="text-align: left">F7</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">单步智能进入</td>
+      <td style="text-align: left">Shift +　F7</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">单步跳过</td>
+      <td style="text-align: left">F8</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">跳过Debug,执行程序</td>
+      <td style="text-align: left">F9</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="section-6">八、其它</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">功能</th>
+      <th style="text-align: left">快捷键组合</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">打开设置</td>
+      <td style="text-align: left">Ctrl + Alt + S</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">保存</td>
+      <td style="text-align: left">Ctrl +Ｓ</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Git Add</td>
+      <td style="text-align: left">Ctrl + Alt + A</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Git Push</td>
+      <td style="text-align: left">Ctrl + Shift + K</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">Git Revert</td>
+      <td style="text-align: left">Ctrl + Alt + Z</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">同步</td>
+      <td style="text-align: left">Ctrl + Alt +Ｙ</td>
+    </tr>
+  </tbody>
+</table>
+
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/08/09/android-studio-shortcut"
+                    data-title="Android Studio 快捷键"
+                    data-url="http://gityuan.com/2015/08/09/android-studio-shortcut/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="本文的快捷键是在windows下，且Keymaps为default的情况下的映射关系，从以下几个方面来详细介绍快捷键：
+
+
+  
+    导航
+    搜... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/08/01/android-arvchitecture/" data-toggle="tooltip" data-placement="top" title="Android体系架构">
+                        Previous<br>
+                        <span>Android体系架构</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/08/11/android-arch-coding-style/" data-toggle="tooltip" data-placement="top" title="Android开发规范">
+                        Next<br>
+                        <span>Android开发规范</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/08/09/android-studio-shortcut"
+                        data-title="Android Studio 快捷键"
+                        data-url="http://gityuan.com/2015/08/09/android-studio-shortcut/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

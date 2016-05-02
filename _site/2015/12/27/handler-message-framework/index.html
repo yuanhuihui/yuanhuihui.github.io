@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Android消息机制1-Handler(Java层) - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/12/27/handler-message-framework/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#handler" title="handler">handler</a>
+                        
+                    </div>
+                    <h1>Android消息机制1-Handler(Java层)</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on December 27, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>本文基于Android 6.0的源代码，来分析Java层的handler消息处理机制</p>
+</blockquote>
+
+<p><strong>相关源码</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>framework/base/core/java/andorid/os/Handler.java
+framework/base/core/java/andorid/os/Looper.java
+framework/base/core/java/andorid/os/Message.java
+framework/base/core/java/andorid/os/MessageQueue.java
+libcore/luni/src/main/java/java/lang/ThreadLocal.java
+</code></pre>
+</div>
+
+<h2 id="section">一、概述</h2>
+<p>在整个Android的源码世界里，有两大利剑，其一是Binder IPC机制，，另一个便是消息机制(由Handler/Looper/MessageQueue等构成的)。关于Binder在<a href="http://gityuan.com/2015/10/31/binder-prepare/">Binder系列</a>中详细讲解过，有兴趣看看。</p>
+
+<p>Android有大量的消息驱动方式来进行交互，比如Android的四剑客<code class="highlighter-rouge">Activity</code>, <code class="highlighter-rouge">Service</code>, <code class="highlighter-rouge">Broadcast</code>, <code class="highlighter-rouge">ContentProvider</code>的启动过程的交互，都离不开消息机制，Android某种意义上也可以说成是一个以消息驱动的系统。消息机制涉及MessageQueue/Message/Looper/Handler这4个类。</p>
+
+<h3 id="section-1">1.1 模型</h3>
+<p>消息机制主要包含：</p>
+
+<ul>
+  <li><strong>Message</strong>：消息分为硬件产生的消息(如按钮、触摸)和软件生成的消息；</li>
+  <li><strong>MessageQueue</strong>：消息队列的主要功能向消息池投递消息(<code class="highlighter-rouge">MessageQueue.enqueueMessage</code>)和取走消息池的消息(<code class="highlighter-rouge">MessageQueue.next</code>)；</li>
+  <li><strong>Handler</strong>：消息辅助类，主要功能向消息池发送各种消息事件(<code class="highlighter-rouge">Handler.sendMessage</code>)和处理相应消息事件(<code class="highlighter-rouge">Handler.handleMessage</code>)；</li>
+  <li><strong>Looper</strong>：不断循环执行(<code class="highlighter-rouge">Looper.loop</code>)，按分发机制将消息分发给目标处理者。</li>
+</ul>
+
+<h3 id="section-2">1.2 架构图</h3>
+
+<p><img src="/images/handler/Main.jpg" alt="handler_java" /></p>
+
+<ul>
+  <li><strong>Looper</strong>有一个MessageQueue消息队列；</li>
+  <li><strong>MessageQueue</strong>有一组待处理的Message；</li>
+  <li><strong>Message</strong>中有一个用于处理消息的Handler；</li>
+  <li><strong>Handler</strong>中有Looper和MessageQueue。</li>
+</ul>
+
+<h3 id="section-3">1.3 典型实例</h3>
+<p>先展示一个典型的关于Handler/Looper的线程</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>class LooperThread extends Thread {
+    public Handler mHandler;
+  
+    public void run() {
+        Looper.prepare();   //【见 2.1】
+  
+        mHandler = new Handler() {  //【见 3.1】
+            public void handleMessage(Message msg) {
+                //TODO    定义消息处理逻辑. 【见 3.2】
+            }
+        };
+  
+        Looper.loop();  //【见 2.2】
+    }
+}
+</code></pre>
+</div>
+
+<p>接下来，围绕着这个实例展开详细分析。</p>
+
+<h2 id="looper">二、Looper</h2>
+
+<h3 id="prepare">2.1 prepare()</h3>
+
+<p>对于无参的情况，默认调用<code class="highlighter-rouge">prepare(true)</code>，表示的是这个Looper运行退出，而对于false的情况则表示当前Looper不运行退出。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private static void prepare(boolean quitAllowed) {
+    //每个线程只允许执行一次该方法，第二次执行时线程的TLS已有数据，则会抛出异常。
+    if (sThreadLocal.get() != null) { 
+        throw new RuntimeException("Only one Looper may be created per thread");
+    }
+    //创建Looper对象，并保存到当前线程的TLS区域
+    sThreadLocal.set(new Looper(quitAllowed));   
+}
+</code></pre>
+</div>
+
+<p>这里的<code class="highlighter-rouge">sThreadLocal</code>是ThreadLocal类型，下面，先说说ThreadLocal。</p>
+
+<p><strong>ThreadLocal</strong>： 线程本地存储区（Thread Local Storage，简称为TLS），每个线程都有自己的私有的本地存储区域，不同线程之间彼此不能访问对方的TLS区域。TLS常用的操作方法：</p>
+
+<ul>
+  <li>
+    <p><code class="highlighter-rouge">ThreadLocal.set(T value)</code>：将value存储到当前线程的TLS区域，源码如下：</p>
+
+    <div class="highlighter-rouge"><pre class="highlight"><code>  public void set(T value) {
+      Thread currentThread = Thread.currentThread(); //获取当前线程
+      Values values = values(currentThread); //查找当前线程的本地储存区
+      if (values == null) {
+          //当线程本地存储区，尚未存储该线程相关信息时，则创建Values对象
+          values = initializeValues(currentThread); 
+      }
+      //保存数据value到当前线程this
+      values.put(this, value);
+  }
+</code></pre>
+    </div>
+  </li>
+  <li>
+    <p><code class="highlighter-rouge">ThreadLocal.get()</code>：获取当前线程TLS区域的数据，源码如下：</p>
+
+    <div class="highlighter-rouge"><pre class="highlight"><code>  public T get() {
+      Thread currentThread = Thread.currentThread(); //获取当前线程
+      Values values = values(currentThread); //查找当前线程的本地储存区
+      if (values != null) {
+          Object[] table = values.table;
+          int index = hash &amp; values.mask;
+          if (this.reference == table[index]) {
+              return (T) table[index + 1]; //返回当前线程储存区中的数据
+          }
+      } else {
+          //创建Values对象
+          values = initializeValues(currentThread);
+      }
+      return (T) values.getAfterMiss(this); //从目标线程存储区没有查询是则返回null
+  }
+</code></pre>
+    </div>
+  </li>
+</ul>
+
+<p>ThreadLocal的get()和set()方法操作的类型都是泛型，接着回到前面提到的<code class="highlighter-rouge">sThreadLocal</code>变量，其定义如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>static final ThreadLocal&lt;Looper&gt; sThreadLocal = new ThreadLocal&lt;Looper&gt;()
+</code></pre>
+</div>
+
+<p>可见<code class="highlighter-rouge">sThreadLocal</code>的get()和set()操作的类型都是<code class="highlighter-rouge">Looper</code>类型。</p>
+
+<p><strong>Looper.prepare()</strong></p>
+
+<p>Looper.prepare()在每个线程只允许执行一次，该方法会创建Looper对象，Looper的构造方法中会创建一个MessageQueue对象，再将Looper对象保存到当前线程TLS。</p>
+
+<p>对于Looper类型的构造方法如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private Looper(boolean quitAllowed) {
+    mQueue = new MessageQueue(quitAllowed);  //创建MessageQueue对象. 【见4.1】
+    mThread = Thread.currentThread();  //记录当前线程.
+}
+</code></pre>
+</div>
+
+<p>另外，与prepare()相近功能的，还有一个<code class="highlighter-rouge">prepareMainLooper()</code>方法，该方法主要在ActivityThread类中使用。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static void prepareMainLooper() {
+    prepare(false); //设置不允许退出的Looper
+    synchronized (Looper.class) {
+        //将当前的Looper保存为主Looper，每个线程只允许执行一次。
+        if (sMainLooper != null) {
+            throw new IllegalStateException("The main Looper has already been prepared.");
+        }
+        sMainLooper = myLooper();
+    }
+}
+</code></pre>
+</div>
+
+<h3 id="loop">2.2 loop()</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static void loop() {
+    final Looper me = myLooper();  //获取TLS存储的Looper对象 【见2.4】
+    if (me == null) {
+        throw new RuntimeException("No Looper; Looper.prepare() wasn't called on this thread.");
+    }
+    final MessageQueue queue = me.mQueue;  //获取Looper对象中的消息队列
+
+    Binder.clearCallingIdentity();
+    //确保在权限检查时基于本地进程，而不是基于最初调用进程。
+    final long ident = Binder.clearCallingIdentity(); 
+
+    for (;;) { //进入loop的主循环方法
+        Message msg = queue.next(); //可能会阻塞 【见4.2】
+        if (msg == null) { //没有消息，则退出循环
+            return;
+        }
+        
+        Printer logging = me.mLogging;  //默认为null，可通过setMessageLogging()方法来指定输出，用于debug功能
+        if (logging != null) {
+            logging.println("&gt;&gt;&gt;&gt;&gt; Dispatching to " + msg.target + " " +
+                    msg.callback + ": " + msg.what);
+        }
+        msg.target.dispatchMessage(msg); //用于分发Message 【见3.2】
+        if (logging != null) {
+            logging.println("&lt;&lt;&lt;&lt;&lt; Finished to " + msg.target + " " + msg.callback);
+        }
+
+        final long newIdent = Binder.clearCallingIdentity(); //确保分发过程中identity不会损坏
+        if (ident != newIdent) {
+             //打印identity改变的log，在分发消息过程中是不希望身份被改变的。
+        }
+        msg.recycleUnchecked();  //将Message放入消息池 【见5.2】
+    }
+}
+</code></pre>
+</div>
+
+<p>loop()进入循环模式，不断重复下面的操作，直到没有消息时退出循环</p>
+
+<ul>
+  <li>读取MessageQueue的下一条Message；</li>
+  <li>把Message分发给相应的target；</li>
+  <li>再把分发后的Message回收到消息池，以便重复利用。</li>
+</ul>
+
+<p>这是这个消息处理的核心部分。另外，上面代码中可以看到有logging方法，这是用于debug的，默认情况下<code class="highlighter-rouge">logging == null</code>，通过设置setMessageLogging()用来开启debug工作。</p>
+
+<h3 id="quit">2.3 quit()</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void quit() {
+    mQueue.quit(false); //消息移除 
+}
+
+public void quitSafely() {
+    mQueue.quit(true); //安全地消息移除
+}
+</code></pre>
+</div>
+
+<p>Looper.quit()方法的实现最终调用的是MessageQueue.quit()方法</p>
+
+<p><strong>MessageQueue.quit()</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void quit(boolean safe) {
+        // 当mQuitAllowed为false，表示不运行退出，强行调用quit()会抛出异常
+        if (!mQuitAllowed) {
+            throw new IllegalStateException("Main thread not allowed to quit.");
+        }
+        synchronized (this) {
+            if (mQuitting) { //防止多次执行退出操作
+                return;
+            }
+            mQuitting = true;
+            if (safe) {
+                removeAllFutureMessagesLocked(); //移除尚未触发的所有消息
+            } else {
+                removeAllMessagesLocked(); //移除所有的消息
+            }
+            //mQuitting=false，那么认定为 mPtr != 0
+            nativeWake(mPtr);
+        }
+    }
+</code></pre>
+</div>
+
+<p>消息退出的方式：</p>
+
+<ul>
+  <li>当safe =true时，只移除尚未触发的所有消息，对于正在触发的消息并不移除；</li>
+  <li>当safe =flase时，移除所有的消息</li>
+</ul>
+
+<h3 id="section-4">2.4 常用方法</h3>
+
+<p><strong>myLooper()</strong></p>
+
+<p>用于获取TLS存储的Looper对象</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static @Nullable Looper myLooper() {
+        return sThreadLocal.get();
+    }
+</code></pre>
+</div>
+
+<p><strong>post()</strong></p>
+
+<p>发送消息，并设置消息的callback，用于处理消息。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final boolean post(Runnable r)
+{
+   return  sendMessageDelayed(getPostMessage(r), 0);
+}
+
+private static Message getPostMessage(Runnable r) {
+    Message m = Message.obtain();
+    m.callback = r;
+    return m;
+}
+</code></pre>
+</div>
+
+<h2 id="handler">三、Handler</h2>
+
+<h3 id="new-handler">3.1 new Handler()</h3>
+
+<p><strong>(1)无参构造方法</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public Handler() {
+    this(null, false);
+}
+
+public Handler(Callback callback, boolean async) {
+    //匿名类、内部类或本地类都必须申明为static，否则会警告可能出现内存泄露
+    if (FIND_POTENTIAL_LEAKS) {
+        final Class&lt;? extends Handler&gt; klass = getClass();
+        if ((klass.isAnonymousClass() || klass.isMemberClass() || klass.isLocalClass()) &amp;&amp;
+                (klass.getModifiers() &amp; Modifier.STATIC) == 0) {
+            Log.w(TAG, "The following Handler class should be static or leaks might occur: " +
+                klass.getCanonicalName());
+        }
+    }
+    //必须先执行Looper.prepare()，才能获取Looper对象，否则为null.
+    mLooper = Looper.myLooper();  //从当前线程的TLS中获取Looper对象【见2.1】
+    if (mLooper == null) {
+        throw new RuntimeException("");
+    }
+    mQueue = mLooper.mQueue; //消息队列，来自Looper对象
+    mCallback = callback;  //回调方法
+    mAsynchronous = async; //设置消息是否为异步处理方式
+}
+</code></pre>
+</div>
+
+<p>对于Handler的无参构造方法，默认采用当前线程TLS中的Looper对象，并且callback回调方法为null，且消息为同步处理方式。只要执行的Looper.prepare()方法，那么便可以获取有效的Looper对象。</p>
+
+<p><strong>(2) 带参数Looper的构造方法</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public Handler(Looper looper) {
+    this(looper, null, false);
+}
+
+public Handler(Looper looper, Callback callback, boolean async) {
+    mLooper = looper;
+    mQueue = looper.mQueue;
+    mCallback = callback;
+    mAsynchronous = async;
+}
+</code></pre>
+</div>
+
+<p>Handler类在构造方法中，可指定Looper，Callback回调方法以及消息的处理方式(同步或异步)，对于无参的handler，默认是当前线程的Looper。</p>
+
+<h3 id="dispatchmessage">3.2 dispatchMessage</h3>
+
+<p>在Looper.loop()中，当发现有消息时，调用消息的目标handler，执行dispatchMessage()方法来分发消息。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void dispatchMessage(Message msg) {
+    if (msg.callback != null) {
+        //当Message存在回调方法，回调msg.callback.run()方法；
+        handleCallback(msg);  
+    } else {
+        if (mCallback != null) {
+            //当Handler存在Callback成员变量时，回调方法handleMessage()；
+            if (mCallback.handleMessage(msg)) {
+                return;
+            }
+        }
+        //Handler自身的回调方法handleMessage()
+        handleMessage(msg); 
+    }
+}
+</code></pre>
+</div>
+
+<p><strong>分发消息流程：</strong></p>
+
+<ol>
+  <li>当<code class="highlighter-rouge">Message</code>的回调方法不为空时，则回调方法<code class="highlighter-rouge">msg.callback.run()</code>，其中callBack数据类型为Runnable,否则进入步骤2；</li>
+  <li>当<code class="highlighter-rouge">Handler</code>存在<code class="highlighter-rouge">mCallback</code>成员变量不为空时，则回调方法<code class="highlighter-rouge">mCallback.handleMessage(msg)</code>,否则进入步骤3；</li>
+  <li>调用<code class="highlighter-rouge">Handler</code>自身的回调方法<code class="highlighter-rouge">handleMessage()</code>，该方法默认为空，Handler子类通过覆写该方法来完成具体的逻辑。</li>
+</ol>
+
+<p>对于很多情况下，消息分发后的处理方法是第3种情况，即Handler.handleMessage()，一般地往往通过覆写该方法从而实现自己的业务逻辑。</p>
+
+<h3 id="sendmessage">3.3 sendMessage</h3>
+
+<p>发送消息调用链：</p>
+
+<p><img src="/images/handler/java_sendmessage.png" alt="java_sendmessage" /></p>
+
+<p>从上图，可以发现所有的发消息方式，最终都是调用<code class="highlighter-rouge">MessageQueue.enqueueMessage()</code>;</p>
+
+<p><strong>(1) sendEmptyMessage</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final boolean sendEmptyMessage(int what)
+{
+    return sendEmptyMessageDelayed(what, 0);
+}
+</code></pre>
+</div>
+
+<p><strong>(2) sendEmptyMessageDelayed</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
+    Message msg = Message.obtain();
+    msg.what = what;
+    return sendMessageDelayed(msg, delayMillis);
+}
+</code></pre>
+</div>
+
+<p><strong>(3) sendMessageDelayed</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final boolean sendMessageDelayed(Message msg, long delayMillis)
+{
+    if (delayMillis &lt; 0) {
+        delayMillis = 0;
+    }
+    return sendMessageAtTime(msg, SystemClock.uptimeMillis() + delayMillis);
+}
+</code></pre>
+</div>
+
+<p><strong>(4) sendMessageAtTime</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
+    MessageQueue queue = mQueue;
+    if (queue == null) {
+        return false;
+    }
+    return enqueueMessage(queue, msg, uptimeMillis);
+}
+</code></pre>
+</div>
+
+<p><strong>(5) sendMessageAtFrontOfQueue</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final boolean sendMessageAtFrontOfQueue(Message msg) {
+    MessageQueue queue = mQueue;
+    if (queue == null) {
+        return false;
+    }
+    return enqueueMessage(queue, msg, 0);
+}
+</code></pre>
+</div>
+
+<p>该方法通过设置消息的触发时间为0，从而使Message加入到消息队列的队头。</p>
+
+<p><strong>(6) enqueueMessage</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
+    msg.target = this;
+    if (mAsynchronous) {
+        msg.setAsynchronous(true);
+    }
+    return queue.enqueueMessage(msg, uptimeMillis); 【见4.3】
+}
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">Handler.sendEmptyMessage()</code>方法，最终调用<code class="highlighter-rouge">MessageQueue.enqueueMessage(msg, uptimeMillis)</code>，其中uptimeMillis为系统当前的运行时间，不包括休眠时间。</p>
+
+<h3 id="section-5">3.4 常用方法</h3>
+
+<p><strong>post</strong></p>
+
+<p>发送消息</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final boolean post(Runnable r)
+{
+   return  sendMessageDelayed(getPostMessage(r), 0);
+}
+
+private static Message getPostMessage(Runnable r) {
+    Message m = Message.obtain();
+    m.callback = r;
+    return m;
+}
+</code></pre>
+</div>
+
+<p><strong>obtainMessage</strong></p>
+
+<p>获取消息</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final Message obtainMessage()
+{
+    return Message.obtain(this); 【见5.2】
+}
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">Handler.obtainMessage()</code>方法，最终调用<code class="highlighter-rouge">Message.obtainMessage(this)</code>，其中this为当前的Handler对象。</p>
+
+<p><strong>removeMessages</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public final void removeMessages(int what) {
+    mQueue.removeMessages(this, what, null); 【见 4.5】
+}
+</code></pre>
+</div>
+
+<p>Handler类似于辅助类，更多的实现都是MessageQueue, Message中的方法。Handler的目的是为了更加方便的使用消息机制。</p>
+
+<h2 id="messagequeue">四、MessageQueue</h2>
+
+<p>MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心方法都交给native层来处理，其中MessageQueue类中涉及的native方法如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>private native static long nativeInit(); 
+private native static void nativeDestroy(long ptr); 
+private native void nativePollOnce(long ptr, int timeoutMillis); 
+private native static void nativeWake(long ptr);
+private native static boolean nativeIsPolling(long ptr);
+private native static void nativeSetFileDescriptorEvents(long ptr, int fd, int events);
+</code></pre>
+</div>
+
+<p>关于这些native方法的介绍，见<a href="http://gityuan.com/2015/12/27/handler-message-native/">Android消息机制2-Handler(native篇)</a>。</p>
+
+<h3 id="new-messagequeue">4.1 new MessageQueue()</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>MessageQueue(boolean quitAllowed) {
+    mQuitAllowed = quitAllowed;
+    //通过native方法初始化消息队列，其中mPtr是供native代码使用
+    mPtr = nativeInit(); 
+}
+</code></pre>
+</div>
+
+<h3 id="next">4.2 next()</h3>
+
+<p>提取下一条message</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Message next() {
+    final long ptr = mPtr;
+    if (ptr == 0) { //当消息循环已经退出，则直接返回
+        return null;
+    }
+    int pendingIdleHandlerCount = -1; // 循环迭代的首次为-1
+    int nextPollTimeoutMillis = 0;
+    for (;;) {
+        if (nextPollTimeoutMillis != 0) {
+            Binder.flushPendingCommands();
+        }
+        //阻塞操作，当等待nextPollTimeoutMillis时长，或者消息队列被唤醒，都会返回
+        nativePollOnce(ptr, nextPollTimeoutMillis); 
+        synchronized (this) {
+            final long now = SystemClock.uptimeMillis();
+            Message prevMsg = null;
+            Message msg = mMessages;
+            if (msg != null &amp;&amp; msg.target == null) {
+                //当消息Handler为空时，查询MessageQueue中的下一条异步消息msg，则退出循环。
+                do {
+                    prevMsg = msg;
+                    msg = msg.next;
+                } while (msg != null &amp;&amp; !msg.isAsynchronous());
+            }
+            if (msg != null) {
+                if (now &lt; msg.when) {
+                    //当异步消息触发时间大于当前时间，则设置下一次轮询的超时时长
+                    nextPollTimeoutMillis = (int) Math.min(msg.when - now, Integer.MAX_VALUE);
+                } else {
+                    // 获取一条消息，并返回
+                    mBlocked = false;
+                    if (prevMsg != null) {
+                        prevMsg.next = msg.next;
+                    } else {
+                        mMessages = msg.next;
+                    }
+                    msg.next = null;
+                    //设置消息的使用状态，即flags |= FLAG_IN_USE
+                    msg.markInUse(); 
+                    return msg;   //成功地获取MessageQueue中的下一条即将要执行的消息
+                }
+            } else {
+                //没有消息
+                nextPollTimeoutMillis = -1;
+            }
+            //消息正在退出，返回null
+            if (mQuitting) {
+                dispose();
+                return null;
+            }
+            //当消息队列为空，或者是消息队列的第一个消息时
+            if (pendingIdleHandlerCount &lt; 0 &amp;&amp; (mMessages == null || now &lt; mMessages.when)) {
+                pendingIdleHandlerCount = mIdleHandlers.size();
+            }
+            if (pendingIdleHandlerCount &lt;= 0) {
+                //没有idle handlers 需要运行，则循环并等待。
+                mBlocked = true;
+                continue;
+            }
+            if (mPendingIdleHandlers == null) {
+                mPendingIdleHandlers = new IdleHandler[Math.max(pendingIdleHandlerCount, 4)];
+            }
+            mPendingIdleHandlers = mIdleHandlers.toArray(mPendingIdleHandlers);
+        }
+        //只有第一次循环时，会运行idle handlers，执行完成后，重置pendingIdleHandlerCount为0.
+        for (int i = 0; i &lt; pendingIdleHandlerCount; i++) {
+            final IdleHandler idler = mPendingIdleHandlers[i];
+            mPendingIdleHandlers[i] = null; //去掉handler的引用
+            boolean keep = false;
+            try {
+                keep = idler.queueIdle();  //idle时执行的方法
+            } catch (Throwable t) {
+                Log.wtf(TAG, "IdleHandler threw exception", t);
+            }
+            if (!keep) {
+                synchronized (this) {
+                    mIdleHandlers.remove(idler);
+                }
+            }
+        }
+        //重置idle handler个数为0，以保证不会再次重复运行
+        pendingIdleHandlerCount = 0;
+        //当调用一个空闲handler时，一个新message能够被分发，因此无需等待可以直接查询pending message.
+        nextPollTimeoutMillis = 0;
+    }
+}
+</code></pre>
+</div>
+
+<p>nativePollOnce(ptr, nextPollTimeoutMillis)是一个native方法，并且是阻塞操作。其中nextPollTimeoutMillis代表下一个消息到来前，还需要等待的时长；当nextPollTimeoutMillis = -1时，表示消息队列中无消息，会一直等待下去。空闲后，往往会执行IdleHandler中的方法。当nativePollOnce()返回后，next()从<code class="highlighter-rouge">mMessages</code>中提取一个消息。<code class="highlighter-rouge">nativePollOnce()</code>在native做了大量的工作，想进一步了解可查看 <a href="http://gityuan.com/2015/12/27/handler-message-native/#nativepollonce">Android消息机制2-Handler(native篇)</a>。</p>
+
+<h3 id="enqueuemessage">4.3 enqueueMessage</h3>
+
+<p>添加一条消息到消息队列</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>boolean enqueueMessage(Message msg, long when) {
+    // 每一个Message必须有一个target
+    if (msg.target == null) {
+        throw new IllegalArgumentException("Message must have a target.");
+    }
+    if (msg.isInUse()) {
+        throw new IllegalStateException(msg + " This message is already in use.");
+    }
+    synchronized (this) {
+        if (mQuitting) {  //正在退出时，回收msg，加入到消息池
+            msg.recycle();
+            return false;
+        }
+        msg.markInUse();
+        msg.when = when;
+        Message p = mMessages;
+        boolean needWake;
+        if (p == null || when == 0 || when &lt; p.when) {
+            //p为null(代表MessageQueue没有消息） 或者msg的触发时间是队列中最早的， 则进入该该分支
+            msg.next = p;
+            mMessages = msg;
+            needWake = mBlocked; //当阻塞时需要唤醒
+        } else {
+            //将消息按时间顺序插入到MessageQueue。一般地，不需要唤醒事件队列，除非
+            //消息队头存在barrier，并且同时Message是队列中最早的异步消息。 
+            needWake = mBlocked &amp;&amp; p.target == null &amp;&amp; msg.isAsynchronous();
+            Message prev;
+            for (;;) {
+                prev = p;
+                p = p.next;
+                if (p == null || when &lt; p.when) {
+                    break;
+                }
+                if (needWake &amp;&amp; p.isAsynchronous()) {
+                    needWake = false;
+                }
+            }
+            msg.next = p;
+            prev.next = msg;
+        }
+        //消息没有退出，我们认为此时mPtr != 0
+        if (needWake) {
+            nativeWake(mPtr);
+        }
+    }
+    return true;
+}
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">MessageQueue</code>是按照Message触发时间的先后顺序排列的，队头的消息是将要最早触发的消息。当有消息需要加入消息队列时，会从队列头开始遍历，直到找到消息应该插入的合适位置，以保证所有消息的时间顺序。</p>
+
+<h3 id="removemessages">4.4 removeMessages</h3>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>void removeMessages(Handler h, int what, Object object) {
+    if (h == null) {
+        return;
+    }
+    synchronized (this) {
+        Message p = mMessages;
+        //从消息队列的头部开始，移除所有符合条件的消息
+        while (p != null &amp;&amp; p.target == h &amp;&amp; p.what == what
+               &amp;&amp; (object == null || p.obj == object)) {
+            Message n = p.next;
+            mMessages = n;
+            p.recycleUnchecked();
+            p = n;
+        }
+        //移除剩余的符合要求的消息
+        while (p != null) {
+            Message n = p.next;
+            if (n != null) {
+                if (n.target == h &amp;&amp; n.what == what
+                    &amp;&amp; (object == null || n.obj == object)) {
+                    Message nn = n.next;
+                    n.recycleUnchecked();
+                    p.next = nn;
+                    continue;
+                }
+            }
+            p = n;
+        }
+    }
+}
+</code></pre>
+</div>
+
+<p>这个移除消息的方法，采用了两个while循环，第一个循环是从队头开始，移除符合条件的消息，第二个循环是从头部移除完连续的满足条件的消息之后，再从队列后面继续查询是否有满足条件的消息需要被移除。</p>
+
+<h2 id="message">五、 Message</h2>
+
+<h3 id="section-6">5.1 创建消息</h3>
+
+<p>每个消息用<code class="highlighter-rouge">Message</code>表示，<code class="highlighter-rouge">Message</code>主要包含以下内容：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>数据类型</th>
+      <th>成员变量</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>int</td>
+      <td>what</td>
+      <td>消息类别</td>
+    </tr>
+    <tr>
+      <td>long</td>
+      <td>when</td>
+      <td>消息触发时间</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>arg1</td>
+      <td>参数1</td>
+    </tr>
+    <tr>
+      <td>int</td>
+      <td>arg2</td>
+      <td>参数2</td>
+    </tr>
+    <tr>
+      <td>Object</td>
+      <td>obj</td>
+      <td>消息内容</td>
+    </tr>
+    <tr>
+      <td>Handler</td>
+      <td>target</td>
+      <td>消息响应方</td>
+    </tr>
+    <tr>
+      <td>Runnable</td>
+      <td>callback</td>
+      <td>回调方法</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>创建消息的过程，就是填充消息的上述内容的一项或多项。</p>
+
+<h3 id="section-7">5.2 消息池</h3>
+
+<p>在代码中，可能经常看到recycle()方法，咋一看，可能是在做虚拟机的gc()相关的工作，其实不然，这是用于把消息加入到消息池的作用。这样的好处是，当消息池不为空时，可以直接从消息池中获取Message对象，而不是直接创建，提高效率。</p>
+
+<p>静态变量<code class="highlighter-rouge">sPool</code>的数据类型为Message，通过next成员变量，维护一个消息池；静态变量<code class="highlighter-rouge">MAX_POOL_SIZE</code>代表消息池的可用大小；消息池的默认大小为50。</p>
+
+<p>消息池常用的操作方法是obtain()和recycle()。</p>
+
+<p><strong>obtain()</strong></p>
+
+<p>从消息池中获取消息</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public static Message obtain() {
+    synchronized (sPoolSync) {
+        if (sPool != null) {
+            Message m = sPool;
+            sPool = m.next;
+            m.next = null; //从sPool中取出一个Message对象，并消息链表断开
+            m.flags = 0; // 清除in-use flag
+            sPoolSize--; //消息池的可用大小进行减1操作
+            return m;
+        }
+    }
+    return new Message(); // 当消息池为空时，直接创建Message对象
+}
+</code></pre>
+</div>
+
+<p>obtain()，从消息池取Message，都是把消息池表头的Message取走，再把表头指向next;</p>
+
+<p><strong>recycle()</strong></p>
+
+<p>把不再使用的消息加入消息池</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public void recycle() {
+    if (isInUse()) { //判断消息是否正在使用
+        if (gCheckRecycle) { //Android 5.0以后的版本默认为true,之前的版本默认为false.
+            throw new IllegalStateException("This message cannot be recycled because it is still in use.");
+        }
+        return;
+    }
+    recycleUnchecked(); 
+}
+
+//对于不再使用的消息，加入到消息池
+void recycleUnchecked() {
+    //将消息标示位置为IN_USE，并清空消息所有的参数。
+    flags = FLAG_IN_USE;
+    what = 0;
+    arg1 = 0;
+    arg2 = 0;
+    obj = null;
+    replyTo = null;
+    sendingUid = -1;
+    when = 0;
+    target = null;
+    callback = null;
+    data = null;
+    synchronized (sPoolSync) {
+        if (sPoolSize &lt; MAX_POOL_SIZE) { //当消息池没有满时，将Message对象加入消息池
+            next = sPool;
+            sPool = this;
+            sPoolSize++; //消息池的可用大小进行加1操作
+        }
+    }
+}
+</code></pre>
+</div>
+
+<p>recycle()，将Message加入到消息池的过程，都是把Message加到链表的表头；</p>
+
+<h2 id="section-8">总结</h2>
+
+<p>最后用一张图，来表示整个消息机制</p>
+
+<p><img src="/images/handler/handler_java.jpg" alt="handler_java" /></p>
+
+<p><strong>图解：</strong></p>
+
+<ul>
+  <li>Handler通过sendMessage()发送Message到MessageQueue队列；</li>
+  <li>Looper通过loop()，不断提取出达到触发条件的Message，并将Message交给target来处理；</li>
+  <li>经过dispatchMessage()后，交回给Handler的handleMessage()来进行相应地处理。</li>
+  <li>将Message加入MessageQueue时，处往管道写入字符，可以会唤醒loop线程；如果MessageQueue中没有Message，并处于Idle状态，则会执行IdelHandler接口中的方法，往往用于做一些清理性地工作。</li>
+</ul>
+
+<p><strong>消息分发的优先级：</strong></p>
+
+<ol>
+  <li>Message的回调方法：<code class="highlighter-rouge">message.callback.run()</code>，优先级最高；</li>
+  <li>Handler的回调方法：<code class="highlighter-rouge">Handler.mCallback.handleMessage(msg)</code>，优先级仅次于1；</li>
+  <li>Handler的默认方法：<code class="highlighter-rouge">Handler.handleMessage(msg)</code>，优先级最低。</li>
+</ol>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/12/27/handler-message-framework"
+                    data-title="Android消息机制1-Handler(Java层)"
+                    data-url="http://gityuan.com/2015/12/27/handler-message-framework/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  本文基于Android 6.0的源代码，来分析Java层的handler消息处理机制
+
+
+相关源码
+
+framework/base/core/jav... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/12/21/signal/" data-toggle="tooltip" data-placement="top" title="Linux信号(signal)机制">
+                        Previous<br>
+                        <span>Linux信号(signal)机制</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/12/28/handler-message-native/" data-toggle="tooltip" data-placement="top" title="Android消息机制2-Handler(Native层)">
+                        Next<br>
+                        <span>Android消息机制2-Handler(Native层)</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/12/27/handler-message-framework"
+                        data-title="Android消息机制1-Handler(Java层)"
+                        data-url="http://gityuan.com/2015/12/27/handler-message-framework/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

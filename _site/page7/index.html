@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/page7/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Page Header -->
+<header class="intro-header" style="background-image: url('/img/home-bg.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 ">
+                <div class="site-heading">
+                    <h1>Gityuan</h1>
+                    <!--<hr class="small">-->
+                    <span class="subheading">Keep on going never give up</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<div class="container">
+	<div class="row">
+        
+
+<!-- USE SIDEBAR -->
+    <!-- PostList Container -->
+    		<div class="
+                col-lg-8 col-lg-offset-1
+                col-md-8 col-md-offset-1
+                col-sm-12
+                col-xs-12
+                postlist-container
+            ">
+    			
+<div class="post-preview">
+    <a href="/2015/09/05/android-anaimator-3/">
+        <h2 class="post-title">
+            Android Anaimator 3
+        </h2>
+        
+        <div class="post-content-preview">
+            
+layout: post
+title:  “Android动画之插值器（三）”
+date:   2015-9-5 22:20:00
+catalog:  true
+tags:
+    - android
+    - 动画
+
+
+
+
+  本文从源码的角度，来展开对动画的深入解析，关于动画基本用法，可查看Android动画之入门篇(一），Android动画之入门篇（二）。
+
+
+关于动画有两个非常重...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on September 5, 2015
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2015/09/04/android-anaimator-2/">
+        <h2 class="post-title">
+            Android Anaimator 2
+        </h2>
+        
+        <div class="post-content-preview">
+            
+layout: post
+title:  “Android动画之入门篇（二）”
+date:   2015-9-4 21:20:00
+catalog:    true
+tags:
+    - android
+
+
+
+
+  本文重点讲述属性动画，关于逐帧动画与补间动画，可查看上一篇文章Android动画之入门篇（一）。
+
+
+属性动画功能非常强大，也是最常用的动画方法。可自定义如下属性：
+
+
+  ...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on September 4, 2015
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2015/09/03/Android-multi-screen-adapter/">
+        <h2 class="post-title">
+            Android多屏适配
+        </h2>
+        
+        <div class="post-content-preview">
+            
+  相信有不少开发者对于dp/sp/px，这些概念比较模糊，本文将讲解其含义和用途。
+
+
+基本概念
+
+  px： 像素（pixel），设备上的物理像素点。
+  dp：跟dip是同一个概念，与屏幕物理像素点无关，而是基于屏幕密度抽象单位，被称作“设备独立像素”,会随着屏幕的密度进行自动的大小调整。
+  sp： 专用于文字大小的设置，可根据字体大小首选项进行缩放。
+  inch： 英寸，1英寸...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on September 3, 2015
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2015/09/03/android-anaimator-1/">
+        <h2 class="post-title">
+            Android Anaimator 1
+        </h2>
+        
+        <div class="post-content-preview">
+            
+layout: post
+title:  “Android动画之入门篇（一）”
+date:   2015-9-3 20:10:00
+catalog:    true
+tags:
+    - android
+
+
+
+
+  作为Android开发者，动画是非常重要的知识点，本文主要从入门角度来探索动画。
+Android的动画主要包括三大类：逐帧（Frame）动画，补间（Tween）动画，属性动画...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on September 3, 2015
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2015/08/30/optimize-array-loop/">
+        <h2 class="post-title">
+            数组遍历的性能分析
+        </h2>
+        
+        <div class="post-content-preview">
+            问题
+
+
+  完全遍历有序和无序的数组，时间复杂度都是O(n)，为什么遍历有序数组比无序数组速度更快？
+
+
+下面是一个C++代码，由于一些奇怪的原因，已排序的数据数组比未排序地数组运算差不多快6倍。
+
+#include &lt;algorithm&gt;
+#include &lt;ctime&gt;
+#include &lt;iostream&gt;
+
+int main()
+{
+    //...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on August 30, 2015
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2015/08/23/tool-dumpsys/">
+        <h2 class="post-title">
+            dumpsys工具
+        </h2>
+        
+        <div class="post-content-preview">
+            
+  dumpsys是Android自带的强大debug工具，能提供有多有价值的信息。
+
+
+一、dumpsys源码
+
+
+  frameworks/native/cmds/dumpsys/dumpsys.cpp
+
+
+int main(int argc, char* const argv[])
+{
+    signal(SIGPIPE, SIG_IGN);
+    sp&lt;IServiceM...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on August 23, 2015
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2015/08/16/Android-performance-1/">
+        <h2 class="post-title">
+            Performance Patterns(一)
+        </h2>
+        
+        <div class="post-content-preview">
+            
+
+
+  2015年，Google陆续发布了关于Android Performance Patterns的专题小视频，发布在Youtube上，目前已有49个短视频，，帮助开发者创造更加完美的App。本文主要讲解Android的渲染机制，内容源于google developer视频[34-41]。
+
+
+
+
+一. Render Performance
+渲染问题是开发App遇到的最常见的问题，设计...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on August 16, 2015
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2015/08/11/android-arch-coding-style/">
+        <h2 class="post-title">
+            Android开发规范
+        </h2>
+        
+        <div class="post-content-preview">
+            
+  Google官方Java代码风格参考规范链接， 中文翻译参考版链接。
+
+
+命名规范
+
+1. 包命名
+规则：包名全部小写，才用反域名命名规则，一级包名是顶级域名，通常为com, edu, gov, net, org等，二级包名，通过为公司名或部门名或者个人名，三级包名通常为项目名，四级包名为模块名或者层级名。以下是从层级包名来划分android项目中采用的包划分结构
+
+com.domai...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on August 11, 2015
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2015/08/09/android-studio-shortcut/">
+        <h2 class="post-title">
+            Android Studio 快捷键
+        </h2>
+        
+        <div class="post-content-preview">
+            本文的快捷键是在windows下，且Keymaps为default的情况下的映射关系，从以下几个方面来详细介绍快捷键：
+
+
+  
+    导航
+    搜索
+    编辑代码
+    查看代码
+    视图切换
+    重构
+    运行与调试
+    其他
+  
+
+
+一、导航
+
+
+  
+    
+      功能
+      快捷键组合
+    
+  
+  
+    
+      前进
+ ...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on August 9, 2015
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2015/08/01/android-arvchitecture/">
+        <h2 class="post-title">
+            Android体系架构
+        </h2>
+        
+        <div class="post-content-preview">
+            
+
+  本文讲述的Android系统体系架构，是指应用层之下的整个系统内部的架构层级关系。而并非常说的4层架构：应用层，framework，运行库与环境，Linux内核，而是把系统内部的流程调用划分更加详细。
+
+
+一、架构
+
+Android系统体系架构图：
+
+
+
+Android系统体系架构分为5层，自顶而下分别是：
+
+
+  应用程序框架（Application Framework）
+  进程...
+        </div>
+    </a>
+    <p class="post-meta">
+        Posted by Gityuan on August 1, 2015
+    </p>
+</div>
+<hr>
+
+
+<!-- Pager -->
+
+<ul class="pager">
+    
+    <li class="previous">
+        <a href="/page6">&larr; Newer Posts</a>
+    </li>
+    
+    
+    <li class="next">
+        <a href="/page8">Older Posts &rarr;</a>
+    </li>
+    
+</ul>
+
+
+    		</div>
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-3 col-lg-offset-0
+                col-md-3 col-md-offset-0
+                col-sm-12
+                col-xs-12
+                sidebar-container
+            ">
+                <!-- Short About -->
+                <section class="visible-md visible-lg">
+                    <hr><h5><a href="/about/">GITYUAN</a></h5>
+                    <div class="short-about">
+                        
+                            <img src="/img/gityuan/2.png" />
+                        
+                        
+                            <p>专注Android系统，Java/jvm技术</p>
+                        
+                        <!-- SNS Link -->
+                        <ul class="list-inline">
+                            
+                            <li>
+                                <a href="/feed.xml">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            
+                            
+                            
+                            <li>
+                                <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa  fa-stack-1x fa-inverse">知</i>
+                                    </span>
+                                </a>
+                            </li>
+                            
+                            
+                            <li>
+                                <a target="_blank" href="http://weibo.com/gityuan">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            
+                            
+                            
+                            
+                        </ul>
+                    </div>
+                </section>
+    
+                <!-- 标签 -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">标签</a></h5>
+                    <div class="tags">
+                        
+                            
+                                <a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+                        
+                            
+                                <a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                                <a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                            
+                        
+                    </div>
+                </section>
+                
+                
+    		</div>
+        
+	</div>
+</div>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

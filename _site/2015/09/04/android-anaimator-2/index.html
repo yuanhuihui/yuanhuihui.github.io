@@ -1,0 +1,228 @@
+<hr />
+<p>layout: post
+title:  “Android动画之入门篇（二）”
+date:   2015-9-4 21:20:00
+catalog:    true
+tags:
+    - android</p>
+
+<hr />
+
+<blockquote>
+  <p>本文重点讲述属性动画，关于逐帧动画与补间动画，可查看上一篇文章<a href="http://gityuan.com/2015/09/03/android-anaimator-1/"><strong>Android动画之入门篇（一）</strong></a>。</p>
+</blockquote>
+
+<p>属性动画功能非常强大，也是最常用的动画方法。可自定义如下属性：</p>
+
+<ul>
+  <li>动画时间（Duration）, 指定动画总共完成所需要的时间，默认为300ms;</li>
+  <li>时间插值器（Time interpolation）, 是一个基于当前动画已消耗时间的函数，用来计算属性的值；</li>
+  <li>重复次数（Repeat count）：指定动画是否重复执行，重复执行的次数，也可以指定动画向反方向地回退操作；</li>
+  <li>动画集（Animator sets），将一系列动画放进一个组，可以设置同时执行或者按序执行；</li>
+  <li>延迟刷新时间（Frame refresh delay）：指定动画刷新的频率，默认为每10ms刷新一帧，但应用程序的帧的刷新频率最终取决于整个系统的忙闲程序与系统的时钟频率。</li>
+</ul>
+
+<h2 id="section">一、动画工作</h2>
+
+<h3 id="section-1">1.1 线性插值的动画</h3>
+
+<p>图1是在屏幕上进行水平位移的动画，总时间是40ms，移动总距离为40pixels(像素)，每10ms刷新一帧，同时移动10pixels。在第40ms动画结束，停止在水平位置40pixels的位置。整个动画过程采用的是线程插值器（ linear interpolation），意味着以匀速移动。</p>
+
+<p><img src="/images/animator/1.png" alt="linear animation" /><br />
+图1. 线性插值的动画</p>
+
+<h3 id="section-2">1.2 非线性插值的动画</h3>
+
+<p>当然，也可以指定差值器是非线性的，图2采用的是先加速，再减速的差值器。同样是在40ms内移动40pixels。在开始的时候，动画一直加速到一半的距离（20pixels）,然后在减速剩下的一半距离直到动画结束。从图2可以看出，动画的两头的位移量低于中间部门的位移量。</p>
+
+<p><img src="/images/animator/2.png" alt="non-linear animation" /> <br />
+图2. 非线性插值的动画</p>
+
+<h3 id="section-3">1.3 动画过程</h3>
+<p>图3描述了属性动画在整个过程中，主要类的工作流程：</p>
+
+<p><img src="/images/animator/3.jpg" alt="animations work" /><br />
+图3. 动画过程</p>
+
+<p><code class="highlighter-rouge">ValueAnimator</code>记录动画的运行时间，位移，当前将要绘制的属性。以及
+<code class="highlighter-rouge">TimeInterpolator</code>时间插值器，<code class="highlighter-rouge">TypeEvaluator</code>估值器。例如，图2的时间插值器是<code class="highlighter-rouge">AccelerateDecelerateInterpolator</code>, 估值器是<code class="highlighter-rouge">IntEvaluator</code>。</p>
+
+<p>属性动画设置好起始值和结束值，执行总时间等参数。当调用<code class="highlighter-rouge">start()</code>动画开始， 在整个动画期间，<code class="highlighter-rouge">ValueAnimator</code>计算已绘制的时间比(elapsed fraction)，区间[0,1]，代表动画的完成率，0表示0%，1表示100%。动画运行过程中，通过调用<code class="highlighter-rouge">onAnimationUpdate</code>方法来更新画面，<code class="highlighter-rouge">getAnimatedValue()</code>获取当前动画的property。</p>
+
+<h2 id="section-4">二、分析</h2>
+
+<h3 id="animators">2.1 动画类（Animators）</h3>
+<p><code class="highlighter-rouge">Animator</code>类提供了关于创造动画的一系列基本的结构，是一个抽象类，主要使用其子类。</p>
+
+<h4 id="valueanimator">2.1.1 <code class="highlighter-rouge">ValueAnimator</code></h4>
+<p>ValueAnimator是整个属性动画框架的核心类，使用方法如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ValueAnimator valueAnim = ValueAnimator.ofFloat(0f, 1f);
+valueAnim.setDuration(250);	
+fadeAnim.start();
+</code></pre>
+</div>
+
+<p>再通过动画的<code class="highlighter-rouge">AnimatorUpdateListener</code>获取动画每一帧的返回值，如果有需要还可以增加<code class="highlighter-rouge">AnimatorListenerAdapter</code>来指定动画开始、结束、取消、重复等事件发生时的处理方法。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>valueAnim.addUpdateListener(new AnimatorUpdateListener() {
+	@Override
+        public void onAnimationUpdate(ValueAnimator animation) {
+		int frameValue = (Integer)animation.getAnimatedValue();
+		//根据frameValue指定相应的透明度，位移，旋转，缩放等相应的动画
+		balls.setAlpha(frameValue);
+		
+	}
+});
+
+valueAnim.addListener(new AnimatorListenerAdapter() {
+	public void onAnimationEnd(Animator animation) {
+		//当动画结束时移除相应对象
+	    balls.remove(((ObjectAnimator)animation).getTarget());
+	}
+});
+</code></pre>
+</div>
+
+<h4 id="objectanimator">2.1.2 <code class="highlighter-rouge">ObjectAnimator</code></h4>
+<p>对象动画，继承<code class="highlighter-rouge">ValueAnimator</code>, 允许指定<code class="highlighter-rouge">target object</code>，并且<code class="highlighter-rouge">target object</code>需要有setter方法。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ObjectAnimator anim = ObjectAnimator.ofFloat(targetObject, "alpha", 0f, 1f);
+anim.setDuration(1000);
+anim.start();
+</code></pre>
+</div>
+
+<h4 id="animatorset">2.1.3 <code class="highlighter-rouge">AnimatorSet</code></h4>
+<p>动画的集合，用于组合一系列动画。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>AnimatorSet  animatorSet = new AnimatorSet();
+animatorSet.play(bounceAnim).before(squashAnim1);
+animatorSet.play(squashAnim1).with(squashAnim2);
+animatorSet.play(bounceBackAnim).after(stretchAnim2);
+animatorSet.start();
+</code></pre>
+</div>
+
+<h3 id="interpolators">2.2 插值器（Interpolators）</h3>
+<p>时间插值器，定义了一个时间的映射关系，可能为如下的插值器：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>插值器</th>
+      <th>描述</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LinearInterpolator</td>
+      <td>线性插值</td>
+    </tr>
+    <tr>
+      <td>AccelerateInterpolator</td>
+      <td>加速</td>
+    </tr>
+    <tr>
+      <td>DecelerateInterpolator</td>
+      <td>减速</td>
+    </tr>
+    <tr>
+      <td>AccelerateDecelerateInterpolator</td>
+      <td>先加速，后减速</td>
+    </tr>
+    <tr>
+      <td>AnticipateInterpolator</td>
+      <td>先向后，再向前抛向终点</td>
+    </tr>
+    <tr>
+      <td>OvershootInterpolator</td>
+      <td>向前抛出终点，再回到终点</td>
+    </tr>
+    <tr>
+      <td>AnticipateOvershootInterpolator</td>
+      <td>先向后，再向前抛出终点，再回到终点</td>
+    </tr>
+    <tr>
+      <td>BounceInterpolator</td>
+      <td>结束时反弹</td>
+    </tr>
+    <tr>
+      <td>CycleInterpolator</td>
+      <td>循环播放</td>
+    </tr>
+    <tr>
+      <td>TimeInterpolator</td>
+      <td>用于自定义</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>所有插值器都实现了TimeInterpolator接口，需要自定义插值器，只需实现如下接口：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public interface TimeInterpolator {
+
+    /*
+     * @param input 代表动画的已执行的时间，∈[0,1]
+     * @return 插值转换后的值
+     */
+    float getInterpolation(float input);
+}
+</code></pre>
+</div>
+
+<p>想要更加深入地了解插值器，可查看<a href="http://gityuan.com/2015/09/05/android-anaimator-3/"><strong>Android动画之原理篇（三）</strong></a>。</p>
+
+<h3 id="evaluators">2.3 估值器（Evaluators）</h3>
+<p>估值器，用于计算属性动画的给定属性的取值。与属性的起始值，结束值，<code class="highlighter-rouge">fraction</code>三个值相关。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>估值器</th>
+      <th>描述</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>IntEvaluator</td>
+      <td>用于评估int型的属性值</td>
+    </tr>
+    <tr>
+      <td>FloatEvaluator</td>
+      <td>用于评估float型的属性值</td>
+    </tr>
+    <tr>
+      <td>ArgbEvaluator</td>
+      <td>用于评估颜色的属性值，采用16进制</td>
+    </tr>
+    <tr>
+      <td>TypeEvaluator</td>
+      <td>用于自定义估值器的接口</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>所有的估值器都实现了TypeEvaluator接口，自定义估值器，只需实现如下接口：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>public interface TypeEvaluator&lt;T&gt; {
+    /*
+     *
+     * @param fraction   插值器计算转换后的值
+     * @param startValue 属性起始值
+     * @param endValue   属性结束值
+     * @return 转换后的值
+     */
+    public T evaluate(float fraction, T startValue, T endValue);
+}
+</code></pre>
+</div>
+
+<hr />
+
+<h2 id="section-5">三、小结</h2>
+
+<p>相信读者，通过阅读动画入门这两篇文章，对逐帧动画，补间动画，属性动画有了一个大致的概念与理解，能明白动画的基本用法。<br />
+如果有兴趣深入了解动画的机制，可查看<a href="http://gityuan.com/2015/09/06/android-anaimator-4/"><strong>Android动画之原理篇（四）</strong></a>，从源码的视角来进一步阐述动画的原理。</p>
+
+<p>本文参考文献：<a href="http://developer.android.com/intl/zh-cn/guide/topics/graphics/prop-animation.html">http://developer.android.com/intl/zh-cn/guide/topics/graphics/prop-animation.html</a></p>

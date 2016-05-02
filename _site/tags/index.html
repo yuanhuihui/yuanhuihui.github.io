@@ -1,0 +1,3625 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Category - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/tags/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Page Header -->
+<header class="intro-header" style="background-image: url('/img/tag-bg.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="site-heading" id="tag-heading">
+                    <h1>Category</h1>
+                    <span class="subheading">Sow nothing, reap nothing</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<div class="container">
+	<div class="row">
+		<div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+            <!-- 标签云 -->
+			<div id='tag_cloud' class="tags">
+				
+				<a href="#android" title="android" rel="55">android</a>
+				
+				<a href="#activity" title="activity" rel="2">activity</a>
+				
+				<a href="#service" title="service" rel="2">service</a>
+				
+				<a href="#markdown" title="markdown" rel="1">markdown</a>
+				
+				<a href="#jekyll" title="jekyll" rel="1">jekyll</a>
+				
+				<a href="#selinux" title="selinux" rel="1">selinux</a>
+				
+				<a href="#permission" title="permission" rel="2">permission</a>
+				
+				<a href="#algorithm" title="algorithm" rel="3">algorithm</a>
+				
+				<a href="#web" title="web" rel="2">web</a>
+				
+				<a href="#http" title="http" rel="1">http</a>
+				
+				<a href="#git" title="git" rel="1">git</a>
+				
+				<a href="#adb" title="adb" rel="2">adb</a>
+				
+				<a href="#java" title="java" rel="11">java</a>
+				
+				<a href="#pattern" title="pattern" rel="1">pattern</a>
+				
+				<a href="#反射" title="反射" rel="2">反射</a>
+				
+				<a href="#Java" title="Java" rel="1">Java</a>
+				
+				<a href="#Performance" title="Performance" rel="1">Performance</a>
+				
+				<a href="#android studio" title="android studio" rel="2">android studio</a>
+				
+				<a href="#app" title="app" rel="3">app</a>
+				
+				<a href="#performance" title="performance" rel="6">performance</a>
+				
+				<a href="#tool" title="tool" rel="6">tool</a>
+				
+				<a href="#dumpsys" title="dumpsys" rel="1">dumpsys</a>
+				
+				<a href="#input" title="input" rel="1">input</a>
+				
+				<a href="#process" title="process" rel="7">process</a>
+				
+				<a href="#priority" title="priority" rel="1">priority</a>
+				
+				<a href="#adj" title="adj" rel="1">adj</a>
+				
+				<a href="#lowmemorykiller" title="lowmemorykiller" rel="1">lowmemorykiller</a>
+				
+				<a href="#dalvik" title="dalvik" rel="1">dalvik</a>
+				
+				<a href="#art" title="art" rel="1">art</a>
+				
+				<a href="#gc" title="gc" rel="1">gc</a>
+				
+				<a href="#memory" title="memory" rel="4">memory</a>
+				
+				<a href="#command" title="command" rel="4">command</a>
+				
+				<a href="#jvm" title="jvm" rel="6">jvm</a>
+				
+				<a href="#binder" title="binder" rel="12">binder</a>
+				
+				<a href="#driver" title="driver" rel="1">driver</a>
+				
+				<a href="#framework" title="framework" rel="1">framework</a>
+				
+				<a href="#AIDL" title="AIDL" rel="1">AIDL</a>
+				
+				<a href="#reference" title="reference" rel="1">reference</a>
+				
+				<a href="#Linux" title="Linux" rel="1">Linux</a>
+				
+				<a href="#epoll" title="epoll" rel="1">epoll</a>
+				
+				<a href="#linux" title="linux" rel="1">linux</a>
+				
+				<a href="#signal" title="signal" rel="1">signal</a>
+				
+				<a href="#handler" title="handler" rel="3">handler</a>
+				
+				<a href="#native" title="native" rel="1">native</a>
+				
+				<a href="#thread" title="thread" rel="2">thread</a>
+				
+				<a href="#power" title="power" rel="1">power</a>
+				
+				<a href="#systrace" title="systrace" rel="1">systrace</a>
+				
+				<a href="#traceview" title="traceview" rel="1">traceview</a>
+				
+				<a href="#annotation" title="annotation" rel="1">annotation</a>
+				
+				<a href="#classloader" title="classloader" rel="1">classloader</a>
+				
+				<a href="#boot" title="boot" rel="9">boot</a>
+				
+				<a href="#init" title="init" rel="1">init</a>
+				
+				<a href="#zygote" title="zygote" rel="1">zygote</a>
+				
+				<a href="#SystemServer" title="SystemServer" rel="2">SystemServer</a>
+				
+				<a href="#AMSs" title="AMSs" rel="1">AMSs</a>
+				
+				<a href="#am" title="am" rel="1">am</a>
+				
+				<a href="#pm" title="pm" rel="1">pm</a>
+				
+				<a href="#make" title="make" rel="1">make</a>
+				
+				<a href="#kill" title="kill" rel="1">kill</a>
+				
+				<a href="#自学编程" title="自学编程" rel="1">自学编程</a>
+				
+			</div>
+
+            <!--<blockquote class="tag-comments">
+                标签命名规范：
+                    <li>行业观察、职位、公司优先使用中文</li>
+                    <li>外国产品、术语优先使用英文</li>
+            </blockquote>-->
+
+            <!-- 标签列表 -->
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="android">
+                    <span class="tag-text">android</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-04-25">2016-04-25</time>
+				  <a href="/2016/04/25/how-to-study-android/" title="如何自学Android">如何自学Android</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/04/25/how-to-study-android/">
+				        <h2 class="post-title">
+                            如何自学Android
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-04-25</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-04-16">2016-04-16</time>
+				  <a href="/2016/04/16/kill-signal/" title="理解杀进程的实现原理">理解杀进程的实现原理</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/04/16/kill-signal/">
+				        <h2 class="post-title">
+                            理解杀进程的实现原理
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-04-16</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-27">2016-03-27</time>
+				  <a href="/2016/03/27/app-process-create/" title="理解Android进程创建流程">理解Android进程创建流程</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/27/app-process-create/">
+				        <h2 class="post-title">
+                            理解Android进程创建流程
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-27</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-20">2016-03-20</time>
+				  <a href="/2016/03/20/android-build/" title="理解Android编译命令">理解Android编译命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/20/android-build/">
+				        <h2 class="post-title">
+                            理解Android编译命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-20</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-13">2016-03-13</time>
+				  <a href="/2016/03/13/start-activity/" title="startActivity流程分析(一)">startActivity流程分析(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/13/start-activity/">
+				        <h2 class="post-title">
+                            startActivity流程分析(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-13</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-07">2016-03-07</time>
+				  <a href="/2016/03/07/start-service/" title="startService流程分析">startService流程分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/07/start-service/">
+				        <h2 class="post-title">
+                            startService流程分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-07</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-06">2016-03-06</time>
+				  <a href="/2016/03/06/binder-clearCallingIdentity/" title="Binder IPC的权限控制">Binder IPC的权限控制</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/06/binder-clearCallingIdentity/">
+				        <h2 class="post-title">
+                            Binder IPC的权限控制
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-06</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-29">2016-02-29</time>
+				  <a href="/2016/02/29/pm-command/" title="Pm命令用法">Pm命令用法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/29/pm-command/">
+				        <h2 class="post-title">
+                            Pm命令用法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-29</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-28">2016-02-28</time>
+				  <a href="/2016/02/28/am-command/" title="Am命令用法">Am命令用法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/28/am-command/">
+				        <h2 class="post-title">
+                            Am命令用法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-28</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-22">2016-02-22</time>
+				  <a href="/2016/02/22/activity-manager-service/" title="ActivityManagerService启动过程(一)">ActivityManagerService启动过程(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/22/activity-manager-service/">
+				        <h2 class="post-title">
+                            ActivityManagerService启动过程(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-22</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-21">2016-02-21</time>
+				  <a href="/2016/02/21/android-system-server-2/" title="Android系统启动-SystemServer下篇">Android系统启动-SystemServer下篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/21/android-system-server-2/">
+				        <h2 class="post-title">
+                            Android系统启动-SystemServer下篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-21</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-15">2016-02-15</time>
+				  <a href="/2016/02/15/android-system-server/" title="Android系统启动-SystemServer上篇">Android系统启动-SystemServer上篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/15/android-system-server/">
+				        <h2 class="post-title">
+                            Android系统启动-SystemServer上篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-15</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-14">2016-02-14</time>
+				  <a href="/2016/02/14/android-zygote/" title="Android系统启动-zygote篇">Android系统启动-zygote篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/14/android-zygote/">
+				        <h2 class="post-title">
+                            Android系统启动-zygote篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-14</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-06">2016-02-06</time>
+				  <a href="/2016/02/06/android-init/" title="Android系统启动-init篇">Android系统启动-init篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/06/android-init/">
+				        <h2 class="post-title">
+                            Android系统启动-init篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-06</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-31">2016-01-31</time>
+				  <a href="/2016/01/31/android-boot/" title="Android系统-开篇">Android系统-开篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/31/android-boot/">
+				        <h2 class="post-title">
+                            Android系统-开篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-31</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-18">2016-01-18</time>
+				  <a href="/2016/01/18/traceview/" title="性能工具Traceview">性能工具Traceview</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/18/traceview/">
+				        <h2 class="post-title">
+                            性能工具Traceview
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-18</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-18">2016-01-18</time>
+				  <a href="/2016/01/18/systrace/" title="性能工具Systrace">性能工具Systrace</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/18/systrace/">
+				        <h2 class="post-title">
+                            性能工具Systrace
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-18</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-17">2016-01-17</time>
+				  <a href="/2016/01/17/thread-pool/" title="Java线程池分析">Java线程池分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/17/thread-pool/">
+				        <h2 class="post-title">
+                            Java线程池分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-17</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-11">2016-01-11</time>
+				  <a href="/2016/01/11/power_rank/" title="Android耗电统计算法">Android耗电统计算法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/11/power_rank/">
+				        <h2 class="post-title">
+                            Android耗电统计算法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-11</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-02">2016-01-02</time>
+				  <a href="/2016/01/02/memory-analysis-command/" title=" Android内存分析命令"> Android内存分析命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/02/memory-analysis-command/">
+				        <h2 class="post-title">
+                             Android内存分析命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-02</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-01">2016-01-01</time>
+				  <a href="/2016/01/01/handler-message-usage/" title="Android消息机制3-Handler(实战)">Android消息机制3-Handler(实战)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/01/handler-message-usage/">
+				        <h2 class="post-title">
+                            Android消息机制3-Handler(实战)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-01</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-28">2015-12-28</time>
+				  <a href="/2015/12/28/handler-message-native/" title="Android消息机制2-Handler(Native层)">Android消息机制2-Handler(Native层)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/28/handler-message-native/">
+				        <h2 class="post-title">
+                            Android消息机制2-Handler(Native层)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-28</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-27">2015-12-27</time>
+				  <a href="/2015/12/27/handler-message-framework/" title="Android消息机制1-Handler(Java层)">Android消息机制1-Handler(Java层)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/27/handler-message-framework/">
+				        <h2 class="post-title">
+                            Android消息机制1-Handler(Java层)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-27</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-20">2015-12-20</time>
+				  <a href="/2015/12/20/android-process-category/" title="进程篇—进程整理">进程篇—进程整理</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/20/android-process-category/">
+				        <h2 class="post-title">
+                            进程篇—进程整理
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-20</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-05">2015-12-05</time>
+				  <a href="/2015/12/05/android-refbase/" title="Android强弱引用">Android强弱引用</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/05/android-refbase/">
+				        <h2 class="post-title">
+                            Android强弱引用
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-05</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-29">2015-11-29</time>
+				  <a href="/2015/11/29/binder-summary/" title="Binder系列10—总结">Binder系列10—总结</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/29/binder-summary/">
+				        <h2 class="post-title">
+                            Binder系列10—总结
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-29</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-24">2015-11-24</time>
+				  <a href="/2015/11/24/binder-aidl/" title="Binder系列9—如何使用AIDL">Binder系列9—如何使用AIDL</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/24/binder-aidl/">
+				        <h2 class="post-title">
+                            Binder系列9—如何使用AIDL
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-24</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-23">2015-11-23</time>
+				  <a href="/2015/11/23/binder-use/" title="Binder系列8—如何使用Binder">Binder系列8—如何使用Binder</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/23/binder-use/">
+				        <h2 class="post-title">
+                            Binder系列8—如何使用Binder
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-23</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-22">2015-11-22</time>
+				  <a href="/2015/11/22/binder-framework/" title="Binder系列7—framework层分析">Binder系列7—framework层分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/22/binder-framework/">
+				        <h2 class="post-title">
+                            Binder系列7—framework层分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-22</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-16">2015-11-16</time>
+				  <a href="/2015/11/16/binder-get-service/" title="Binder系列6—获取服务(getService)">Binder系列6—获取服务(getService)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/16/binder-get-service/">
+				        <h2 class="post-title">
+                            Binder系列6—获取服务(getService)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-16</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-14">2015-11-14</time>
+				  <a href="/2015/11/14/binder-add-service/" title="Binder系列5—注册服务(addService)">Binder系列5—注册服务(addService)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/14/binder-add-service/">
+				        <h2 class="post-title">
+                            Binder系列5—注册服务(addService)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-14</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-08">2015-11-08</time>
+				  <a href="/2015/11/08/binder-get-sm/" title="Binder系列4—获取ServiceManager">Binder系列4—获取ServiceManager</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/08/binder-get-sm/">
+				        <h2 class="post-title">
+                            Binder系列4—获取ServiceManager
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-08</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-08">2015-11-08</time>
+				  <a href="/2015/11/08/binder-start-sm/" title="Binder系列3—启动ServiceManager">Binder系列3—启动ServiceManager</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/08/binder-start-sm/">
+				        <h2 class="post-title">
+                            Binder系列3—启动ServiceManager
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-08</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-03">2015-11-03</time>
+				  <a href="/2015/11/03/binder-driver-2/" title="Binder系列2—Binder Driver再探">Binder系列2—Binder Driver再探</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/03/binder-driver-2/">
+				        <h2 class="post-title">
+                            Binder系列2—Binder Driver再探
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-03</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-02">2015-11-02</time>
+				  <a href="/2015/11/02/binder-driver/" title="Binder系列1—Binder Driver初探">Binder系列1—Binder Driver初探</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/02/binder-driver/">
+				        <h2 class="post-title">
+                            Binder系列1—Binder Driver初探
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-02</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-31">2015-10-31</time>
+				  <a href="/2015/10/31/binder-prepare/" title="Binder系列—开篇">Binder系列—开篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/31/binder-prepare/">
+				        <h2 class="post-title">
+                            Binder系列—开篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-31</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-31">2015-10-31</time>
+				  <a href="/2015/10/31/kernel-memory/" title="Linux内存管理">Linux内存管理</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/31/kernel-memory/">
+				        <h2 class="post-title">
+                            Linux内存管理
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-31</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-12">2015-10-12</time>
+				  <a href="/2015/10/12/ps-command/" title="ps进程命令">ps进程命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/12/ps-command/">
+				        <h2 class="post-title">
+                            ps进程命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-12</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-11">2015-10-11</time>
+				  <a href="/2015/10/11/Android-Tools/" title="Android Studio 内存工具">Android Studio 内存工具</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/11/Android-Tools/">
+				        <h2 class="post-title">
+                            Android Studio 内存工具
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-11</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-04">2015-10-04</time>
+				  <a href="/2015/10/04/Android-GC/" title="Dalvik与ART的GC调试">Dalvik与ART的GC调试</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/04/Android-GC/">
+				        <h2 class="post-title">
+                            Dalvik与ART的GC调试
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-04</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-02">2015-10-02</time>
+				  <a href="/2015/10/02/process-lifecycle/" title="Android进程生命周期与ADJ">Android进程生命周期与ADJ</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/02/process-lifecycle/">
+				        <h2 class="post-title">
+                            Android进程生命周期与ADJ
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-02</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-02">2015-10-02</time>
+				  <a href="/2015/10/02/process-priority/" title="进程优先级">进程优先级</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/02/process-priority/">
+				        <h2 class="post-title">
+                            进程优先级
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-02</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-28">2015-09-28</time>
+				  <a href="/2015/09/28/App-optimize2/" title="APP优化(二)">APP优化(二)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/28/App-optimize2/">
+				        <h2 class="post-title">
+                            APP优化(二)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-28</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-27">2015-09-27</time>
+				  <a href="/2015/09/27/App-optimize1/" title="APP优化(一)">APP优化(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/27/App-optimize1/">
+				        <h2 class="post-title">
+                            APP优化(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-27</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-19">2015-09-19</time>
+				  <a href="/2015/09/19/android-touch/" title="Android事件分发机制">Android事件分发机制</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/19/android-touch/">
+				        <h2 class="post-title">
+                            Android事件分发机制
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-19</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-19">2015-09-19</time>
+				  <a href="/2015/09/19/adb-1/" title="adb连接不上手机的解决方法">adb连接不上手机的解决方法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/19/adb-1/">
+				        <h2 class="post-title">
+                            adb连接不上手机的解决方法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-19</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-03">2015-09-03</time>
+				  <a href="/2015/09/03/Android-multi-screen-adapter/" title="Android多屏适配">Android多屏适配</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/03/Android-multi-screen-adapter/">
+				        <h2 class="post-title">
+                            Android多屏适配
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-03</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-23">2015-08-23</time>
+				  <a href="/2015/08/23/tool-dumpsys/" title="dumpsys工具">dumpsys工具</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/23/tool-dumpsys/">
+				        <h2 class="post-title">
+                            dumpsys工具
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-23</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-16">2015-08-16</time>
+				  <a href="/2015/08/16/Android-performance-1/" title="Performance Patterns(一)">Performance Patterns(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/16/Android-performance-1/">
+				        <h2 class="post-title">
+                            Performance Patterns(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-16</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-11">2015-08-11</time>
+				  <a href="/2015/08/11/android-arch-coding-style/" title="Android开发规范">Android开发规范</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/11/android-arch-coding-style/">
+				        <h2 class="post-title">
+                            Android开发规范
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-11</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-09">2015-08-09</time>
+				  <a href="/2015/08/09/android-studio-shortcut/" title="Android Studio 快捷键">Android Studio 快捷键</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/09/android-studio-shortcut/">
+				        <h2 class="post-title">
+                            Android Studio 快捷键
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-09</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-01">2015-08-01</time>
+				  <a href="/2015/08/01/android-arvchitecture/" title="Android体系架构">Android体系架构</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/01/android-arvchitecture/">
+				        <h2 class="post-title">
+                            Android体系架构
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-01</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-29">2015-06-29</time>
+				  <a href="/2015/06/29/adb-notes/" title="adb常用命令笔记">adb常用命令笔记</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/29/adb-notes/">
+				        <h2 class="post-title">
+                            adb常用命令笔记
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-29</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-14">2015-06-14</time>
+				  <a href="/2015/06/14/SEAndroid-permission/" title="SELinux 权限问题">SELinux 权限问题</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/14/SEAndroid-permission/">
+				        <h2 class="post-title">
+                            SELinux 权限问题
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-14</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-01">2015-06-01</time>
+				  <a href="/2015/06/01/android-lifecycle/" title="Activity与Service生命周期">Activity与Service生命周期</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/01/android-lifecycle/">
+				        <h2 class="post-title">
+                            Activity与Service生命周期
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-01</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="activity">
+                    <span class="tag-text">activity</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-13">2016-03-13</time>
+				  <a href="/2016/03/13/start-activity/" title="startActivity流程分析(一)">startActivity流程分析(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/13/start-activity/">
+				        <h2 class="post-title">
+                            startActivity流程分析(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-13</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-01">2015-06-01</time>
+				  <a href="/2015/06/01/android-lifecycle/" title="Activity与Service生命周期">Activity与Service生命周期</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/01/android-lifecycle/">
+				        <h2 class="post-title">
+                            Activity与Service生命周期
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-01</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="service">
+                    <span class="tag-text">service</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-07">2016-03-07</time>
+				  <a href="/2016/03/07/start-service/" title="startService流程分析">startService流程分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/07/start-service/">
+				        <h2 class="post-title">
+                            startService流程分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-07</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-01">2015-06-01</time>
+				  <a href="/2015/06/01/android-lifecycle/" title="Activity与Service生命周期">Activity与Service生命周期</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/01/android-lifecycle/">
+				        <h2 class="post-title">
+                            Activity与Service生命周期
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-01</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="markdown">
+                    <span class="tag-text">markdown</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-06">2015-06-06</time>
+				  <a href="/2015/06/06/Markdown-notes/" title="Markdown个人笔记">Markdown个人笔记</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/06/Markdown-notes/">
+				        <h2 class="post-title">
+                            Markdown个人笔记
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-06</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="jekyll">
+                    <span class="tag-text">jekyll</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-08">2015-06-08</time>
+				  <a href="/2015/06/08/build-jekyll/" title="Windows下搭建本地Jekyll">Windows下搭建本地Jekyll</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/08/build-jekyll/">
+				        <h2 class="post-title">
+                            Windows下搭建本地Jekyll
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-08</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="selinux">
+                    <span class="tag-text">selinux</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-14">2015-06-14</time>
+				  <a href="/2015/06/14/SEAndroid-permission/" title="SELinux 权限问题">SELinux 权限问题</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/14/SEAndroid-permission/">
+				        <h2 class="post-title">
+                            SELinux 权限问题
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-14</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="permission">
+                    <span class="tag-text">permission</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-06">2016-03-06</time>
+				  <a href="/2016/03/06/binder-clearCallingIdentity/" title="Binder IPC的权限控制">Binder IPC的权限控制</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/06/binder-clearCallingIdentity/">
+				        <h2 class="post-title">
+                            Binder IPC的权限控制
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-06</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-14">2015-06-14</time>
+				  <a href="/2015/06/14/SEAndroid-permission/" title="SELinux 权限问题">SELinux 权限问题</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/14/SEAndroid-permission/">
+				        <h2 class="post-title">
+                            SELinux 权限问题
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-14</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="algorithm">
+                    <span class="tag-text">algorithm</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-11">2016-01-11</time>
+				  <a href="/2016/01/11/power_rank/" title="Android耗电统计算法">Android耗电统计算法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/11/power_rank/">
+				        <h2 class="post-title">
+                            Android耗电统计算法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-11</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-30">2015-08-30</time>
+				  <a href="/2015/08/30/optimize-array-loop/" title="数组遍历的性能分析">数组遍历的性能分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/30/optimize-array-loop/">
+				        <h2 class="post-title">
+                            数组遍历的性能分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-30</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-15">2015-06-15</time>
+				  <a href="/2015/06/15/algorithm-bigdata/" title="大数据算法">大数据算法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/15/algorithm-bigdata/">
+				        <h2 class="post-title">
+                            大数据算法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-15</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="web">
+                    <span class="tag-text">web</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-22">2015-06-22</time>
+				  <a href="/2015/06/22/http-restful/" title="浅谈HTTP RESTful架构">浅谈HTTP RESTful架构</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/22/http-restful/">
+				        <h2 class="post-title">
+                            浅谈HTTP RESTful架构
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-22</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-21">2015-06-21</time>
+				  <a href="/2015/06/21/http-agreement/" title="浅谈HTTP协议">浅谈HTTP协议</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/21/http-agreement/">
+				        <h2 class="post-title">
+                            浅谈HTTP协议
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-21</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="http">
+                    <span class="tag-text">http</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-21">2015-06-21</time>
+				  <a href="/2015/06/21/http-agreement/" title="浅谈HTTP协议">浅谈HTTP协议</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/21/http-agreement/">
+				        <h2 class="post-title">
+                            浅谈HTTP协议
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-21</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="git">
+                    <span class="tag-text">git</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-28">2015-06-28</time>
+				  <a href="/2015/06/28/git-notes/" title="Git常用命令">Git常用命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/28/git-notes/">
+				        <h2 class="post-title">
+                            Git常用命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-28</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="adb">
+                    <span class="tag-text">adb</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-19">2015-09-19</time>
+				  <a href="/2015/09/19/adb-1/" title="adb连接不上手机的解决方法">adb连接不上手机的解决方法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/19/adb-1/">
+				        <h2 class="post-title">
+                            adb连接不上手机的解决方法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-19</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-06-29">2015-06-29</time>
+				  <a href="/2015/06/29/adb-notes/" title="adb常用命令笔记">adb常用命令笔记</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/06/29/adb-notes/">
+				        <h2 class="post-title">
+                            adb常用命令笔记
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-06-29</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="java">
+                    <span class="tag-text">java</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-25">2016-01-25</time>
+				  <a href="/2016/01/25/java-classloader/" title="Java类加载器(ClassLoader)">Java类加载器(ClassLoader)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/25/java-classloader/">
+				        <h2 class="post-title">
+                            Java类加载器(ClassLoader)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-25</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-23">2016-01-23</time>
+				  <a href="/2016/01/23/java-annotation/" title="Java注解(Annotation)">Java注解(Annotation)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/23/java-annotation/">
+				        <h2 class="post-title">
+                            Java注解(Annotation)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-23</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-10">2016-01-10</time>
+				  <a href="/2016/01/10/java-memory/" title="Jvm内存模型">Jvm内存模型</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/10/java-memory/">
+				        <h2 class="post-title">
+                            Jvm内存模型
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-10</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-04">2016-01-04</time>
+				  <a href="/2016/01/04/java-thread-wait-sleep/" title="wait、notify、sleep、interrupt对比分析">wait、notify、sleep、interrupt对比分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/04/java-thread-wait-sleep/">
+				        <h2 class="post-title">
+                            wait、notify、sleep、interrupt对比分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-04</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-27">2015-10-27</time>
+				  <a href="/2015/10/27/jvm-subsystem/" title="Jvm系列4—执行子系统">Jvm系列4—执行子系统</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/27/jvm-subsystem/">
+				        <h2 class="post-title">
+                            Jvm系列4—执行子系统
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-27</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-26">2015-10-26</time>
+				  <a href="/2015/10/26/jvm-class-loading/" title="Jvm系列3—类的加载">Jvm系列3—类的加载</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/26/jvm-class-loading/">
+				        <h2 class="post-title">
+                            Jvm系列3—类的加载
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-26</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-25">2015-10-25</time>
+				  <a href="/2015/10/25/jvm-bytecode-grammar/" title="Jvm系列2—字节码指令">Jvm系列2—字节码指令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/25/jvm-bytecode-grammar/">
+				        <h2 class="post-title">
+                            Jvm系列2—字节码指令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-25</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-17">2015-10-17</time>
+				  <a href="/2015/10/17/jvm-class-instruction/" title="Jvm系列1—Class文件格式">Jvm系列1—Class文件格式</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/17/jvm-class-instruction/">
+				        <h2 class="post-title">
+                            Jvm系列1—Class文件格式
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-17</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-07-20">2015-07-20</time>
+				  <a href="/2015/07/20/java-reflection-2/" title="Java反射之实用篇">Java反射之实用篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/07/20/java-reflection-2/">
+				        <h2 class="post-title">
+                            Java反射之实用篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-07-20</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-07-19">2015-07-19</time>
+				  <a href="/2015/07/19/java-reflection/" title="Java反射之基础篇">Java反射之基础篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/07/19/java-reflection/">
+				        <h2 class="post-title">
+                            Java反射之基础篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-07-19</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-07-06">2015-07-06</time>
+				  <a href="/2015/07/06/design-patterns/" title="设计模式-开篇">设计模式-开篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/07/06/design-patterns/">
+				        <h2 class="post-title">
+                            设计模式-开篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-07-06</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="pattern">
+                    <span class="tag-text">pattern</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-07-06">2015-07-06</time>
+				  <a href="/2015/07/06/design-patterns/" title="设计模式-开篇">设计模式-开篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/07/06/design-patterns/">
+				        <h2 class="post-title">
+                            设计模式-开篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-07-06</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="反射">
+                    <span class="tag-text">反射</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-07-20">2015-07-20</time>
+				  <a href="/2015/07/20/java-reflection-2/" title="Java反射之实用篇">Java反射之实用篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/07/20/java-reflection-2/">
+				        <h2 class="post-title">
+                            Java反射之实用篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-07-20</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-07-19">2015-07-19</time>
+				  <a href="/2015/07/19/java-reflection/" title="Java反射之基础篇">Java反射之基础篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/07/19/java-reflection/">
+				        <h2 class="post-title">
+                            Java反射之基础篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-07-19</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="Java">
+                    <span class="tag-text">Java</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-07-27">2015-07-27</time>
+				  <a href="/2015/07/27/java-condition-compile/" title="Java中的条件编译">Java中的条件编译</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/07/27/java-condition-compile/">
+				        <h2 class="post-title">
+                            Java中的条件编译
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-07-27</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="Performance">
+                    <span class="tag-text">Performance</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-07-27">2015-07-27</time>
+				  <a href="/2015/07/27/java-condition-compile/" title="Java中的条件编译">Java中的条件编译</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/07/27/java-condition-compile/">
+				        <h2 class="post-title">
+                            Java中的条件编译
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-07-27</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="android studio">
+                    <span class="tag-text">android studio</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-11">2015-10-11</time>
+				  <a href="/2015/10/11/Android-Tools/" title="Android Studio 内存工具">Android Studio 内存工具</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/11/Android-Tools/">
+				        <h2 class="post-title">
+                            Android Studio 内存工具
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-11</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-09">2015-08-09</time>
+				  <a href="/2015/08/09/android-studio-shortcut/" title="Android Studio 快捷键">Android Studio 快捷键</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/09/android-studio-shortcut/">
+				        <h2 class="post-title">
+                            Android Studio 快捷键
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-09</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="app">
+                    <span class="tag-text">app</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-28">2015-09-28</time>
+				  <a href="/2015/09/28/App-optimize2/" title="APP优化(二)">APP优化(二)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/28/App-optimize2/">
+				        <h2 class="post-title">
+                            APP优化(二)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-28</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-27">2015-09-27</time>
+				  <a href="/2015/09/27/App-optimize1/" title="APP优化(一)">APP优化(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/27/App-optimize1/">
+				        <h2 class="post-title">
+                            APP优化(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-27</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-11">2015-08-11</time>
+				  <a href="/2015/08/11/android-arch-coding-style/" title="Android开发规范">Android开发规范</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/11/android-arch-coding-style/">
+				        <h2 class="post-title">
+                            Android开发规范
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-11</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="performance">
+                    <span class="tag-text">performance</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-18">2016-01-18</time>
+				  <a href="/2016/01/18/traceview/" title="性能工具Traceview">性能工具Traceview</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/18/traceview/">
+				        <h2 class="post-title">
+                            性能工具Traceview
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-18</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-18">2016-01-18</time>
+				  <a href="/2016/01/18/systrace/" title="性能工具Systrace">性能工具Systrace</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/18/systrace/">
+				        <h2 class="post-title">
+                            性能工具Systrace
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-18</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-28">2015-09-28</time>
+				  <a href="/2015/09/28/App-optimize2/" title="APP优化(二)">APP优化(二)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/28/App-optimize2/">
+				        <h2 class="post-title">
+                            APP优化(二)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-28</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-27">2015-09-27</time>
+				  <a href="/2015/09/27/App-optimize1/" title="APP优化(一)">APP优化(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/27/App-optimize1/">
+				        <h2 class="post-title">
+                            APP优化(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-27</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-30">2015-08-30</time>
+				  <a href="/2015/08/30/optimize-array-loop/" title="数组遍历的性能分析">数组遍历的性能分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/30/optimize-array-loop/">
+				        <h2 class="post-title">
+                            数组遍历的性能分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-30</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-16">2015-08-16</time>
+				  <a href="/2015/08/16/Android-performance-1/" title="Performance Patterns(一)">Performance Patterns(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/16/Android-performance-1/">
+				        <h2 class="post-title">
+                            Performance Patterns(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-16</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="tool">
+                    <span class="tag-text">tool</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-18">2016-01-18</time>
+				  <a href="/2016/01/18/traceview/" title="性能工具Traceview">性能工具Traceview</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/18/traceview/">
+				        <h2 class="post-title">
+                            性能工具Traceview
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-18</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-18">2016-01-18</time>
+				  <a href="/2016/01/18/systrace/" title="性能工具Systrace">性能工具Systrace</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/18/systrace/">
+				        <h2 class="post-title">
+                            性能工具Systrace
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-18</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-02">2016-01-02</time>
+				  <a href="/2016/01/02/memory-analysis-command/" title=" Android内存分析命令"> Android内存分析命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/02/memory-analysis-command/">
+				        <h2 class="post-title">
+                             Android内存分析命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-02</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-12">2015-10-12</time>
+				  <a href="/2015/10/12/ps-command/" title="ps进程命令">ps进程命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/12/ps-command/">
+				        <h2 class="post-title">
+                            ps进程命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-12</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-11">2015-10-11</time>
+				  <a href="/2015/10/11/Android-Tools/" title="Android Studio 内存工具">Android Studio 内存工具</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/11/Android-Tools/">
+				        <h2 class="post-title">
+                            Android Studio 内存工具
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-11</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-23">2015-08-23</time>
+				  <a href="/2015/08/23/tool-dumpsys/" title="dumpsys工具">dumpsys工具</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/23/tool-dumpsys/">
+				        <h2 class="post-title">
+                            dumpsys工具
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-23</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="dumpsys">
+                    <span class="tag-text">dumpsys</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-08-23">2015-08-23</time>
+				  <a href="/2015/08/23/tool-dumpsys/" title="dumpsys工具">dumpsys工具</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/08/23/tool-dumpsys/">
+				        <h2 class="post-title">
+                            dumpsys工具
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-08-23</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="input">
+                    <span class="tag-text">input</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-09-19">2015-09-19</time>
+				  <a href="/2015/09/19/android-touch/" title="Android事件分发机制">Android事件分发机制</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/09/19/android-touch/">
+				        <h2 class="post-title">
+                            Android事件分发机制
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-09-19</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="process">
+                    <span class="tag-text">process</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-04-16">2016-04-16</time>
+				  <a href="/2016/04/16/kill-signal/" title="理解杀进程的实现原理">理解杀进程的实现原理</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/04/16/kill-signal/">
+				        <h2 class="post-title">
+                            理解杀进程的实现原理
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-04-16</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-27">2016-03-27</time>
+				  <a href="/2016/03/27/app-process-create/" title="理解Android进程创建流程">理解Android进程创建流程</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/27/app-process-create/">
+				        <h2 class="post-title">
+                            理解Android进程创建流程
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-27</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-20">2015-12-20</time>
+				  <a href="/2015/12/20/android-process-category/" title="进程篇—进程整理">进程篇—进程整理</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/20/android-process-category/">
+				        <h2 class="post-title">
+                            进程篇—进程整理
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-20</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-13">2015-12-13</time>
+				  <a href="/2015/12/13/android-process-manage/" title="进程状态的切换">进程状态的切换</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/13/android-process-manage/">
+				        <h2 class="post-title">
+                            进程状态的切换
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-13</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-12">2015-10-12</time>
+				  <a href="/2015/10/12/ps-command/" title="ps进程命令">ps进程命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/12/ps-command/">
+				        <h2 class="post-title">
+                            ps进程命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-12</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-02">2015-10-02</time>
+				  <a href="/2015/10/02/process-lifecycle/" title="Android进程生命周期与ADJ">Android进程生命周期与ADJ</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/02/process-lifecycle/">
+				        <h2 class="post-title">
+                            Android进程生命周期与ADJ
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-02</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-02">2015-10-02</time>
+				  <a href="/2015/10/02/process-priority/" title="进程优先级">进程优先级</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/02/process-priority/">
+				        <h2 class="post-title">
+                            进程优先级
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-02</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="priority">
+                    <span class="tag-text">priority</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-02">2015-10-02</time>
+				  <a href="/2015/10/02/process-priority/" title="进程优先级">进程优先级</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/02/process-priority/">
+				        <h2 class="post-title">
+                            进程优先级
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-02</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="adj">
+                    <span class="tag-text">adj</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-02">2015-10-02</time>
+				  <a href="/2015/10/02/process-lifecycle/" title="Android进程生命周期与ADJ">Android进程生命周期与ADJ</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/02/process-lifecycle/">
+				        <h2 class="post-title">
+                            Android进程生命周期与ADJ
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-02</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="lowmemorykiller">
+                    <span class="tag-text">lowmemorykiller</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-02">2015-10-02</time>
+				  <a href="/2015/10/02/process-lifecycle/" title="Android进程生命周期与ADJ">Android进程生命周期与ADJ</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/02/process-lifecycle/">
+				        <h2 class="post-title">
+                            Android进程生命周期与ADJ
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-02</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="dalvik">
+                    <span class="tag-text">dalvik</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-04">2015-10-04</time>
+				  <a href="/2015/10/04/Android-GC/" title="Dalvik与ART的GC调试">Dalvik与ART的GC调试</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/04/Android-GC/">
+				        <h2 class="post-title">
+                            Dalvik与ART的GC调试
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-04</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="art">
+                    <span class="tag-text">art</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-04">2015-10-04</time>
+				  <a href="/2015/10/04/Android-GC/" title="Dalvik与ART的GC调试">Dalvik与ART的GC调试</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/04/Android-GC/">
+				        <h2 class="post-title">
+                            Dalvik与ART的GC调试
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-04</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="gc">
+                    <span class="tag-text">gc</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-04">2015-10-04</time>
+				  <a href="/2015/10/04/Android-GC/" title="Dalvik与ART的GC调试">Dalvik与ART的GC调试</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/04/Android-GC/">
+				        <h2 class="post-title">
+                            Dalvik与ART的GC调试
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-04</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="memory">
+                    <span class="tag-text">memory</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-10">2016-01-10</time>
+				  <a href="/2016/01/10/java-memory/" title="Jvm内存模型">Jvm内存模型</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/10/java-memory/">
+				        <h2 class="post-title">
+                            Jvm内存模型
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-10</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-02">2016-01-02</time>
+				  <a href="/2016/01/02/memory-analysis-command/" title=" Android内存分析命令"> Android内存分析命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/02/memory-analysis-command/">
+				        <h2 class="post-title">
+                             Android内存分析命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-02</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-31">2015-10-31</time>
+				  <a href="/2015/10/31/kernel-memory/" title="Linux内存管理">Linux内存管理</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/31/kernel-memory/">
+				        <h2 class="post-title">
+                            Linux内存管理
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-31</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-11">2015-10-11</time>
+				  <a href="/2015/10/11/Android-Tools/" title="Android Studio 内存工具">Android Studio 内存工具</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/11/Android-Tools/">
+				        <h2 class="post-title">
+                            Android Studio 内存工具
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-11</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="command">
+                    <span class="tag-text">command</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-20">2016-03-20</time>
+				  <a href="/2016/03/20/android-build/" title="理解Android编译命令">理解Android编译命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/20/android-build/">
+				        <h2 class="post-title">
+                            理解Android编译命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-20</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-29">2016-02-29</time>
+				  <a href="/2016/02/29/pm-command/" title="Pm命令用法">Pm命令用法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/29/pm-command/">
+				        <h2 class="post-title">
+                            Pm命令用法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-29</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-28">2016-02-28</time>
+				  <a href="/2016/02/28/am-command/" title="Am命令用法">Am命令用法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/28/am-command/">
+				        <h2 class="post-title">
+                            Am命令用法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-28</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-12">2015-10-12</time>
+				  <a href="/2015/10/12/ps-command/" title="ps进程命令">ps进程命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/12/ps-command/">
+				        <h2 class="post-title">
+                            ps进程命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-12</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="jvm">
+                    <span class="tag-text">jvm</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-25">2016-01-25</time>
+				  <a href="/2016/01/25/java-classloader/" title="Java类加载器(ClassLoader)">Java类加载器(ClassLoader)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/25/java-classloader/">
+				        <h2 class="post-title">
+                            Java类加载器(ClassLoader)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-25</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-10">2016-01-10</time>
+				  <a href="/2016/01/10/java-memory/" title="Jvm内存模型">Jvm内存模型</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/10/java-memory/">
+				        <h2 class="post-title">
+                            Jvm内存模型
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-10</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-27">2015-10-27</time>
+				  <a href="/2015/10/27/jvm-subsystem/" title="Jvm系列4—执行子系统">Jvm系列4—执行子系统</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/27/jvm-subsystem/">
+				        <h2 class="post-title">
+                            Jvm系列4—执行子系统
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-27</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-26">2015-10-26</time>
+				  <a href="/2015/10/26/jvm-class-loading/" title="Jvm系列3—类的加载">Jvm系列3—类的加载</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/26/jvm-class-loading/">
+				        <h2 class="post-title">
+                            Jvm系列3—类的加载
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-26</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-25">2015-10-25</time>
+				  <a href="/2015/10/25/jvm-bytecode-grammar/" title="Jvm系列2—字节码指令">Jvm系列2—字节码指令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/25/jvm-bytecode-grammar/">
+				        <h2 class="post-title">
+                            Jvm系列2—字节码指令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-25</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-17">2015-10-17</time>
+				  <a href="/2015/10/17/jvm-class-instruction/" title="Jvm系列1—Class文件格式">Jvm系列1—Class文件格式</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/17/jvm-class-instruction/">
+				        <h2 class="post-title">
+                            Jvm系列1—Class文件格式
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-17</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="binder">
+                    <span class="tag-text">binder</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-06">2016-03-06</time>
+				  <a href="/2016/03/06/binder-clearCallingIdentity/" title="Binder IPC的权限控制">Binder IPC的权限控制</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/06/binder-clearCallingIdentity/">
+				        <h2 class="post-title">
+                            Binder IPC的权限控制
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-06</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-29">2015-11-29</time>
+				  <a href="/2015/11/29/binder-summary/" title="Binder系列10—总结">Binder系列10—总结</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/29/binder-summary/">
+				        <h2 class="post-title">
+                            Binder系列10—总结
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-29</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-24">2015-11-24</time>
+				  <a href="/2015/11/24/binder-aidl/" title="Binder系列9—如何使用AIDL">Binder系列9—如何使用AIDL</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/24/binder-aidl/">
+				        <h2 class="post-title">
+                            Binder系列9—如何使用AIDL
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-24</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-23">2015-11-23</time>
+				  <a href="/2015/11/23/binder-use/" title="Binder系列8—如何使用Binder">Binder系列8—如何使用Binder</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/23/binder-use/">
+				        <h2 class="post-title">
+                            Binder系列8—如何使用Binder
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-23</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-22">2015-11-22</time>
+				  <a href="/2015/11/22/binder-framework/" title="Binder系列7—framework层分析">Binder系列7—framework层分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/22/binder-framework/">
+				        <h2 class="post-title">
+                            Binder系列7—framework层分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-22</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-16">2015-11-16</time>
+				  <a href="/2015/11/16/binder-get-service/" title="Binder系列6—获取服务(getService)">Binder系列6—获取服务(getService)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/16/binder-get-service/">
+				        <h2 class="post-title">
+                            Binder系列6—获取服务(getService)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-16</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-14">2015-11-14</time>
+				  <a href="/2015/11/14/binder-add-service/" title="Binder系列5—注册服务(addService)">Binder系列5—注册服务(addService)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/14/binder-add-service/">
+				        <h2 class="post-title">
+                            Binder系列5—注册服务(addService)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-14</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-08">2015-11-08</time>
+				  <a href="/2015/11/08/binder-get-sm/" title="Binder系列4—获取ServiceManager">Binder系列4—获取ServiceManager</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/08/binder-get-sm/">
+				        <h2 class="post-title">
+                            Binder系列4—获取ServiceManager
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-08</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-08">2015-11-08</time>
+				  <a href="/2015/11/08/binder-start-sm/" title="Binder系列3—启动ServiceManager">Binder系列3—启动ServiceManager</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/08/binder-start-sm/">
+				        <h2 class="post-title">
+                            Binder系列3—启动ServiceManager
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-08</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-03">2015-11-03</time>
+				  <a href="/2015/11/03/binder-driver-2/" title="Binder系列2—Binder Driver再探">Binder系列2—Binder Driver再探</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/03/binder-driver-2/">
+				        <h2 class="post-title">
+                            Binder系列2—Binder Driver再探
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-03</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-02">2015-11-02</time>
+				  <a href="/2015/11/02/binder-driver/" title="Binder系列1—Binder Driver初探">Binder系列1—Binder Driver初探</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/02/binder-driver/">
+				        <h2 class="post-title">
+                            Binder系列1—Binder Driver初探
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-02</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-10-31">2015-10-31</time>
+				  <a href="/2015/10/31/binder-prepare/" title="Binder系列—开篇">Binder系列—开篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/10/31/binder-prepare/">
+				        <h2 class="post-title">
+                            Binder系列—开篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-10-31</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="driver">
+                    <span class="tag-text">driver</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-03">2015-11-03</time>
+				  <a href="/2015/11/03/binder-driver-2/" title="Binder系列2—Binder Driver再探">Binder系列2—Binder Driver再探</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/03/binder-driver-2/">
+				        <h2 class="post-title">
+                            Binder系列2—Binder Driver再探
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-03</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="framework">
+                    <span class="tag-text">framework</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-22">2015-11-22</time>
+				  <a href="/2015/11/22/binder-framework/" title="Binder系列7—framework层分析">Binder系列7—framework层分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/22/binder-framework/">
+				        <h2 class="post-title">
+                            Binder系列7—framework层分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-22</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="AIDL">
+                    <span class="tag-text">AIDL</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-11-24">2015-11-24</time>
+				  <a href="/2015/11/24/binder-aidl/" title="Binder系列9—如何使用AIDL">Binder系列9—如何使用AIDL</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/11/24/binder-aidl/">
+				        <h2 class="post-title">
+                            Binder系列9—如何使用AIDL
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-11-24</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="reference">
+                    <span class="tag-text">reference</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-05">2015-12-05</time>
+				  <a href="/2015/12/05/android-refbase/" title="Android强弱引用">Android强弱引用</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/05/android-refbase/">
+				        <h2 class="post-title">
+                            Android强弱引用
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-05</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="Linux">
+                    <span class="tag-text">Linux</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-07">2015-12-07</time>
+				  <a href="/2015/12/07/linux_epoll/" title="select/poll/epoll对比分析">select/poll/epoll对比分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/07/linux_epoll/">
+				        <h2 class="post-title">
+                            select/poll/epoll对比分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-07</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="epoll">
+                    <span class="tag-text">epoll</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-07">2015-12-07</time>
+				  <a href="/2015/12/07/linux_epoll/" title="select/poll/epoll对比分析">select/poll/epoll对比分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/07/linux_epoll/">
+				        <h2 class="post-title">
+                            select/poll/epoll对比分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-07</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="linux">
+                    <span class="tag-text">linux</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-21">2015-12-21</time>
+				  <a href="/2015/12/21/signal/" title="Linux信号(signal)机制">Linux信号(signal)机制</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/21/signal/">
+				        <h2 class="post-title">
+                            Linux信号(signal)机制
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-21</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="signal">
+                    <span class="tag-text">signal</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-21">2015-12-21</time>
+				  <a href="/2015/12/21/signal/" title="Linux信号(signal)机制">Linux信号(signal)机制</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/21/signal/">
+				        <h2 class="post-title">
+                            Linux信号(signal)机制
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-21</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="handler">
+                    <span class="tag-text">handler</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-01">2016-01-01</time>
+				  <a href="/2016/01/01/handler-message-usage/" title="Android消息机制3-Handler(实战)">Android消息机制3-Handler(实战)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/01/handler-message-usage/">
+				        <h2 class="post-title">
+                            Android消息机制3-Handler(实战)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-01</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-28">2015-12-28</time>
+				  <a href="/2015/12/28/handler-message-native/" title="Android消息机制2-Handler(Native层)">Android消息机制2-Handler(Native层)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/28/handler-message-native/">
+				        <h2 class="post-title">
+                            Android消息机制2-Handler(Native层)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-28</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-27">2015-12-27</time>
+				  <a href="/2015/12/27/handler-message-framework/" title="Android消息机制1-Handler(Java层)">Android消息机制1-Handler(Java层)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/27/handler-message-framework/">
+				        <h2 class="post-title">
+                            Android消息机制1-Handler(Java层)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-27</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="native">
+                    <span class="tag-text">native</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2015-12-28">2015-12-28</time>
+				  <a href="/2015/12/28/handler-message-native/" title="Android消息机制2-Handler(Native层)">Android消息机制2-Handler(Native层)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2015/12/28/handler-message-native/">
+				        <h2 class="post-title">
+                            Android消息机制2-Handler(Native层)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2015-12-28</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="thread">
+                    <span class="tag-text">thread</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-17">2016-01-17</time>
+				  <a href="/2016/01/17/thread-pool/" title="Java线程池分析">Java线程池分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/17/thread-pool/">
+				        <h2 class="post-title">
+                            Java线程池分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-17</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-04">2016-01-04</time>
+				  <a href="/2016/01/04/java-thread-wait-sleep/" title="wait、notify、sleep、interrupt对比分析">wait、notify、sleep、interrupt对比分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/04/java-thread-wait-sleep/">
+				        <h2 class="post-title">
+                            wait、notify、sleep、interrupt对比分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-04</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="power">
+                    <span class="tag-text">power</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-11">2016-01-11</time>
+				  <a href="/2016/01/11/power_rank/" title="Android耗电统计算法">Android耗电统计算法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/11/power_rank/">
+				        <h2 class="post-title">
+                            Android耗电统计算法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-11</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="systrace">
+                    <span class="tag-text">systrace</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-18">2016-01-18</time>
+				  <a href="/2016/01/18/systrace/" title="性能工具Systrace">性能工具Systrace</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/18/systrace/">
+				        <h2 class="post-title">
+                            性能工具Systrace
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-18</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="traceview">
+                    <span class="tag-text">traceview</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-18">2016-01-18</time>
+				  <a href="/2016/01/18/traceview/" title="性能工具Traceview">性能工具Traceview</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/18/traceview/">
+				        <h2 class="post-title">
+                            性能工具Traceview
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-18</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="annotation">
+                    <span class="tag-text">annotation</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-23">2016-01-23</time>
+				  <a href="/2016/01/23/java-annotation/" title="Java注解(Annotation)">Java注解(Annotation)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/23/java-annotation/">
+				        <h2 class="post-title">
+                            Java注解(Annotation)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-23</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="classloader">
+                    <span class="tag-text">classloader</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-25">2016-01-25</time>
+				  <a href="/2016/01/25/java-classloader/" title="Java类加载器(ClassLoader)">Java类加载器(ClassLoader)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/25/java-classloader/">
+				        <h2 class="post-title">
+                            Java类加载器(ClassLoader)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-25</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="boot">
+                    <span class="tag-text">boot</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-27">2016-03-27</time>
+				  <a href="/2016/03/27/app-process-create/" title="理解Android进程创建流程">理解Android进程创建流程</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/27/app-process-create/">
+				        <h2 class="post-title">
+                            理解Android进程创建流程
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-27</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-13">2016-03-13</time>
+				  <a href="/2016/03/13/start-activity/" title="startActivity流程分析(一)">startActivity流程分析(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/13/start-activity/">
+				        <h2 class="post-title">
+                            startActivity流程分析(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-13</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-07">2016-03-07</time>
+				  <a href="/2016/03/07/start-service/" title="startService流程分析">startService流程分析</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/07/start-service/">
+				        <h2 class="post-title">
+                            startService流程分析
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-07</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-22">2016-02-22</time>
+				  <a href="/2016/02/22/activity-manager-service/" title="ActivityManagerService启动过程(一)">ActivityManagerService启动过程(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/22/activity-manager-service/">
+				        <h2 class="post-title">
+                            ActivityManagerService启动过程(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-22</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-21">2016-02-21</time>
+				  <a href="/2016/02/21/android-system-server-2/" title="Android系统启动-SystemServer下篇">Android系统启动-SystemServer下篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/21/android-system-server-2/">
+				        <h2 class="post-title">
+                            Android系统启动-SystemServer下篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-21</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-15">2016-02-15</time>
+				  <a href="/2016/02/15/android-system-server/" title="Android系统启动-SystemServer上篇">Android系统启动-SystemServer上篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/15/android-system-server/">
+				        <h2 class="post-title">
+                            Android系统启动-SystemServer上篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-15</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-14">2016-02-14</time>
+				  <a href="/2016/02/14/android-zygote/" title="Android系统启动-zygote篇">Android系统启动-zygote篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/14/android-zygote/">
+				        <h2 class="post-title">
+                            Android系统启动-zygote篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-14</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-06">2016-02-06</time>
+				  <a href="/2016/02/06/android-init/" title="Android系统启动-init篇">Android系统启动-init篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/06/android-init/">
+				        <h2 class="post-title">
+                            Android系统启动-init篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-06</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-01-31">2016-01-31</time>
+				  <a href="/2016/01/31/android-boot/" title="Android系统-开篇">Android系统-开篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/01/31/android-boot/">
+				        <h2 class="post-title">
+                            Android系统-开篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-01-31</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="init">
+                    <span class="tag-text">init</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-06">2016-02-06</time>
+				  <a href="/2016/02/06/android-init/" title="Android系统启动-init篇">Android系统启动-init篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/06/android-init/">
+				        <h2 class="post-title">
+                            Android系统启动-init篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-06</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="zygote">
+                    <span class="tag-text">zygote</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-14">2016-02-14</time>
+				  <a href="/2016/02/14/android-zygote/" title="Android系统启动-zygote篇">Android系统启动-zygote篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/14/android-zygote/">
+				        <h2 class="post-title">
+                            Android系统启动-zygote篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-14</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="SystemServer">
+                    <span class="tag-text">SystemServer</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-21">2016-02-21</time>
+				  <a href="/2016/02/21/android-system-server-2/" title="Android系统启动-SystemServer下篇">Android系统启动-SystemServer下篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/21/android-system-server-2/">
+				        <h2 class="post-title">
+                            Android系统启动-SystemServer下篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-21</p> -->
+				</div>
+				<hr>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-15">2016-02-15</time>
+				  <a href="/2016/02/15/android-system-server/" title="Android系统启动-SystemServer上篇">Android系统启动-SystemServer上篇</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/15/android-system-server/">
+				        <h2 class="post-title">
+                            Android系统启动-SystemServer上篇
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-15</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="AMSs">
+                    <span class="tag-text">AMSs</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-22">2016-02-22</time>
+				  <a href="/2016/02/22/activity-manager-service/" title="ActivityManagerService启动过程(一)">ActivityManagerService启动过程(一)</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/22/activity-manager-service/">
+				        <h2 class="post-title">
+                            ActivityManagerService启动过程(一)
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-22</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="am">
+                    <span class="tag-text">am</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-28">2016-02-28</time>
+				  <a href="/2016/02/28/am-command/" title="Am命令用法">Am命令用法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/28/am-command/">
+				        <h2 class="post-title">
+                            Am命令用法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-28</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="pm">
+                    <span class="tag-text">pm</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-02-29">2016-02-29</time>
+				  <a href="/2016/02/29/pm-command/" title="Pm命令用法">Pm命令用法</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/02/29/pm-command/">
+				        <h2 class="post-title">
+                            Pm命令用法
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-02-29</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="make">
+                    <span class="tag-text">make</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-03-20">2016-03-20</time>
+				  <a href="/2016/03/20/android-build/" title="理解Android编译命令">理解Android编译命令</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/03/20/android-build/">
+				        <h2 class="post-title">
+                            理解Android编译命令
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-03-20</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="kill">
+                    <span class="tag-text">kill</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-04-16">2016-04-16</time>
+				  <a href="/2016/04/16/kill-signal/" title="理解杀进程的实现原理">理解杀进程的实现原理</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/04/16/kill-signal/">
+				        <h2 class="post-title">
+                            理解杀进程的实现原理
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-04-16</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+			<div class="one-tag-list">
+			  	<span class="fa fa-tag listing-seperator" id="自学编程">
+                    <span class="tag-text">自学编程</span>
+                </span>
+				
+				  <!-- <li class="listing-item">
+				  <time datetime="2016-04-25">2016-04-25</time>
+				  <a href="/2016/04/25/how-to-study-android/" title="如何自学Android">如何自学Android</a>
+				  </li> -->
+				 <div class="post-preview">
+				    <a href="/2016/04/25/how-to-study-android/">
+				        <h2 class="post-title">
+                            如何自学Android
+				        </h2>
+				        
+				    </a>
+				    <!-- <p class="post-meta">2016-04-25</p> -->
+				</div>
+				<hr>
+				
+			</div>
+			
+
+		</div>
+	</div>
+</div>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

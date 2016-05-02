@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>性能工具Systrace - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2016/01/18/systrace/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#android" title="android">android</a>
+                        
+                        <a class="tag" href="/tags/#performance" title="performance">performance</a>
+                        
+                        <a class="tag" href="/tags/#tool" title="tool">tool</a>
+                        
+                        <a class="tag" href="/tags/#systrace" title="systrace">systrace</a>
+                        
+                    </div>
+                    <h1>性能工具Systrace</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on January 18, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>无论是系统开发者，还是应用开发者都应该掌握systrace这一神技。</p>
+</blockquote>
+
+<h2 id="section">一、概述</h2>
+
+<p>保证系统流畅度，也就是保证系统能连续不间断地提供每秒60帧的运行状态。当出现掉帧时（也可称为Jank），需要知道当前整个系统所处的状态，systrace便是最佳的选择，它能手机检测android系统各个组件随着时间的运行状态，并能提示该如何有效地修复问题，接下来说说systrace如何使用以及如何解读。</p>
+
+<h2 id="systrace">二、Systrace</h2>
+
+<h3 id="systrace-1">2.1 自定义systrace</h3>
+
+<p><strong>java framework层</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>import android.os.Trace; 
+Trace.traceBegin(long traceTag, String methodName)
+Trace.traceEnd(long traceTag)
+</code></pre>
+</div>
+
+<p>在代码中必须成对出现，一般将traceEnd放入到finally语句块，另外，必须在同一个线程。</p>
+
+<p><strong>app层</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>import android.os.Trace;
+Trace.beginSection(String sectionName)
+Trace.EndSection()
+</code></pre>
+</div>
+
+<p>这里默认的traceTag为<code class="highlighter-rouge">TRACE_TAG_APP</code>，systrace命令通过指定app参数即</p>
+
+<p><strong>native framework层</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>#include&lt;utils/Trace.h&gt;
+ATRACE_CALL();
+</code></pre>
+</div>
+
+<h3 id="section-1">2.2 命令用法</h3>
+
+<p><strong>命令行</strong></p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>python systrace.py [options] [category1] [category2] ... [categoryN]
+</code></pre>
+</div>
+
+<h4 id="options">2.2.1 options</h4>
+
+<p>其中options可取值：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>options</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>-o <code class="highlighter-rouge">&lt;FILE</code>&gt;</td>
+      <td>输出的目标文件</td>
+    </tr>
+    <tr>
+      <td>-t N, –time=N</td>
+      <td>执行时间，默认5s</td>
+    </tr>
+    <tr>
+      <td>-b N, –buf-size=N</td>
+      <td>buffer大小（单位kB),用于限制trace总大小，默认无上限</td>
+    </tr>
+    <tr>
+      <td>-k <code class="highlighter-rouge">&lt;KFUNCS</code>&gt;，–ktrace=<code class="highlighter-rouge">&lt;KFUNCS</code>&gt;</td>
+      <td>追踪kernel函数，用逗号分隔</td>
+    </tr>
+    <tr>
+      <td>-a <code class="highlighter-rouge">&lt;APP_NAME</code>&gt;,–app=<code class="highlighter-rouge">&lt;APP_NAME</code>&gt;</td>
+      <td>追踪应用包名，用逗号分隔</td>
+    </tr>
+    <tr>
+      <td>–from-file=<code class="highlighter-rouge">&lt;FROM_FILE</code>&gt;</td>
+      <td>从文件中创建互动的systrace</td>
+    </tr>
+    <tr>
+      <td>-e <code class="highlighter-rouge">&lt;DEVICE_SERIAL</code>&gt;,–serial=<code class="highlighter-rouge">&lt;DEVICE_SERIAL</code>&gt;</td>
+      <td>指定设备</td>
+    </tr>
+    <tr>
+      <td>-l, –list-categories</td>
+      <td>列举可用的tags</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="category">2.2.2 category</h4>
+
+<p>category可取值：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>category</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>gfx</td>
+      <td>Graphics</td>
+    </tr>
+    <tr>
+      <td>input</td>
+      <td>Input</td>
+    </tr>
+    <tr>
+      <td>view</td>
+      <td>View System</td>
+    </tr>
+    <tr>
+      <td>webview</td>
+      <td>WebView</td>
+    </tr>
+    <tr>
+      <td>wm</td>
+      <td>Window Manager</td>
+    </tr>
+    <tr>
+      <td>am</td>
+      <td>Activity Manager</td>
+    </tr>
+    <tr>
+      <td>sm</td>
+      <td>Sync Manager</td>
+    </tr>
+    <tr>
+      <td>audio</td>
+      <td>Audio</td>
+    </tr>
+    <tr>
+      <td>video</td>
+      <td>Video</td>
+    </tr>
+    <tr>
+      <td>camera</td>
+      <td>Camera</td>
+    </tr>
+    <tr>
+      <td>hal</td>
+      <td>Hardware Modules</td>
+    </tr>
+    <tr>
+      <td>app</td>
+      <td>Application</td>
+    </tr>
+    <tr>
+      <td>res</td>
+      <td>Resource Loading</td>
+    </tr>
+    <tr>
+      <td>dalvik</td>
+      <td>Dalvik VM</td>
+    </tr>
+    <tr>
+      <td>rs</td>
+      <td>RenderScript</td>
+    </tr>
+    <tr>
+      <td>bionic</td>
+      <td>Bionic C Library</td>
+    </tr>
+    <tr>
+      <td>power</td>
+      <td>Power Management</td>
+    </tr>
+    <tr>
+      <td>sched</td>
+      <td>CPU Scheduling</td>
+    </tr>
+    <tr>
+      <td>irq</td>
+      <td>IRQ Events</td>
+    </tr>
+    <tr>
+      <td>freq</td>
+      <td>CPU Frequency</td>
+    </tr>
+    <tr>
+      <td>idle</td>
+      <td>CPU Idle</td>
+    </tr>
+    <tr>
+      <td>disk</td>
+      <td>Disk I/O</td>
+    </tr>
+    <tr>
+      <td>mmc</td>
+      <td>eMMC commands</td>
+    </tr>
+    <tr>
+      <td>load</td>
+      <td>CPU Load</td>
+    </tr>
+    <tr>
+      <td>sync</td>
+      <td>Synchronization</td>
+    </tr>
+    <tr>
+      <td>workq</td>
+      <td>Kernel Workqueues</td>
+    </tr>
+    <tr>
+      <td>memreclaim</td>
+      <td>Kernel Memory Reclaim</td>
+    </tr>
+    <tr>
+      <td>regulators</td>
+      <td>Voltage and Current Regulators</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="section-2">2.2.3 示例</h4>
+
+<p>例如，在<code class="highlighter-rouge">systrace.py</code>所在目录下执行指令：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>python systrace.py -b 32768 -t 5 -o mytrace.html wm gfx input view sched freq
+</code></pre>
+</div>
+
+<p>又例如，输出全部的trace信息</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>python systrace.py -b 32768 -t 5 -o mytrace.html gfx input view webview wm am sm audio video camera hal app res dalvik rs bionic power sched irq freq idle disk mmc load sync workq memreclaim regulators
+</code></pre>
+</div>
+
+<p><strong>注：</strong>收集trace，需要提前安装python，并且一定要注意必须是python 2.x，而不是能3.x，否则可能会出现问题。另外，buffer大小不可过大，否则会出现oom异常。</p>
+
+<h3 id="section-3">2.3 图形化</h3>
+
+<p>横坐标是以时间为单位，纵坐标是以进程-线程的方式来划分，同一进程的线程为一组放在一起，可收缩/展开，如下图：</p>
+
+<p><img src="/images/android-tools/systrace.jpg" alt="systrace" /></p>
+
+<h4 id="frames">2.3.1 Frames</h4>
+
+<p>产生的html格式的trace文件必须使用Google Chrome打开，才能正确地解析并已图标形式展现。上图中红色圈起来的，都是可以点击操作的地方，最上方是搜索栏，往下处是Alerts按钮，再往下是鼠标操作模式。</p>
+
+<p>在每个app进程，都有一个Frames行，正常情况以绿色的圆点表示。当圆点颜色为黄色或者红色时，意味着这一帧超过16.6ms（即发现丢帧），这时需要通过放大那一帧进一步分析问题。对于Android 5.0(API level 21)或者更高的设备，该问题主要聚焦在UI Thread和Render Thread这两个线程当中。对于更早的版本，则所有工作在UI Thread。</p>
+
+<p><img src="/images/android-tools/systrace2.jpg" alt="systrace" /></p>
+
+<h4 id="alerts">2.3.2 Alerts</h4>
+
+<p>Systrace能自动分析trace中的事件，并能自动高亮性能问题作为一个Alerts，建议调试人员下一步该怎么做。</p>
+
+<p>比如对于丢帧是，点击黄色或红色的Frames圆点便会有相关的提示信息；另外，在systrace的最右上方，有一个Alerts tab可以展开，这里记录着所有的的警告提示信息。</p>
+
+<p><strong>注：</strong>本文讲到最新版的systrace，其中sdk 23，chrome版本49.0，部分功能在老版本systrace并没有。</p>
+
+<h2 id="section-4">三、 快捷操作</h2>
+
+<h3 id="section-5">3.1 导航操作</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>导航操作</th>
+      <th>作用</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>w</td>
+      <td>放大，[+shift]速度更快</td>
+    </tr>
+    <tr>
+      <td>s</td>
+      <td>缩小，[+shift]速度更快</td>
+    </tr>
+    <tr>
+      <td>a</td>
+      <td>左移，[+shift]速度更快</td>
+    </tr>
+    <tr>
+      <td>d</td>
+      <td>右移，[+shift]速度更快</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="section-6">3.2 快捷操作</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>常用操作</th>
+      <th>作用</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>f</td>
+      <td><strong>放大</strong>当前选定区域</td>
+    </tr>
+    <tr>
+      <td>m</td>
+      <td><strong>标记</strong>当前选定区域</td>
+    </tr>
+    <tr>
+      <td>v</td>
+      <td>高亮<strong>VSync</strong></td>
+    </tr>
+    <tr>
+      <td>g</td>
+      <td>切换是否显示<strong>60hz</strong>的网格线</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>恢复trace到<strong>初始态</strong>，这里是数字0而非字母o</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>一般操作</th>
+      <th>作用</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>h</td>
+      <td>切换是否显示详情</td>
+    </tr>
+    <tr>
+      <td>/</td>
+      <td>搜索关键字</td>
+    </tr>
+    <tr>
+      <td>enter</td>
+      <td>显示搜索结果，可通过← →定位搜索结果</td>
+    </tr>
+    <tr>
+      <td>`</td>
+      <td>显示/隐藏脚本控制台</td>
+    </tr>
+    <tr>
+      <td>?</td>
+      <td>显示帮助功能</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>对于脚本控制台，除了能当做记事本的功能，目前还不清楚有啥功能，或许还在开发中。</p>
+
+<h3 id="section-7">3.3 模式切换</h3>
+
+<ol>
+  <li>Select mode: <strong>双击已选定区</strong>能将所有相同的块高亮选中；（对应数字1）</li>
+  <li>Pan mode: 拖动平移视图（对应数字2）</li>
+  <li>Zoom mode:通过上/下拖动鼠标来实现放大/缩小功能；（对应数字3）</li>
+  <li>Timing mode:拖动来创建或移除时间窗口线。（对应数字4）</li>
+</ol>
+
+<p>可通过按数字1~4，用于切换鼠标模式； 另外，按住alt键，再滚动鼠标滚轮能实现放大/缩小功能。</p>
+
+<hr />
+<p>如果觉得本文对您有所帮助，请关注我的<strong>微信公众号：gityuan</strong>， <strong><a href="http://weibo.com/gityuan">微博：Gityuan</a></strong>。 或者<a href="http://gityuan.com/about/">点击这里查看更多关于gityuan个人信息</a></p>
+
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2016/01/18/systrace"
+                    data-title="性能工具Systrace"
+                    data-url="http://gityuan.com/2016/01/18/systrace/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  无论是系统开发者，还是应用开发者都应该掌握systrace这一神技。
+
+
+一、概述
+
+保证系统流畅度，也就是保证系统能连续不间断地提供每秒60帧的运... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/01/17/thread-pool/" data-toggle="tooltip" data-placement="top" title="Java线程池分析">
+                        Previous<br>
+                        <span>Java线程池分析</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/01/18/traceview/" data-toggle="tooltip" data-placement="top" title="性能工具Traceview">
+                        Next<br>
+                        <span>性能工具Traceview</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2016/01/18/systrace"
+                        data-title="性能工具Systrace"
+                        data-url="http://gityuan.com/2016/01/18/systrace/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

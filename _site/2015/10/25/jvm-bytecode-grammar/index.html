@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Jvm系列2—字节码指令 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/10/25/jvm-bytecode-grammar/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#java" title="java">java</a>
+                        
+                        <a class="tag" href="/tags/#jvm" title="jvm">jvm</a>
+                        
+                    </div>
+                    <h1>Jvm系列2—字节码指令</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on October 25, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>介绍java虚拟机的指令功能，至少能阅读java代码生成的字节码指令含义</p>
+</blockquote>
+
+<h1 id="section">一、概述</h1>
+
+<p>Java虚拟机采用基于栈的架构，其指令由操作码和操作数组成。</p>
+
+<ul>
+  <li>操作码：一个字节长度(0~255)，意味着指令集的操作码个数不能操作256条。</li>
+  <li>操作数：一条指令可以有零或者多个操作数，且操作数可以是1个或者多个字节。编译后的代码没有采用操作数长度对齐方式，比如16位无符号整数需使用两个字节储存(假设为byte1和byte2)，那么真实值是 <code class="highlighter-rouge">(byte1 &lt;&lt; 8) | byte2</code>。</li>
+</ul>
+
+<p>放弃操作数对齐操作数对齐方案：</p>
+
+<ul>
+  <li>优势：可以省略很多填充和间隔符号，从而减少数据量，具有更高的传输效率；Java起初就是为了面向网络、智能家具而设计的，故更加注重传输效率。</li>
+  <li>劣势：运行时从字节码里构建出具体数据结构，需要花费部分CPU时间，从而导致解释执行字节码会损失部分性能。</li>
+</ul>
+
+<h2 id="section-1">二、指令</h2>
+
+<p>大多数指令包含了其操作所对应的数据类型信息，比如iload，表示从局部变量表中加载int型的数据到操作数栈；而fload表示加载float型数据到操作数栈。由于操作码长度只有1Byte，因此Java虚拟机的指令集对于特定操作只提供有限的类型相关指令，并非为每一种数据类型都有相应的操作指令。必要时，有些指令可用于将不支持的类型转换为可被支持的类型。</p>
+
+<p>对于byte,short,char,boolean类型，往往没有单独的操作码，通过编译器在编译期或者运行期将其扩展。对于byte,short采用带符号扩展，chart,boolean采用零位扩展。相应的数组也是采用类似的扩展方式转换为int类型的字节码来处理。 下面分门别类来介绍Java虚拟机指令，都以int类型的数据操作为例。</p>
+
+<p>栈是指操作数栈</p>
+
+<h3 id="section-2">2.1 栈操作相关</h3>
+
+<h4 id="loadstore">load和store</h4>
+
+<ul>
+  <li>load 命令：用于将局部变量表的指定位置的相应类型变量加载到栈顶；</li>
+  <li>store命令：用于将栈顶的相应类型数据保入局部变量表的指定位置；</li>
+</ul>
+
+<table>
+  <thead>
+    <tr>
+      <th>变量进栈</th>
+      <th>含义</th>
+      <th>变量保存</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>iload</td>
+      <td>第1个int型变量进栈</td>
+      <td>istore</td>
+      <td>栈顶nt数值存入第1局部变量</td>
+    </tr>
+    <tr>
+      <td>iload_0</td>
+      <td>第1个int型变量进栈</td>
+      <td>istore_0</td>
+      <td>栈顶int数值存入第1局部变量</td>
+    </tr>
+    <tr>
+      <td>iload_1</td>
+      <td>第2个int型变量进栈</td>
+      <td>istore_1</td>
+      <td>栈顶int数值存入第2局部变量</td>
+    </tr>
+    <tr>
+      <td>iload_2</td>
+      <td>第3个int型变量进栈</td>
+      <td>istore_2</td>
+      <td>栈顶int数值存入第3局部变量</td>
+    </tr>
+    <tr>
+      <td>iload_3</td>
+      <td>第4个int型变量进栈</td>
+      <td>istore_3</td>
+      <td>栈顶int数值存入第4局部变量</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>lload</td>
+      <td>第1个long型变量进栈</td>
+      <td>lstore</td>
+      <td>栈顶long数值存入第1局部变量</td>
+    </tr>
+    <tr>
+      <td>fload</td>
+      <td>第1个float型变量进栈</td>
+      <td>fstore</td>
+      <td>栈顶float数值存入第1局部变量</td>
+    </tr>
+    <tr>
+      <td>dload</td>
+      <td>第1个double型变量进栈</td>
+      <td>dstore</td>
+      <td>栈顶double数值存入第1局部变量</td>
+    </tr>
+    <tr>
+      <td>aload</td>
+      <td>第1个ref型变量进栈</td>
+      <td>astore</td>
+      <td>栈顶ref对象存入第1局部变量</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="constpushldc">const、push和ldc</h4>
+<ul>
+  <li>const、push：将相应类型的常量放入栈顶</li>
+  <li>ldc:则是从常量池中将常量</li>
+</ul>
+
+<table>
+  <thead>
+    <tr>
+      <th>常量进栈</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>aconst_null</td>
+      <td>null进栈</td>
+    </tr>
+    <tr>
+      <td>iconst_m1</td>
+      <td>int型常量-1进栈</td>
+    </tr>
+    <tr>
+      <td>iconst_0</td>
+      <td>int型常量0进栈</td>
+    </tr>
+    <tr>
+      <td>iconst_1</td>
+      <td>int型常量1进栈</td>
+    </tr>
+    <tr>
+      <td>iconst_2</td>
+      <td>int型常量2进栈</td>
+    </tr>
+    <tr>
+      <td>iconst_3</td>
+      <td>int型常量3进栈</td>
+    </tr>
+    <tr>
+      <td>iconst_4</td>
+      <td>int型常量4进栈</td>
+    </tr>
+    <tr>
+      <td>iconst_5</td>
+      <td>int型常量5进栈</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>lconst_0</td>
+      <td>long型常量0进栈</td>
+    </tr>
+    <tr>
+      <td>fconst_0</td>
+      <td>float型常量0进栈</td>
+    </tr>
+    <tr>
+      <td>dconst_0</td>
+      <td>double型常量0进栈</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>bipush</td>
+      <td>byte型常量进栈</td>
+    </tr>
+    <tr>
+      <td>sipush</td>
+      <td>short型常量进栈</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>常量池操作</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ldc</td>
+      <td>int、float或String型常量从常量池推送至栈顶</td>
+    </tr>
+    <tr>
+      <td>ldc_w</td>
+      <td>int、float或String型常量从常量池推送至栈顶（宽索引）</td>
+    </tr>
+    <tr>
+      <td>ldc2_w</td>
+      <td>long或double型常量从常量池推送至栈顶（宽索引）</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="popdup">pop和dup</h4>
+
+<ul>
+  <li>pop用于栈顶数值出栈操作；</li>
+  <li>dup用于赋值栈顶的指定个数的数值，并将其压入栈顶指定次数；</li>
+</ul>
+
+<table>
+  <thead>
+    <tr>
+      <th>栈顶操作</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>pop</td>
+      <td>栈顶数值出栈(不能是long/double)</td>
+    </tr>
+    <tr>
+      <td>pop2</td>
+      <td>栈顶数值出栈(long/double型1个，其他2个)</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>dup</td>
+      <td>复制栈顶数值，并压入栈顶</td>
+    </tr>
+    <tr>
+      <td>dup_x1</td>
+      <td>复制栈顶数值，并压入栈顶2次</td>
+    </tr>
+    <tr>
+      <td>dup_x2</td>
+      <td>复制栈顶数值，并压入栈顶3次</td>
+    </tr>
+    <tr>
+      <td>dup2</td>
+      <td>复制栈顶2个数值，并压入栈顶</td>
+    </tr>
+    <tr>
+      <td>dup2_x1</td>
+      <td>复制栈顶2个数值，并压入栈顶2次</td>
+    </tr>
+    <tr>
+      <td>dup2_x2</td>
+      <td>复制栈顶2个数值，并压入栈顶3次</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>swap</td>
+      <td>栈顶的两个数值互换，且不能是long/double</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>注意：dup2</strong>对于long、double类型的数据就是一个，对于其他类型的数据，才是真正的两个，这个的2代表的是2个slot的数据。</p>
+
+<h3 id="section-3">2.2 对象相关</h3>
+
+<h4 id="section-4">字段调用</h4>
+
+<table>
+  <thead>
+    <tr>
+      <th>字段调用</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>getstatic</td>
+      <td>获取类的静态字段，将其值压入栈顶</td>
+    </tr>
+    <tr>
+      <td>putstatic</td>
+      <td>给类的静态字段赋值</td>
+    </tr>
+    <tr>
+      <td>getfield</td>
+      <td>获取对象的字段，将其值压入栈顶</td>
+    </tr>
+    <tr>
+      <td>putfield</td>
+      <td>给对象的字段赋值</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="section-5">方法调用</h4>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法调用</th>
+      <th>作用</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>invokevirtual</td>
+      <td>调用实例方法</td>
+      <td>虚方法分派</td>
+    </tr>
+    <tr>
+      <td>invokestatic</td>
+      <td>调用类方法</td>
+      <td>static方法</td>
+    </tr>
+    <tr>
+      <td>invokeinterface</td>
+      <td>调用接口方法</td>
+      <td>运行时搜索合适方法调用</td>
+    </tr>
+    <tr>
+      <td>invokespecial</td>
+      <td>调用特殊实例方法</td>
+      <td>包括实例初始化方法、父类方法</td>
+    </tr>
+    <tr>
+      <td>invokedynamic</td>
+      <td>由用户引导方法决定</td>
+      <td>运行时动态解析出调用点限定符所引用方法</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="section-6">方法返回</h4>
+
+<table>
+  <thead>
+    <tr>
+      <th>方法返回</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ireturn</td>
+      <td>当前方法返回int</td>
+    </tr>
+    <tr>
+      <td>lreturn</td>
+      <td>当前方法返回long</td>
+    </tr>
+    <tr>
+      <td>freturn</td>
+      <td>当前方法返回float</td>
+    </tr>
+    <tr>
+      <td>dreturn</td>
+      <td>当前方法返回double</td>
+    </tr>
+    <tr>
+      <td>areturn</td>
+      <td>当前方法返回ref</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 id="section-7">对象和数组</h4>
+
+<ul>
+  <li>创建类实例： new</li>
+  <li>创建数组：newarray、anewarray、multianewarray</li>
+  <li>数组元素 加载到 操作数栈：xaload (x可为b,c,s,i,l,f,d,a)</li>
+  <li>操作数栈的值 存储到数组元素： xastore (x可为b,c,s,i,l,f,d,a)</li>
+  <li>数组长度：arraylength</li>
+  <li>类实例类型：instanceof、checkcast</li>
+</ul>
+
+<h3 id="section-8">2.3 运算指令</h3>
+
+<p>运算指令是用于对操作数栈上的两个数值进行某种运算，并把结果重新存入到操作栈顶。Java虚拟机只支持整型和浮点型两类数据的运算指令，所有指令如下：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>运算</th>
+      <th>int</th>
+      <th>long</th>
+      <th>float</th>
+      <th>double</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>加法</td>
+      <td>iadd</td>
+      <td>ladd</td>
+      <td>fadd</td>
+      <td>dadd</td>
+    </tr>
+    <tr>
+      <td>减法</td>
+      <td>isub</td>
+      <td>lsub</td>
+      <td>fsub</td>
+      <td>dsub</td>
+    </tr>
+    <tr>
+      <td>乘法</td>
+      <td>imul</td>
+      <td>lmul</td>
+      <td>fmul</td>
+      <td>dmul</td>
+    </tr>
+    <tr>
+      <td>除法</td>
+      <td>idiv</td>
+      <td>ldiv</td>
+      <td>fdiv</td>
+      <td>ddiv</td>
+    </tr>
+    <tr>
+      <td>求余</td>
+      <td>irem</td>
+      <td>lrem</td>
+      <td>frem</td>
+      <td>drem</td>
+    </tr>
+    <tr>
+      <td>取反</td>
+      <td>ineg</td>
+      <td>lneg</td>
+      <td>fneg</td>
+      <td>dneg</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>其他运算：</strong></p>
+
+<ul>
+  <li>位移：ishl,ishr,iushr,lshl,lshr,lushr</li>
+  <li>按位或： ior,lor</li>
+  <li>按位与： iand, land</li>
+  <li>按位异或： ixor, lxor</li>
+  <li>自增：iin</li>
+  <li>比较：dcmpg,dcmpl,fcmpg,fcmpl,lcmp</li>
+</ul>
+
+<h3 id="section-9">2.4 类型转换</h3>
+
+<p>类型转换用于将两种不同类型的数值进行转换。</p>
+
+<p>(1) 对于宽化类型转换(小范围向大范围转换)，无需显式的转换指令，并且是安全的操作。各种范围从小到大依次排序： int, long, float, double。</p>
+
+<p>(2)对于窄化类型转换，必须显式地调用类型转换指令，并且该过程很可能导致精度丢失。转换规则中需要特别注意的是当浮点值为NaN, 则转换结果为int或long的0。虽然窄化运算可能会发生上/下限溢出和精度丢失等情况，但虚拟机规范明确规定窄化转换U不可能导致虚拟机抛出异常。</p>
+
+<p>类型转换指令：<code class="highlighter-rouge">i2b, i2c,f2i</code>等等。</p>
+
+<h3 id="section-10">2.5 流程控制</h3>
+
+<p>控制指令是指有条件或无条件地修改PC寄存器的值，从而达到控制流程的目标</p>
+
+<ul>
+  <li>条件分支：ifeq、iflt、ifnull、ifnonnull等</li>
+  <li>复合分支：tableswitch、lookupswitch</li>
+  <li>无条件分支：goto、goto_w、jsr、jsr_w、ret</li>
+</ul>
+
+<h3 id="section-11">2.6 同步与异常</h3>
+
+<p><strong>异常：</strong></p>
+
+<p>Java程序显式抛出异常： athrow指令。在Java虚拟机中，处理异常(catch语句)不是由字节码指令来实现，而是采用异常表来完成。</p>
+
+<p><strong>同步：</strong></p>
+
+<p>方法级的同步和方法内部分代码的同步，都是依靠管程(Monitor)来实现的。</p>
+
+<p>Java语言使用synchronized语句块，那么Java虚拟机的指令集中通过monitorenter和monitorexit两条指令来完成synchronized的功能。为了保证monitorenter和monitorexit指令一定能成对的调用（不管方法正常结束还是异常结束），编译器会自动生成一个异常处理器，该异常处理器的主要目的是用于执行monitorexit指令。</p>
+
+<h3 id="section-12">2.7 小结</h3>
+
+<p>在基于堆栈的的虚拟机中，指令的主战场便是操作数栈，除了load是从局部变量表加载数据到操作数栈以及store储存数据到局部变量表，其余指令基本都是用于操作数栈的。</p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/10/25/jvm-bytecode-grammar"
+                    data-title="Jvm系列2—字节码指令"
+                    data-url="http://gityuan.com/2015/10/25/jvm-bytecode-grammar/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  介绍java虚拟机的指令功能，至少能阅读java代码生成的字节码指令含义
+
+
+一、概述
+
+Java虚拟机采用基于栈的架构，其指令由操作码和操作数组成... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/10/17/jvm-class-instruction/" data-toggle="tooltip" data-placement="top" title="Jvm系列1—Class文件格式">
+                        Previous<br>
+                        <span>Jvm系列1—Class文件格式</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/10/26/jvm-class-loading/" data-toggle="tooltip" data-placement="top" title="Jvm系列3—类的加载">
+                        Next<br>
+                        <span>Jvm系列3—类的加载</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/10/25/jvm-bytecode-grammar"
+                        data-title="Jvm系列2—字节码指令"
+                        data-url="http://gityuan.com/2015/10/25/jvm-bytecode-grammar/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

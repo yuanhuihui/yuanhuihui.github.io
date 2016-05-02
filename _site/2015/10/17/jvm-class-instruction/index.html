@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="gityuan">
+    <meta name="keyword"  content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="description" content="Android,gityuan,Android技术博客,Android源码分析,袁辉辉">
+    <meta name="baidu-site-verification" content="tgshRgudx0" />
+    <link rel="shortcut icon" href="/images/favicon.ico"/>
+    <title>Jvm系列1—Class文件格式 - Gityuan博客</title>
+
+    <link rel="canonical" href="http://gityuan.com/2015/10/17/jvm-class-instruction/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">Gityuan</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Category</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+
+    // Bind Event
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+
+    /**
+     * Since Fastclick is used to delegate 'touchstart' globally
+     * to hack 300ms delay in iOS by performing a fake 'click',
+     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * $toggle/$collapse will break global delegation.
+     * 
+     * Instead, we use a 'e.target' filter to prevent handler
+     * added to document close HuxNav.  
+     *
+     * Also, we use 'click' instead of 'touchstart' as compromise
+     */
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home-bg.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#java" title="java">java</a>
+                        
+                        <a class="tag" href="/tags/#jvm" title="jvm">jvm</a>
+                        
+                    </div>
+                    <h1>Jvm系列1—Class文件格式</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by Gityuan on October 17, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>Java编译过程是将Java文件转换为Claaa文件，从而实现了跨平台的功能， 本文详细讲述Class文件结构。</p>
+</blockquote>
+
+<h1 id="section">一、 概述</h1>
+<p>计算机只能识别0和1，所以大家编写的程序都需要经过编译器，转换为由0和1组成的二进制本地机器码(Native Code)。随着虚拟机的不断发展，很多程序语言开始选择与操作系统和机器指令集无关的格式作为编译后的存储格式（Class文件），从而实现”Write Once, Run Anywhere”。<br />
+Java设计之初，考虑后期能让Java虚拟机运行其他语言，目前有越来越多的其他语言都可以直接需要在Java虚拟机，虚拟机只能识别Class文件，至于是由何种语言编译而来的，虚拟机并不关心，如下图：</p>
+
+<p><img src="/images/jvm/Jvm_class_loading_1.png" alt="Jvm_class_loading_1" /></p>
+
+<p>可以看出不管是由Java语言，还是JRuby等其他语言，只能能生成.class字节码文件，就都可以运行在Java虚拟机上。故发布规范文档时，Java规范拆分为Java语言规范和Java虚拟机规范。</p>
+
+<p>Java语法中定义各种变量、关键字、运算符的语义最终由多个字节码命令组合而成。因此字节码命令所能提供的语义描述能力必然要比Java语言本身更加强大。</p>
+
+<h1 id="class">二、Class组成</h1>
+<p>Class文件是一组以8位字节为单位的二进制流，中间没有任何分隔符，非常紧凑。 当需要占用8位以上的数据时，会按照Big-endian顺序，高位在前，低位在后的方式来分割成多个8位字节来存储。</p>
+
+<ul>
+  <li>任何一个Class文件都对应着唯一的类或接口的定义信息；</li>
+  <li>类或接口并不一定定义在文件里，也可以通过类加载器直接生成。</li>
+</ul>
+
+<p>Java虚拟机规范规定：Class文件格式采用伪结构来存储数据，伪结构中只有无符号数和表这两种数据类型。</p>
+
+<ul>
+  <li>无符号数：是基本数据类型，以u1、u2、u4、u8分别代表1个字节、2个字节、4个字节、8个字节的无符号数。无符号数用于描述数字、索引引用、数量值、字符串值。</li>
+  <li>表：是由多个无符号数或者子表作为数据项构成的符合数据类型。用于描述有层次关系的复合结构的数据。整个Class其实就是一张表。</li>
+</ul>
+
+<h2 id="section-1">2.1 相关概念</h2>
+
+<p>下面介绍几个概述：</p>
+
+<h4 id="section-2">全限定名</h4>
+<p>是指把类全名中的“.”号，用“/”号替换，并且在最后加入一个“；”分号后生成的名称。比如<code class="highlighter-rouge">java.lang.Object</code>对应的全限定名为<code class="highlighter-rouge">java/lang/Object;</code> 。</p>
+
+<h4 id="section-3">简单名</h4>
+<p>这个比较好理解，就是直接的方法名或者字段。比如<code class="highlighter-rouge">toString()</code>方法，不需要包名作为前缀了。</p>
+
+<h4 id="section-4">字段描述符</h4>
+<p>用于描述字段的数据类型。</p>
+
+<p>规则如下：</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>基本类型字符</th>
+      <th style="text-align: left">对应类型</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>B</td>
+      <td style="text-align: left">byte</td>
+    </tr>
+    <tr>
+      <td>C</td>
+      <td style="text-align: left">char</td>
+    </tr>
+    <tr>
+      <td>D</td>
+      <td style="text-align: left">double</td>
+    </tr>
+    <tr>
+      <td>F</td>
+      <td style="text-align: left">float</td>
+    </tr>
+    <tr>
+      <td>I</td>
+      <td style="text-align: left">int</td>
+    </tr>
+    <tr>
+      <td>S</td>
+      <td style="text-align: left">short</td>
+    </tr>
+    <tr>
+      <td>J</td>
+      <td style="text-align: left">long</td>
+    </tr>
+    <tr>
+      <td>Z</td>
+      <td style="text-align: left">boolean</td>
+    </tr>
+    <tr>
+      <td>V</td>
+      <td style="text-align: left">void</td>
+    </tr>
+    <tr>
+      <td>L+classname +;</td>
+      <td style="text-align: left">对象类型</td>
+    </tr>
+    <tr>
+      <td>[</td>
+      <td style="text-align: left">数组类型</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>例如：</p>
+
+<ul>
+  <li>基本类型：int    ==&gt;  I</li>
+  <li>对象类型：String ==&gt;  Ljava/lang/String;</li>
+  <li>数组类型：long[] ==&gt;  [J</li>
+</ul>
+
+<h4 id="section-5">方法描述符</h4>
+<p>用来描述方法的参数列表(数量、类型以及顺序)和返回值。</p>
+
+<p>格式：(参数描述符列表)返回值描述符。<br />
+例如：<code class="highlighter-rouge">Object m(int i, double d, Thread t) {..}</code>  ==&gt;  <code class="highlighter-rouge">IDLjava/lang/Thread;)Ljava/lang/Object;</code></p>
+
+<h2 id="classfile">2.2 ClassFile结构</h2>
+<p>一个Class类文件是由一个ClassFile结构组成：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>ClassFile {
+    u4             magic;               //魔数，固定值0xCAFEBABE
+    u2             minor_version;       //次版本号
+    u2             major_version;       //主版本号
+    u2             constant_pool_count; //常量的个数
+    cp_info        constant_pool[constant_pool_count-1];  //具体的常量池内容
+    u2             access_flags;        //访问标识
+    u2             this_class;          //当前类索引
+    u2             super_class;         //父类索引
+    u2             interfaces_count;    //接口的个数
+    u2             interfaces[interfaces_count];          //具体的接口内容
+    u2             fields_count;        //字段的个数
+    field_info     fields[fields_count];                  //具体的字段内容
+    u2             methods_count;       //方法的个数
+    method_info    methods[methods_count];                //具体的方法内容
+    u2             attributes_count;    //属性的个数
+    attribute_info attributes[attributes_count];          //具体的属性内容
+}
+</code></pre>
+</div>
+
+<p>一个Class文件的大小：26 + cp_info[] + u2[] + field_info[] + method_info[] + attribute_info[]</p>
+
+<p>接下来，将具体来介绍ClassFile文件的各个组成部分。</p>
+
+<h1 id="classfile-1">三、ClassFile文件组成</h1>
+
+<h3 id="section-6">3.1 魔数</h3>
+<p>每个Class文件头4个字节称为魔数(Magic Number),作用是用于确定这个Class文件是否能被虚拟机所接受，魔数固定值0xCAFEBABE。这是身份识别，比如jpeg等图片文件头也会有魔数。</p>
+
+<h3 id="section-7">3.2 版本号</h3>
+<p>紧跟魔数，也占用4个字节。从第5字节到第8字节存储的分别是 次版本号，主版本号。</p>
+
+<h3 id="section-8">3.3 常量池</h3>
+<p>常量池是Class文件空间最大的数据项之一，长度不固定。</p>
+
+<p>a. 常量池长度<br />
+用u2类型代表常量池容量计数值，u2紧跟版本号。u2的大小等于常量池的常量个数+1。对于u2=0的特殊情况，代表没有使用常量池。</p>
+
+<p>b. 常量池内容,格式如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>cp_info {
+    u1 tag;
+    u1 info[];
+}
+</code></pre>
+</div>
+
+<p>包括两个类常量，字面量和符号引用：</p>
+
+<ul>
+  <li>字面量：与Java语言层面的常量概念相近，包含文本字符串、声明为final的常量值等。</li>
+  <li>符号引用：编译语言层面的概念，包括以下3类：
+    <ul>
+      <li>类和接口的全限定名</li>
+      <li>字段的名称和描述符</li>
+      <li>方法的名称和描述符</li>
+    </ul>
+  </li>
+</ul>
+
+<p>常量池中每一项常量都是一个表结构，每个表的开始第一位是u1类型的标志位tag, 代表当前这个常量的类型。在JDK 1.7.中共有14种不同的表结构的类型，如下：</p>
+
+<p><img src="/images/jvm/constant_type.png" alt="constant_type" /></p>
+
+<p>Class文件都是二进制格式，可通过<code class="highlighter-rouge">Jdk/bin/javap.exe</code>工具，分析Class文件字节码。关于javap用法，可通过<code class="highlighter-rouge">javap --help</code>来查看。</p>
+
+<h3 id="section-9">3.4 访问标识</h3>
+<p>2个字节代表，标示用于识别一些类或者接口层次的访问信息.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>标识名</th>
+      <th style="text-align: left">标识值</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ACC_PUBLIC</td>
+      <td style="text-align: left">0x0001</td>
+      <td>声明为public;可以从包外部访问</td>
+    </tr>
+    <tr>
+      <td>ACC_FINAL</td>
+      <td style="text-align: left">0x0010</td>
+      <td>被声明为final;不允许子类修改</td>
+    </tr>
+    <tr>
+      <td>ACC_SUPER</td>
+      <td style="text-align: left">0x0020</td>
+      <td>当被invokespecial指令调用时，将特殊对待父类的方法</td>
+    </tr>
+    <tr>
+      <td>ACC_INTERFACE</td>
+      <td style="text-align: left">0x0200</td>
+      <td>接口标识符</td>
+    </tr>
+    <tr>
+      <td>ACC_ABSTRACT</td>
+      <td style="text-align: left">0x0400</td>
+      <td>声明为abstract;不能被实例化</td>
+    </tr>
+    <tr>
+      <td>ACC_SYNTHETIC</td>
+      <td style="text-align: left">0x1000</td>
+      <td>声明为synthetic;不存在于源代码，由编译器生成</td>
+    </tr>
+    <tr>
+      <td>ACC_ANNOTATION</td>
+      <td style="text-align: left">0x2000</td>
+      <td>声明为注释类型</td>
+    </tr>
+    <tr>
+      <td>ACC_ENUM</td>
+      <td style="text-align: left">0x4000</td>
+      <td>声明为枚举类型</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="section-10">3.5 类/父类索引</h3>
+
+<p>当前类索引和父类索引占用大小都为u2类型，由于一个类智能继承一个父类，故父类索引只有一个。除了java.lang.Object对象的父类索引为0，其他所有类都有父类。</p>
+
+<h3 id="section-11">3.6 接口索引</h3>
+
+<p>一个类可以实现多个接口，故利用interfaces_count来记录该类所实现的接口个数，interfaces[interfaces_count]来记录所有实现的接口内容。</p>
+
+<h3 id="section-12">3.7 字段表</h3>
+
+<p>字段表用于描述类或接口中声明的变量，格式如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>field_info {
+    u2             access_flags; //访问标识
+    u2             name_index;  //名称索引
+    u2             descriptor_index; //描述符索引
+    u2             attributes_count; //属性个数
+    attribute_info attributes[attributes_count];  //属性表的具体内容
+}
+</code></pre>
+</div>
+
+<p>字段访问标识如下：(表中加粗项是字段独有的)</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>标识名</th>
+      <th style="text-align: left">标识值</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ACC_PUBLIC</td>
+      <td style="text-align: left">0x0001</td>
+      <td>声明为 public; 可以从包外部访问</td>
+    </tr>
+    <tr>
+      <td>ACC_PRIVATE</td>
+      <td style="text-align: left">0x0002</td>
+      <td>声明为 private; 只有定义的类可以访问</td>
+    </tr>
+    <tr>
+      <td>ACC_PROTECTED</td>
+      <td style="text-align: left">0x0004</td>
+      <td>声明为 protected;只有子类和相同package的类可访问</td>
+    </tr>
+    <tr>
+      <td>ACC_STATIC</td>
+      <td style="text-align: left">0x0008</td>
+      <td>声明为 static；属于类变量</td>
+    </tr>
+    <tr>
+      <td>ACC_FINAL</td>
+      <td style="text-align: left">0x0010</td>
+      <td>声明为 final; 对象构造后无法直接修改值</td>
+    </tr>
+    <tr>
+      <td><strong>ACC_VOLATILE</strong></td>
+      <td style="text-align: left">0x0040</td>
+      <td>声明为 volatile; 不会被缓存,直接刷新到主屏幕</td>
+    </tr>
+    <tr>
+      <td><strong>ACC_TRANSIENT</strong></td>
+      <td style="text-align: left">0x0080</td>
+      <td>声明为 transient; 不能被序列化</td>
+    </tr>
+    <tr>
+      <td>ACC_SYNTHETIC</td>
+      <td style="text-align: left">0x1000</td>
+      <td>声明为 synthetic; 不存在于源代码，由编译器生成</td>
+    </tr>
+    <tr>
+      <td>ACC_ENUM</td>
+      <td style="text-align: left">0x4000</td>
+      <td>声明为enum</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Java语法中，接口中的字段默认包含ACC_PUBLIC, ACC_STATIC, ACC_FINAL标识。ACC_FINAL，ACC_VOLATILE不能同时选择等规则。</p>
+
+<p>紧跟其后的name_index和descriptor_index是对常量池的引用，分别代表着字段的简单名和方法的描述符。</p>
+
+<h3 id="section-13">3.8 方法表</h3>
+
+<p>方法表用于描述类或接口中声明的方法，格式如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>method_info {
+    u2             access_flags; //访问标识
+    u2             name_index;  //名称索引
+    u2             descriptor_index;  //描述符索引
+    u2             attributes_count;  //属性个数
+    attribute_info attributes[attributes_count]; //属性表的具体内容
+}
+</code></pre>
+</div>
+
+<p>方法访问标识如下：(表中加粗项是方法独有的)</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>标识名</th>
+      <th style="text-align: left">标识值</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ACC_PUBLIC</td>
+      <td style="text-align: left">0x0001</td>
+      <td>声明为 public; 可以从包外部访问</td>
+    </tr>
+    <tr>
+      <td>ACC_PRIVATE</td>
+      <td style="text-align: left">0x0002</td>
+      <td>声明为 private; 只有定义的类可以访问</td>
+    </tr>
+    <tr>
+      <td>ACC_PROTECTED</td>
+      <td style="text-align: left">0x0004</td>
+      <td>声明为 protected;只有子类和相同package的类可访问</td>
+    </tr>
+    <tr>
+      <td>ACC_STATIC</td>
+      <td style="text-align: left">0x0008</td>
+      <td>声明为 static；属于类变量</td>
+    </tr>
+    <tr>
+      <td>ACC_FINAL</td>
+      <td style="text-align: left">0x0010</td>
+      <td>声明为 final; 不能被覆写</td>
+    </tr>
+    <tr>
+      <td><strong>ACC_SYNCHRONIZED</strong></td>
+      <td style="text-align: left">0x0020</td>
+      <td>声明为 synchronized; 同步锁包裹</td>
+    </tr>
+    <tr>
+      <td>ACC_BRIDGE</td>
+      <td style="text-align: left">0x0040</td>
+      <td>桥接方法, 由编译器生成</td>
+    </tr>
+    <tr>
+      <td><strong>ACC_VARARGS</strong></td>
+      <td style="text-align: left">0x0080</td>
+      <td>声明为 接收不定长参数</td>
+    </tr>
+    <tr>
+      <td><strong>ACC_NATIVE</strong></td>
+      <td style="text-align: left">0x0100</td>
+      <td>声明为 native; 由非Java语言来实现</td>
+    </tr>
+    <tr>
+      <td><strong>ACC_ABSTRACT</strong></td>
+      <td style="text-align: left">0x0400</td>
+      <td>声明为 abstract; 没有提供实现</td>
+    </tr>
+    <tr>
+      <td><strong>ACC_STRICT</strong></td>
+      <td style="text-align: left">0x0800</td>
+      <td>声明为 strictfp; 浮点模式是FP-strict</td>
+    </tr>
+    <tr>
+      <td>ACC_SYNTHETIC</td>
+      <td style="text-align: left">0x1000</td>
+      <td>声明为 synthetic; 不存在于源代码，由编译器生成</td>
+    </tr>
+  </tbody>
+</table>
+
+<ul>
+  <li>对于方法里的Java代码，进过编译器编译成字节码指令后，存放在方法属性表集合中“code”的属性内。</li>
+  <li>当子类没有覆写父类方法，则方法集合中不会出现父类的方法信息。</li>
+  <li>Java语言中重载方法，必须与原方法同名，且特征签名不同。特征签名是指方法中各个参数在常量池的字段符号引用的集合，不包括返回值。当时Class文件格式中，特征签名范围更广，允许方法名和特征签名都相同，但返回值不同的方法，合法地共存子啊同一个Class文件中。</li>
+</ul>
+
+<h3 id="section-14">3.9 属性表</h3>
+
+<p>属性表格式：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>attribute_info {
+    u2 attribute_name_index;   //属性名索引
+    u4 attribute_length;       //属性长度
+    u1 info[attribute_length]; //属性的具体内容
+}
+</code></pre>
+</div>
+
+<p>属性表的限制相对宽松，不需要各个属性表有严格的顺序，只有不与已有的属性名重复，任何自定义的编译器都可以向属性表中写入自定义的属性信息，Java虚拟机运行时会忽略掉无法识别的属性。<br />
+关于虚拟机规范中预定义的属性，这里不展开讲了，列举几个常用的。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>属性名</th>
+      <th style="text-align: left">使用位置</th>
+      <th>解释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Code</td>
+      <td style="text-align: left">方法表</td>
+      <td>方法体的内容</td>
+    </tr>
+    <tr>
+      <td>ConstantValue</td>
+      <td style="text-align: left">字段表</td>
+      <td>final关键字定义的常量值</td>
+    </tr>
+    <tr>
+      <td>Deprecated</td>
+      <td style="text-align: left">类、方法表、字段表</td>
+      <td>声明为deprecated</td>
+    </tr>
+    <tr>
+      <td>InnerClasses</td>
+      <td style="text-align: left">类文件</td>
+      <td>内部类的列表</td>
+    </tr>
+    <tr>
+      <td>LineNumberTable</td>
+      <td style="text-align: left">Code属性</td>
+      <td>Java源码的行号与字节码指令的对应关系</td>
+    </tr>
+    <tr>
+      <td>LocalVariableTable</td>
+      <td style="text-align: left">Code属性</td>
+      <td>方法的局部变量描述</td>
+    </tr>
+    <tr>
+      <td>Signature</td>
+      <td style="text-align: left">类、方法表、字段表</td>
+      <td>用于支持泛型的方法签名，由于Java的泛型采用擦除法，避免类型信息被擦除后导致签名混乱，Signature记录相关信息</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Code属性</strong><br />
+java程序方法体中的代码，经编译后得到的字节码指令存储在Code属性内，Code属性位于方法表的属性集合中。但与native或者abstract的方法则不会存在Code属性中。</p>
+
+<p>Code属性的格式如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Code_attribute {
+    u2 attribute_name_index; //常量池中的uft8类型的索引，值固定为”Code“
+    u4 attribute_length; //属性值长度，为整个属性表长度-6
+    u2 max_stack;   //操作数栈的最大深度值，jvm运行时根据该值佩服栈帧
+    u2 max_locals;  //局部变量表最大存储空间，单位是slot
+    u4 code_length; // 字节码指令的个数
+    u1 code[code_length]; // 具体的字节码指令
+    u2 exception_table_length; //异常的个数
+    {   u2 start_pc; 
+        u2 end_pc;
+        u2 handler_pc; //当字节码在[start_pc, end_pc)区间出现catch_type或子类，则转到handler_pc行继续处理。
+        u2 catch_type; //当catch_type=0，则任意异常都需转到handler_pc处理
+    } exception_table[exception_table_length]; //具体的异常内容
+    u2 attributes_count;     //属性的个数
+    attribute_info attributes[attributes_count]; //具体的属性内容
+}
+</code></pre>
+</div>
+
+<ul>
+  <li>slot是虚拟机未局部变量分配内存使用的最小单位。对于byte/char/float/int/short/boolean/returnAddress等长度不超过32位的局部变量，每个占用1个Slot；对于long和double这两种64位的数据类型则需要2个Slot来存放。</li>
+  <li>实例方法中有隐藏参数this, 显式异常处理器的参数，方法体定义的局部变量都使用局部变量表来存放。</li>
+  <li>max_locals，不是所有局部变量所占Slot之和，因为Slot可以重用，javac编译器会根据变量的作用域来分配Slot给各个变量使用，从而计算出max_locals大小。</li>
+  <li>虚拟机规范限制严格方法不允许超过65535个字节码，否则拒绝编译。</li>
+</ul>
+
+<p>Code属性是Class文件中最重要的属性，Java程序的幸福课分为代码(方法体中的Java代码)和元数据(包含类、接口、字段、方法定义以及其他信息)两部分。</p>
+
+<p><strong>ConstantValue属性</strong><br />
+ConstantValue属性是指被static关键字修饰的变量（也称为类变量）。</p>
+
+<ul>
+  <li>类变量:  在类构造器<clinit>方法或者使用ConstantValue属性来赋值</clinit></li>
+  <li>实例变量：在实例构造器<init>方法进行赋值</init></li>
+</ul>
+
+<hr />
+
+<p>参考资料</p>
+
+<ol>
+  <li><a href="https://docs.oracle.com/javase/specs/jvms/se7/html/">https://docs.oracle.com/javase/specs/jvms/se7/html/</a></li>
+  <li>Java语言规范《The Java Language Specification》</li>
+  <li>Java虚拟机规范《The Java Virtual Machine Specification》</li>
+  <li>《深入理解Java虚拟机》</li>
+</ol>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/10/17/jvm-class-instruction"
+                    data-title="Jvm系列1—Class文件格式"
+                    data-url="http://gityuan.com/2015/10/17/jvm-class-instruction/"
+                    data-images="http://gityuan.com/img/home-bg.jpg"
+                    data-content="
+  Java编译过程是将Java文件转换为Claaa文件，从而实现了跨平台的功能， 本文详细讲述Class文件结构。
+
+
+一、 概述
+计算机只能识别0和... | Gityuan博客 " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/10/12/ps-command/" data-toggle="tooltip" data-placement="top" title="ps进程命令">
+                        Previous<br>
+                        <span>ps进程命令</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2015/10/25/jvm-bytecode-grammar/" data-toggle="tooltip" data-placement="top" title="Jvm系列2—字节码指令">
+                        Next<br>
+                        <span>Jvm系列2—字节码指令</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/10/17/jvm-class-instruction"
+                        data-title="Jvm系列1—Class文件格式"
+                        data-url="http://gityuan.com/2015/10/17/jvm-class-instruction/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>  
+
+    <!-- Side Catalog Container -->
+        
+            <div class="
+                col-lg-2 col-lg-offset-0
+                visible-lg-block
+                sidebar-container
+                catalog-container">
+                <div class="side-catalog">
+                    <hr class="hidden-sm hidden-xs">
+                    <h5>
+                        <a class="catalog-toggle" href="#">CATALOG</a>
+                    </h5>
+                    <ul class="catalog-body"></ul>
+                </div>
+            </div>
+        
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#android" title="android" rel="55">
+                                    android
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#activity" title="activity" rel="2">
+                                    activity
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#service" title="service" rel="2">
+                                    service
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#permission" title="permission" rel="2">
+                                    permission
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#algorithm" title="algorithm" rel="3">
+                                    algorithm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="2">
+                                    web
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#adb" title="adb" rel="2">
+                                    adb
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#java" title="java" rel="11">
+                                    java
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#反射" title="反射" rel="2">
+                                    反射
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#android studio" title="android studio" rel="2">
+                                    android studio
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#app" title="app" rel="3">
+                                    app
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#performance" title="performance" rel="6">
+                                    performance
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#tool" title="tool" rel="6">
+                                    tool
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#process" title="process" rel="7">
+                                    process
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#memory" title="memory" rel="4">
+                                    memory
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#command" title="command" rel="4">
+                                    command
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#jvm" title="jvm" rel="6">
+                                    jvm
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#binder" title="binder" rel="12">
+                                    binder
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#handler" title="handler" rel="3">
+                                    handler
+                                </a>
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#thread" title="thread" rel="2">
+                                    thread
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#boot" title="boot" rel="9">
+                                    boot
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+                				<a href="/tags/#SystemServer" title="SystemServer" rel="2">
+                                    SystemServer
+                                </a>
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                <!-- 
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="http://qianduan.guru/">前端外刊评论</a></li>
+                    
+                        <li><a href="http://lingyu.wang/">天镶的博客</a></li>
+                    
+                        <li><a href="http://hmqk1995.github.io">Luke的自留地</a></li>
+                    
+                        <li><a href="http://ebnbin.com/">Ebn's Blog</a></li>
+                    
+                        <li><a href="http://blog.smdcn.net">SmdCn's Blog</a></li>
+                    
+                        <li><a href="http://xieminis.me/">解旻的博客</a></li>
+                    
+                        <li><a href="http://dhong.co">DHong Say</a></li>
+                    
+                        <li><a href="http://ingf.github.io/">尹峰以为</a></li>
+                    
+                        <li><a href="http://wepiaofei.github.io/blog/">前端神盾局</a></li>
+                    
+                </ul>
+                 -->
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = 'gityuan';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li>
+                        <a target="_blank" href="http://weibo.com/gityuan">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+
+
+                    
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; <a href="http://gityuan.com">Gityuan</a>  2016
+                    <br>
+                    Theme by <a href="https://github.com/Huxpro/huxpro.github.io">Hux</a> | Powered by <a href="http://jekyllcn.com/">Jekyll</a>
+                </p>
+                <!-- 流量统计 -->
+								<div style="display:none">
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+								</div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/ 
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers   
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+
+<!-- Side Catalog -->
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    // toggle side catalog
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    /*
+     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+     * Fork by Hux to support padding
+     */
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>
