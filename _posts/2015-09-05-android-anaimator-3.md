@@ -2,13 +2,10 @@
 layout: post
 title:  "Android动画之插值器（三）"
 date:   2015-9-5 22:20:00
-categories: android
-excerpt:  Android属性动画
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - 动画
 
 
 ----------

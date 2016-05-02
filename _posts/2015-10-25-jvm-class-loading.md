@@ -2,14 +2,10 @@
 layout: post
 title:  "Jvm系列3—类的加载"
 date:   2015-10-25 19:16:10
-categories: jvm java
-excerpt:  Jvm系列3—类的加载
----
-
-* content
-{:toc}
-
-
+catalog:  true
+tags:
+    - java
+    - jvm
 
 ---
 

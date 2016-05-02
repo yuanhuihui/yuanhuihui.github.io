@@ -2,12 +2,10 @@
 layout: post
 title:  "Binder系列—开篇"
 date:   2015-10-31 15:20:30
-categories: android binder
-excerpt: Binder系列—开篇
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - binder
 
 ---
 

@@ -2,15 +2,10 @@
 layout: post
 title:  "Java反射之实用篇"
 date:   2015-07-19 22:05:10
-categories: java
-excerpt:  Java反射之实用篇
----
-
-* content
-{:toc}
-
-
-
+catalog:  true
+tags:
+    - java
+    - 反射
 ---
 关于Java反射，文章[Java反射之基础篇](http://gityuan.com/2015/10/30/java-reflection/)已基本介绍了反射的用法，但是反射的整个调用过程仍比较繁琐，尤其是对于新手，显得比较晦涩。下面介绍些更为简单有效的反射实用内容。
 

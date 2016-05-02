@@ -2,13 +2,11 @@
 layout: post
 title:  "Pm命令用法"
 date:   2016-02-28 20:55:51
-categories: android tool
-excerpt:  Pm命令用法
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - pm
+    - command
 
 ---
 

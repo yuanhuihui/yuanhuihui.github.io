@@ -2,15 +2,11 @@
 layout: post
 title:  "Jvm系列1—Class文件格式"
 date:   2015-10-17 10:16:10
-categories: jvm java
-excerpt:  Jvm系列1—Class文件格式
----
-
-* content
-{:toc}
-
-
-
+catalog:  true
+tags:
+    - java
+    - jvm
+    
 ---
 
 > Java编译过程是将Java文件转换为Claaa文件，从而实现了跨平台的功能， 本文详细讲述Class文件结构。

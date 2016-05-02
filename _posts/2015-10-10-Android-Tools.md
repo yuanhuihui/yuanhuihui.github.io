@@ -2,13 +2,12 @@
 layout: post
 title:  "Android Studio 内存工具"
 date:   2015-10-10 21:10:21
-categories: android tool
-excerpt:  Android Studio 内存工具
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - memory
+    - tool
+    - android studio
 
 ---
 

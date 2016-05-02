@@ -2,17 +2,9 @@
 layout: post
 title:  "Windows下搭建本地Jekyll"
 date:   2015-06-07 23:10:28
-categories: else
-excerpt: Windows下搭建本地Jekyll 建立个人博客
----
-
-
-
-
-* content
-{:toc}
-
-
+catalog:  true
+tags:
+    - jekyll
 ---
 
 >  前言：Jekyll是一个开源的博客生成工具，类似WordPress。但与之不同的是，jekyll只生成静态网页，并不需要数据库支持。

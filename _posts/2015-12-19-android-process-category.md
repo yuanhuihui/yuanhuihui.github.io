@@ -2,14 +2,10 @@
 layout: post
 title:  "进程篇—进程整理"
 date:   2015-12-19 21:10:40
-categories: android process
-excerpt:  进程篇—进程整理
----
-
-* content
-{:toc}
-
-
+catalog:  true
+tags:
+    - android
+    - process
 ---
 
 > 整理Android手机，核心进程和线程情况

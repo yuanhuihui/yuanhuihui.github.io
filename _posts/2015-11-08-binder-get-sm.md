@@ -2,13 +2,10 @@
 layout: post
 title:  "Binder系列4—获取ServiceManager"
 date:   2015-11-08 13:10:54
-categories: android binder
-excerpt:  Binder系列4—获取ServiceManager
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - binder
 
 ---
 > 基于Android 6.0的源码剖析， 本文详细地讲解了如defaultServiceManager()的流程

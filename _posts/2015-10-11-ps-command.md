@@ -2,13 +2,12 @@
 layout: post
 title:  "ps进程命令"
 date:   2015-10-11 22:20:50
-categories: android tool process
-excerpt:  ps进程命令
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - process
+    - command
+    - tool
 
 ---
 

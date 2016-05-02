@@ -2,12 +2,12 @@
 layout: post
 title:  "dumpsys工具"
 date:   2015-8-22 22:12:30
-categories: android tool
-excerpt:  dumpsys工具
+catalog:    true
+tags:
+    - android
+    - tool
+    - dumpsys
 ---
-
-* content
-{:toc}
 
 > dumpsys是Android自带的强大debug工具，能提供有多有价值的信息。
 

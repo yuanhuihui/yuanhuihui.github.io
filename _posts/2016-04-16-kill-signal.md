@@ -2,12 +2,11 @@
 layout: post
 title:  "理解杀进程的实现原理"
 date:   2016-04-16 10:10:22
-categories: android process
-excerpt:  理解杀进程的实现原理
----
-
-* content
-{:toc}
+catalog:    true
+tags:
+    - android
+    - process
+    - kill
 
 ---
 

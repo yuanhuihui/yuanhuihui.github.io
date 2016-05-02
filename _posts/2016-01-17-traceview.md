@@ -2,12 +2,12 @@
 layout: post
 title:  "性能工具Traceview"
 date:   2016-01-17 22:37:22
-categories: android performance tool
-excerpt:  性能工具Traceview
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - performance
+    - tool
+    - traceview
 
 
 ---

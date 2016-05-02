@@ -2,12 +2,9 @@
 layout: post
 title:  "进程状态的切换"
 date:   2015-12-12 19:10:40
-categories: process
-excerpt:  进程状态的切换
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - process
 
 
 ---

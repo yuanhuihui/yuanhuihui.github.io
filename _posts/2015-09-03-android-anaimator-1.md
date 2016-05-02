@@ -2,12 +2,9 @@
 layout: post
 title:  "Android动画之入门篇（一）"
 date:   2015-9-3 20:10:00
-categories: android
-excerpt:  Android动画入门
----
-
-* content
-{:toc}
+catalog:    true
+tags:
+    - android
 
 ----------
 

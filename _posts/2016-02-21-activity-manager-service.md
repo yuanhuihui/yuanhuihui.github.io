@@ -2,13 +2,11 @@
 layout: post
 title:  "ActivityManagerService启动过程(一)"
 date:   2016-02-21 21:12:40
-categories: android start-up
-excerpt:  ActivityManagerService启动过程(一)
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - boot
+    - AMSs
 
 ---
 

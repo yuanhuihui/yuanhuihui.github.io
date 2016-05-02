@@ -2,13 +2,11 @@
 layout: post
 title:  "Binder系列7—framework层分析"
 date:   2015-11-21 21:11:50
-categories: android binder
-excerpt: Binder系列7—framework层分析
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - binder
+    - framework
 
 ---
 

@@ -2,12 +2,10 @@
 layout: post
 title:  "select/poll/epoll对比分析"
 date:   2015-12-06 23:30:20
-categories: linux
-excerpt:  select/poll/epoll对比分析
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - Linux
+    - epoll
 
 
 ---

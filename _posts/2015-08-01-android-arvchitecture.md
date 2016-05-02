@@ -2,12 +2,10 @@
 layout: post
 title:  "Android体系架构"
 date:   2015-08-01 11:30:00
-categories:  android
-excerpt:  Android体系架构
+catalog:  true
+tags:
+    - android
 ---
-
-* content
-{:toc}
 
 >  
 本文讲述的Android系统体系架构，是指应用层之下的整个系统内部的架构层级关系。而并非常说的4层架构：应用层，framework，运行库与环境，Linux内核，而是把系统内部的流程调用划分更加详细。

@@ -2,12 +2,11 @@
 layout: post
 title:  "Android消息机制2-Handler(Native层)"
 date:   2015-12-27 22:30:20
-categories: android handler
-excerpt:  Android Message
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - handler
+    - native
 
 ---
 

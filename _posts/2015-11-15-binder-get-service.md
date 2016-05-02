@@ -2,12 +2,10 @@
 layout: post
 title:  "Binder系列6—获取服务(getService)"
 date:   2015-11-15 21:11:50
-categories: android binder
-excerpt: Binder系列6—获取服务(getService)
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - binder
 
 
 ---

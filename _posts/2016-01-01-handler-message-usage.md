@@ -2,12 +2,10 @@
 layout: post
 title:  "Android消息机制3-Handler(实战)"
 date:   2016-01-01 14:09:12
-categories: android handler
-excerpt:  Android Message
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - handler
 
 
 ---

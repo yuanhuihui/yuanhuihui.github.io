@@ -2,12 +2,11 @@
 layout: post
 title:  "Android Studio 快捷键"
 date:   2015-08-08 20:10:10
-categories: android tool
-excerpt: Android 快捷键说明。
+catalog:  true
+tags:
+    - android
+    - android studio
 ---
-
-* content
-{:toc}
 
 
 本文的快捷键是在windows下，且Keymaps为default的情况下的映射关系，从以下几个方面来详细介绍快捷键：

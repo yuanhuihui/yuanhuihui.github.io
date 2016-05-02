@@ -1,0 +1,104 @@
+---
+layout: page
+title: "About"
+description: "All things in their being are good for something"
+header-img: "img/about-bg.jpg"
+---
+
+<!-- Chinese Version -->
+<div class="zh post-container">
+
+    <!--copied from markdown -->
+    <blockquote><p>有志者事竟成，破釜沉舟，百二秦关终属楚；<br>
+    苦心人天不负，卧薪尝胆，三千越甲可吞吴。</p>
+    </blockquote>
+
+     <h5>个人简介</h5>
+    <p>Hi，我是<strong>Gityuan</strong>，软件工程师，曾就职于IBM、Lenovo，目前就职于小米。<br>
+我对技术的第一个追逐目标是成为Android全栈工程师：上至能写App，中间能改framework和Native代码，下至能调驱动，整体上解决性能/稳定性/功耗问题。正在不断加强内功修养。</p>
+
+    <h5>知乎热门回答</h5>
+    <ul>
+	    <li><a href="http://zhuanlan.zhihu.com/p/20708611">如何自学Android？</a></li>
+	    <li><a href="https://www.zhihu.com/question/37801069/answer/97391748">Android到底爽在哪里?</a></li>
+	    <li><a href="https://www.zhihu.com/question/39440766/answer/89210950">为什么Android要采用Binder作为IPC机制？</a></li>
+	    <li><a href="https://www.zhihu.com/question/34652589/answer/90344494?from=profile_answer_card">Android中为什么主线程不会因为Looper.loop()里的死循环卡死？</a></li>    
+    </ul>
+    
+    <h5>网站历史</h5>
+    <ul>
+    	<li>2015.5.31, 搭建个人博客;</li>
+    	<li>2015.7.13, 申请域名http://yuanhh.com;</li>
+    	<li>2016.3.17, 迁移至新域名http://gityuan.com;</li>
+    	<li>2016.5.02, 博客风格，进行全面更新</li>
+    </ul>
+
+    <h5>版本声明</h5>
+    
+    <ul>
+	    <li>本站所有博文内容均为原创，欢迎交流与转载，转载请务必注明<strong>作者</strong>与<strong>原文链接</strong>，且不得轻易篡改原文内容。</li>
+			<li>另外，未经授权不得用于任何商业目的。</li>
+		</ul>
+
+</div>
+
+
+{% if site.duoshuo_username %}
+<!-- 多说评论框 start -->
+<div class="comment">
+    <div class="ds-thread"
+    {% if site.duoshuo_username == "huxblog" %}
+        data-thread-id="1187623191091085319"
+    {% else %}
+        data-thread-key="{{site.duoshuo_username}}/about"
+    {% endif %}
+
+    data-title="{{page.title}}"
+    data-url="{{site.url}}/about/"></div>
+</div>
+<!-- 多说评论框 end -->
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User hacking by Hux
+    var _user = '{{site.duoshuo_username}}';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+{% endif %}
+
+
+{% if site.disqus_username %}
+<!-- disqus 评论框 start -->
+<div class="comment">
+    <div id="disqus_thread" class="disqus-thread">
+
+    </div>
+</div>
+<!-- disqus 评论框 end -->
+
+<!-- disqus 公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = "{{site.disqus_username}}";
+    var disqus_identifier = "{{site.disqus_username}}/{{page.url}}";
+    var disqus_url = "{{site.url}}{{page.url}}";
+
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<!-- disqus 公共JS代码 end -->
+{% endif %}

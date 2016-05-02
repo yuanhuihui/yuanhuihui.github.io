@@ -2,13 +2,11 @@
 layout: post
 title:  "Binder系列2—Binder Driver再探"
 date:   2015-11-02 21:21:27
-categories: android binder
-excerpt:  Binder系列2—Binder Driver再探
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - binder
+    - driver
 
 ---
 > 基于Android 6.0的源码剖析，在讲解Binder原理之前，先从kernel的角度来讲解Binder Driver.

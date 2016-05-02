@@ -2,12 +2,10 @@
 layout: post
 title:  "Jvm系列2—字节码指令"
 date:   2015-10-24 22:09:12
-categories: jvm java
-excerpt:  Jvm系列2—字节码指令
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - java
+    - jvm
 
 ---
 

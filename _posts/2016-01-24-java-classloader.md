@@ -2,13 +2,11 @@
 layout: post
 title:  "Java类加载器(ClassLoader)"
 date:   2016-01-24 20:31:33
-categories: java jvm
-excerpt:  Java类加载器(ClassLoader)
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - java
+    - jvm
+    - classloader
 
 ---
 

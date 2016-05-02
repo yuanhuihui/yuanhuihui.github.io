@@ -2,12 +2,11 @@
 layout: post
 title:  "Am命令用法"
 date:   2016-02-27 20:55:51
-categories: android tool
-excerpt:  Am命令用法
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - am
+    - command
 
 
 ---

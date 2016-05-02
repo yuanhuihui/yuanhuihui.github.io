@@ -2,14 +2,12 @@
 layout: post
 title:  "Android进程生命周期与ADJ"
 date:   2015-10-01 22:20:52
-categories: android process
-excerpt:  Android进程生命周期与ADJ
----
-
-* content
-{:toc}
-
-
+catalog:  true
+tags:
+    - android
+    - process
+    - adj
+    - lowmemorykiller
 ---
 
 > 做为上层开发者，对于进程生命周期和进程中的内存回收是透明的，但了解生命周期对加深对Andorid体系的理解很有帮助

@@ -2,12 +2,10 @@
 layout: post
 title:  "如何自学Android"
 date:   2016-04-24 22:10:22
-categories: android
-excerpt:  如何自学Android
----
-
-* content
-{:toc}
+catalog:    true
+tags:
+    - android
+    - 自学编程
 
 ---
 

@@ -2,13 +2,10 @@
 layout: post
 title:  "Binder系列10—总结"
 date:   2015-11-28 22:22:12
-categories: android binder
-excerpt:  Binder系列10—总结
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - binder
 
 ---
 

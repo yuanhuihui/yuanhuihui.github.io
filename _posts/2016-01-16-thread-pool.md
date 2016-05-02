@@ -2,14 +2,10 @@
 layout: post
 title:  "Java线程池分析"
 date:   2016-01-16 20:12:42
-categories: java process
-excerpt:  Java线程池分析
----
-
-* content
-{:toc}
-
-
+catalog:  true
+tags:
+    - android
+    - thread
 ---
 
 > Android是基于Java开发的平台，本文java线程池也适用于Android。

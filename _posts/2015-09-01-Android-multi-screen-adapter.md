@@ -2,12 +2,9 @@
 layout: post
 title:  "Android多屏适配"
 date:   2015-09-02 22:05:00
-categories:  android
-excerpt:  Android多屏适配
----
-
-* content
-{:toc}
+catalog:    true
+tags:
+    - android
 
 ---
 

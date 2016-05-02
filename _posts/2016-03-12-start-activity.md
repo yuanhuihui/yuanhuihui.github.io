@@ -2,12 +2,11 @@
 layout: post
 title:  "startActivity流程分析(一)"
 date:   2016-03-12 20:09:12
-categories: android
-excerpt:  startActivity流程分析(一)
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - boot
+    - activity
 
 ---
 

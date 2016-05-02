@@ -2,12 +2,11 @@
 layout: post
 title:  "APP优化(一)"
 date:   2015-09-26 21:21:50
-categories: android performance
-excerpt:  APP优化
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - performance
+    - app
 
 
 ---

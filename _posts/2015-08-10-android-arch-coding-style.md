@@ -2,12 +2,12 @@
 layout: post
 title:  "Android开发规范"
 date:   2015-08-10 21:14:54
-categories: android
-excerpt:  Android开发规范
+catalog:  true
+tags:
+    - android
+    - app
 ---
 
-* content
-{:toc}
 
 >Google官方Java代码风格参考规范[链接](http://google-styleguide.googlecode.com/svn/trunk/javaguide.html)， 中文翻译参考版[链接](http://hawstein.com/posts/google-java-style.html)。
 

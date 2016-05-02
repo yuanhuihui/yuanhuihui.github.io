@@ -2,13 +2,11 @@
 layout: post
 title:  "Performance Patterns(一)"
 date:   2015-08-15 22:10:10
-categories: android performance
-excerpt:  android渲染原理的详细讲解
+catalog:  true
+tags:
+    - android
+    - performance
 ---
-
-* content
-{:toc}
-
 
 ![android developer](/images/android-studio-performance-1/instruction.jpg)
 

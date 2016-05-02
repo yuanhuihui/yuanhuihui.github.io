@@ -2,12 +2,10 @@
 layout: post
 title:  "Binder系列5—注册服务(addService)"
 date:   2015-11-14 13:10:54
-categories: android binder
-excerpt:  Binder系列5—注册服务(addService)
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - binder
 
 
 ---

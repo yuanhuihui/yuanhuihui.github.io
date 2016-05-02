@@ -2,13 +2,10 @@
 layout: post
 title:  "Java反射之基础篇"
 date:   2015-07-18 22:10:10
-categories: java
-excerpt:  Java反射之基础篇
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - java
+    - 反射
 
 
 ---

@@ -2,13 +2,12 @@
 layout: post
 title:  "Dalvik与ART的GC调试"
 date:   2015-10-03 22:10:54
-categories: android
-excerpt:  Dalvik GC vs ART GC
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - dalvik
+    - art
+    - gc
 
 ---
 > 本文主要讲述Dalvik与ART两种Android虚拟机，在GC时产生log信息的含义，便于分析。

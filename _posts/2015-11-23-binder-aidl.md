@@ -2,14 +2,11 @@
 layout: post
 title:  "Binder系列9—如何使用AIDL"
 date:   2015-11-23 20:45:50
-categories: android binder
-excerpt: Binder系列9—如何使用AIDL
----
-
-* content
-{:toc}
-
-
+catalog:  true
+tags:
+    - android
+    - binder
+    - AIDL
 ---
 
 > 自定义binder架构的 client/ server组件

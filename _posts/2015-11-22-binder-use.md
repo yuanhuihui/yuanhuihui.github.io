@@ -2,12 +2,10 @@
 layout: post
 title:  "Binder系列8—如何使用Binder"
 date:   2015-11-22 21:11:50
-categories: android binder
-excerpt: Binder系列8—如何使用Binder
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - binder
 
 
 ---

@@ -2,13 +2,11 @@
 layout: post
 title:  " Android内存分析命令"
 date:   2016-01-02 11:49:40
-categories: android memory tool
-excerpt:  Android内存分析命令
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - memory
+    - tool
 
 ---
 

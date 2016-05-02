@@ -2,14 +2,11 @@
 layout: post
 title:  "Jvm内存模型"
 date:   2016-01-09 19:18:10
-categories: java memory jvm
-excerpt:  Jvm内存模型
----
-
-* content
-{:toc}
-
-
+catalog:  true
+tags:
+    - java
+    - jvm
+    - memory
 
 ---
 

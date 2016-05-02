@@ -2,13 +2,10 @@
 layout: post
 title:  "wait、notify、sleep、interrupt对比分析"
 date:   2016-01-03 19:10:40
-categories: java process
-excerpt: wait、notify、sleep、interrupt对比分析
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - java
+    - thread
 
 ---
 

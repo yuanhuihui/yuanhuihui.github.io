@@ -2,12 +2,10 @@
 layout: post
 title:  "Android动画之原理篇（四）"
 date:   2015-9-6 20：05:00
-categories: android
-excerpt:  Android属性动画原理篇
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - 动画
 
 
 

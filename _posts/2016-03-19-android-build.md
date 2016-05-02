@@ -2,12 +2,11 @@
 layout: post
 title:  "理解Android编译命令"
 date:   2016-03-19 21:19:12
-categories: android
-excerpt:  理解Android编译命令
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - make
+    - command
 
 ---
 

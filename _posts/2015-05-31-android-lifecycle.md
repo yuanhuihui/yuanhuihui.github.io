@@ -2,12 +2,13 @@
 layout: post
 title:  "Activity与Service生命周期"
 date:   2015-05-31 20:30:00
-categories:  android
-excerpt:  Activity与Service生命周期
+catalog:  true
+tags:
+    - android
+    - activity
+    - service
 ---
 
-* content
-{:toc}
 
 ## 一. Activity
 

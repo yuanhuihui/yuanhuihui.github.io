@@ -2,12 +2,13 @@
 layout: post
 title:  "Markdown个人笔记"
 date:   2015-06-06 15:14:54
-categories: else
-excerpt:  记录在使用Markdown过程中，需要注意的地方
+catalog:  true
+tags:
+    - markdown
+
 ---
 
-* content
-{:toc}
+
 
 ## 基本语法
 语法方面的文章有很多，这里就不详细说明

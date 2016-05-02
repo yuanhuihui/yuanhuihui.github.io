@@ -2,13 +2,10 @@
 layout: post
 title:  "Java中的条件编译"
 date:   2015-7-26 22:09:12
-categories: java
-excerpt:  Java中的条件编译
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - Java
+    - Performance
 ---
 
 > 在代码中添加大量log，对于CPU和内存的影响如何，会不会降低性能？相信有不少人对此有疑问，本文将详细解答该问题。

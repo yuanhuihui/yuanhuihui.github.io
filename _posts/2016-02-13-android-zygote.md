@@ -2,12 +2,11 @@
 layout: post
 title:  "Android系统启动-zygote篇"
 date:   2016-02-13 20:21:40
-categories: android start-up
-excerpt:  Android系统启动-zygote篇
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - boot
+    - zygote
 
 
 ---

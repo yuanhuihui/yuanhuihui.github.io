@@ -2,12 +2,11 @@
 layout: post
 title:  "进程优先级"
 date:   2015-10-01 22:20:52
-categories: android process
-excerpt:  进程优先级
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - process
+    - priority
 
 
 ---

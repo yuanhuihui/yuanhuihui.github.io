@@ -1,114 +1,42 @@
 ---
-layout: default-index
+layout: page
+description: "Keep on going never give up"
 ---
-<div id="index" class="row">
-  <div class="col-sm-9">
-    <div class="post-area">
 
-      <div class="post-list-body">  
-        <div class="all-posts" post-cate="All">
-        	<a class="post-list-item" href="http://gityuan.com/top">
-              <h2>
-              <font color="#EE0000">[置顶]</font> 博客头条
-              </h2>
-              <span class="">Apr 10, 2016</span>
-          </a>
-          <a class="post-list-item" href="http://gityuan.com/android">
-              <h2>
-              <font color="#EE0000">[置顶]</font> Android开篇
-              </h2>
-              <span class="">Apr 9, 2016</span>
-          </a>
-          {% for post in paginator.posts %}
-            <a class="post-list-item" href="{{ post.url | prepend: site.baseurl }}">
-              <h2>
-              {{ post.title }}
-              </h2>
-              <span class="">{{ post.date | date: "%b %-d, %Y" }}</span>
-            </a>
-          {% endfor %}
-          
-      		<!-- 分页 -->
-      <div class="paginator">
-              {% if paginator.total_pages > 1 %}
-              <!-- 分页代码 -->
-              {% if paginator.previous_page %}
-            <a href="{{ paginator.previous_page_path | prepend: site.baseurl | replace: '//', '/' }}">上一页</a>
+{% for post in paginator.posts %}
+<div class="post-preview">
+    <a href="{{ post.url | prepend: site.baseurl }}">
+        <h2 class="post-title">
+            {{ post.title }}
+        </h2>
+        {% if post.subtitle %}
+        <h3 class="post-subtitle">
+            {{ post.subtitle }}
+        </h3>
         {% endif %}
-
-        {% for page in (1..paginator.total_pages) %}
-            {% if page == paginator.page %}
-              <span class="active">{{ page }}</span>
-            {% elsif page == 1 %}
-              <a href="{{ '/index.html' | prepend: site.baseurl | replace: '//', '/' }}">{{ page }}</a>
-            {% else %}
-              <a href="/{{ site.paginate_path | prepend: site.url | replace: '//', '/' | replace: ':num', page }}">{{ page }}</a>
-            {% endif %}
-        {% endfor %}
-
-        {% if paginator.next_page %}
-            <a href="{{ paginator.next_page_path | prepend: site.baseurl | replace: '//', '/' }}">下一页</a>
-        {% endif %}
-              {% endif %}
-      </div>
-      
-          
+        <div class="post-content-preview">
+            {{ post.content | strip_html | truncate:200 }}
         </div>
-        <!-- <div class="posts-in-categories"> -->
-        {% for category in site.categories %}
-          <div post-cate="{{category | first}}">
-            {% for posts in category  %}
-              {% for post in posts %}
-                {% if post.url %}
-                  <a href="{{ post.url }}" class="post-list-item">
-                    <h2>
-                    {{ post.title }}
-                    </h2>
-                    <span class="">{{ post.date | date: "%b %-d, %Y" }}</span>
-                  </a>
-                {% endif %}
-              {% endfor %}
-            {% endfor %}
-          </div>
-        {% endfor %}
-        
-        <!-- </div> -->
-      </div>
-    </div>
-  </div>
-  <div class="col-sm-3">
-    <div class="shadow-corner-curl hidden-xs">
-      <div class="categories-list-header">
-        分类
-      </div>
-      <a href="{{'/index.html' | prepend: site.baseurl}}" class="categories-list-item" cate="All">
-        All<span class="my-badge"> {{site.posts | size}}</span>
-      </a>
-      {% for category in site.categories order:ascending %}
-        <a href="javascript:;" class="categories-list-item" cate="{{ category | first }}">
-          {{ category | first }} <span class="my-badge">{{ category | last | size }}</span>
-        </a>
-      {% endfor %}
-    </div>
-    
-    <p>
-
+    </a>
+    <p class="post-meta">
+        Posted by {% if post.author %}{{ post.author }}{% else %}{{ site.title }}{% endif %} on {{ post.date | date: "%B %-d, %Y" }}
     </p>
-			{% include weibo.html %}
-    <p>
-
-    </p>
-			{% include weixin.html %}
-  </div>
 </div>
+<hr>
+{% endfor %}
 
-
-<script src="jquery.js" type="text/javascript"></script>
-<script src="jquery-migrate-1.2.1.min.js" type="text/javascript"></script>
-<script src="iealert.js" type="text/javascript"></script>
-<link rel="stylesheet" type="text/css" href="iealert/style.css" />
-<script type="text/javascript">
-	$(document).ready(function() {
-		$("body").iealert();
-	});
-</script>
+<!-- Pager -->
+{% if paginator.total_pages > 1 %}
+<ul class="pager">
+    {% if paginator.previous_page %}
+    <li class="previous">
+        <a href="{{ paginator.previous_page_path | prepend: site.baseurl | replace: '//', '/' }}">&larr; Newer Posts</a>
+    </li>
+    {% endif %}
+    {% if paginator.next_page %}
+    <li class="next">
+        <a href="{{ paginator.next_page_path | prepend: site.baseurl | replace: '//', '/' }}">Older Posts &rarr;</a>
+    </li>
+    {% endif %}
+</ul>
+{% endif %}

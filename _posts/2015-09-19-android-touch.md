@@ -2,12 +2,10 @@
 layout: post
 title:  "Android事件分发机制"
 date:   2015-09-19 1:05:00
-categories:  android
-excerpt:  Android事件分发机制
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - input
 
 ---
 

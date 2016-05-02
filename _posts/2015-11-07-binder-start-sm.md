@@ -2,12 +2,10 @@
 layout: post
 title:  "Binder系列3—启动ServiceManager"
 date:   2015-11-07 21:11:50
-categories: android binder
-excerpt:  Binder系列3—启动ServiceManager
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - binder
 
 
 ---

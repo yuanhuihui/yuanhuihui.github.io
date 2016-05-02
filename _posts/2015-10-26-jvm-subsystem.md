@@ -2,15 +2,10 @@
 layout: post
 title:  "Jvm系列4—执行子系统"
 date:   2015-10-26 19:16:10
-categories: jvm java 
-excerpt:  Jvm系列4—执行子系统
----
-
-* content
-{:toc}
-
-
-
+catalog:  true
+tags:
+    - java
+    - jvm
 ---
 
 > 字节码执行引擎

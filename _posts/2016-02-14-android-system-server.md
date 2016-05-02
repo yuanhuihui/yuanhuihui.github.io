@@ -2,13 +2,11 @@
 layout: post
 title:  "Android系统启动-SystemServer上篇"
 date:   2016-02-14 20:11:40
-categories: android start-up
-excerpt:  Android系统启动-SystemServer上篇
----
-
-* content
-{:toc}
-
+catalog:  true
+tags:
+    - android
+    - boot
+    - SystemServer
 
 ---
 

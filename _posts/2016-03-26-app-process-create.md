@@ -2,12 +2,11 @@
 layout: post
 title:  "理解Android进程创建流程"
 date:   2016-03-26 21:10:11
-categories: android process
-excerpt:  理解Android进程创建流程
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - boot
+    - process
 
 ---
 

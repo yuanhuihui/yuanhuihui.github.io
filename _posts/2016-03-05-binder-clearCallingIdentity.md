@@ -2,12 +2,11 @@
 layout: post
 title:  "Binder IPC的权限控制"
 date:   2016-03-05 20:12:45
-categories: android binder
-excerpt:  Binder IPC的权限控制
----
-
-* content
-{:toc}
+catalog:  true
+tags:
+    - android
+    - binder
+    - permission
 
 
 ---
