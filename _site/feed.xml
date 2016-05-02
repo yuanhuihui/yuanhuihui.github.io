@@ -5,243 +5,9 @@
     <description>Android,gityuan,Android技术博客,Android源码分析,袁辉辉</description>
     <link>http://gityuan.com/</link>
     <atom:link href="http://gityuan.com/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Tue, 03 May 2016 00:08:19 +0800</pubDate>
-    <lastBuildDate>Tue, 03 May 2016 00:08:19 +0800</lastBuildDate>
+    <pubDate>Tue, 03 May 2016 00:57:36 +0800</pubDate>
+    <lastBuildDate>Tue, 03 May 2016 00:57:36 +0800</lastBuildDate>
     <generator>Jekyll v3.1.3</generator>
-    
-      <item>
-        <title>Android</title>
-        <description>&lt;p&gt;﻿—
-layout: post
-title:  “Android开篇”
-date:   2016-05-01 10:10:22
-catalog:    true
-tags:
-    - android&lt;/p&gt;
-
-&lt;hr /&gt;
-
-&lt;blockquote&gt;
-  &lt;p&gt;&lt;strong&gt;版权声明：&lt;/strong&gt;本站所有博文内容均为原创，欢迎交流与转载，转载请务必注明作者与原文链接，且不得轻易篡改原文内容。另外，未经授权不得用于任何商业目的。&lt;/p&gt;
-&lt;/blockquote&gt;
-
-&lt;h2 id=&quot;section&quot;&gt;一、简述&lt;/h2&gt;
-
-&lt;p&gt;Android系统非常庞大、错中复杂，其底层是采用Linux作为基底，上层采用包含虚拟机的Java层以及Native层，通过系统调用(Syscall)连通系统的内核空间与用户空间。用户空间主要采用C++和Java代码，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而融为一体。&lt;/p&gt;
-
-&lt;p&gt;Google官方提供了一张&lt;a href=&quot;http://gityuan.com/2016/01/30/android-boot/#android&quot;&gt;经典的四层架构图&lt;/a&gt;，从下往上依次分为Linux内核、系统库和Android运行时环境、框架层以及应用层这4层架构，其中每一层都包含大量的子模块或子系统。这只是如垒砖般地简单分层，还远不足以表达Android整个系统的内部架构，运行机理，以及各个模块之间是如何衔接与配合工作的。为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，&lt;strong&gt;以进程的视角&lt;/strong&gt;来诠释Android系统全貌，全方位的深度剖析各个模块功能，争取各个击破。&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;本站所有Android系列的文章，都是基于Android 6.0源码&lt;/strong&gt;，深入剖析Android系统架构，力争各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。&lt;/p&gt;
-
-&lt;h2 id=&quot;android&quot;&gt;二、Android架构&lt;/h2&gt;
-
-&lt;p&gt;&lt;strong&gt;系统启动架构图&lt;/strong&gt;&lt;/p&gt;
-
-&lt;p&gt;点击查看&lt;a href=&quot;http://gityuan.com/images/android-process/android-boot.jpg&quot;&gt;大图&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;/images/android-process/android-boot.jpg&quot; alt=&quot;process_status&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;图解：&lt;/strong&gt;&lt;br /&gt;
-Android系统启动过程由上图从下往上的一个过程：&lt;code class=&quot;highlighter-rouge&quot;&gt;Loader&lt;/code&gt; -&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;Kernel&lt;/code&gt; -&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;Native&lt;/code&gt; -&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;Framework&lt;/code&gt; -&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;App&lt;/code&gt;，接来下简要说说每个过程：&lt;/p&gt;
-
-&lt;h3 id=&quot;loader&quot;&gt;2.1 Loader层&lt;/h3&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;Boot ROM: 当手机处于关机状态时，长按Power键开机，引导芯片开始从固化在&lt;code class=&quot;highlighter-rouge&quot;&gt;ROM&lt;/code&gt;里的预设出代码开始执行，然后加载引导程序到&lt;code class=&quot;highlighter-rouge&quot;&gt;RAM&lt;/code&gt;；&lt;/li&gt;
-  &lt;li&gt;Boot Loader：这是启动Android系统之前的引导程序，主要是检查RAM，初始化硬件参数等功能。&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;h3 id=&quot;kernel&quot;&gt;2.2 Kernel层&lt;/h3&gt;
-
-&lt;p&gt;Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;启动Kernel的0号进程：初始化进程管理、内存管理，加载Display,Camera Driver，Binder Driver等相关工作；&lt;/li&gt;
-  &lt;li&gt;启动kthreadd进程（pid=2）：是Linux系统的内核进程，会创建内核工作线程kworkder，软中断线程ksoftirqd，thermal等内核守护进程。&lt;code class=&quot;highlighter-rouge&quot;&gt;kthreadd进程是所有内核进程的鼻祖&lt;/code&gt;。&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;h3 id=&quot;native&quot;&gt;2.3 Native层&lt;/h3&gt;
-
-&lt;p&gt;这里的Native层主要包括init孵化来的用户空间的守护进程、HAL层以及开机动画等。启动init进程(pid=1),是Linux系统的用户进程，&lt;code class=&quot;highlighter-rouge&quot;&gt;init进程是所有用户进程的鼻祖&lt;/code&gt;。&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;init进程会孵化出ueventd、logd、healthd、installd、adbd、lmkd等用户守护进程；&lt;/li&gt;
-  &lt;li&gt;init进程还启动&lt;code class=&quot;highlighter-rouge&quot;&gt;servicemanager&lt;/code&gt;(binder服务管家)、&lt;code class=&quot;highlighter-rouge&quot;&gt;bootanim&lt;/code&gt;(开机动画)等重要服务&lt;/li&gt;
-  &lt;li&gt;init进程孵化出Zygote进程，Zygote进程是Android系统的第一个Java进程，&lt;code class=&quot;highlighter-rouge&quot;&gt;Zygote是所有Java进程的父进程&lt;/code&gt;，Zygote进程本身是由init进程孵化而来的。&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;h3 id=&quot;framework&quot;&gt;2.4 Framework层&lt;/h3&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;Zygote进程，是由init进程通过解析init.rc文件后fork生成的，Zygote进程主要包含：
-    &lt;ul&gt;
-      &lt;li&gt;加载ZygoteInit类，注册Zygote Socket服务端套接字；&lt;/li&gt;
-      &lt;li&gt;加载虚拟机；&lt;/li&gt;
-      &lt;li&gt;preloadClasses；&lt;/li&gt;
-      &lt;li&gt;preloadResouces。&lt;/li&gt;
-    &lt;/ul&gt;
-  &lt;/li&gt;
-  &lt;li&gt;System Server进程，是由Zygote进程fork而来，&lt;code class=&quot;highlighter-rouge&quot;&gt;System Server是Zygote孵化的第一个进程&lt;/code&gt;，System Server负责启动和管理整个Java framework，包含ActivityManager，PowerManager等服务。&lt;/li&gt;
-  &lt;li&gt;Media Server进程，是由init进程fork而来，负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service，等服务。&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;h3 id=&quot;app&quot;&gt;2.5 App层&lt;/h3&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;Zygote进程孵化出的第一个App进程是Launcher，这是用户看到的桌面App；&lt;/li&gt;
-  &lt;li&gt;Zygote进程还会创建Browser，Phone，Email等App进程，每个App至少运行在一个进程上。&lt;/li&gt;
-  &lt;li&gt;所有的App进程都是由Zygote进程fork生成的。&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;h2 id=&quot;section-1&quot;&gt;三、通信方式&lt;/h2&gt;
-
-&lt;p&gt;无论是Android系统，还是各种Linux衍生系统，各个组件、模块往往运行在各种不同的进程和线程内，这里就必然涉及进程/线程之间的通信。对于IPC(Inter-Process Communication, 进程间通信)，Linux现有管道、消息队列、共享内存、套接字、信号量、信号这些IPC机制，Android额外还有Binder IPC机制，Android OS中的Zygote进程的IPC采用的是Socket机制，在上层system server、media server以及上层App之间更多的是采用Binder IPC方式来完成跨进程间的通信。对于Android上层架构中，还多时候是在同一个进程的线程之间需要相互通信，例如同一个进程的主线程与工作线程之间的通信，往往采用的Handler消息机制。&lt;/p&gt;
-
-&lt;p&gt;想深入理解Android内核层架构，必须先深入理解Linux现有的IPC机制；对于Android上层架构，则最常用的通信方式是Binder、Socket、Handler，当然也有少量其他的IPC方式，比如杀进程Process.killProcess()采用的是signal方式。下面说说Binder、Socket、Handler：&lt;/p&gt;
-
-&lt;h3 id=&quot;binder&quot;&gt;3.1 Binder&lt;/h3&gt;
-
-&lt;p&gt;Binder作为Android系统提供的一种IPC机制，无论从系统开发还是应用开发，都是Android系统中最重要的组成，也是最难理解的一块知识点，想了解&lt;a href=&quot;https://www.zhihu.com/question/39440766/answer/89210950&quot;&gt;为什么Android要采用Binder作为IPC机制？&lt;/a&gt;，可查看博主在知乎上的回答。深入了解Binder机制，最好的方法便是阅读源码，借用Linux鼻祖Linus Torvalds曾说过的一句话：Read The Fucking Source Code。下面简要说说Binder IPC原理。&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;Binder IPC原理&lt;/strong&gt;&lt;/p&gt;
-
-&lt;p&gt;Binder通信采用c/s架构，从组件视角来说，包含Client、Server、ServiceManager以及binder驱动，其中ServiceManager用于管理系统中的各种服务。&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;/images/binder/prepare/IPC-Binder.jpg&quot; alt=&quot;ServiceManager&quot; /&gt;&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;想进一步了解Binder，可查看&lt;a href=&quot;http://gityuan.com/2015/10/31/binder-prepare/&quot;&gt;Binder系列—开篇&lt;/a&gt;，Binder系列用了13篇文章，从源码角度出发来，讲述驱动、native、framework、app四个层面的整个完整流程。&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;h3 id=&quot;socket&quot;&gt;3.2 Socket&lt;/h3&gt;
-
-&lt;p&gt;Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中采用Socket通信方式的主要：&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;zygote：用于孵化进程，系统进程system_server孵化进程时便通过socket向zygote进程发起请求；&lt;/li&gt;
-  &lt;li&gt;installd：用于安装App的守护进程，上层PackageManagerService很多实现最终都是交给它来完成；&lt;/li&gt;
-  &lt;li&gt;lmkd：lowmemorykiller的守护进程，Java层的LowMemoryKiller最终都是由lmkd来完成；&lt;/li&gt;
-  &lt;li&gt;adbd：这个也不用说，用于服务adb；&lt;/li&gt;
-  &lt;li&gt;logcatd:这个不用说，用于服务logcat；&lt;/li&gt;
-  &lt;li&gt;vold：即volume Daemon，是存储类的守护进程，用于负责如USB、Sdcard等存储设备的事件处理。&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;等等还有很多，这里不一一列举，Socket方式更多的用于Android framework层与native层之间的通信。Socket通信方式相对于binder非常简单，所以一直没有写相关文章，为了成一个体系，下次再补上。&lt;/p&gt;
-
-&lt;h3 id=&quot;handler&quot;&gt;3.3 Handler&lt;/h3&gt;
-
-&lt;p&gt;&lt;strong&gt;Binder/Socket用于进程间通信，而Handler消息机制用于同进程的线程间通信&lt;/strong&gt;，Handler消息机制是由一组MessageQueue、Message、Looper、Handler共同组成的，为了方便且称之为Handler消息机制。&lt;/p&gt;
-
-&lt;p&gt;有人可能会疑惑，为何Binder/Socket用于进程间通信，能否用于线程间通信呢？答案是肯定，对于两个具有独立地址空间的进程通信都可以，当然也能用于共享内存空间的两个线程间通信，这就好比杀鸡用牛刀。接着可能还有人会疑惑，那handler消息机制能否用于进程间通信？答案是不能，Handler只能用于共享内存地址空间的两个线程间通信，即同进程的两个线程间通信。很多时候，Handler是工作线程向UI主线程发送消息，即App应用中只有主线程能更新UI，其他工作线程往往是完成相应工作后，通过Handler告知主线程需要做出相应地UI更新操作，Handler分发相应的消息给UI主线程去完成，如下图：&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;/images/handler/handler_thread_commun.jpg&quot; alt=&quot;handler_communication&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;由于工作线程与主线程共享地址空间，即Handler实例对象&lt;code class=&quot;highlighter-rouge&quot;&gt;mHandler&lt;/code&gt;位于线程间共享的内存堆上，工作线程与主线程都能直接使用该对象，只需要注意多线程的同步问题。工作线程通过&lt;code class=&quot;highlighter-rouge&quot;&gt;mHandler&lt;/code&gt;向其成员变量&lt;code class=&quot;highlighter-rouge&quot;&gt;MessageQueue&lt;/code&gt;中添加新Message，主线程一直处于loop()方法内，当收到新的Message时按照一定规则分发给相应的&lt;code class=&quot;highlighter-rouge&quot;&gt;handleMessage&lt;/code&gt;()方法来处理。所以说，而Handler消息机制用于同进程的线程间通信的核心是线程间共享内存空间，而不同进程拥有不同的地址空间，也就不能用handler来实现进程间通信。&lt;/p&gt;
-
-&lt;p&gt;上图只是Handler消息机制的一种处理流程，是不是只能工作线程向UI主线程发消息呢，其实不然，可以是UI线程想工作线程发送消息，也可以是多个工作线程之间通过handler发送消息。更多关于Handler消息机制文章：&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/12/26/handler-message-framework/&quot;&gt;Android消息机制-Handler(framework篇)&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/12/27/handler-message-native/&quot;&gt;Android消息机制-Handler(native篇)&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;h2 id=&quot;section-2&quot;&gt;四、计划提纲&lt;/h2&gt;
-
-&lt;p&gt;2016年新的一年刚开始，首先祝大家、也祝自己在新的一年诸事顺心，事业蒸蒸日上。在过去的一年，对于Android从底层一路到上层有不少自己的理解和沉淀，但总体较零散，未成体系。借着今天（元旦假日的最后一天），给自己的新的一年提前做一个计划，把知识进行归档整理与再学习，从而加深对Android架构的理解。通过前面对系统启动的介绍，相信大家对Android系统有了一个整体观，接下来需要抓核心、理思路。&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;（1）&lt;/strong&gt;Android系统启动过程中，有几个非常重要的进程：&lt;code class=&quot;highlighter-rouge&quot;&gt;init&lt;/code&gt;、&lt;code class=&quot;highlighter-rouge&quot;&gt;Zygote&lt;/code&gt;、&lt;code class=&quot;highlighter-rouge&quot;&gt;system_server&lt;/code&gt;进程:&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/05/android-init/&quot;&gt;Android系统启动—init篇&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/13/android-zygote/&quot;&gt;Android系统启动—Zygote篇&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;Android系统启动—SystemServer篇
-    &lt;ul&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/14/android-system-server/&quot;&gt;SystemServer上篇&lt;/a&gt;&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/20/android-system-server-2/&quot;&gt;SystemServer下篇&lt;/a&gt;&lt;/li&gt;
-    &lt;/ul&gt;
-  &lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;&lt;strong&gt;（2）&lt;/strong&gt;再则就是在整个架构中有大量的服务，都是基于&lt;a href=&quot;http://gityuan.com/2015/10/31/binder-prepare/&quot;&gt;Binder&lt;/a&gt;来交互的，计划针对部分核心服务来重点分析：&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;Android服务篇-ActivityManagerService
-    &lt;ul&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/21/activity-manager-service/&quot;&gt;AMS启动过程（一）&lt;/a&gt;&lt;/li&gt;
-    &lt;/ul&gt;
-  &lt;/li&gt;
-  &lt;li&gt;Android服务篇-PackageManagerService&lt;/li&gt;
-  &lt;li&gt;Android服务篇-PowerManagerService&lt;/li&gt;
-  &lt;li&gt;Android服务篇-BatteryService
-    &lt;ul&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/01/10/power_rank/&quot;&gt;Android耗电统计算法&lt;/a&gt;&lt;/li&gt;
-    &lt;/ul&gt;
-  &lt;/li&gt;
-  &lt;li&gt;Android服务篇-WindowManagerService&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;当然graphic也是一大块难啃的模块，也是需要整理的，先留个空位吧。&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;（3）&lt;/strong&gt;对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;Android组件-Activity
-    &lt;ul&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/03/12/start-activity/&quot;&gt;startActivity流程分析(一)&lt;/a&gt;&lt;/li&gt;
-    &lt;/ul&gt;
-  &lt;/li&gt;
-  &lt;li&gt;Android组件-Service
-    &lt;ul&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/03/06/start-service/&quot;&gt;startService流程分析&lt;/a&gt;&lt;/li&gt;
-    &lt;/ul&gt;
-  &lt;/li&gt;
-  &lt;li&gt;Android组件-Broadcast Receiver&lt;/li&gt;
-  &lt;li&gt;Android组件-Content Provider&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;&lt;strong&gt;（4）&lt;/strong&gt;有了这些，中间还缺少关于虚拟机ART的介绍，会需要对ART分析，后续还需要开展对ART虚拟机的一系列文章。回顾整个架构，谈谈系统性能，需要先掌握进程、内存、IO这些层面知识，这里牵涉面较广，从底层Linux层直至上层App&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;进程篇
-    &lt;ul&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/03/26/app-process-create/&quot;&gt;理解Android进程创建流程&lt;/a&gt;&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/12/19/android-process-category/&quot;&gt;Android进程整理&lt;/a&gt;&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/10/01/process-lifecycle/&quot;&gt;Android进程生命周期与ADJ&lt;/a&gt;&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/10/01/process-priority/&quot;&gt;进程优先级&lt;/a&gt;&lt;/li&gt;
-    &lt;/ul&gt;
-  &lt;/li&gt;
-  &lt;li&gt;内存篇
-    &lt;ul&gt;
-      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/10/30/kernel-memory/&quot;&gt;Linux内存管理&lt;/a&gt;&lt;/li&gt;
-    &lt;/ul&gt;
-  &lt;/li&gt;
-  &lt;li&gt;IO篇&lt;/li&gt;
-  &lt;li&gt;Linux驱动篇&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;&lt;strong&gt;（5）&lt;/strong&gt;最后，说说Android相关的一些常用命令和工具&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/03/19/android-build/&quot;&gt;理解Android编译命令&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/01/17/systrace/&quot;&gt;性能工具Systrace&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/01/02/memory-analysis-command/&quot;&gt;Android内存分析命令&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/10/11/ps-command/&quot;&gt;ps进程命令&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/27/am-command/&quot;&gt;Am命令用法&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/28/pm-command/&quot;&gt;Pm命令用法&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;本博客还有很多文章并没有写到上面这个清单，先写这么多，后续再不断更新与完善。最后，欢迎大家交流与纠错，大家来找茬。&lt;/p&gt;
-
-&lt;hr /&gt;
-
-&lt;p&gt;欢迎关注我的&lt;strong&gt;&lt;a href=&quot;http://weibo.com/gityuan&quot;&gt;微博：Gityuan&lt;/a&gt;&lt;/strong&gt;，微信公众号：gityuan，后面会持续分享更多原创技术干货。&lt;/p&gt;
-</description>
-        <pubDate>Sun, 01 May 2016 00:00:00 +0800</pubDate>
-        <link>http://gityuan.com/2016/05/01/android/</link>
-        <guid isPermaLink="true">http://gityuan.com/2016/05/01/android/</guid>
-        
-        
-      </item>
     
       <item>
         <title>如何自学Android</title>
@@ -1290,6 +1056,232 @@ SIGCHLD=17，代表子进程退出时所相应的操作动作为&lt;code class=&
         <category>process</category>
         
         <category>kill</category>
+        
+        
+      </item>
+    
+      <item>
+        <title> Android开篇</title>
+        <description>&lt;blockquote&gt;
+  &lt;p&gt;&lt;strong&gt;版权声明：&lt;/strong&gt;本站所有博文内容均为原创，欢迎交流与转载，转载请务必注明作者与原文链接，且不得轻易篡改原文内容。另外，未经授权不得用于任何商业目的。&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;一、简述&lt;/h2&gt;
+
+&lt;p&gt;Android系统非常庞大、错中复杂，其底层是采用Linux作为基底，上层采用包含虚拟机的Java层以及Native层，通过系统调用(Syscall)连通系统的内核空间与用户空间。用户空间主要采用C++和Java代码，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而融为一体。&lt;/p&gt;
+
+&lt;p&gt;Google官方提供了一张&lt;a href=&quot;http://gityuan.com/2016/01/30/android-boot/#android&quot;&gt;经典的四层架构图&lt;/a&gt;，从下往上依次分为Linux内核、系统库和Android运行时环境、框架层以及应用层这4层架构，其中每一层都包含大量的子模块或子系统。这只是如垒砖般地简单分层，还远不足以表达Android整个系统的内部架构，运行机理，以及各个模块之间是如何衔接与配合工作的。为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，&lt;strong&gt;以进程的视角&lt;/strong&gt;来诠释Android系统全貌，全方位的深度剖析各个模块功能，争取各个击破。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;本站所有Android系列的文章，都是基于Android 6.0源码&lt;/strong&gt;，深入剖析Android系统架构，力争各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。&lt;/p&gt;
+
+&lt;h2 id=&quot;android&quot;&gt;二、Android架构&lt;/h2&gt;
+
+&lt;p&gt;&lt;strong&gt;系统启动架构图&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;点击查看&lt;a href=&quot;http://gityuan.com/images/android-process/android-boot.jpg&quot;&gt;大图&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/android-process/android-boot.jpg&quot; alt=&quot;process_status&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;图解：&lt;/strong&gt;&lt;br /&gt;
+Android系统启动过程由上图从下往上的一个过程：&lt;code class=&quot;highlighter-rouge&quot;&gt;Loader&lt;/code&gt; -&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;Kernel&lt;/code&gt; -&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;Native&lt;/code&gt; -&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;Framework&lt;/code&gt; -&amp;gt; &lt;code class=&quot;highlighter-rouge&quot;&gt;App&lt;/code&gt;，接来下简要说说每个过程：&lt;/p&gt;
+
+&lt;h3 id=&quot;loader&quot;&gt;2.1 Loader层&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Boot ROM: 当手机处于关机状态时，长按Power键开机，引导芯片开始从固化在&lt;code class=&quot;highlighter-rouge&quot;&gt;ROM&lt;/code&gt;里的预设出代码开始执行，然后加载引导程序到&lt;code class=&quot;highlighter-rouge&quot;&gt;RAM&lt;/code&gt;；&lt;/li&gt;
+  &lt;li&gt;Boot Loader：这是启动Android系统之前的引导程序，主要是检查RAM，初始化硬件参数等功能。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;kernel&quot;&gt;2.2 Kernel层&lt;/h3&gt;
+
+&lt;p&gt;Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;启动Kernel的0号进程：初始化进程管理、内存管理，加载Display,Camera Driver，Binder Driver等相关工作；&lt;/li&gt;
+  &lt;li&gt;启动kthreadd进程（pid=2）：是Linux系统的内核进程，会创建内核工作线程kworkder，软中断线程ksoftirqd，thermal等内核守护进程。&lt;code class=&quot;highlighter-rouge&quot;&gt;kthreadd进程是所有内核进程的鼻祖&lt;/code&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;native&quot;&gt;2.3 Native层&lt;/h3&gt;
+
+&lt;p&gt;这里的Native层主要包括init孵化来的用户空间的守护进程、HAL层以及开机动画等。启动init进程(pid=1),是Linux系统的用户进程，&lt;code class=&quot;highlighter-rouge&quot;&gt;init进程是所有用户进程的鼻祖&lt;/code&gt;。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;init进程会孵化出ueventd、logd、healthd、installd、adbd、lmkd等用户守护进程；&lt;/li&gt;
+  &lt;li&gt;init进程还启动&lt;code class=&quot;highlighter-rouge&quot;&gt;servicemanager&lt;/code&gt;(binder服务管家)、&lt;code class=&quot;highlighter-rouge&quot;&gt;bootanim&lt;/code&gt;(开机动画)等重要服务&lt;/li&gt;
+  &lt;li&gt;init进程孵化出Zygote进程，Zygote进程是Android系统的第一个Java进程，&lt;code class=&quot;highlighter-rouge&quot;&gt;Zygote是所有Java进程的父进程&lt;/code&gt;，Zygote进程本身是由init进程孵化而来的。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;framework&quot;&gt;2.4 Framework层&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Zygote进程，是由init进程通过解析init.rc文件后fork生成的，Zygote进程主要包含：
+    &lt;ul&gt;
+      &lt;li&gt;加载ZygoteInit类，注册Zygote Socket服务端套接字；&lt;/li&gt;
+      &lt;li&gt;加载虚拟机；&lt;/li&gt;
+      &lt;li&gt;preloadClasses；&lt;/li&gt;
+      &lt;li&gt;preloadResouces。&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;System Server进程，是由Zygote进程fork而来，&lt;code class=&quot;highlighter-rouge&quot;&gt;System Server是Zygote孵化的第一个进程&lt;/code&gt;，System Server负责启动和管理整个Java framework，包含ActivityManager，PowerManager等服务。&lt;/li&gt;
+  &lt;li&gt;Media Server进程，是由init进程fork而来，负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service，等服务。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;app&quot;&gt;2.5 App层&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Zygote进程孵化出的第一个App进程是Launcher，这是用户看到的桌面App；&lt;/li&gt;
+  &lt;li&gt;Zygote进程还会创建Browser，Phone，Email等App进程，每个App至少运行在一个进程上。&lt;/li&gt;
+  &lt;li&gt;所有的App进程都是由Zygote进程fork生成的。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;三、通信方式&lt;/h2&gt;
+
+&lt;p&gt;无论是Android系统，还是各种Linux衍生系统，各个组件、模块往往运行在各种不同的进程和线程内，这里就必然涉及进程/线程之间的通信。对于IPC(Inter-Process Communication, 进程间通信)，Linux现有管道、消息队列、共享内存、套接字、信号量、信号这些IPC机制，Android额外还有Binder IPC机制，Android OS中的Zygote进程的IPC采用的是Socket机制，在上层system server、media server以及上层App之间更多的是采用Binder IPC方式来完成跨进程间的通信。对于Android上层架构中，还多时候是在同一个进程的线程之间需要相互通信，例如同一个进程的主线程与工作线程之间的通信，往往采用的Handler消息机制。&lt;/p&gt;
+
+&lt;p&gt;想深入理解Android内核层架构，必须先深入理解Linux现有的IPC机制；对于Android上层架构，则最常用的通信方式是Binder、Socket、Handler，当然也有少量其他的IPC方式，比如杀进程Process.killProcess()采用的是signal方式。下面说说Binder、Socket、Handler：&lt;/p&gt;
+
+&lt;h3 id=&quot;binder&quot;&gt;3.1 Binder&lt;/h3&gt;
+
+&lt;p&gt;Binder作为Android系统提供的一种IPC机制，无论从系统开发还是应用开发，都是Android系统中最重要的组成，也是最难理解的一块知识点，想了解&lt;a href=&quot;https://www.zhihu.com/question/39440766/answer/89210950&quot;&gt;为什么Android要采用Binder作为IPC机制？&lt;/a&gt;，可查看博主在知乎上的回答。深入了解Binder机制，最好的方法便是阅读源码，借用Linux鼻祖Linus Torvalds曾说过的一句话：Read The Fucking Source Code。下面简要说说Binder IPC原理。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Binder IPC原理&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Binder通信采用c/s架构，从组件视角来说，包含Client、Server、ServiceManager以及binder驱动，其中ServiceManager用于管理系统中的各种服务。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/binder/prepare/IPC-Binder.jpg&quot; alt=&quot;ServiceManager&quot; /&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;想进一步了解Binder，可查看&lt;a href=&quot;http://gityuan.com/2015/10/31/binder-prepare/&quot;&gt;Binder系列—开篇&lt;/a&gt;，Binder系列用了13篇文章，从源码角度出发来，讲述驱动、native、framework、app四个层面的整个完整流程。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;socket&quot;&gt;3.2 Socket&lt;/h3&gt;
+
+&lt;p&gt;Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中采用Socket通信方式的主要：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;zygote：用于孵化进程，系统进程system_server孵化进程时便通过socket向zygote进程发起请求；&lt;/li&gt;
+  &lt;li&gt;installd：用于安装App的守护进程，上层PackageManagerService很多实现最终都是交给它来完成；&lt;/li&gt;
+  &lt;li&gt;lmkd：lowmemorykiller的守护进程，Java层的LowMemoryKiller最终都是由lmkd来完成；&lt;/li&gt;
+  &lt;li&gt;adbd：这个也不用说，用于服务adb；&lt;/li&gt;
+  &lt;li&gt;logcatd:这个不用说，用于服务logcat；&lt;/li&gt;
+  &lt;li&gt;vold：即volume Daemon，是存储类的守护进程，用于负责如USB、Sdcard等存储设备的事件处理。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;等等还有很多，这里不一一列举，Socket方式更多的用于Android framework层与native层之间的通信。Socket通信方式相对于binder非常简单，所以一直没有写相关文章，为了成一个体系，下次再补上。&lt;/p&gt;
+
+&lt;h3 id=&quot;handler&quot;&gt;3.3 Handler&lt;/h3&gt;
+
+&lt;p&gt;&lt;strong&gt;Binder/Socket用于进程间通信，而Handler消息机制用于同进程的线程间通信&lt;/strong&gt;，Handler消息机制是由一组MessageQueue、Message、Looper、Handler共同组成的，为了方便且称之为Handler消息机制。&lt;/p&gt;
+
+&lt;p&gt;有人可能会疑惑，为何Binder/Socket用于进程间通信，能否用于线程间通信呢？答案是肯定，对于两个具有独立地址空间的进程通信都可以，当然也能用于共享内存空间的两个线程间通信，这就好比杀鸡用牛刀。接着可能还有人会疑惑，那handler消息机制能否用于进程间通信？答案是不能，Handler只能用于共享内存地址空间的两个线程间通信，即同进程的两个线程间通信。很多时候，Handler是工作线程向UI主线程发送消息，即App应用中只有主线程能更新UI，其他工作线程往往是完成相应工作后，通过Handler告知主线程需要做出相应地UI更新操作，Handler分发相应的消息给UI主线程去完成，如下图：&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/handler/handler_thread_commun.jpg&quot; alt=&quot;handler_communication&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;由于工作线程与主线程共享地址空间，即Handler实例对象&lt;code class=&quot;highlighter-rouge&quot;&gt;mHandler&lt;/code&gt;位于线程间共享的内存堆上，工作线程与主线程都能直接使用该对象，只需要注意多线程的同步问题。工作线程通过&lt;code class=&quot;highlighter-rouge&quot;&gt;mHandler&lt;/code&gt;向其成员变量&lt;code class=&quot;highlighter-rouge&quot;&gt;MessageQueue&lt;/code&gt;中添加新Message，主线程一直处于loop()方法内，当收到新的Message时按照一定规则分发给相应的&lt;code class=&quot;highlighter-rouge&quot;&gt;handleMessage&lt;/code&gt;()方法来处理。所以说，而Handler消息机制用于同进程的线程间通信的核心是线程间共享内存空间，而不同进程拥有不同的地址空间，也就不能用handler来实现进程间通信。&lt;/p&gt;
+
+&lt;p&gt;上图只是Handler消息机制的一种处理流程，是不是只能工作线程向UI主线程发消息呢，其实不然，可以是UI线程想工作线程发送消息，也可以是多个工作线程之间通过handler发送消息。更多关于Handler消息机制文章：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/12/26/handler-message-framework/&quot;&gt;Android消息机制-Handler(framework篇)&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/12/27/handler-message-native/&quot;&gt;Android消息机制-Handler(native篇)&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;section-2&quot;&gt;四、计划提纲&lt;/h2&gt;
+
+&lt;p&gt;2016年新的一年刚开始，首先祝大家、也祝自己在新的一年诸事顺心，事业蒸蒸日上。在过去的一年，对于Android从底层一路到上层有不少自己的理解和沉淀，但总体较零散，未成体系。借着今天（元旦假日的最后一天），给自己的新的一年提前做一个计划，把知识进行归档整理与再学习，从而加深对Android架构的理解。通过前面对系统启动的介绍，相信大家对Android系统有了一个整体观，接下来需要抓核心、理思路。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;（1）&lt;/strong&gt;Android系统启动过程中，有几个非常重要的进程：&lt;code class=&quot;highlighter-rouge&quot;&gt;init&lt;/code&gt;、&lt;code class=&quot;highlighter-rouge&quot;&gt;Zygote&lt;/code&gt;、&lt;code class=&quot;highlighter-rouge&quot;&gt;system_server&lt;/code&gt;进程:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/05/android-init/&quot;&gt;Android系统启动—init篇&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/13/android-zygote/&quot;&gt;Android系统启动—Zygote篇&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;Android系统启动—SystemServer篇
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/14/android-system-server/&quot;&gt;SystemServer上篇&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/20/android-system-server-2/&quot;&gt;SystemServer下篇&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;（2）&lt;/strong&gt;再则就是在整个架构中有大量的服务，都是基于&lt;a href=&quot;http://gityuan.com/2015/10/31/binder-prepare/&quot;&gt;Binder&lt;/a&gt;来交互的，计划针对部分核心服务来重点分析：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Android服务篇-ActivityManagerService
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/21/activity-manager-service/&quot;&gt;AMS启动过程（一）&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Android服务篇-PackageManagerService&lt;/li&gt;
+  &lt;li&gt;Android服务篇-PowerManagerService&lt;/li&gt;
+  &lt;li&gt;Android服务篇-BatteryService
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/01/10/power_rank/&quot;&gt;Android耗电统计算法&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Android服务篇-WindowManagerService&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;当然graphic也是一大块难啃的模块，也是需要整理的，先留个空位吧。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;（3）&lt;/strong&gt;对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Android组件-Activity
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/03/12/start-activity/&quot;&gt;startActivity流程分析(一)&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Android组件-Service
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/03/06/start-service/&quot;&gt;startService流程分析&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Android组件-Broadcast Receiver&lt;/li&gt;
+  &lt;li&gt;Android组件-Content Provider&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;（4）&lt;/strong&gt;有了这些，中间还缺少关于虚拟机ART的介绍，会需要对ART分析，后续还需要开展对ART虚拟机的一系列文章。回顾整个架构，谈谈系统性能，需要先掌握进程、内存、IO这些层面知识，这里牵涉面较广，从底层Linux层直至上层App&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;进程篇
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/03/26/app-process-create/&quot;&gt;理解Android进程创建流程&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/12/19/android-process-category/&quot;&gt;Android进程整理&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/10/01/process-lifecycle/&quot;&gt;Android进程生命周期与ADJ&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/10/01/process-priority/&quot;&gt;进程优先级&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;内存篇
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/10/30/kernel-memory/&quot;&gt;Linux内存管理&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;IO篇&lt;/li&gt;
+  &lt;li&gt;Linux驱动篇&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;（5）&lt;/strong&gt;最后，说说Android相关的一些常用命令和工具&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/03/19/android-build/&quot;&gt;理解Android编译命令&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/01/17/systrace/&quot;&gt;性能工具Systrace&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/01/02/memory-analysis-command/&quot;&gt;Android内存分析命令&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2015/10/11/ps-command/&quot;&gt;ps进程命令&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/27/am-command/&quot;&gt;Am命令用法&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://gityuan.com/2016/02/28/pm-command/&quot;&gt;Pm命令用法&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;本博客还有很多文章并没有写到上面这个清单，先写这么多，后续再不断更新与完善。最后，欢迎大家交流与纠错，大家来找茬。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;欢迎关注我的&lt;strong&gt;&lt;a href=&quot;http://weibo.com/gityuan&quot;&gt;微博：Gityuan&lt;/a&gt;&lt;/strong&gt;，微信公众号：gityuan，后面会持续分享更多原创技术干货。&lt;/p&gt;
+</description>
+        <pubDate>Fri, 01 Apr 2016 19:49:40 +0800</pubDate>
+        <link>http://gityuan.com/2016/04/01/android/</link>
+        <guid isPermaLink="true">http://gityuan.com/2016/04/01/android/</guid>
+        
+        <category>android</category>
         
         
       </item>
