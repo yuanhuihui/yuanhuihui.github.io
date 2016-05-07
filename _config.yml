@@ -14,6 +14,7 @@ baseurl: ""                             # for example, '/blog' if your blog host
 RSS: true
 weibo_username:     gityuan
 zhihu_username:     gityuan
+google_userId:   101388994961262711072
 #github_username:    yuanhuihui
 #twitter_username:  gityuan
 #facebook_username:  gityuan
@@ -74,7 +75,7 @@ duoshuo_share: true                     # set to false if you want to use Commen
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
 sidebar-about-description: "专注Android系统，Java/jvm技术"
-sidebar-avatar: /img/gityuan/2.png      # use absolute URL, seeing it's used in both `/` and `/about/`
+sidebar-avatar: /images/about-me/logo2.png      # use absolute URL, seeing it's used in both `/` and `/about/`
 
 
 
@@ -83,35 +84,30 @@ featured-tags: true                     # whether or not using Feature-Tags
 featured-condition-size: 1              # A tag will be featured if the size of it is more than this condition value
 
 
-
-# Friends
-friends: [
+# hotpages
+hotpages: [
     {
-        title: "前端外刊评论",
-        href: "http://qianduan.guru/"
+        title: "理解Android进程创建流程",
+        href: "http://gityuan.com/2016/03/26/app-process-create/"
     },{
-        title: "天镶的博客",
-        href: "http://lingyu.wang/"
+        title: "Android 内存分析命令",
+        href: "http://gityuan.com/2016/01/02/memory-analysis-command/"
+    } ,{
+        title: "Android 开篇    ",
+        href: "http://gityuan.com/android"
     },{
-        title: "Luke的自留地",
-        href: "http://hmqk1995.github.io"
+        title: "startService 流程分析",
+        href: "http://gityuan.com/2016/03/06/start-service/"
     },{
-        title: "Ebn's Blog",
-        href: "http://ebnbin.com/"
+        title: "Binder系列—开篇",
+        href: "http://gityuan.com/2015/10/31/binder-prepare/"
     },{
-        title: "SmdCn's Blog",
-        href: "http://blog.smdcn.net"
-    },{
-        title: "解旻的博客",
-        href: "http://xieminis.me/"
-    },{
-        title: "DHong Say",
-        href: "http://dhong.co"
-    },{
-        title: "尹峰以为",
-        href: "http://ingf.github.io/"
-    },{
-        title: "前端神盾局",
-        href: "http://wepiaofei.github.io/blog/"
+        title: "如何自学 Android   ",
+        href: "http://gityuan.com/2016/04/24/how-to-study-android/"
     }
 ]
+
+#money settings
+
+money-alipay: /images/money/alipay.png
+money-wechat:/images/money/wechat.png

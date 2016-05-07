@@ -72,7 +72,8 @@ layout: default
             ">
                 <!-- Short About -->
                 <section class="visible-md visible-lg">
-                    <hr><h5><a href="{{'/about/' | prepend: site.baseurl }}">GITYUAN</a></h5>
+                    <hr>
+                    <h5><a href="{{'/about/' | prepend: site.baseurl }}">GITYUAN</a></h5>
                     <div class="short-about">
                         {% if site.sidebar-avatar %}
                             <img src="{{site.sidebar-avatar}}" />
@@ -81,23 +82,13 @@ layout: default
                             <p>{{site.sidebar-about-description}}</p>
                         {% endif %}
                         <!-- SNS Link -->
-                        <ul class="list-inline">
-                            {% if site.RSS %}
+                        <ul class="list-inline">                                                    
+                            {% if site.weibo_username %}
                             <li>
-                                <a href="{{ "/feed.xml" | prepend: site.baseurl }}">
+                                <a target="_blank" href="http://weibo.com/{{ site.weibo_username }}">
                                     <span class="fa-stack fa-lg">
                                         <i class="fa fa-circle fa-stack-2x"></i>
-                                        <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
-                                    </span>
-                                </a>
-                            </li>
-                            {% endif %}
-                            {% if site.twitter_username %}
-                            <li>
-                                <a href="https://twitter.com/{{ site.twitter_username }}">
-                                    <span class="fa-stack fa-lg">
-                                        <i class="fa fa-circle fa-stack-2x"></i>
-                                        <i class="fa fa-twitter fa-stack-1x fa-inverse"></i>
+                                        <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
                                     </span>
                                 </a>
                             </li>
@@ -112,12 +103,12 @@ layout: default
                                 </a>
                             </li>
                             {% endif %}
-                            {% if site.weibo_username %}
+                            {% if site.google_userId %}
                             <li>
-                                <a target="_blank" href="http://weibo.com/{{ site.weibo_username }}">
+                                <a target="_blank" href="https://plus.google.com/{{ site.google_userId }}">
                                     <span class="fa-stack fa-lg">
                                         <i class="fa fa-circle fa-stack-2x"></i>
-                                        <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                                        <i class="fa  fa-google fa-stack-1x fa-inverse"></i>
                                     </span>
                                 </a>
                             </li>
@@ -128,6 +119,16 @@ layout: default
                                     <span class="fa-stack fa-lg">
                                         <i class="fa fa-circle fa-stack-2x"></i>
                                         <i class="fa fa-facebook fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if site.twitter_username %}
+                            <li>
+                                <a href="https://twitter.com/{{ site.twitter_username }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-twitter fa-stack-1x fa-inverse"></i>
                                     </span>
                                 </a>
                             </li>
@@ -152,10 +153,36 @@ layout: default
                                 </a>
                             </li>
                             {% endif %}
+                            {% if site.RSS %}
+                            <li>
+                                <a href="{{ "/feed.xml" | prepend: site.baseurl }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}    
                         </ul>
                     </div>
                 </section>
-    
+                
+    						<!-- 热门文章 -->
+                {% if site.hotpages %}
+                <hr>
+                
+                <h5>热门文章</h5>
+                <ul class="list-inline">
+                    {% for page in site.hotpages %}
+                        <li>
+                        	<a href="{{page.href}}">{{page.title}}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                
+                
+                
                 <!-- 标签 -->
                 {% if site.featured-tags %}
                 <section>
@@ -173,7 +200,25 @@ layout: default
                 </section>
                 {% endif %}
                 
+                <!--Begin Last Visitor -->
+                <hr>
+                <h5>最近访客</h5>
+                <ul class="ds-recent-visitors" data-num-items="20" style="padding-left:0px;"></ul>
+                <!--End Last Visitor -->
     		</div>
         {% endif %}
 	</div>
 </div>
+
+<!--多说js加载开始，一个页面只需要加载一次 -->
+<script type="text/javascript">
+var duoshuoQuery = {short_name:"{{site.duoshuo_username}}"};
+(function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = 'http://static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+})();
+</script>
+<!--多说js加载结束，一个页面只需要加载一次 -->
