@@ -74,8 +74,8 @@ duoshuo_share: true                     # set to false if you want to use Commen
 
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
-sidebar-about-description: "专注Android系统，Java/jvm技术"
-sidebar-avatar: /images/about-me/logo2.png      # use absolute URL, seeing it's used in both `/` and `/about/`
+sidebar-about-description: "专注Android/Java领域"
+sidebar-avatar: /images/about-me/logo2.png   
 
 
 
@@ -88,26 +88,27 @@ featured-condition-size: 1              # A tag will be featured if the size of 
 hotpages: [
     {
         title: "理解Android进程创建流程",
-        href: "http://gityuan.com/2016/03/26/app-process-create/"
+        href: "2016/03/26/app-process-create/"
     },{
         title: "Android 内存分析命令",
-        href: "http://gityuan.com/2016/01/02/memory-analysis-command/"
+        href: "2016/01/02/memory-analysis-command/"
     } ,{
         title: "Android 开篇    ",
-        href: "http://gityuan.com/android"
+        href: "android"
     },{
         title: "startService 流程分析",
-        href: "http://gityuan.com/2016/03/06/start-service/"
+        href: "2016/03/06/start-service/"
     },{
         title: "Binder系列—开篇",
-        href: "http://gityuan.com/2015/10/31/binder-prepare/"
+        href: "2015/10/31/binder-prepare/"
     },{
         title: "如何自学 Android   ",
-        href: "http://gityuan.com/2016/04/24/how-to-study-android/"
+        href: "2016/04/24/how-to-study-android/"
     }
 ]
 
 #money settings
 
-money-alipay: /images/money/alipay.png
-money-wechat: /images/money/wechat.png
+money-alipay: /images/about-me/alipay.jpg
+money-weixin: /images/about-me/weixin.jpg
+money-description: 如果您觉得我的文章不错的话，请帮忙分享转发给更多朋友，或者打赏我一杯咖啡的钱。若能获得大家的支持与认可，万分感谢。

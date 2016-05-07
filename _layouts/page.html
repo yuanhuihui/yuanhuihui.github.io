@@ -168,18 +168,36 @@ layout: default
                 </section>
                 
     						<!-- 热门文章 -->
-                {% if site.hotpages %}
                 <hr>               
                 <h5>热门文章</h5>
                 <ul class="list-inline">
                     {% for page in site.hotpages %}
                         <li>
-                        	<a href="{{page.href}}">{{page.title}}</a>
+                        	<a href="{{page.href  | prepend: site.baseurl}}">{{page.title}}</a>
                         </li>
                     {% endfor %}
                 </ul>
-                {% endif %}
-
+                
+								<!-- 打赏 -->
+								<div class="short-about">
+                <hr>               
+                <h5>打赏</h5>
+                <ul class="list-inline">                   
+                    {% if site.money-description %}
+                        <p>{{site.money-description}}</p>
+                    {% endif %}
+                    {% if site.money-alipay %}
+                    	<a href="{{site.money-alipay | prepend: site.baseurl}}">
+                            <img src="{{site.money-alipay}}" />
+                      </a>
+                    {% endif %}
+                    {% if site.money-weixin %}
+                    	<a href="{{site.money-weixin | prepend: site.baseurl}}">
+                            <img src="{{site.money-weixin}}" />
+                      </a>
+                    {% endif %}
+                </ul>
+ 								</div>
                 
                 <!-- 标签 -->
                 {% if site.featured-tags %}
