@@ -1,6 +1,7 @@
 ---
 layout: post
 title:  " Android开篇"
+permalink: /android/
 date:   2016-04-01 11:49:40
 catalog:  true
 tags:

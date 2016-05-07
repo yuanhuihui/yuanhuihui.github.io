@@ -1,0 +1,286 @@
+---
+layout: default
+---
+
+<!-- Page Header -->
+<header class="intro-header" style="background-image: url('{{ site.baseurl }}/{% if page.header-img %}{{ page.header-img }}{% else %}{{ site.header-img }}{% endif %}')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 ">
+                <div class="site-heading">
+                    <h1>{% if page.title %}{{ page.title }}{% else %}{{ site.title }}{% endif %}</h1>
+                    <!--<hr class="small">-->
+                    <span class="subheading">{{ page.description }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<div class="container">
+	<div class="row">
+        {% if site.sidebar == false %}
+<!-- NO SIDEBAR -->
+    <!-- PostList Container -->
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 postlist-container">
+                {{ content }}
+								<hr>
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="{{page.id}}"
+                        data-title="{{page.title}}"
+                        data-url="{{site.url}}{{site.baseurl}}{{page.url}}" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+            </div>
+            
+            
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- 标签 -->
+                {% if site.featured-tags %}
+                <section>
+                    <!-- no hr -->
+                    <h5><a href="{{'/tags/' | prepend: site.baseurl }}">标签</a></h5>
+                    <div class="tags">
+        				{% for tag in site.tags %}
+                            {% if tag[1].size > {{site.featured-condition-size}} %}
+                				<a href="{{ site.baseurl }}/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">
+                                    {{ tag[0] }}
+                                </a>
+                            {% endif %}
+        				{% endfor %}
+        			</div>
+                </section>
+                {% endif %}
+            </div>
+        {% else %}
+
+<!-- USE SIDEBAR -->
+    <!-- PostList Container -->
+    		<div class="
+                col-lg-8 col-lg-offset-1
+                col-md-8 col-md-offset-1
+                col-sm-12
+                col-xs-12
+                postlist-container
+            ">
+    			{{ content }}
+    			
+
+					<hr>
+            <!-- 多说评论框 start -->
+            <div class="comment">
+                <div class="ds-thread"
+                    data-thread-key="{{page.id}}"
+                    data-title="{{page.title}}"
+                    data-url="{{site.url}}{{site.baseurl}}{{page.url}}" >
+                </div>
+            </div>
+            <!-- 多说评论框 end -->
+					
+    		</div>
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-3 col-lg-offset-0
+                col-md-3 col-md-offset-0
+                col-sm-12
+                col-xs-12
+                sidebar-container
+            ">
+                <!-- Short About -->
+                <section class="visible-md visible-lg">
+                    <hr>
+                    <h5><a href="{{'/about/' | prepend: site.baseurl }}">GITYUAN</a></h5>
+                    <div class="short-about">
+                        {% if site.sidebar-avatar %}
+                            <img src="{{site.sidebar-avatar}}" />
+                        {% endif %}
+                        {% if site.sidebar-about-description %}
+                            <p>{{site.sidebar-about-description}}</p>
+                        {% endif %}
+                        <!-- SNS Link -->
+                        <ul class="list-inline">                                                    
+                            {% if site.weibo_username %}
+                            <li>
+                                <a target="_blank" href="http://weibo.com/{{ site.weibo_username }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-weibo fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if site.zhihu_username %}
+                            <li>
+                                <a target="_blank" href="https://www.zhihu.com/people/{{ site.zhihu_username }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa  fa-stack-1x fa-inverse">知</i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if site.google_userId %}
+                            <li>
+                                <a target="_blank" href="https://plus.google.com/{{ site.google_userId }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa  fa-google fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if site.facebook_username %}
+                            <li>
+                                <a target="_blank" href="https://www.facebook.com/{{ site.facebook_username }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-facebook fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if site.twitter_username %}
+                            <li>
+                                <a href="https://twitter.com/{{ site.twitter_username }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-twitter fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if site.github_username %}
+                            <li>
+                                <a target="_blank" href="https://github.com/{{ site.github_username }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if site.linkedin_username %}
+                            <li>
+                                <a target="_blank" href="https://www.linkedin.com/in/{{ site.linkedin_username }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-linkedin fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if site.RSS %}
+                            <li>
+                                <a href="{{ "/feed.xml" | prepend: site.baseurl }}">
+                                    <span class="fa-stack fa-lg">
+                                        <i class="fa fa-circle fa-stack-2x"></i>
+                                        <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                                    </span>
+                                </a>
+                            </li>
+                            {% endif %}    
+                        </ul>
+                    </div>
+                </section>
+                
+    						<!-- 热门文章 -->
+                <hr>               
+                <h5>热门文章</h5>
+                <ul class="list-inline">
+                    {% for page in site.hotpages %}
+                        <li>
+                        	<a href="{{page.href  | prepend: site.baseurl}}">{{page.title}}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+                
+								<!-- 打赏 -->
+								<div class="short-about">
+                <hr>               
+                <h5>打赏</h5>
+                <ul class="list-inline">                   
+                    {% if site.money-description %}
+                        <p>{{site.money-description}}</p>
+                    {% endif %}
+                    {% if site.money-alipay %}
+                    	<a href="{{site.money-alipay | prepend: site.baseurl}}">
+                            <img src="{{site.money-alipay}}" />
+                      </a>
+                    {% endif %}
+                    {% if site.money-weixin %}
+                    	<a href="{{site.money-weixin | prepend: site.baseurl}}">
+                            <img src="{{site.money-weixin}}" />
+                      </a>
+                    {% endif %}
+                </ul>
+ 								</div>
+                
+                <!-- 标签 -->
+                {% if site.featured-tags %}
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="{{'/tags/' | prepend: site.baseurl }}">标签</a></h5>
+                    <div class="tags">
+                        {% for tag in site.tags %}
+                            {% if tag[1].size > {{site.featured-condition-size}} %}
+                                <a href="{{ site.baseurl }}/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">
+                                    {{ tag[0] }}
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endif %}
+                
+                <!--Begin Last Visitor -->
+                <hr>
+                <h5>最近访客</h5>
+                <ul class="ds-recent-visitors" data-num-items="20" style="padding-left:0px;"></ul>
+                <!--End Last Visitor -->
+    		</div>
+        {% endif %}
+	</div>
+</div>
+
+<!--多说js加载开始，一个页面只需要加载一次 -->
+<script type="text/javascript">
+var duoshuoQuery = {short_name:"{{site.duoshuo_username}}"};
+(function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = 'http://static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+})();
+</script>
+<!--多说js加载结束，一个页面只需要加载一次 -->
+
+
+{% if site.duoshuo_username %}
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User
+    var _user = '{{site.duoshuo_username}}';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+{% endif %}
