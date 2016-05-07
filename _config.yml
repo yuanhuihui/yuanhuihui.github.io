@@ -1,7 +1,7 @@
 # Site settings
 title: Gityuan
 SEOTitle: Gityuan博客
-header-img: img/home-bg.jpg
+header-img: img/nav-home.jpg
 email: gityuan@gmail.com
 description: "Android,gityuan,Android技术博客,Android源码分析,袁辉辉"
 keyword: "Android,gityuan,Android技术博客,Android源码分析,袁辉辉"
@@ -89,12 +89,12 @@ hotpages: [
     {
         title: "理解Android进程创建流程",
         href: "2016/03/26/app-process-create/"
-    },{
-        title: "Android 内存分析命令",
-        href: "2016/01/02/memory-analysis-command/"
     } ,{
         title: "Android 开篇    ",
         href: "android"
+    },{
+        title: "Android 内存分析命令",
+        href: "2016/01/02/memory-analysis-command/"
     },{
         title: "startService 流程分析",
         href: "2016/03/06/start-service/"
