@@ -110,4 +110,4 @@ hotpages: [
 #money settings
 
 money-alipay: /images/money/alipay.png
-money-wechat:/images/money/wechat.png
+money-wechat: /images/money/wechat.png
