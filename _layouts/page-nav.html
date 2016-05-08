@@ -48,11 +48,11 @@ layout: default
                 {% if site.featured-tags %}
                 <section>
                     <!-- no hr -->
-                    <h5><a href="{{'/tags/' | prepend: site.baseurl }}">标签</a></h5>
+                    <h5><a target="_blank" href="{{'/tags/' | prepend: site.baseurl }}">标签</a></h5>
                     <div class="tags">
         				{% for tag in site.tags %}
                             {% if tag[1].size > {{site.featured-condition-size}} %}
-                				<a href="{{ site.baseurl }}/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">
+                				<a target="_blank" href="{{ site.baseurl }}/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">
                                     {{ tag[0] }}
                                 </a>
                             {% endif %}
@@ -98,7 +98,7 @@ layout: default
                 <!-- Short About -->
                 <section class="visible-md visible-lg">
                     <hr>
-                    <h5><a href="{{'/about/' | prepend: site.baseurl }}">GITYUAN</a></h5>
+                    <h5><a target="_blank" href="{{'/about/' | prepend: site.baseurl }}">GITYUAN</a></h5>
                     <div class="short-about">
                         {% if site.sidebar-avatar %}
                             <img src="{{site.sidebar-avatar}}" />
@@ -150,7 +150,7 @@ layout: default
                             {% endif %}
                             {% if site.twitter_username %}
                             <li>
-                                <a href="https://twitter.com/{{ site.twitter_username }}">
+                                <a target="_blank" href="https://twitter.com/{{ site.twitter_username }}">
                                     <span class="fa-stack fa-lg">
                                         <i class="fa fa-circle fa-stack-2x"></i>
                                         <i class="fa fa-twitter fa-stack-1x fa-inverse"></i>
@@ -180,7 +180,7 @@ layout: default
                             {% endif %}
                             {% if site.RSS %}
                             <li>
-                                <a href="{{ "/feed.xml" | prepend: site.baseurl }}">
+                                <a target="_blank" href="{{ "/feed.xml" | prepend: site.baseurl }}">
                                     <span class="fa-stack fa-lg">
                                         <i class="fa fa-circle fa-stack-2x"></i>
                                         <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
@@ -198,7 +198,7 @@ layout: default
                 <ul class="list-inline">
                     {% for page in site.hotpages %}
                         <li>
-                        	<a href="{{page.href  | prepend: site.baseurl}}">{{page.title}}</a>
+                        	<a target="_blank" href="{{page.href  | prepend: site.baseurl}}">{{page.title}}</a>
                         </li>
                     {% endfor %}
                 </ul>
@@ -212,12 +212,12 @@ layout: default
                         <p>{{site.money-description}}</p>
                     {% endif %}
                     {% if site.money-alipay %}
-                    	<a href="{{site.money-alipay | prepend: site.baseurl}}">
+                    	<a target="_blank" href="{{site.money-alipay | prepend: site.baseurl}}">
                             <img src="{{site.money-alipay}}" />
                       </a>
                     {% endif %}
                     {% if site.money-weixin %}
-                    	<a href="{{site.money-weixin | prepend: site.baseurl}}">
+                    	<a target="_blank" href="{{site.money-weixin | prepend: site.baseurl}}">
                             <img src="{{site.money-weixin}}" />
                       </a>
                     {% endif %}
@@ -228,11 +228,11 @@ layout: default
                 {% if site.featured-tags %}
                 <section>
                     <hr class="hidden-sm hidden-xs">
-                    <h5><a href="{{'/tags/' | prepend: site.baseurl }}">标签</a></h5>
+                    <h5><a target="_blank" href="{{'/tags/' | prepend: site.baseurl }}">标签</a></h5>
                     <div class="tags">
                         {% for tag in site.tags %}
                             {% if tag[1].size > {{site.featured-condition-size}} %}
-                                <a href="{{ site.baseurl }}/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">
+                                <a target="_blank" href="{{ site.baseurl }}/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">
                                     {{ tag[0] }}
                                 </a>
                             {% endif %}
