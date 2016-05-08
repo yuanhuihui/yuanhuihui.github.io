@@ -8,6 +8,7 @@ tags:
 
 ---
 
+
 > 相信有不少开发者对于dp/sp/px，这些概念比较模糊，本文将讲解其含义和用途。
 
 ## 基本概念  
@@ -81,7 +82,3 @@ dpi，英文全称dot per inch，是指每英寸上的像素点个数。
 	- <http://opensignal.com/reports/2015/08/android-fragmentation>
 - 对不同大小的屏幕提供不同的layout；
 - 对不同密度的屏幕提供不同的图片；
-
-----------
-
-**[如果您觉得文章对您有所帮助，不妨点我，关注我的微信、微博. ^_^](http://gityuan.com/about/)**

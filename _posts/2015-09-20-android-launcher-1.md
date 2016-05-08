@@ -206,6 +206,7 @@ PagedView是滑屏最主要的类,下面是init()方法出初始化参数，假�
         }
     }
 
+
 ### 4. LauncherScroller滑动器
 launcher桌面的滑动器
 	mDeceleration = computeDeceleration(ViewConfiguration.getScrollFriction());
@@ -224,6 +225,7 @@ launcher桌面的滑动器
         return mMode == FLING_MODE ?
                 mCurrVelocity : mVelocity - mDeceleration * timePassed() / 2000.0f;
     }
+
 
 ### 5.computeScroll
 computeScroll()：重写了父类的computeScroll()；主要功能是计算拖动的位移量、更新背景、设置要显示的屏幕

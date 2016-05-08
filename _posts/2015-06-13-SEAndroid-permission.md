@@ -8,7 +8,6 @@ tags:
     - selinux
     - permission
 
-
 ---
 
 > 本文主要记录一下修改selinux权限的方法

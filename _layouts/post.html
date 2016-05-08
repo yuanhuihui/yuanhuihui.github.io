@@ -58,10 +58,11 @@ layout: default
                 col-md-10 col-md-offset-1
                 post-container">
 
-				{{ content }}
-
+								{{ content }}
+								<hr>
+								{% include article_bottom.html %}
                 <hr>
-
+								
                 {% if site.duoshuo_share && site.duoshuo_username %}
                 <!-- 多说 Share start -->
                 </style>

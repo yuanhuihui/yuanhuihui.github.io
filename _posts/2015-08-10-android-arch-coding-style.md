@@ -8,7 +8,6 @@ tags:
     - app
 ---
 
-
 >Google官方Java代码风格参考规范[链接](http://google-styleguide.googlecode.com/svn/trunk/javaguide.html)， 中文翻译参考版[链接](http://hawstein.com/posts/google-java-style.html)。
 
 ## 命名规范

@@ -1281,7 +1281,3 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 7. 主线程在收到Message后，通过发射机制创建目标Service，并回调Service.onCreate()方法。
 
 到此，服务便正式启动完成。当创建的是本地服务时，无需经过上述步骤2、3，直接创建服务即可。
-
-  
-----------
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)

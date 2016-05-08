@@ -7,7 +7,6 @@ tags:
     - android
 
 
-
 ----------
 
  >本文重点讲述属性动画，关于逐帧动画与补间动画，可查看上一篇文章[**Android动画之入门篇（一）**](http://gityuan.com/2015/09/03/android-anaimator-1/)。 

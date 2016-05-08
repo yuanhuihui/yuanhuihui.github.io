@@ -10,6 +10,7 @@ tags:
     - gc
 
 ---
+
 > 本文主要讲述Dalvik与ART两种Android虚拟机，在GC时产生log信息的含义，便于分析。
 
 ## 一、Dalvik

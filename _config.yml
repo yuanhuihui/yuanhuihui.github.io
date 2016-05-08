@@ -32,15 +32,9 @@ paginate_path: "page:num"
 exclude: ["less","node_modules","Gruntfile.js","package.json","README.md","README.zh.md"]
 anchorjs: true                          # if you want to customize anchor. check out line:181 of `post.html`
 
-
-
 # Gems
 # from PR#40, to support local preview for Jekyll 3.0
 gems: [jekyll-paginate]
-
-
-
-
 
 # Markdown settings
 # replace redcarpet to kramdown,
@@ -74,7 +68,7 @@ duoshuo_share: true                     # set to false if you want to use Commen
 
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
-sidebar-about-description: "专注Android/Java领域"
+sidebar-about-description: "Android OS Developer"
 sidebar-avatar: /images/about-me/logo2.png   
 
 
@@ -86,21 +80,21 @@ featured-condition-size: 1              # A tag will be featured if the size of 
 
 # hotpages
 hotpages: [
-    {
-        title: "理解Android进程创建流程",
-        href: "2016/03/26/app-process-create/"
-    } ,{
+		{
         title: "Android 开篇    ",
         href: "android"
+    }, {
+        title: "理解Android进程创建流程",
+        href: "2016/03/26/app-process-create/"
+    },{
+        title: "Binder系列 开篇",
+        href: "2015/10/31/binder-prepare/"
     },{
         title: "Android 内存分析命令",
         href: "2016/01/02/memory-analysis-command/"
     },{
         title: "startService 流程分析",
         href: "2016/03/06/start-service/"
-    },{
-        title: "Binder系列—开篇",
-        href: "2015/10/31/binder-prepare/"
     },{
         title: "如何自学 Android   ",
         href: "2016/04/24/how-to-study-android/"
@@ -111,4 +105,4 @@ hotpages: [
 
 money-alipay: /images/about-me/alipay.jpg
 money-weixin: /images/about-me/weixin.jpg
-money-description: 如果您觉得我的文章不错的话，请帮忙分享转发给更多朋友，或者打赏我一杯咖啡的钱。若能获得大家的支持与认可，万分感谢。
+money-description: 如果觉得我的文章对您所有帮助，请随意打赏，或者分享转发给更多朋友。您的支持与认可，将使我更加坚持不懈地创作，谢谢您！

@@ -11,6 +11,7 @@ tags:
 
 ---
 
+
 ## ps进程命令
 
 在`adb shell`终端，输入 `ps`，可查看手机当前所有的进程状态，其中`ps`的英文全称是Process Status。

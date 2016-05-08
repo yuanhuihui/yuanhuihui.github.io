@@ -114,8 +114,3 @@ pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManage
 		-u: 只列举用户可见的权限。
 
 
-----------
-
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)
-
-

@@ -22,7 +22,7 @@ tags:
 
 ###  入口 
 
-在Native层的服务以media服务为例，注册服务media的入口函数是main_mediaserver.cpp中的main()方法。代码如下：
+在Native层的服务以media服务为例，注册服务media的入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
 
 	int main(int argc __unused, char** argv)
 	{
@@ -31,7 +31,7 @@ tags:
         sp<ProcessState> proc(ProcessState::self());       //获得ProcessState实例 	
         sp<IServiceManager> sm = defaultServiceManager(); //获取ServiceManager实例
         AudioFlinger::instantiate();        
-        MediaPlayerService::instantiate();                //多媒体服务  【见流程1~12】	
+        MediaPlayerService::instantiate();                //多媒体服务  【见流程1~13】	
         ResourceManagerService::instantiate(); 
         CameraService::instantiate();         
         AudioPolicyService::instantiate();  
@@ -644,22 +644,31 @@ IPCThreadState进行transact事务处理分3部分：
 
 对于MediaPlayerService的场景下，事实上BnMediaPlayerService继承了BBinder类，且重载了onTransact()方法，故实际调用的是BnMediaPlayerService::onTransact()方法。
 
-从流程1到流程13，整个过程是MediaPlayerService服务向Service Manager进程进行服务注册的过程。在整个过程涉及到MediaPlayerService(作为Client进程)和Service Manager(作为Service进程)。
+
+----------
+
+**小节** 
+
+从流程1到流程13，整个过程是`MediaPlayerService`服务向`Service Manager`进程进行服务注册的过程。在整个过程涉及到MediaPlayerService(作为Client进程)和Service Manager(作为Service进程)，通信流程图如下所示：
 
 ![media_player_service_ipc](/images/binder/addService/media_player_service_ipc.png)
 
 
 过程分析：
 
-1. MediaPlayerService进程调用ioctl()函数向Binder驱动发送该IPC数据(IPC数据内容：Binder协议是BC_TRANSACTION，还有Handle=0， RPC代码为ADD_SERVICE, RPC数据为"media.player")，该过程可以理解成一个事务binder_transaction，不妨记为T1，执行当前操作的线程binder_thread，不妨记为thread1，则T1->from_parent=NULL，T1->from = thread1，thread1->transaction_stack；
+1. MediaPlayerService进程调用`ioctl()`向Binder驱动发送IPC数据，该过程可以理解成一个事务`binder_transaction`(记为`T1`)，执行当前操作的线程binder_thread(记为`thread1`)，则T1->from_parent=NULL，T1->from = `thread1`，thread1->transaction_stack=T1。其中IPC数据内容包含：
+	- Binder协议为BC_TRANSACTION；
+	- Handle等于0；
+	- RPC代码为ADD_SERVICE；
+	- RPC数据为"media.player"。
 
-2. Binder驱动收到该Binder请求，生成BR_TRANSACTION命令，选择目标处理该请求的线程，即Service Manager的binder线程，不妨记为thread2，则 T1->to_parent = NULL，T1->to_thread = thread2。并将整个binder_transaction数据插入到目标线程的todo队列；
+2. Binder驱动收到该Binder请求，生成`BR_TRANSACTION`命令，选择目标处理该请求的线程，即ServiceManager的binder线程(记为`thread2`)，则 T1->to_parent = NULL，T1->to_thread = `thread2`。并将整个binder_transaction数据(记为`T2`)插入到目标线程的todo队列；
 
-3. Service Manager的线程thread2收到T2后，调用服务注册函数将"media.player"服务注册到服务目录中。当服务注册完成后，生成IPC应答数据(BC_REPLY)，T2->form_parent = T1，T2->from = thread2, thread2-)->transaction_stack = T2。
+3. Service Manager的线程`thread2`收到`T2`后，调用服务注册函数将服务"media.player"注册到服务目录中。当服务注册完成后，生成IPC应答数据(`BC_REPLY`)，T2->form_parent = T1，T2->from = thread2, thread2-)->transaction_stack = T2。
 
-4. Binder驱动收到该Binder应答请求，生成BR_REPLY命令，T2->to_parent = T1，T2->to_thread = thread1, thread1->transaction_stack = T2。 在MediaPlayerService收到该命令后，知道服务注册完成，可以正常使用。
+4. Binder驱动收到该Binder应答请求，生成`BR_REPLY`命令，T2->to_parent = T1，T2->to_thread = thread1, thread1->transaction_stack = T2。 在MediaPlayerService收到该命令后，知道服务注册完成便可以正常使用。
 
-整个过程中，BC_TRANSACTION和BR_TRANSACTION过程是一个完整的事务；BC_REPLY和BR_REPLY是一个完成事务。 
+整个过程中，BC_TRANSACTION和BR_TRANSACTION过程是一个完整的事务过程；BC_REPLY和BR_REPLY是一个完整的事务过程。 
 到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://gityuan.com/2015/11/15/binder-get-service/)。
 
 ### [16] startThreadPool
@@ -791,8 +800,4 @@ MediaPlayerService服务注册
 - 当前主线程通过joinThreadPool，也实现了Binder进行交互；
 
 故有两个线程与Binder驱动进行交互。
-
-----------
-
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)
 

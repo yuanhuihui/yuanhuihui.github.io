@@ -1062,8 +1062,3 @@ mHasWifiActivityReporting的默认值为false，故WIFI计算方式默认采用W
 |用户|-||
   
 只有通过配置文件，精确地配置好每一项的基础功耗值，才能有一个精确的功耗统计结果。
-
-
-----------
-
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)

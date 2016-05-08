@@ -231,6 +231,7 @@ mediaserver 子线程，如下：
 - 主线程是由 Zygote母体生成的；
 - 线程池：首次创建第一个Binder线程A，然后监听BR_SPAWN_LOOPER事件，收到后创建第二个Binder线程B，线程B继续监听BR_SPAWN_LOOPER事件，收到后创建第三个Binder线程C。总共创建3个Bindr线程，这是Binder协议决定。根据系统处理器数目以及应用程序的负载强度，线程池的线程数目可以动态调整，这是Binder优化需要考虑的。
 
+
 ## 四、进程统计
 
 下面以一台基于Android 5.1.1的手机为例，统计以“父进程”作为PPID的进程个数统计表：

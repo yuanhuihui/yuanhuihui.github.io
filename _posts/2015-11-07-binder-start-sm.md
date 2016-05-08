@@ -611,8 +611,3 @@ Service Manger意义：
 1. ServiceManger能集中管理系统内的所有服务，它能施加权限控制，并不是任何进程都能注册服务；
 2. ServiceManager支持通过字符串名称来查找对应的Service。这个功能很像DNS；
 3. Server进程随时可能会挂了，如果让每个Client都去检测会导致负载过重。但有了ServiceManager，Client只需要查询ServiceManager，就能把握动向，得到最新信息。
-
-
-----------
-
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)

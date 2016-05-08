@@ -42,6 +42,7 @@ tags:
 3. Running -> Blocked： 当进程请求资源的使用权(如外设)或等待事件发生(如I/O完成)时，由运行态转换为阻塞态；
 4. Blocked -> Runnable： 当进程已经获取所需资源的使用权或者等待事件已完成时，中断处理程序必须把相应进程的状态由阻塞态转为就绪态；
 
+
 ## 三、小结
 
 进程的状态转移，主要围绕Runnable、Running、Blocked三个状态。Runnable与Running之间的转换，更多的是与调度器Scheduler相关，而Blocked状态主要涉及资源的使用权问题。

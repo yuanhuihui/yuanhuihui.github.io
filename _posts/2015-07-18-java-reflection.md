@@ -120,7 +120,6 @@ Class.forName(String className); (最常用)
 关于内部类以及反射实用，请查看下一篇文章从代码角度来述说的[Java反射之实用篇。](http://gityuan.com/2015/10/31/java-reflection-2/);
 
 
-
 ## 四、参考
 
 1. [JDK7官方英文文档  http://docs.oracle.com/javase/7/docs/api/](http://docs.oracle.com/javase/7/docs/api/)

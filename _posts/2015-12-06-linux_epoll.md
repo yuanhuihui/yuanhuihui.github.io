@@ -117,9 +117,7 @@ select/poll都只有一个方法，而epoll的操作过程有3个方法，分别
 
 
 
-----------
-
-另外，想更详细地了解select/poll/epoll机制，可查看<http://www.cnblogs.com/Anker/p/3265058.html>
+**另外**，想更详细地了解select/poll/epoll机制，可查看<http://www.cnblogs.com/Anker/p/3265058.html>
 
 
 

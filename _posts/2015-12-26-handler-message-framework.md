@@ -734,6 +734,7 @@ obtain()，从消息池取Message，都是把消息池表头的Message取走，�
 
 recycle()，将Message加入到消息池的过程，都是把Message加到链表的表头；
 
+
 ## 总结
 
 最后用一张图，来表示整个消息机制

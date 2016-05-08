@@ -685,7 +685,3 @@ MessageQueue通过mPtr变量保存NativeMessageQueue对象，从而使得Message
 - WeakMessageHandler继承于MessageHandler类，NativeMessageQueue继承于MessageQueue类
 
 另外，消息处理流程是先处理Native Message，再处理Native Request，最后处理Java Message。理解了该流程，也就明白有时上层消息很少，但响应时间却较长的真正原因。
-
-----------
-
-欢迎关注我的**[微博：Gityuan](http://weibo.com/gityuan)**，微信公众号：gityuan，后面会持续分享更多原创技术干货。

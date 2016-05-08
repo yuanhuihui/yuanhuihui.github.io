@@ -693,7 +693,6 @@ ViewGroup.dispatchTouchEvent()方法。为了精简篇幅，有些中间函数�
         return false;
     }
 
-
 ## 参考
 
 1. [Android事件分发机制完全解析，带你从源码的角度彻底理解(上)](http://blog.csdn.net/guolin_blog/article/details/9097463)

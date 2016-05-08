@@ -8,7 +8,6 @@ tags:
     - algorithm
 ---
 
-
 ## 问题
 
 > **完全遍历有序和无序的数组，时间复杂度都是O(n)，为什么遍历有序数组比无序数组速度更快？**
@@ -258,7 +257,6 @@ Java - Netbeans 7.1.1 JDK 7 - x64
 
 ----------
 
-
 **另外：**
 
 - 在x64上 GCC 4.6.1（-O3 或者 -ftree-vectorize）的环境下，是可以生成条件移动(conditional move，没有想到合适的译文，暂时称为条件移动)，因为在排序与未排序的数据没有区别，一样快。
@@ -270,8 +268,3 @@ Java - Netbeans 7.1.1 JDK 7 - x64
 
 
 *本文翻译来源于[stackoverflow](http://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-an-unsorted-array)英文版。*
-
-
-----------
-
-如果觉得本文对您有所帮助，请关注我的**微信公众号：gityuan**， **[微博：Gityuan](http://weibo.com/gityuan)**。 或者[点击这里查看更多关于我的信息](http://gityuan.com/about/)
