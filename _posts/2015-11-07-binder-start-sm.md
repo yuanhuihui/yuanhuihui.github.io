@@ -6,33 +6,32 @@ catalog:  true
 tags:
     - android
     - binder
-
-
+    
 ---
 
-> 基于Android 6.0的源码剖析， 本文详细地讲解了Service Manager如何产生
+> 基于Android 6.0的源码剖析， 本文详细地讲解了ServiceManager启动流程
 
 	/framework/native/cmds/servicemanager/service_manager.c
 	/framework/native/cmds/servicemanager/binder.c
-	/kernel/drivers/android/binder.c
 
 ### 入口
 
-Service Manager是整个Binder IPC通信过程中的守护进程，启动Service Manager的入口函数是service_manager.c中的main()方法。代码如下：
+ServiceManager是整个Binder IPC通信过程中的守护进程，本身也是一个Binder服务，但并没有采用libbinder中的多线程模型来与Binder驱动通信，而是自行编写了binder.c直接和Binder驱动来通信，并且只有一个循环binder_loop来进行读取和处理事务，这样的好处是简单而高效。 这也跟ServiceManager本身工作相对并不复杂，主要就两个工作：查询和注册服务。 对于Binder IPC通信过程中，其实更多的情形是BpBinder和BBinder之间的通信，比如ActivityManager和ActivityManagerService有大量的通信。
+
+启动Service Manager的入口函数是service_manager.c中的main()方法，代码如下：
 
 ==> `/framework/native/cmds/servicemanager/service_manager.c`
 
 	int main(int argc, char **argv)
 	{
 	    struct binder_state *bs;
-	
 	    //打开binder驱动，申请128k大小的内存空间 【见流程1】
 	    bs = binder_open(128*1024);
 	    if (!bs) {
 	        return -1;
 	    }
 	
-	    //成为上下文管理者 【见流程5】
+	    //成为上下文管理者 【见流程2】
 	    if (binder_become_context_manager(bs)) {  
 	        return -1;
 	    }
@@ -57,37 +56,17 @@ Service Manager是整个Binder IPC通信过程中的守护进程，启动Service
 	    cb.func_log = selinux_log_callback;
 	    selinux_set_callback(SELINUX_CB_LOG, cb);
 	
-	    //进入无限循环，处理client端发来的请求 【见流程9】
+	    //进入无限循环，处理client端发来的请求 【见流程5】
 	    binder_loop(bs, svcmgr_handler); 
 	
 	    return 0;
 	}
 
-该过程的**时序图**，如下：
+该过程的**时序图**如下：
 
 ![create_servicemanager](/images/binder/create_servicemanager/create_servicemanager.jpg)
 
->注意小节前的**数字**是与时序图所处的**顺序编号**一一对应，中间会省略部分方法，所以看到的小节并非连续的。
-
-
-Service Manager成为IPC守护进程的整个过程分为4大步骤：
-
-1. 打开binder驱动，并调用mmap()方法分配128k的内存映射空间：binder_open();
-2. 通知binder驱动使其成为守护进程：binder_become_context_manager()；
-3. 验证selinux权限；
-4. 进入循环状态，等待Client端的请求：binder_loop()。
-
-### 类图
-
-Binder在Native framework层所有涉及的类的关系图：
-
-点击查看[大图](http://gityuan.com/images/binder/create_servicemanager/classes_service_manager.png)
-
-![service_manager_classes](/images/binder/create_servicemanager/classes_service_manager.png)
-
-
-
-### [1] binder_open
+### 1. binder_open
 ==> `/framework/native/cmds/servicemanager/binder.c`
 
 打开binder驱动相关操作
@@ -103,20 +82,20 @@ Binder在Native framework层所有涉及的类的关系图：
 	        return NULL;
 	    }
 	
-	    //通过系统调用，陷入内核，打开Binder设备驱动 【流程2】
+	    //通过系统调用陷入内核，打开Binder设备驱动
 	    bs->fd = open("/dev/binder", O_RDWR);  
 	    if (bs->fd < 0) {   
 	        goto fail_open; // 无法打开binder设备
 	    }
 
-	     //通过系统调用，ioctl获取binder版本信息【流程3】
+	     //通过系统调用，ioctl获取binder版本信息
 	    if ((ioctl(bs->fd, BINDER_VERSION, &vers) == -1) ||
 	        (vers.protocol_version != BINDER_CURRENT_PROTOCOL_VERSION)) {  
 	        goto fail_open; //内核空间与用户空间的binder不是同一版本
 	    }
 	
 	    bs->mapsize = mapsize;
-	    //通过系统调用，mmap内存映射 【流程4】
+	    //通过系统调用，mmap内存映射
 	    bs->mapped = mmap(NULL, mapsize, PROT_READ, MAP_PRIVATE, bs->fd, 0); 
 	    if (bs->mapped == MAP_FAILED) { 
 	        goto fail_map; // binder设备内存无法映射
@@ -131,27 +110,27 @@ Binder在Native framework层所有涉及的类的关系图：
 	    return NULL;
 	}
 
-先调用open()打开binder设备，open()方法经过系统调用，对应于Binder驱动层的[binder_open()](http://gityuan.com/2015/11/01/binder-driver/#binderopen)方法，该方法会在Binder驱动层创建一个`binder_proc`对象，并将`binder_proc`对象赋值给fd->private_data，同时放入全局链表`binder_procs`。再通过ioctl()检验当前binder版本与Binder驱动层的版本是否一致。
+先调用open()打开binder设备，open()方法经过系统调用，进入Binder驱动，然后调用方法[binder_open()](http://gityuan.com/2015/11/01/binder-driver/#binderopen)，该方法会在Binder驱动层创建一个`binder_proc`对象，再将`binder_proc`对象赋值给fd->private_data，同时放入全局链表`binder_procs`。再通过ioctl()检验当前binder版本与Binder驱动层的版本是否一致。
 
-最后调用mmap()进行内存映射，同理，mmap()方法经过系统调用，对应于Binder驱动层的[binder_mmap()](http://gityuan.com/2015/11/01/binder-driver/#bindermmap)方法，该方法会在Binder驱动层创建`Binder_buffer`对象，并放入当前binder_proc的`proc->buffers`链表。
+调用mmap()进行内存映射，同理mmap()方法经过系统调用，对应于Binder驱动层的[binder_mmap()](http://gityuan.com/2015/11/01/binder-driver/#bindermmap)方法，该方法会在Binder驱动层创建`Binder_buffer`对象，并放入当前binder_proc的`proc->buffers`链表。
 
-### [5] binder_become_context_manager
+### 2. binder_become_context_manager
 ==> `/framework/native/cmds/servicemanager/binder.c`
 
 成为上下文的管理者，整个系统中只有一个这样的管理者。
 
 	int binder_become_context_manager(struct binder_state *bs)
 	{
-	    //通过ioctl，传递BINDER_SET_CONTEXT_MGR指令。再调用【流程7】
+	    //通过ioctl，传递BINDER_SET_CONTEXT_MGR指令。再调用【流程3】
 	    return ioctl(bs->fd, BINDER_SET_CONTEXT_MGR, 0);
 	}
 
 通过ioctl()方法经过系统调用，对应于Binder驱动层的[binder_ioctl()](http://gityuan.com/2015/11/01/binder-driver/#binderioctl)方法，根据参数`BINDER_SET_CONTEXT_MGR`，最终调用binder_ioctl_set_ctx_mgr()方法。
 
-### [7] binder_ioctl_set_ctx_mgr
+### 3. binder_ioctl_set_ctx_mgr
 ==> `kernel/drivers/android/binder.c` 
 
-binder驱动操作
+该方法位于binder驱动。
 
 	static int binder_ioctl_set_ctx_mgr(struct file *filp)
 	{
@@ -173,7 +152,7 @@ binder驱动操作
 			binder_context_mgr_uid = curr_euid; //设置当前线程euid作为Service Manager的uid
 		}
 
-	    //创建Service Manager实体【流程8】
+	    //创建ServiceManager实体【流程4】
 		binder_context_mgr_node = binder_new_node(proc, 0, 0); 
 		if (binder_context_mgr_node == NULL) {
 			ret = -ENOMEM;
@@ -195,9 +174,11 @@ binder驱动操作
 	static kuid_t binder_context_mgr_uid = INVALID_UID; 
 
 通过`binder_new_node()`创建了全局的`binder_context_mgr_node`对象，并且增加binder_context_mgr_node的强弱引用各自加1.
-`
-### [8] binder_new_node 
+
+### 4. binder_new_node 
 ==> `kernel/drivers/android/binder.c` 
+
+该方法位于binder驱动。
 
 	static struct binder_node *binder_new_node(struct binder_proc *proc,
 						   binder_uintptr_t ptr,
@@ -239,10 +220,10 @@ binder驱动操作
 在Binder驱动层创建[binder_node结构体](http://gityuan.com/2015/11/01/binder-driver/#bindernode)对象，并将当前binder_proc加入到`binder_node`的`node->proc`。并创建binder_node的async_todo和binder_work两个队列。
 
 
-### [9] binder_loop
+### 5. binder_loop
 ==> `/framework/native/cmds/servicemanager/binder.c`
 
-进入循环读写操作
+进入循环读写操作，由main()方法传递过来的参数func指向svcmgr_handler。
 
 	void binder_loop(struct binder_state *bs, binder_handler func)
 	{
@@ -255,7 +236,7 @@ binder驱动操作
 	    bwr.write_buffer = 0;
 	
 	    readbuf[0] = BC_ENTER_LOOPER;
-	    //将BC_ENTER_LOOPER命令发送给binder驱动，让Service Manager进入循环 【流程10】
+	    //将BC_ENTER_LOOPER命令发送给binder驱动，让Service Manager进入循环 【流程6】
 	    binder_write(bs, readbuf, sizeof(uint32_t)); 
 	
 	    for (;;) {
@@ -268,7 +249,7 @@ binder驱动操作
 	            break;
 	        }
 	
-	        // 解析binder信息 【流程13】
+	        // 解析binder信息 【流程7】
 	        res = binder_parse(bs, 0, (uintptr_t) readbuf, bwr.read_consumed, func);
 	        if (res == 0) {
 	            break;
@@ -282,7 +263,7 @@ binder驱动操作
 `binder_write`通过ioctl()将BC_ENTER_LOOPER命令发送给binder驱动，此时bwr只有write_buffer有数据，进入[binder_thread_write()](http://gityuan.com/2015/11/02/binder-driver-2//#section-1)方法。
 接下来进入for循环，执行ioctl()，此时bwr只有read_buffer有数据，那么进入[binder_thread_read()](http://gityuan.com/2015/11/02/binder-driver-2//#section-4)方法。
 
-### [10] binder_write
+### 6. binder_write
 ==> `/framework/native/cmds/servicemanager/binder.c`
 
 	int binder_write(struct binder_state *bs, void *data, size_t len)
@@ -303,10 +284,10 @@ binder驱动操作
 
 根据传递进来的参数，初始化bwr，其中write_size大小为4，write_buffer指向缓冲区的起始地址，其内容为BC_ENTER_LOOPER请求协议号。通过ioctl将bwr数据发送给binder驱动，让Service Manager进入循环。
 
-### [13] binder_parse
+### 7. binder_parse
 ==> `/framework/native/cmds/servicemanager/binder.c`
 
-解析binder信息，此处参数ptr指向BC_ENTER_LOOPER。
+解析binder信息，此处参数ptr指向BC_ENTER_LOOPER，func指向svcmgr_handler。
 
 	int binder_parse(struct binder_state *bs, struct binder_io *bio,
 	                 uintptr_t ptr, size_t size, binder_handler func)
@@ -343,7 +324,8 @@ binder驱动操作
 	
 	                bio_init(&reply, rdata, sizeof(rdata), 4);
 	                bio_init_from_txn(&msg, txn);
-	                res = func(bs, txn, &msg, &reply); // 收到Binder事务【见流程14】
+                     // 收到Binder事务 【见流程8】
+	                res = func(bs, txn, &msg, &reply);
 	                binder_send_reply(bs, &reply, txn->data.ptr.buffer, res);
 	            }
 	            ptr += sizeof(*txn);
@@ -369,7 +351,8 @@ binder驱动操作
 	        case BR_DEAD_BINDER: {
 	            struct binder_death *death = (struct binder_death *)(uintptr_t) *(binder_uintptr_t *)ptr;
 	            ptr += sizeof(binder_uintptr_t);
-	            death->func(bs, death->ptr); // binder死亡消息【见流程14】
+                // binder死亡消息【见流程8】
+	            death->func(bs, death->ptr); 
 	            break;
 	        }
 	        case BR_FAILED_REPLY:
@@ -382,16 +365,15 @@ binder驱动操作
 	            return -1;
 	        }
 	    }
-	
 	    return r;
 	} 
 
-此处func函数指针 指向 svcmgr_handler，将接受到的请求，最终调用svcmgr_handler。
+接受到的请求最终调用svcmgr_handler。
 
-### [14] svcmgr_handler
+### 8. svcmgr_handler
 ==> `/framework/native/cmds/servicemanager/service_manager.c`
 
-service manager操作的真正处理函数
+serviceManager操作的真正处理函数
 
 	int svcmgr_handler(struct binder_state *bs,
 	                   struct binder_transaction_data *txn,
@@ -404,8 +386,8 @@ service manager操作的真正处理函数
 	    uint32_t handle;
 	    uint32_t strict_policy;
 	    int allow_isolated;
-	
-	    if (txn->target.ptr != BINDER_SERVICE_MANAGER) //判断target是否是Service Manager
+	    //判断target是否是Service Manager
+	    if (txn->target.ptr != BINDER_SERVICE_MANAGER) 
 	        return -1;
 	
 	    if (txn->code == PING_TRANSACTION)
@@ -437,7 +419,7 @@ service manager操作的真正处理函数
 	        if (s == NULL) {
 	            return -1;
 	        }
-	        //根据名称查找service 【见流程15】
+	        //根据名称查找相应服务 【见流程9】
 	        handle = do_find_service(bs, s, len, txn->sender_euid, txn->sender_pid); 
 	        if (!handle)
 	            break;
@@ -451,8 +433,9 @@ service manager操作的真正处理函数
 	        }
 	        handle = bio_get_ref(msg);
 	        allow_isolated = bio_get_uint32(msg) ? 1 : 0;
+             //注册指定服务 【见流程10】
 	        if (do_add_service(bs, s, len, handle, txn->sender_euid,
-	            allow_isolated, txn->sender_pid)) //【见流程16】
+	            allow_isolated, txn->sender_pid))
 	            return -1;
 	        break;
 	
@@ -481,10 +464,8 @@ service manager操作的真正处理函数
 
 
 
-### [15] do_add_service
+### 9. do_add_service
 ==> `/framework/native/cmds/servicemanager/service_manager.c`
-
-注册服务
 
 	int do_add_service(struct binder_state *bs,
 	                   const uint16_t *s, size_t len,
@@ -495,12 +476,14 @@ service manager操作的真正处理函数
 	
 	    if (!handle || (len == 0) || (len > 127))
 	        return -1;
-	
-	    if (!svc_can_register(s, len, spid)) { //权限检查
+
+	    //权限检查【见流程9.1】
+	    if (!svc_can_register(s, len, spid)) { 
 	        return -1;
 	    }
-	
-	    si = find_svc(s, len); //服务检索
+
+	    //服务检索【见流程9.2】
+	    si = find_svc(s, len); 
 	    if (si) {
 	        if (si->handle) { 
 	            svcinfo_death(bs, si); //服务已注册时，释放相应的服务
@@ -530,7 +513,7 @@ service manager操作的真正处理函数
 	}
 
 
-(1)检查权限
+#### 9.1 检查权限
 
 检查selinux权限是否满足，
 
@@ -540,9 +523,9 @@ service manager操作的真正处理函数
 	    return check_mac_perms_from_lookup(spid, perm, str8(name, name_len)) ? 1 : 0;
 	}
 
-(2)查询服务
+#### 9.2 查询服务
 
-从svclist服务列表中，根据服务名遍历查找是否已经注册。当服务已存在svclist，则返回相应的服务名，否则返回NULL。
+从svclist服务列表中，根据服务名遍历查找是否已经注册。当服务已存在`svclist`，则返回相应的服务名，否则返回NULL。
 
 	struct svcinfo *find_svc(const uint16_t *s16, size_t len)
 	{
@@ -558,7 +541,7 @@ service manager操作的真正处理函数
 	}
 
 
-(3)释放服务
+#### 9.3 释放服务
 
 	void svcinfo_death(struct binder_state *bs, void *ptr)
 	{
@@ -571,14 +554,12 @@ service manager操作的真正处理函数
 	}
 
 
-### [16] do_find_service
+### 10. do_find_service
 ==> `/framework/native/cmds/servicemanager/service_manager.c`
-
-查询服务
 
 	uint32_t do_find_service(struct binder_state *bs, const uint16_t *s, size_t len, uid_t uid, pid_t spid)
 	{
-	    //查询相应的服务
+	    //查询相应的服务 【见流程9.2】
 	    struct svcinfo *si = find_svc(s, len); 
 	
 	    if (!si || !si->handle) {
@@ -601,13 +582,19 @@ service manager操作的真正处理函数
 	    return si->handle;
 	}
 
+查询服务过程比较简单，主要是通过`find_svc`方法，该方法在流程9.2已经讲解了。
 
-在前面注册服务的过程中，其实已经涉及了查询服务的具体方法`find_svc`，该方法比较简单。
+### 11. 小结
 
-### 小结
+**ServiceManager启动流程：**
 
-Service Manger意义：
+1. 打开binder驱动，并调用mmap()方法分配128k的内存映射空间：binder_open();
+2. 通知binder驱动使其成为守护进程：binder_become_context_manager()；
+3. 验证selinux权限，判断进程是否有权注册或查看指定服务；
+4. 进入循环状态，等待Client端的请求：binder_loop()。
 
-1. ServiceManger能集中管理系统内的所有服务，它能施加权限控制，并不是任何进程都能注册服务；
-2. ServiceManager支持通过字符串名称来查找对应的Service。这个功能很像DNS；
-3. Server进程随时可能会挂了，如果让每个Client都去检测会导致负载过重。但有了ServiceManager，Client只需要查询ServiceManager，就能把握动向，得到最新信息。
+**ServiceManger意义：**
+
+1. ServiceManger集中管理系统内的所有服务，通过权限控制进程是否有权注册服务；
+2. ServiceManager能通过字符串名称来查找对应的Service，操作方便；
+3. 当Server进程异常退出，只需告知ServiceManager，每个Client通过查询ServiceManager可获取Server进程的情况，降低所有Client进程直接检测会导致负载过重。

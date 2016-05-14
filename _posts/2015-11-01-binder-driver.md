@@ -442,9 +442,23 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
 下面列举Binder相关的核心结构体，并解释其中的比较重要的参数。
 
+|结构体|名称|解释|
+|---|---|---|
+|**binder_proc**|binder进程|每个进程调用open()打开binder驱动都会创建该结构体，用于管理IPC所需的各种信息|
+|**binder_thread**|binder线程|对应于上层的binder线程|
+|**binder_buffer**|binder缓存|调用mmap()创建用于Binder传输数据的缓存区|
+|binder_transaction_data|binder事务数据|记录传输数据内容，比如发送方pid/uid，RPC数据
+|binder_transaction|binder事务|记录传输事务的发送方和接收方线程、进程等|
+|binder_write_read|binder读写|记录buffer中读和写的数据信息|
+|**binder_node**|binder实体|对应于BBinder对象，记录BBinder的进程、指针、引用计数等
+|**binder_ref**|binder引用|对应于BpBinder对象，记录BpBinder的引用计数、死亡通知、BBinder指针等
+|flat_binder_object|binder扁平对象|Binder对象在两个进程间传递的扁平结构
+
+
+
 ### 3.1 binder_proc
 
-binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构体的跟结构体。
+binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构体的结构体。
 
 
 |类型|成员变量|解释|
@@ -516,6 +530,8 @@ looper的状态如下：
 
 ### 3.3 binder_buffer
 
+每一次Binder传输数据时，都会先从Binder内存缓存区中分配一个binder_buffer来存储传输数据。
+
 |类型|成员变量|解释|
 |---|---|---|
 |struct list_head|entry|buffer实体的地址|
@@ -543,24 +559,27 @@ looper的状态如下：
 			__u32	handle;	   //binder_ref（即handle）
 			binder_uintptr_t ptr;	 //Binder_node的内存地址
 		} target;  //RPC目标
-		binder_uintptr_t	cookie;	
+		binder_uintptr_t	cookie;	//BBinder指针
 		__u32		code;		//RPC代码，代表Client与Server双方约定的命令码
 	
 		__u32	        flags; //标志位，比如TF_ONE_WAY代表异步，即不等待Server端回复
 		pid_t		sender_pid;  //发送端进程的pid
 		uid_t		sender_euid; //发送端进程的uid
-		binder_size_t	data_size;	//dta.buffer所指向的buffer的数据长度
-		binder_size_t	offsets_size; //现规定与data.buffer偏移量
+		binder_size_t	data_size;	//data数据的总大小
+		binder_size_t	offsets_size; //IPC对象的大小
 	
 		union {
 			struct {
-				binder_uintptr_t	buffer;
-				binder_uintptr_t	offsets;
+				binder_uintptr_t	buffer; //数据区起始地址
+				binder_uintptr_t	offsets; //数据区IPC对象偏移量
 			} ptr;
 			__u8	buf[8];
 		} data;   //RPC数据
 	};
 
+- `target`: 对于BpBinder则使用handle，对于BBinder则使用ptr，故使用union数据类型来表示；
+- `code`: 比如注册服务过程code为ADD_SERVICE_TRANSACTION，又比如获取服务code为CHECK_SERVICE_TRANSACTION
+- `data`：代表整个数据区，其中data.ptr指向的是传递给Binder驱动的数据区的起始地址，data.offsets指的是数据区中IPC数据地址的偏移量。
 
 ### 3.5 binder_transaction
 
@@ -610,7 +629,7 @@ binder_node代表一个binder实体
 
 |类型|成员变量|解释|
 |---|---|---|
-|int|debug_id|用于调试使用|
+|int|debug_id|节点创建时分配，具有全局唯一性，用于调试使用|
 |struct binder_work|work||
 |struct rb_node|rb_node|binder节点正常使用，union|
 |struct hlist_node|dead_node|binder节点已销毁，union|
@@ -630,13 +649,26 @@ binder_node代表一个binder实体
 |unsigned| min_priority|占位8bit，最小优先级
 |struct list_head| async_todo|异步todo队列|
 
-其中ptr与flat_binder_object的binder成员是一致的；cookie与flat_binder_object的cookie成员是一致的
+
+binder_node有一个联合类型：
+
+	union {
+			struct rb_node rb_node;
+			struct hlist_node dead_node;
+		};
+
+当Binder对象已销毁，但还存在该Binder节点引用，则采用dead_node，并加入到全局列表`binder_dead_nodes`；否则使用rb_node节点。
+
+另外：
+
+- binder_node.ptr对应于flat_binder_object.binder；
+- binder_node.cookie对应于flat_binder_object.cookie。
 
 ### 3.8 binder_ref
 
 |类型|成员变量|解释|
 |---|---|---|
-|int |debug_id||
+|int |debug_id|用于调试使用|
 |struct rb_node |rb_node_desc|以desc为索引的红黑树
 |struct rb_node |rb_node_node|以node为索引的红黑树
 |struct hlist_node |node_entry|

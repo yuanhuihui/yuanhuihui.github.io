@@ -41,9 +41,9 @@ tags:
         SoundTriggerHwService::instantiate(); 
         RadioService::instantiate(); 
         registerExtensions();
-         //创建Binder线程，并加入线程池【见流程16】	
+        //创建Binder线程，并加入线程池【见流程14】	
         ProcessState::self()->startThreadPool();  
-         //当前线程加入到线程池 【见流程20】	   
+        //当前线程加入到线程池 【见流程16】	   
         IPCThreadState::self()->joinThreadPool();    
      }
 
@@ -84,7 +84,7 @@ tags:
 	PS:  ProcessState
 	ISM: IServiceManager
 
-### [1] MPS:instantiate
+### 1. MPS:instantiate
 ==> `/framework/av/media/libmediaplayerservice/MediaPlayerService.cpp`
 
 	void MediaPlayerService::instantiate() {
@@ -92,9 +92,9 @@ tags:
 	           String16("media.player"), new MediaPlayerService()); 【见流程3】
 	}
 
-注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。关于MediaPlayerService的初始化过程，此处就省略后面有时间会单独介绍，接下来进入流程[3]。
+注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。关于`MediaPlayerService`创建过程，此处就省略后面有时间会单独介绍，接下来进入流程[3]。
 
-### [3] ISM.addService
+### 3. ISM.addService
 ==> `/framework/native/libs/binder/IServiceManager.cpp`
 
     virtual status_t addService(const String16& name, const sp<IBinder>& service,
@@ -116,7 +116,7 @@ tags:
 - RPC头信息为 "android.os.IServiceManager"；
 - remote()就是BpBinder()；
 
-### [4] BpBinder::transact
+### 4. BpBinder::transact
 ==> `/framework/native/libs/binder/BpBinder.cpp`
 
 由【流程3】传递过来的参数：transact(ADD_SERVICE_TRANSACTION, data, &reply, 0);
@@ -137,7 +137,7 @@ tags:
 Binder代理类调用transact()方法，真正工作还是交给IPCThreadState来进行transact工作，
 
 
-### [5] IPCThreadState::self
+### 5. IPCThreadState::self
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
 	IPCThreadState* IPCThreadState::self()
@@ -170,7 +170,7 @@ Binder代理类调用transact()方法，真正工作还是交给IPCThreadState�
 
 TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有自己的TLS，并且是私有空间，线程之间不会共享。通过pthread_getspecific/pthread_setspecific函数可以获取/设置这些空间中的内容。从线程本地存储空间中获得保存在其中的IPCThreadState对象。
 
-### [6] new IPCThreadState
+### 6. new IPCThreadState
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
 	IPCThreadState::IPCThreadState()
@@ -190,7 +190,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
 - mIn 用来接收来自Binder设备的数据，默认大小为256字节；
 - mOut用来存储发往Binder设备的数据，默认大小为256字节。
 
-### [7] IPC::transact
+### 7. IPC::transact
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
 由【流程4】传递过来的参数：transact (0，ADD_SERVICE_TRANSACTION, data, &reply, 0);
@@ -235,7 +235,7 @@ IPCThreadState进行transact事务处理分3部分：
 - writeTransactionData() // 传输数据
 - waitForResponse()      //f等待响应
 
-### [8] IPC.writeTransactionData
+### 8. IPC.writeTransactionData
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
 由【流程7】传递过来的参数：writeTransactionData(BC_TRANSACTION, 0, 0, ADD_SERVICE_TRANSACTION, data, NULL)
@@ -280,7 +280,7 @@ IPCThreadState进行transact事务处理分3部分：
 其中handle的值用来标识目的端，注册服务过程的目的端为service manager，此处handle=0所对应的是binder_context_mgr_node对象，正是service manager所对应的binder实体对象。[binder_transaction_data结构体](http://gityuan.com/2015/11/01/binder-driver/#bindertransactiondata)是binder驱动通信的数据结构，该过程最终是把Binder请求码BC_TRANSACTION和binder_transaction_data结构体写入到`mOut`。
 
 
-### [9] IPC.waitForResponse
+### 9. IPC.waitForResponse
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
 【流程7】传递过来的参数：waitForResponse(&reply, NULL);
@@ -371,7 +371,7 @@ IPCThreadState进行transact事务处理分3部分：
 
 不断循环地与Binder驱动设备交互，获取响应信息
 
-### [10] IPC.talkWithDriver
+### 10. IPC.talkWithDriver
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
 	status_t IPCThreadState::talkWithDriver(bool doReceive)
@@ -436,7 +436,7 @@ IPCThreadState进行transact事务处理分3部分：
 
 [binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。
 
-### [11] IPC.executeCommand
+### 11. IPC.executeCommand
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
 根据收到的响应消息，执行相应的操作
@@ -590,7 +590,7 @@ IPCThreadState进行transact事务处理分3部分：
 	    return result;
 	}
 
-### [12] BBinder::transact
+### 12. BBinder::transact
 ==> `/framework/native/libs/binder/Binder.cpp`
 
 服务端transact事务处理 
@@ -617,7 +617,7 @@ IPCThreadState进行transact事务处理分3部分：
 	    return err;
 	}
 
-### [13] BBinder::onTransact
+### 13. BBinder::onTransact
 ==> `/framework/native/libs/binder/Binder.cpp`
 
 服务端事务回调处理函数 
@@ -679,7 +679,7 @@ IPCThreadState进行transact事务处理分3部分：
 整个过程中，BC_TRANSACTION和BR_TRANSACTION过程是一个完整的事务过程；BC_REPLY和BR_REPLY是一个完整的事务过程。 
 到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://gityuan.com/2015/11/15/binder-get-service/)。
 
-### [16] PS.startThreadPool
+### 14 PS.startThreadPool
 ==> `/framework/native/libs/binder/ProcessState.cpp`
 
 先通过ProcessState::self()，来获取单例对象ProcessState，再进行启动线程池
@@ -689,13 +689,13 @@ IPCThreadState进行transact事务处理分3部分：
 	    AutoMutex _l(mLock);    //多线程同步 自动锁
 	    if (!mThreadPoolStarted) {
 	        mThreadPoolStarted = true;
-	        spawnPooledThread(true);  【见流程17】
+	        spawnPooledThread(true);  【见流程15】
 	    }
 	}
 
 通过变量mThreadPoolStarted来保证每个应用进程只允许主动创建一个binder线程，其余binder线程池中的线程都是由Binder驱动来控制创建的。 
 
-### [17] PS.spawnPooledThread
+### 15. PS.spawnPooledThread
 ==> `/framework/native/libs/binder/ProcessState.cpp`
 
 	void ProcessState::spawnPooledThread(bool isMain)
@@ -724,7 +724,7 @@ IPCThreadState进行transact事务处理分3部分：
 	protected:
 	    virtual bool threadLoop()
 	    {
-	        IPCThreadState::self()->joinThreadPool(mIsMain); // 【见流程20】
+	        IPCThreadState::self()->joinThreadPool(mIsMain); // 【见流程16】
 	        return false;
 	    }
 	    
@@ -732,7 +732,7 @@ IPCThreadState进行transact事务处理分3部分：
 	};
 
 
-### [20] IPC.joinThreadPool()
+### 16 IPC.joinThreadPool()
 ==> `/framework/native/libs/binder/ProcessState.cpp`
 
 	void IPCThreadState::joinThreadPool(bool isMain)
@@ -744,7 +744,7 @@ IPCThreadState进行transact事务处理分3部分：
 	    status_t result;
 	    do {
 	        processPendingDerefs(); //清除队列的引用
-	        result = getAndExecuteCommand(); //处理下一条指令 【见流程21】
+	        result = getAndExecuteCommand(); //处理下一条指令 【见流程17】
 	
 	        if (result < NO_ERROR && result != TIMED_OUT && result != -ECONNREFUSED && result != -EBADF) {
 	            abort();
@@ -768,7 +768,7 @@ IPCThreadState进行transact事务处理分3部分：
 对于参数`isMain`=true的情况下，command为BC_ENTER_LOOPER，表示是程序主动创建的线程；而对于`isMain`=false的情况下，command为BC_REGISTER_LOOPER，表示是由binder驱动强制创建的线程。Binder设计架构中，只有第一个Binder线程是由应用层主动创建，对于Binder线程池其他的线程都是由Binder驱动根据IPC通信需求来控制创建的。
 
 
-### [21]. IPC.getAndExecuteCommand
+### 17 IPC.getAndExecuteCommand
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
 获取并处理指令

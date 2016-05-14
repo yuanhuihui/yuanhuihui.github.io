@@ -8,7 +8,7 @@ tags:
     - binder
 
 ---
-> 基于Android 6.0的源码剖析， 本文详细地讲解了如defaultServiceManager()的流程
+> 基于Android 6.0的源码剖析， 本文详细地讲解defaultServiceManager流程
 	
 	/framework/native/libs/binder/IServiceManager.cpp
 	/framework/native/libs/binder/ProcessState.cpp
@@ -21,17 +21,12 @@ tags:
 
 ## 概述
 
-获取Service Manager是通过defaultServiceManager()方法来完成，当进程[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)或
-[获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)的过程之前，都需要先调用defaultServiceManager()方法来获取gDefaultServiceManager对象。对于gDefaultServiceManager对象，如果存在则直接返回；如果不存在则创建该对象，创建过程包括调用open()打开binder驱动设备，利用mmap()映射内核的地址空间。
+获取Service Manager是通过`defaultServiceManager()`方法来完成，当进程[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)或
+[获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)的过程之前，都需要先调用defaultServiceManager()方法来获取`gDefaultServiceManager`对象。对于gDefaultServiceManager对象，如果存在则直接返回；如果不存在则创建该对象，创建过程包括调用open()打开binder驱动设备，利用mmap()映射内核的地址空间。
 
 点击查看[大图](http://gityuan.com/images/binder/get_servicemanager/get_servicemanager.jpg)
 
 ![get_servicemanager](/images/binder/get_servicemanager/get_servicemanager.jpg)
-
-
-
-> 接下来展开讲解defaultServiceManager()的调用流程的过程，
-
 
 ## 1. defaultServiceManager
 ==> `/framework/native/libs/binder/IServiceManager.cpp`
@@ -42,29 +37,28 @@ tags:
 	    {
 	        AutoMutex _l(gDefaultServiceManagerLock); //加锁
 	        while (gDefaultServiceManager == NULL) {
+                 //【见流程2、5、9】
 	            gDefaultServiceManager = interface_cast<IServiceManager>(
-	                ProcessState::self()->getContextObject(NULL));  //【见流程2、8、13】
+	                ProcessState::self()->getContextObject(NULL)); 
 	            if (gDefaultServiceManager == NULL)
 	                sleep(1);   //休眠1秒，往往在系统刚启动过程可能会第一次获取失败
 	        }
 	    }
-	    
 	    return gDefaultServiceManager;
 	}
-
   
-获取ServiceManager对象采用**单例模式**，我们发现与一般的单例模式不太一样，里面多了一层while循环，这是google在2013年1月Todd Poynor提交的修改。当尝试创建或获取ServiceManager时，ServiceManager可能尚未准备就绪，这时通过sleep 1秒后，循环尝试获取直到成功。
+获取ServiceManager对象采用**单例模式**，当gDefaultServiceManager存在，则直接返回，否则创建一个新对象。 发现与一般的单例模式不太一样，里面多了一层while循环，这是google在2013年1月Todd Poynor提交的修改。当尝试创建或获取ServiceManager时，ServiceManager可能尚未准备就绪，这时通过sleep 1秒后，循环尝试获取直到成功。
 
 
-`defaultServiceManager()`方法中比较难理解的语句是：
+`defaultServiceManager()`最为核心的代码：
 
 	interface_cast<IServiceManager>(ProcessState::self()->getContextObject(NULL));  
 
-下面剖析为3个步骤:ProcessState::self(), getContextObject(), interface_cast<IServiceManager>：
+分解为以下3个步骤：
 
-- ProcessState::self()：用于获取ProcessState对象(也是单例模式)，每个进程有且只有一个ProcessState对象，存在则直接返回，不存在则创建，详情见【流程2~7】;
-- getContextObject()： 用于获取BpBiner对象，对于handle=0的BpBiner对象，存在则直接返回，不存在才创建，详情见【流程8~12】;
-- interface_cast<IServiceManager>()：创建BpServiceManager对象，详情见【流程13~15】.
+- `ProcessState::self()`：用于获取ProcessState对象(也是单例模式)，每个进程有且只有一个ProcessState对象，存在则直接返回，不存在则创建，详情见【流程2~4】;
+- `getContextObject()`： 用于获取BpBiner对象，对于handle=0的BpBiner对象，存在则直接返回，不存在才创建，详情见【流程5~8】;
+- `interface_cast<IServiceManager>()`：创建BpServiceManager对象，详情见【流程9~11】.
 
 
 ## 2. ProcessState::self
@@ -85,7 +79,7 @@ tags:
 	}
 
 
-这也是**单例模式**，，从而保证每一个进程只有一个`ProcessState`对象。其中`gProcess`和`gProcessMutex`是保存在`Static.cpp`类的全局变量。
+这也是**单例模式**，从而保证每一个进程只有一个`ProcessState`对象。其中`gProcess`和`gProcessMutex`是保存在`Static.cpp`类的全局变量。
 
 ## 3. New ProcessState
 ==> `/framework/native/libs/binder/ProcessState.cpp`
@@ -119,7 +113,7 @@ tags:
 
 - `ProcessState`的单例模式的惟一性，因此一个进程只打开binder设备一次,其中ProcessState的成员变量`mDriverFD`记录binder驱动的fd，用于访问binder设备。
 - `BINDER_VM_SIZE = (1*1024*1024) - (4096 *2)`, binder分配的默认内存大小为1M-8k。
-- `DEFAULT_MAX_BINDER_THREADS = 15`，binder默认的最大可并发访问的线程数为15。
+- `DEFAULT_MAX_BINDER_THREADS = 15`，binder默认的最大可并发访问的线程数为16。
 
 ## 4. open_driver
 ==> `/framework/native/libs/binder/ProcessState.cpp`
@@ -155,22 +149,22 @@ tags:
 	    return fd;
 	}
 
-open_driver作用是打开/dev/binder设备，binder支持的最大线程数默认是15。关于binder驱动的相应方法，见文章[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)。
+open_driver作用是打开/dev/binder设备，设定binder支持的最大线程数。关于binder驱动的相应方法，见文章[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)。
 
 
-## 8. getContextObject
+## 5. getContextObject
 ==> `/framework/native/libs/binder/ProcessState.cpp`
 
 获取handle=0的IBinder
 
 	sp<IBinder> ProcessState::getContextObject(const sp<IBinder>& /*caller*/)
 	{
-	    return getStrongProxyForHandle(0);  //【见流程9】
+	    return getStrongProxyForHandle(0);  //【见流程6】
 	}
 
 
 
-## 9. getStrongProxyForHandle
+## 6. getStrongProxyForHandle
 ==> `/framework/native/libs/binder/ProcessState.cpp`
 
 获取IBinder
@@ -180,20 +174,21 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 	    sp<IBinder> result;
 	
 	    AutoMutex _l(mLock);
-	
-	    handle_entry* e = lookupHandleLocked(handle); //查找handle对应的资源项【见流程10】
+	    //查找handle对应的资源项【见流程7】
+	    handle_entry* e = lookupHandleLocked(handle); 
 	
 	    if (e != NULL) {
 	        IBinder* b = e->binder;
 	        if (b == NULL || !e->refs->attemptIncWeak(this)) {
 	            if (handle == 0) {
 	                Parcel data;
+                    //通过ping操作测试binder是否准备就绪
 	                status_t status = IPCThreadState::self()->transact(
-	                        0, IBinder::PING_TRANSACTION, data, NULL, 0); //通过ping操作测试binder是否准备就绪
+	                        0, IBinder::PING_TRANSACTION, data, NULL, 0); 
 	                if (status == DEAD_OBJECT)
 	                   return NULL;
 	            }
-	            //当handle值所对应的IBinder不存在或弱引用无效时，则创建BpBinder对象【见流程11】
+	            //当handle值所对应的IBinder不存在或弱引用无效时，则创建BpBinder对象【见流程8】
 	            b = new BpBinder(handle); 
 	            e->binder = b;
 	            if (b) e->refs = b->getWeakRefs();
@@ -209,7 +204,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 当handle值所对应的IBinder不存在或弱引用无效时会创建BpBinder，否则直接获取。  
 针对handle==0的特殊情况，通过PING_TRANSACTION来判断是否准备就绪。如果在context manager还未生效前，一个BpBinder的本地引用就已经被创建，那么驱动将无法提供context manager的引用。
 
-## 10. lookupHandleLocked
+## 7. lookupHandleLocked
 ==> `/framework/native/libs/binder/ProcessState.cpp`
 
 	ProcessState::handle_entry* ProcessState::lookupHandleLocked(int32_t handle)
@@ -229,7 +224,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 
 根据handle值来查找对应的`handle_entry`,`handle_entry`是一个结构体，里面记录IBinder和weakref_type两个指针。当handle大于mHandleToObject的Vector长度时，则向该Vector中添加(handle+1-N)个handle_entry结构体，然后再返回handle向对应位置的handle_entry结构体指针。
 
-## 11. new BpBinder
+## 8. new BpBinder
 ==> `/framework/native/libs/binder/BpBinder.cpp`
 
 创建BpBinder对象
@@ -247,7 +242,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 创建BpBinder对象中，会将handle相对应Binder的弱引用增加1.
 
 
-## 13. interface_cast
+## 9. interface_cast
 ==> `/framework/native/include/binder/IInterface.h`
 
 模板函数
@@ -255,13 +250,13 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 	template<typename INTERFACE>
 	inline sp<INTERFACE> interface_cast(const sp<IBinder>& obj)
 	{
-	    return INTERFACE::asInterface(obj); //【见流程14】
+	    return INTERFACE::asInterface(obj); //【见流程10】
 	}
 
 故`interface_cast<IServiceManager>()` 等价于 `IServiceManager::asInterface()`.
 
 
-## 14. IServiceManager::asInterface
+## 10. IServiceManager::asInterface
 
 **（1） DECLARE_META_INTERFACE(IServiceManager)**  
 ==> `/framework/native/include/binder/IServiceManager.h`  
@@ -309,7 +304,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 故`IServiceManager::asInterface()` 等价于 `new BpServiceManager()`。括号内的参数是IBinder，准确说，应该是BpBinder。
 
 
-## 15. new BpServiceManager
+## 11. new BpServiceManager
 
 **（1）初始化BpServiceManager**  
 ==> `/framework/native/libs/binder/IServiceManager.cpp`
@@ -344,10 +339,19 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 `new BpServiceManager()`，在初始化过程中，比较重要工作的是类BpRefBase的mRemote指向new BpBinder(0)，从而BpServiceManager能够利用Binder进行通过通信。
 
 
-## 小结
+## 12. 小结
 
-1. defaultServiceManager()是单例模式：当gDefaultServiceManager存在，则直接返回；否则继续；defaultServiceManager 等价于：sp<IServiceManager> sm = new BpServiceManager(new BpBinder(0));
-2. ProcessState::self()也是单例模式：当ProcessState对象存在，则直接返回；否则依次进行下面步骤;
-调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。注意：映射空间大小为 `BINDER_VM_SIZE = (1*1024*1024) - (4096 *2)``。
-3. BpServiceManager巧妙将通信层与业务层逻辑合为一体，通过继承接口IServiceManager实现了接口中的业务逻辑函数；通过成员变量mRemote = new BpBinder(0)进行Binder通信工作。  
-4. BpBinder通过handler来对应BBinder, 在整个Binder系统中，handle=0代表ServiceManager所对应的BBinder。
+- defaultServiceManager 等价于
+	
+		sp<IServiceManager> sm = new BpServiceManager(new BpBinder(0));
+
+- ProcessState::self()主要工作：
+	1. 调用open()，打开/dev/binder驱动设备；
+	2. 再利用mmap()，创建大小为`1M-8K`的内存地址空间；
+	3. 设定当前进程最大的最大并发Binder线程个数为`16`。
+	
+- BpServiceManager巧妙将通信层与业务层逻辑合为一体，
+	1. 通过继承接口`IServiceManager`实现了接口中的业务逻辑函数；
+	2. 通过成员变量`mRemote`= new BpBinder(0)进行Binder通信工作。 
+	 
+- BpBinder通过handler来指向所对应BBinder, 在整个Binder系统中`handle=0`代表ServiceManager所对应的BBinder。

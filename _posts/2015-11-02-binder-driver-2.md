@@ -22,7 +22,7 @@ Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简
 
 ![IPC-Transaction](/images/binder/binder_dev/IPC-Transaction.png)
 
-例如，当名为`BatteryStatsService`的Client向ServiceManager注册服务的过程中，IPC层的数据组成为：`Handle=0`，RPC代码为`ADD_SERVICE`，RPC数据为`BatteryStatsService`，Binder协议为`BC_TRANSACTION`。
+例如，当名为`BatteryStatsService`的Client向ServiceManager注册服务的过程中，IPC层的数据组成为：`Handle=0`，RPC代码为`ADD_SERVICE_TRANSACTION`，RPC数据为`BatteryStatsService`，Binder协议为`BC_TRANSACTION`。
 
 ## 二、Binder通信协议
 
@@ -35,7 +35,7 @@ Binder协议包含在IPC数据中，分为两类:
 
 ### 2.1 请求协议
 
-binder请求码，是用`enum binder_driver_command_protocol`来定义的，是用于应用程序向binder驱动设备发送请求消息，以BC_开头，总17条；(-代表目前不支持的请求码)
+binder请求码，是用`enum binder_driver_command_protocol`来定义的，是用于应用程序向binder驱动设备发送请求消息，应用程序包含Client端和Server端，以BC_开头，总17条；(-代表目前不支持的请求码)
 
 |请求码|参数类型|作用|
 |---|---|---|
@@ -48,19 +48,23 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 |BC_RELEASE|__u32(descriptor)|binder_ref强引用减1操作
 |BC_ACQUIRE_DONE| binder_ptr_cookie|binder_node强引用减1操作
 |BC_INCREFS_DONE| binder_ptr_cookie|binder_node弱引用减1操作
-|BC_REGISTER_LOOPE|无参数|创建新的looper线程|
+|BC_REGISTER_LOOPER|无参数|创建新的looper线程|
 |BC_ENTER_LOOPER|无参数|应用线程进入looper|
 |BC_EXIT_LOOPER|无参数|应用线程退出looper|
-|BC_REQUEST_DEATH_NOTIFICATION|  binder_handle_cookie|请求死亡通知|
-|BC_CLEAR_DEATH_NOTIFICATION| binder_handle_cookie|清除死亡通知|
-|BC_DEAD_BINDER_DONE|binder_uintptr_t(指针)|死亡binder完成|
+|BC_REQUEST_DEATH_NOTIFICATION|  binder_handle_cookie|接受指定binder的死亡通知|
+|BC_CLEAR_DEATH_NOTIFICATION| binder_handle_cookie|不再接受指定binder的死亡通知|
+|BC_DEAD_BINDER_DONE|binder_uintptr_t(指针)|已完成binder的死亡通知|
 |BC_ACQUIRE_RESULT|-|-|
 |BC_ATTEMPT_ACQUIRE|-|-|
 
 
 1. BC_FREE_BUFFER：通过mmap()映射内存，其中ServiceManager映射的空间大小为128K，其他Binder应用进程映射的内存大小为1M-8K。Binder驱动基于这块映射的内存采用最佳匹配算法来动态分配和释放，通过[binder_buffer](http://gityuan.com/2015/11/01/binder-driver/#binderbuffer)结构体中的`free`字段来表示相应的buffer是空闲还是已分配状态。对于已分配的buffers加入到binder_proc中的allocated_buffers红黑树;对于空闲的buffers加入到binder_proc中的free_buffers红黑树。当应用程序需要内存时，根据所需内存大小从free_buffers中找到最合适的内存，并放入allocated_buffers树；当应用程序处理完后必须尽快使用`BC_FREE_BUFFER`命令来释放该buffer，从而添加回到free_buffers树中。
 2. BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码的作用是对binder的强/弱引用的计数操作，用于实现[强/弱指针的功能](http://gityuan.com/2015/11/02/binder-driver-2/#bindertransactionbufferrelease)。
-3. 对于参数类型`binder_ptr_cookie`是由binder指针和cookie组成。- 
+3. 对于参数类型`binder_ptr_cookie`是由binder指针和cookie组成。
+4. Binder线程创建与退出：
+	- BC_ENTER_LOOPER：binder主线程(由应用层发起)的创建会向驱动发送该消息；
+	- BC_REGISTER_LOOPER：Binder用于驱动层决策而创建新的binder线程；
+	- BC_EXIT_LOOPER：退出Binder线程，对于binder主线程是不能退出。
 
 
 ### 2.2 请求过程
@@ -327,7 +331,7 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 
 ### 2.4 响应协议
 
-binder响应码，是用`enum binder_driver_return_protocol`来定义的，是binder设备向应用程序回复的消息，以BR_开头，总18条；
+binder响应码，是用`enum binder_driver_return_protocol`来定义的，是binder设备向应用程序回复的消息，，应用程序包含Client端和Server端，以BR_开头，总18条；
 
 |响应码|参数类型|作用|
 |---|---|---|
@@ -345,7 +349,7 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 |BR_ACQUIRE|binder_ptr_cookie|binder_ref强引用加1操作（Server端）|
 |BR_RELEASE|binder_ptr_cookie|binder_ref强引用减1操作（Server端）|
 |BR_DEAD_BINDER|binder_uintptr_t(指针)|Binder驱动向client端发送死亡通知|
-|BR_CLEAR_DEATH_NOTIFICATION_DONE|binder_uintptr_t(指针)|清除死亡通知，参数代表cookie|
+|BR_CLEAR_DEATH_NOTIFICATION_DONE|binder_uintptr_t(指针)|BC_CLEAR_DEATH_NOTIFICATION命令对应的响应码|
 |BR_ACQUIRE_RESULT|-|-|
 |BR_ATTEMPT_ACQUIRE|-|-|
 |BR_FINISHED|-|-|
@@ -353,6 +357,10 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 **BR_SPAWN_LOOPER**：binder驱动已经检测到进程中没有线程等待即将到来的事务。那么当一个进程接收到这条命令时，该进程必须创建一条新的服务线程并注册该线程，在接下来的响应过程会看到何时生成该响应码。
 
 **BR_TRANSACTION_COMPLETE**：当Client端向Binder驱动发送BC_TRANSACTION命令后，Client会收到BR_TRANSACTION_COMPLETE命令，告知Client端请求命令发送成功；对于Server向Binder驱动发送BC_REPLY命令后，Server端会收到BR_TRANSACTION_COMPLETE命令，告知Server端请求回应命令发送成功。
+
+**BR_DEAD_REPLY**: 当应用层向Binder驱动发送Binder调用时，若Binder应用层的另一个端已经死亡，则驱动回应BR_DEAD_BINDER命令。
+
+**BR_FAILED_REPLY**:  当应用层向Binder驱动发送Binder调用时，若transaction出错，比如调用的函数号不存在，则驱动回应BR_FAILED_REPLY。
 
 ### 2.5 响应过程
 
@@ -516,6 +524,14 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 
 
 那么在哪里处理响应码呢？ 通过前面的Binder通信协议图，可以知道处理响应码的过程是在用户态处理，即后续文章会讲到的用户空间IPCThreadState类中的[IPCThreadState::waitForResponse()](http://gityuan.com/2015/11/14/binder-add-service/#waitforresponse)和[IPCThreadState::executeCommand()](http://gityuan.com/2015/11/14/binder-add-service/#executecommand)两个方法共同处理Binder协议中的18个响应码。
+
+### 2.6 通信模型
+
+下面列举一次完整的Binder通信过程：
+
+
+![binder_protocol](/images/binder/binder_dev/binder_transaction_ipc.jpg)
+
 
 ## 三、Binder内存
 
