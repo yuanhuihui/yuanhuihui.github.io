@@ -200,7 +200,7 @@ tags:
  - Process.killProcessQuiet(int pid)：杀pid进程，且不输出log信息
  - Process.killProcessGroup(int uid, int pid)：杀同一个uid下同一进程组下的所有进程
 
-以上3个方法，最终杀进程的实现方法都是调用`kill(pid, sig)`方法，该方法位于用户空间的Native层，经过系统调用进入到Linux内核的`sys_kill方法`。对于杀进程此处的sig=9，其实与大家平时在adb里输入的 `kill -9 <pid>` 作用一样。
+以上3个方法，最终杀进程的实现方法都是调用`kill(pid, sig)`方法，该方法位于用户空间的Native层，经过系统调用进入到Linux内核的`sys_kill方法`。对于杀进程此处的sig=9，其实与大家平时在adb里输入的 `kill -9 <pid>` 效果基本一致。
 
 接下来，进入内核态，看看杀进程的过程。
 
@@ -705,17 +705,19 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 
 ![kill_3](/images/linux/signal/kill_3.png)
 
-其中
+功能：dump桌面App的进程信息。
+
+流程：
+
+1. 由shell进程(`9365`)向桌面App的子线程SignalCatcher(`10562`)，发送`signal=3`信号;该过程需要Art虚拟机参与。
+2. SignalCatcher线程收到信号3后，再向桌面App进程的子线程分别发送`signal=33`信号（大于31的signal都是实时信号），用于dump各个子线程的信息。
+
+其中：
 
 - 9365：adb的终端sh所在进程pid;
 - 10562：桌面App的进程pid；
 - 10568：10562进程的子线程(SignalCatcher线程);
 - 上图由红框圈起来的线程都是进程10562的子线程；
-
-流程：
-
-1. 由adb所在进程`9365`向进程10562的子线程`10568`(SignalCatcher线程)，发送`signal=3`信号;该过程需要Art虚拟机参与。
-2. SignalCatcher线程收到信号3后，再向进程`10562`的子线程分别发送`signal=33`信号（大于31的signal都是实时信号），用于dump各个子线程的信息。
 
 ### 4.2  kill -10
 
@@ -723,12 +725,15 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 
 ![kill_10](/images/linux/signal/kill_10.png)
 
+功能：强制桌面App执行gc操作。
+
+流程：由shell进程(`9365`)向进程桌面App的进程(`10562`)，发送`signal=10`信号; 该过程需要Art虚拟机参与。
+
 其中
 
 - 9365：adb的终端sh所在进程pid;
 - 10562：桌面App的进程pid；
 
-流程：由adb所在进程`9365`向进程`10562`，发送`signal=10`信号; 该过程需要Art虚拟机参与。
 
 ### 4.3  kill -9
 
@@ -736,13 +741,16 @@ Android系统中，由Zygote孵化而来的子进程，包含system_server进程
 
 ![kill_9](/images/linux/signal/kill_9.png)
 
+功能：杀掉手机浏览器进程。
+
+流程：由shell进程(`7115`)向浏览器进程(`8707`)，发送`signal=9`信号,判断是SIGKILL信号，则由内核直接处理，杀掉该进程下的所有子线程。
+
 其中
 
 - 7115：adb的终端sh所在进程pid;
 - 8707：浏览器的进程pid；
 - 上图由红框圈起来的线程都是进程8707的子线程；
 
-流程：由adb所在进程`7115`向进程`8707`，发送`signal=9`信号,判断是SIGKILL信号，则由内核直接处理。
 
 
 ### 4.4 小结

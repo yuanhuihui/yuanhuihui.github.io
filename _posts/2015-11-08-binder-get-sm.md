@@ -87,7 +87,7 @@ tags:
 
 这也是**单例模式**，，从而保证每一个进程只有一个`ProcessState`对象。其中`gProcess`和`gProcessMutex`是保存在`Static.cpp`类的全局变量。
 
-## 3. 创建对象ProcessState
+## 3. New ProcessState
 ==> `/framework/native/libs/binder/ProcessState.cpp`
 
 初始化ProcessState对象 
@@ -229,7 +229,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 
 根据handle值来查找对应的`handle_entry`,`handle_entry`是一个结构体，里面记录IBinder和weakref_type两个指针。当handle大于mHandleToObject的Vector长度时，则向该Vector中添加(handle+1-N)个handle_entry结构体，然后再返回handle向对应位置的handle_entry结构体指针。
 
-## 11. 创建对象BpBinder
+## 11. new BpBinder
 ==> `/framework/native/libs/binder/BpBinder.cpp`
 
 创建BpBinder对象
@@ -309,7 +309,7 @@ open_driver作用是打开/dev/binder设备，binder支持的最大线程数默�
 故`IServiceManager::asInterface()` 等价于 `new BpServiceManager()`。括号内的参数是IBinder，准确说，应该是BpBinder。
 
 
-## 15. 创建对象BpServiceManager
+## 15. new BpServiceManager
 
 **（1）初始化BpServiceManager**  
 ==> `/framework/native/libs/binder/IServiceManager.cpp`

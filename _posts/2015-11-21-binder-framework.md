@@ -550,7 +550,7 @@ transactNative经过jni调用，进入下面的方法
 
 Java层的BinderProxy.transact()最终交由Native层的BpBinder::transact()完成。Native Binder的[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)中有详细说明BpBinder执行过程。
 
-### 小结
+### 3.11 小结
 
 addService的核心过程：
 
