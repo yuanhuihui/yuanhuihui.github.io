@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "grep && find命令用法"
-date:   2016-5-14 21:10:30
+date:   2015-09-13 21:10:30
 catalog:    true
 tags:
     - tool
