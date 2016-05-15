@@ -6,7 +6,7 @@ catalog:  true
 tags:
     - android
     - boot
-    - AMSs
+    - AMS
 
 ---
 
