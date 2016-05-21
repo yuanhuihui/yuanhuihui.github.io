@@ -245,7 +245,7 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 ## 9. interface_cast
 ==> `/framework/native/include/binder/IInterface.h`
 
-模板函数
+interface_cast，这是一个模板函数，如下：
 
 	template<typename INTERFACE>
 	inline sp<INTERFACE> interface_cast(const sp<IBinder>& obj)
@@ -253,10 +253,19 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 	    return INTERFACE::asInterface(obj); //【见流程10】
 	}
 
-故`interface_cast<IServiceManager>()` 等价于 `IServiceManager::asInterface()`.
+可以得出，`interface_cast<IServiceManager>()` 等价于 `IServiceManager::asInterface()`。接下来,再来说说`asInterface()`函数的具体功能。
 
 
 ## 10. IServiceManager::asInterface
+
+对于asInterface()函数，通过搜索代码，你会发现根本找不到这个方法是在哪里定义这个函数的，其实跟前面小节9的方式类似，也是通过模板函数来定义的，通过下面两个代码完成的：
+
+    //位于IServiceManager.h文件
+    DECLARE_META_INTERFACE(IServiceManager) 
+    //位于IServiceManager.cpp文件
+    IMPLEMENT_META_INTERFACE(ServiceManager,"android.os.IServiceManager")
+
+接下来，再说说这两行代码分别完成的功能：
 
 **（1） DECLARE_META_INTERFACE(IServiceManager)**  
 ==> `/framework/native/include/binder/IServiceManager.h`  
@@ -292,7 +301,7 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 	           intr = static_cast<IServiceManager *>(                         
 	               obj->queryLocalInterface(IServiceManager::descriptor).get());  
 	           if (intr == NULL) {
-	               intr = new BpServiceManager(obj); 
+	               intr = new BpServiceManager(obj);  //【见流程11】
 	            }
 	        }
 	       return intr;
@@ -301,10 +310,12 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 	IServiceManager::IServiceManager () { }
 	IServiceManager::~ IServiceManager() { }
 
-故`IServiceManager::asInterface()` 等价于 `new BpServiceManager()`。括号内的参数是IBinder，准确说，应该是BpBinder。
+不难发现，`IServiceManager::asInterface()` 等价于 `new BpServiceManager()`。在这里，更确切地说应该是new BpServiceManager(BpBinder)。
 
 
 ## 11. new BpServiceManager
+
+创建BpServiceManager对象的过程，会先初始化父类对象：
 
 **（1）初始化BpServiceManager**  
 ==> `/framework/native/libs/binder/IServiceManager.cpp`

@@ -51,7 +51,7 @@ tags:
 |diskstats|查看空间free状态
 |jobscheduler  | 查看任务计划
 |wifi|wifi信息
-|diskstats||磁盘情况
+|diskstats|磁盘情况
 |usagestats|用户使用情况|
 |devicestoragemonitor|设备信息|
 |。。。|。。。|
