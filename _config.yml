@@ -82,22 +82,22 @@ featured-condition-size: 1              # A tag will be featured if the size of 
 hotpages: [
 		{
         title: "Android 开篇    ",
-        href: "android"
+        href:  "http://gityuan.com/android"
     }, {
         title: "理解Android进程创建流程",
-        href: "2016/03/26/app-process-create/"
+        href:  "http://gityuan.com/2016/03/26/app-process-create/"
     },{
         title: "Binder系列 开篇",
-        href: "2015/10/31/binder-prepare/"
+        href:  "http://gityuan.com/2015/10/31/binder-prepare/"
     },{
         title: "Android 内存分析命令",
-        href: "2016/01/02/memory-analysis-command/"
+        href:  "http://gityuan.com/2016/01/02/memory-analysis-command/"
     },{
         title: "startService 流程分析",
-        href: "2016/03/06/start-service/"
+        href:  "http://gityuan.com/2016/03/06/start-service/"
     },{
         title: "如何自学 Android   ",
-        href: "2016/04/24/how-to-study-android/"
+        href:  "http://gityuan.com/2016/04/24/how-to-study-android/"
     }
 ]
 
