@@ -19,8 +19,8 @@ tags:
 
 	/kernel/kernel/signal.c
 	/Kernel/include/linux/syscalls.h
-	/kernel/include/uapi/asm-generic/unistd.h(内核空间的系统调用号)
-	/bionic/libc/kernel/uapi/asm-generic/unistd.h (用户空间的系统调用号)
+	/kernel/include/uapi/asm-generic/unistd.h
+	/bionic/libc/kernel/uapi/asm-generic/unistd.h
 
 	/art/runtime/Runtime.cc
 	/art/runtime/signal_catcher.h
@@ -214,14 +214,6 @@ tags:
 
  `sys_kill()`方法在linux内核中没有直接定义，而是通过宏定义`SYSCALL_DEFINE2`的方式来实现的。Android内核（Linux）会为每个syscall分配唯一的系统调用号，当执行系统调用时会根据系统调用号从系统调用表中来查看目标函数的入口地址，在calls.S文件中声明了入口地址信息(这里已经追溯到汇编语言了，就不再介绍)。另外，其中asmlinkage是gcc标签，表明该函数读取的参数位于栈中，而不是寄存器。
 
-那如何查找`sys_kill()`所在路径呢？可通过内核空间的`/kernel/include/uapi/asm-generic/unistd.h`，会记录
-
-	/* kernel/signal.c */
-	#define __NR_kill 129
-	__SYSCALL(__NR_kill, sys_kill)
-
-从这里可以推测`sys_kill()`的定义在kernel/signal.c文件中，事实也的确如此，接下来进入下面的方法。
-
 [-> signal.c]
 
 	SYSCALL_DEFINE2(kill, pid_t, pid, int, sig)
@@ -237,7 +229,7 @@ tags:
 
 `SYSCALL_DEFINE2`是系统调用的宏定义，方法在此处经层层展开，等价于`asmlinkage long sys_kill(int pid, int sig)`。关于宏展开细节就不多说了，就说一点`SYSCALL_DEFINE2`中的2是指sys_kill方法有两个参数。
 
-关于系统调用流程比较复杂，涉及汇编语言，可以不用知道整个过程，**只需要知道一点：** 用户空间的`kill()`最终调用到内核空间signal.c的`kill_something_info()`方法就可以。
+关于系统调用流程比较复杂，还涉及汇编语言，**只需要知道** 用户空间的`kill()`最终调用到内核空间signal.c的`kill_something_info()`方法就可以。如果有兴趣，想进一步了解，可查看[系统调用](http://gityuan.com/2016/05/21/syscall/)。
 
 ### 2.2 kill_something_info
 
