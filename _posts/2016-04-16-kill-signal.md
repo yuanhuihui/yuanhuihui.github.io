@@ -229,7 +229,7 @@ tags:
 
 `SYSCALL_DEFINE2`是系统调用的宏定义，方法在此处经层层展开，等价于`asmlinkage long sys_kill(int pid, int sig)`。关于宏展开细节就不多说了，就说一点`SYSCALL_DEFINE2`中的2是指sys_kill方法有两个参数。
 
-关于系统调用流程比较复杂，还涉及汇编语言，**只需要知道** 用户空间的`kill()`最终调用到内核空间signal.c的`kill_something_info()`方法就可以。如果有兴趣，想进一步了解，可查看[系统调用](http://gityuan.com/2016/05/21/syscall/)。
+关于系统调用流程比较复杂，还涉及汇编语言，**只需要知道** 用户空间的`kill()`最终调用到内核空间signal.c的`kill_something_info()`方法就可以。如果有兴趣，想进一步了解，可查看[Linux系统调用原理](http://gityuan.com/2016/05/21/syscall/)。
 
 ### 2.2 kill_something_info
 

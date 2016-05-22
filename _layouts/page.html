@@ -166,6 +166,9 @@ layout: default
                         </ul>
                     </div>
                 </section>
+                <!-- 站内搜索 -->            
+                <gcse:search></gcse:search>
+                <!-- 站内搜索 -->
                 
     						<!-- 热门文章 -->
                 <hr>               
@@ -238,3 +241,17 @@ var duoshuoQuery = {short_name:"{{site.duoshuo_username}}"};
 })();
 </script>
 <!--多说js加载结束，一个页面只需要加载一次 -->
+
+<!-- Google站内搜索-->
+<script>
+  (function() {
+    var cx = '017095143807693824211:egtk_orxgka';
+    var gcse = document.createElement('script');
+    gcse.type = 'text/javascript';
+    gcse.async = true;
+    gcse.src = 'https://cse.google.com/cse.js?cx=' + cx;
+    var s = document.getElementsByTagName('script')[0];
+    s.parentNode.insertBefore(gcse, s);
+  })();
+</script>
+<!-- Google站内搜索-->

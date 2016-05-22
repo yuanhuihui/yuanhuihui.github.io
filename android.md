@@ -69,6 +69,10 @@ Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 - Zygote进程还会创建Browser，Phone，Email等App进程，每个App至少运行在一个进程上。
 - 所有的App进程都是由Zygote进程fork生成的。
 
+### 2.6 其他
+
+- Native与Kernel之间有一层系统调用层，见[Linux系统调用(Syscall)原理](http://gityuan.com/2016/05/21/syscall/).
+
 ##  三、通信方式
 
 无论是Android系统，还是各种Linux衍生系统，各个组件、模块往往运行在各种不同的进程和线程内，这里就必然涉及进程/线程之间的通信。对于IPC(Inter-Process Communication, 进程间通信)，Linux现有管道、消息队列、共享内存、套接字、信号量、信号这些IPC机制，Android额外还有Binder IPC机制，Android OS中的Zygote进程的IPC采用的是Socket机制，在上层system server、media server以及上层App之间更多的是采用Binder IPC方式来完成跨进程间的通信。对于Android上层架构中，还多时候是在同一个进程的线程之间需要相互通信，例如同一个进程的主线程与工作线程之间的通信，往往采用的Handler消息机制。
@@ -155,6 +159,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 - 进程篇
 	- [理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/)
+	- [理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/)
 	- [Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)
 	- [Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)
 	- [进程优先级](http://gityuan.com/2015/10/01/process-priority/)
@@ -171,10 +176,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - [ps进程命令](http://gityuan.com/2015/10/11/ps-command/)
 - [Am命令用法](http://gityuan.com/2016/02/27/am-command/)
 - [Pm命令用法](http://gityuan.com/2016/02/28/pm-command/)
+- [dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)
   
   
 本博客还有很多文章并没有写到上面这个清单，先写这么多，后续再不断更新与完善。最后，欢迎大家交流与纠错，大家来找茬。
-
-----------
-
-欢迎关注我的**[微博：Gityuan](http://weibo.com/gityuan)**，微信公众号：gityuan，后面会持续分享更多原创技术干货。
