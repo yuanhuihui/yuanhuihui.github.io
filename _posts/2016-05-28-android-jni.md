@@ -406,7 +406,7 @@ JNINativeMethod结构体中有一个字段为signature
 
 方法签名都是采用上面3个数据类型表格中的简称： `(输入参数...)返回值参数`
 
-||Java函数|函数签名
+|Java函数|函数签名
 |---|---|
 |void foo()|()V|
 |float foo(int i)|(I)F|

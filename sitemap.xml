@@ -12,35 +12,49 @@
     
 		<url>
 		    <loc>http://gityuan.com/</loc>
-		    <lastmod>2016-04-12</lastmod>
+		    <lastmod>2016-05-12</lastmod>
 		    <changefreq>daily</changefreq>
 		    <priority>1.0</priority>
 		</url>
 		
 	  <url>
 		    <loc>http://gityuan.com/about/</loc>
-		    <lastmod>2016-03-26</lastmod>
+		    <lastmod>2016-05-26</lastmod>
+		    <changefreq>weekly</changefreq>
+		    <priority>0.6</priority>
+		</url>
+
+	  <url>
+		    <loc>http://gityuan.com/archive/</loc>
+		    <lastmod>2016-05-26</lastmod>
 		    <changefreq>weekly</changefreq>
 		    <priority>0.6</priority>
 		</url>
 		
 		<url>
-		    <loc>http://gityuan.com/columns</loc>
-		    <lastmod>2016-03-26</lastmod>
+		    <loc>http://gityuan.com/about</loc>
+		    <lastmod>2016-05-26</lastmod>
 		    <changefreq>weekly</changefreq>
 		    <priority>0.6</priority>
 		</url>
 
 		<url>
-		    <loc>http://gityuan.com/top</loc>
-		    <lastmod>2016-04-12</lastmod>
+		    <loc>http://gityuan.com/resource</loc>
+		    <lastmod>2016-05-12</lastmod>
 		    <changefreq>weekly</changefreq>
 		    <priority>0.6</priority>
 		</url>
 		
 		<url>
-		    <loc>http://gityuan.com/android</loc>
-		    <lastmod>2016-04-12</lastmod>
+		    <loc>http://gityuan.com/talk</loc>
+		    <lastmod>2016-05-12</lastmod>
+		    <changefreq>weekly</changefreq>
+		    <priority>0.6</priority>
+		</url>
+
+		<url>
+		    <loc>http://gityuan.com/tags</loc>
+		    <lastmod>2016-05-12</lastmod>
 		    <changefreq>weekly</changefreq>
 		    <priority>0.6</priority>
 		</url>
