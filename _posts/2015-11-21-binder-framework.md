@@ -23,7 +23,6 @@ tags:
 	/framework/base/core/java/android/os/Parcel.java
 	/framework/base/core/java/com/android/internal/os/BinderInternal.java
 
-	/framework/base/core/jni/android_os_Binder.cpp
 	/framework/base/core/jni/android_os_Parcel.cpp
 	/framework/base/core/jni/AndroidRuntime.cpp
 	/framework/base/core/jni/android_util_Binder.cpp
@@ -450,7 +449,7 @@ framework层的ServiceManager的调用实际的工作确实交给远程接口Ser
 	}
 
 ### 3.6 ibinderForJavaObject
-==> android_os_Binder.cpp
+==> android_util_Binder.cpp
 
 	sp<IBinder> ibinderForJavaObject(JNIEnv* env, jobject obj)
 	{
@@ -469,7 +468,7 @@ framework层的ServiceManager的调用实际的工作确实交给远程接口Ser
 	}
 
 ### 3.7 JavaBBinderHolder.get()
-==> android_os_Binder.cpp
+==> android_util_Binder.cpp
 
 	sp<JavaBBinder> get(JNIEnv* env, jobject obj)
     {
@@ -486,7 +485,7 @@ framework层的ServiceManager的调用实际的工作确实交给远程接口Ser
 JavaBBinderHolder有一个成员变量mBinder，保存当前创建的JavaBBinder对象，这是一个wp类型的，可能会被垃圾回收器给回收，所以每次使用前，都需要先判断是否存在。
 
 ### 3.8 new JavaBBinder()
-==> android_os_Binder.cpp
+==> android_util_Binder.cpp
 
 创建JavaBBinder，该对象继承于BBinder
 
@@ -515,7 +514,7 @@ JavaBBinderHolder有一个成员变量mBinder，保存当前创建的JavaBBinder
 transactNative经过jni调用，进入下面的方法
 
 ### 3.10 android_os_BinderProxy_transact
-==> android_os_Binder.cpp
+==> android_util_Binder.cpp
 
     //该方法可抛出RemoteException
     static jboolean android_os_BinderProxy_transact(JNIEnv* env, jobject obj,

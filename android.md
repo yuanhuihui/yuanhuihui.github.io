@@ -69,9 +69,10 @@ Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 - Zygote进程还会创建Browser，Phone，Email等App进程，每个App至少运行在一个进程上。
 - 所有的App进程都是由Zygote进程fork生成的。
 
-### 2.6 其他
+### 2.6 Syscall && JNI
 
-- Native与Kernel之间有一层系统调用层，见[Linux系统调用(Syscall)原理](http://gityuan.com/2016/05/21/syscall/).
+- Native与Kernel之间有一层系统调用(SysCall)层，见[Linux系统调用(Syscall)原理](http://gityuan.com/2016/05/21/syscall/);
+- Java层与Native(C/C++)层之间的纽带JNI，见[Android JNI原理分析](http://gityuan.com/2016/05/28/android-jni/)。
 
 ##  三、通信方式
 

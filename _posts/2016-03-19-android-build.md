@@ -16,7 +16,7 @@ tags:
 
 关于Android Build系统，这个话题很早就打算整理下，迟迟没有下笔，决定跟大家分享下。先看下面几条指令，相信编译过Android源码的人都再熟悉不过的。
 
-	source /opt/android1204_17.conf 
+
 	source setenv.sh
 	lunch
 	make -j12
@@ -30,7 +30,6 @@ tags:
 
 接下来，解释一下**本文开头的引用**的命令：
 
-	source /opt/android1204_17.conf  //初始化jdk环境变量（这个不是必需的，因厂商而异）
 	source setenv.sh  //初始化编译环境，包括后面的lunch和make指令
 	lunch  //指定此次编译的目标设备以及编译类型
 	make  -j12 //开始编译，默认为编译整个系统，其中-j12代表的是编译的job数量为12。
@@ -92,6 +91,7 @@ tags:
 |jgrep|所有**Java**文件执行搜索操作|
 |ggrep|所有**Gradle**文件执行搜索操作|
 |mangrep [keyword]|所有**AndroidManifest.xml**文件执行搜索操作|
+|mgrep [keyword]|所有**Android.mk**文件执行搜索操作|
 |sepgrep [keyword]|所有**sepolicy**文件执行搜索操作|
 |resgrep [keyword]|所有本地res/*.xml文件执行搜索操作|
 |sgrep [keyword]|所有资源文件执行搜索操作|
