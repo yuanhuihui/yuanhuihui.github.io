@@ -5,7 +5,6 @@ date:   2015-06-20 22:10:54
 catalog:  true
 tags:
     - web
-    - http
 
 ---
 

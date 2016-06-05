@@ -5,8 +5,7 @@ date:   2016-02-13 20:21:40
 catalog:  true
 tags:
     - android
-    - boot
-    - zygote
+    - 系统启动
 
 
 ---

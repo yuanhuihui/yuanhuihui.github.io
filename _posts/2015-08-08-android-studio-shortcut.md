@@ -5,7 +5,7 @@ date:   2015-08-08 20:10:10
 catalog:  true
 tags:
     - android
-    - android studio
+    - tool
 ---
 
 

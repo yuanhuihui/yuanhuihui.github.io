@@ -5,7 +5,6 @@ date:   2015-09-19 1:05:00
 catalog:  true
 tags:
     - android
-    - input
 
 ---
 

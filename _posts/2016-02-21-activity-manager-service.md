@@ -5,7 +5,7 @@ date:   2016-02-21 21:12:40
 catalog:  true
 tags:
     - android
-    - boot
+    - 系统启动
     - AMS
 
 ---

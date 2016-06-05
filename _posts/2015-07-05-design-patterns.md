@@ -5,7 +5,6 @@ date:   2015-07-05 19:10:10
 catalog:  true
 tags:
     - java
-    - pattern
 
 ---
 

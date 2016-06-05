@@ -5,8 +5,7 @@ date:   2015-06-13 22:10:54
 catalog:  true
 tags:
     - android
-    - selinux
-    - permission
+    - 权限
 
 ---
 

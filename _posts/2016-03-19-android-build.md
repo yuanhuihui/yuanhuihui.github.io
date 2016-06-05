@@ -5,8 +5,7 @@ date:   2016-03-19 21:19:12
 catalog:  true
 tags:
     - android
-    - make
-    - command
+    - tool
 
 ---
 

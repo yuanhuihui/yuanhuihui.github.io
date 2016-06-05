@@ -6,7 +6,6 @@ catalog:  true
 tags:
     - android
     - binder
-    - driver
 
 ---
 > 基于Android 6.0的源码剖析，在讲解Binder原理之前，先从kernel的角度来讲解Binder Driver.

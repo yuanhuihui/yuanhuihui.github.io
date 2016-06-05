@@ -5,7 +5,8 @@ date:   2016-01-16 20:12:42
 catalog:  true
 tags:
     - android
-    - thread
+    - java
+    - process
 ---
 
 > Android是基于Java开发的平台，本文java线程池也适用于Android。

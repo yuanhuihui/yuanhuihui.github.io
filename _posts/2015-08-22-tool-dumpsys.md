@@ -6,7 +6,8 @@ catalog:    true
 tags:
     - android
     - tool
-    - dumpsys
+    - debug
+    
 ---
 
 

@@ -5,8 +5,8 @@ date:   2016-02-27 20:55:51
 catalog:  true
 tags:
     - android
-    - am
-    - command
+    - tool
+    - AMS
 
 
 ---

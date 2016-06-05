@@ -6,7 +6,7 @@ catalog:  true
 tags:
     - android
     - binder
-    - AIDL
+
 ---
 
 > 自定义binder架构的 client/ server组件

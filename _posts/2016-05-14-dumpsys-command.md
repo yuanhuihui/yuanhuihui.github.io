@@ -6,7 +6,7 @@ catalog:    true
 tags:
     - android
     - tool
-    - dumpsys
+    - debug
 ---
 
 > dumpsys命令功能很强大，能dump系统服务的各种状态，非常有必要熟悉该命令的用法以及含义。

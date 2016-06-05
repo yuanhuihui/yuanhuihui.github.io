@@ -6,8 +6,8 @@ catalog:  true
 tags:
     - android
     - process
-    - adj
-    - lowmemorykiller
+    - memory
+    
 ---
 
 

@@ -6,8 +6,6 @@ catalog:  true
 tags:
     - android
     - process
-    - priority
-
 
 ---
 

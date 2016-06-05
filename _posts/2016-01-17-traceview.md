@@ -6,10 +6,8 @@ catalog:  true
 tags:
     - android
     - performance
-    - tool
-    - traceview
-
-
+    - debug
+    
 ---
 
 ## Traceview

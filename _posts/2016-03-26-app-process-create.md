@@ -5,7 +5,7 @@ date:   2016-03-26 21:10:11
 catalog:  true
 tags:
     - android
-    - boot
+    - 系统启动
     - process
 
 ---

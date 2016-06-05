@@ -6,7 +6,7 @@ catalog:  true
 tags:
     - android
     - binder
-    - permission
+    - 权限
 
 
 ---

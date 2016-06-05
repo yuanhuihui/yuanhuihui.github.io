@@ -5,8 +5,7 @@ date:   2016-03-12 20:09:12
 catalog:  true
 tags:
     - android
-    - boot
-    - activity
+    - 组件
 
 ---
 

@@ -6,7 +6,6 @@ catalog:  true
 tags:
     - android
     - handler
-    - native
 
 ---
 

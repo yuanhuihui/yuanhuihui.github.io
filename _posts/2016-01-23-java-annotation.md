@@ -5,7 +5,6 @@ date:   2016-01-23 15:20:40
 catalog:  true
 tags:
     - java
-    - annotation
 
 ---
 

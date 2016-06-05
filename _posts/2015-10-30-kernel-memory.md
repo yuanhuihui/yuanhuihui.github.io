@@ -4,7 +4,7 @@ title:  "Linux内存管理"
 date:   2015-10-30 21:20:50
 catalog:  true
 tags:
-    - android
+    - linux
     - memory
 
 ---

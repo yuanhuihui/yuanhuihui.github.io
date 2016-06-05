@@ -7,7 +7,6 @@ tags:
     - android
     - memory
     - tool
-    - android studio
 
 ---
 

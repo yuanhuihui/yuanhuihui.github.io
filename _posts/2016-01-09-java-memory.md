@@ -5,7 +5,6 @@ date:   2016-01-09 19:18:10
 catalog:  true
 tags:
     - java
-    - jvm
     - memory
 
 ---

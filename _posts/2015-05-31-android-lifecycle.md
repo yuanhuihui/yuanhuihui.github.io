@@ -5,8 +5,7 @@ date:   2015-05-31 20:30:00
 catalog:  true
 tags:
     - android
-    - activity
-    - service
+    - 组件
 ---
 
 

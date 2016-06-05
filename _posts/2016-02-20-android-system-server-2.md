@@ -5,8 +5,7 @@ date:   2016-02-20 21:12:40
 catalog:  true
 tags:
     - android
-    - boot
-    - SystemServer
+    - 系统启动
 
 ---
 

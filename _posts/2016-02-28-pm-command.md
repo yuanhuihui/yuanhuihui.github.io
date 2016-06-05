@@ -5,8 +5,8 @@ date:   2016-02-28 20:55:51
 catalog:  true
 tags:
     - android
-    - pm
-    - command
+    - tool
+    - PMS
 
 ---
 

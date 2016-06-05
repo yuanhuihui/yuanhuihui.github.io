@@ -6,7 +6,6 @@ catalog:  true
 tags:
     - android
     - process
-    - command
     - tool
 
 ---
