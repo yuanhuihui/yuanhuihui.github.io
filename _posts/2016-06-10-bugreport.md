@@ -947,15 +947,19 @@ bugreport通过socket与dumpstate服务建立通信，在dumpstate.cpp中的dump
 14. property以及fs等信息
 15. last radio log;
 16. Binder相关信息；
-17. dumpsys相关信息：
+17. dumpsys all：
+18. dumpsys checkin相关:
     - dumpsys所有信息；
     - dumpsys batterystats电池统计；
     - dumpsys meminfo内存
     - dumpsys netstats网络统计；
     - dumpsys procstats进程统计；
     - dumpsys usagestats使用情况；
-    - dumpsys package；
-    - dumpsys activity。
+    - dumpsys package.
+19. dumpsys app相关
+    - dumpsys activity;
+    - dumpsys activity service all;
+    - dumpsys activity provider all.
 
 信息量非常大，几乎涵盖整个系统方方面面，下一篇文章将进一步以实例角度来介绍bugreport每一项真正的含义。
 
