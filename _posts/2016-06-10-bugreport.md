@@ -929,7 +929,7 @@ dump虚拟机和native的stack traces，并返回trace文件位置
 bugreport通过socket与dumpstate服务建立通信，在dumpstate.cpp中的dumpstate()方法完成核心功能，该功能依次输出内容项，如下：
 
 1. 系统build以及运行时长等相关信息；
-2. mmcblk0设备，内存、CPU、进程等节点信息；
+2. 内存/CPU/进程等信息；
 3. kernel log；
 4. lsof、map及Wait-Channels；
 5. system log；
