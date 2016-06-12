@@ -15,7 +15,7 @@ tags:
 
     adb bugreport > bugreport.txt
 
-对于Android系统调试分析，bugreport信息量非常之大，几乎涵盖整个系统各个层面内容，对于分析BUG是一大利器。 本文先从从源码角度来分析一下Bugreport的实现原理，下一篇文章再进一步阐述Bugreport实战分析。
+对于Android系统调试分析，bugreport信息量非常之大，几乎涵盖整个系统各个层面内容，对于分析BUG是一大利器，本文先从从源码角度来分析一下Bugreport的实现原理。
 
 ## 二、原理分析
 
@@ -253,7 +253,7 @@ Android系统源码中framework/native/cmds/bugreport目录通过Android.mk定�
 
 该方法负责整个bugreport内容输出的最为核心的功能。
 
-[-> /dumpstate.cpp ]
+[-> dumpstate.cpp ]
 
     static void dumpstate() {
         ...
@@ -931,30 +931,31 @@ bugreport通过socket与dumpstate服务建立通信，在dumpstate.cpp中的dump
 1. 系统build以及运行时长等相关信息；
 2. mmcblk0设备，内存、CPU、进程等节点信息；
 3. kernel log；
-4. 所有已打开文件，以及所有进程的map以及线程blocked位置；
+4. lsof、map及Wait-Channels；
 5. system log；
 6. event log；
 7. radio log;
-8. vm traces;
+8. vm traces：
     - just now的栈信息；
-    - last ANR的栈信息;(若果存在则输出)
-    - tombstones信息；(若存在这输出)
+    - last ANR的栈信息;(存在则输出)
+    - tombstones信息;(存在这输出)
 9. network相关信息；
 10. last kernel log;
 11. last system log;
 12. ip相关信息；
 13. 中断向量表
-14. properties以及fs等信息
+14. property以及fs等信息
 15. last radio log;
 16. Binder相关信息；
-17. dumpsys所有信息；
-18. dumpsys batterystats电池统计信息；
-19. dumpsys meminfo内存信息
-20. dumpsys netstats网络统计信息；
-21. dumpsys procstats进程统计信息；
-22. dumpsys usagestats使用情况统计信息；
-23. dumpsys package应用包相关信息；
-24. dumpsys activity(包含service，provider)相关信息；
+17. dumpsys相关信息：
+    - dumpsys所有信息；
+    - dumpsys batterystats电池统计；
+    - dumpsys meminfo内存
+    - dumpsys netstats网络统计；
+    - dumpsys procstats进程统计；
+    - dumpsys usagestats使用情况；
+    - dumpsys package；
+    - dumpsys activity。
 
 信息量非常大，几乎涵盖整个系统方方面面，下一篇文章将进一步以实例角度来介绍bugreport每一项真正的含义。
 
