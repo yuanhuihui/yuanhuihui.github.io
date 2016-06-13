@@ -313,10 +313,10 @@ trimToFit过程中触发条件是：
 
 **(1). dropbox文件输出内容项：**
 
-- Process,flags, package等头信息；
-- 当logFile不为空，则添加log信息到dropbox，最大上限为256KB；
-- 当stack为空，则添加stacktrace到dropbox；
-- 当dropboxTag所对应的settings项不等于0，则输出logcat的events/system/main/crash信息。
+1. Process,flags, package等头信息；
+2. 当logFile不为空，则添加log信息到dropbox，最大上限为256KB；
+3. 当stack不为空，则添加stacktrace到dropbox；
+4. 当dropboxTag所对应的settings项不等于0，则输出logcat的events/system/main/crash信息。
 
 **(2). dropbox文件名**
 
