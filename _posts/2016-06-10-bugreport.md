@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Debug系列1：Bugreport源码篇"
+title:  "调试系列1：Bugreport原理篇"
 date:   2016-6-10 22:25:30
 catalog:    true
 tags:

@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Debug系列3：DropBoxManagerService"
+title:  "调试系列3：DropBox原理篇"
 date:   2016-6-12 20:25:33
 catalog:    true
 tags:
