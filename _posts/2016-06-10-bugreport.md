@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "调试系列1：Bugreport原理篇"
+title:  "调试系列1：bugreport源码篇"
 date:   2016-6-10 22:25:30
 catalog:    true
 tags:
@@ -926,22 +926,31 @@ dump虚拟机和native的stack traces，并返回trace文件位置
 
 ### 2.4 总结
 
-bugreport通过socket与dumpstate服务建立通信，在dumpstate.cpp中的dumpstate()方法完成核心功能，该功能依次输出内容项，如下：
+bugreport通过socket与dumpstate服务建立通信，在dumpstate.cpp中的dumpstate()方法完成核心功能，该功能依次输出内容项，
+主要分为5大类：
+
+1. **current log**： kernel,system, event, radio;
+2. **last log**： kernel, system, radio;
+3. **vm traces**： just now, last ANR, tombstones
+4. **dumpsys**： all, checkin, app
+5. **system info**：cpu, memory, io等
+
+从bugreport内容的输出顺序的角度，再详细列举其内容：
 
 1. 系统build以及运行时长等相关信息；
 2. 内存/CPU/进程等信息；
-3. kernel log；
+3. `kernel log`；
 4. lsof、map及Wait-Channels；
-5. system log；
-6. event log；
+5. `system log`；
+6. `event log`；
 7. radio log;
-8. vm traces：
+8. `vm traces`：
     - just now的栈信息；
     - last ANR的栈信息;(存在则输出)
     - tombstones信息;(存在这输出)
 9. network相关信息；
-10. last kernel log;
-11. last system log;
+10. `last kernel log`;
+11. `last system log`;
 12. ip相关信息；
 13. 中断向量表
 14. property以及fs等信息
@@ -949,7 +958,6 @@ bugreport通过socket与dumpstate服务建立通信，在dumpstate.cpp中的dump
 16. Binder相关信息；
 17. dumpsys all：
 18. dumpsys checkin相关:
-    - dumpsys所有信息；
     - dumpsys batterystats电池统计；
     - dumpsys meminfo内存
     - dumpsys netstats网络统计；
@@ -961,7 +969,8 @@ bugreport通过socket与dumpstate服务建立通信，在dumpstate.cpp中的dump
     - dumpsys activity service all;
     - dumpsys activity provider all.
 
-信息量非常大，几乎涵盖整个系统方方面面，下一篇文章将进一步以实例角度来介绍bugreport每一项真正的含义。
+**Tips**： bugreport几乎涵盖整个系统信息，内容非常长，每一个子项都以`------ xxx ------`开头。
+例如APP ACTIVITIES的开头便是 `------ APP ACTIVITIES (dumpsys activity all) ------`，其中括号内的便是输出该信息指令，即`dumpsys activity all`，还有可能是内容所在节点，各个子项目类似的规律，看完前面的源码分析过程，相信你肯定能明白。下面一篇文章再进一步从bugreport内容的角度来说明其寓意。
 
 ### 三、相关源码
 

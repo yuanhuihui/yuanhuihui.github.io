@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "调试系列4：Debuggerd原理篇(上)"
+title:  "调试系列4：debuggerd源码篇"
 date:   2016-6-15 20:25:33
 catalog:    true
 tags:
@@ -1190,7 +1190,7 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
       _LOG(log, logtype::FP_REGISTERS, "    scr %08lx\n", vfp_regs.fpscr);
     }
 
-通过ptrace获取寄存器状态信息，这里输出r0-r9,sl,fp,ip,sp,lr,pc,cpsr 以及32个fpregs和一个fpscr
+通过ptrace获取寄存器状态信息，这里输出r0-r9,sl,fp,ip,sp,lr,pc,cpsr 以及32个fpregs和一个fpscr.
 
 #### 4.4.5 dump_backtrace_and_stack
 [-> debuggerd/tombstone.cpp]
@@ -1198,14 +1198,16 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
     static void dump_backtrace_and_stack(Backtrace* backtrace, log_t* log) {
       if (backtrace->NumFrames()) {
         _LOG(log, logtype::BACKTRACE, "\nbacktrace:\n");
+        //【见小节4.4.5.1】
         dump_backtrace_to_log(backtrace, log, "    ");
 
         _LOG(log, logtype::STACK, "\nstack:\n");
+        //【见小节4.4.5.2】
         dump_stack(backtrace, log);
       }
     }
 
-**输出backtrace信息**
+**4.4.5.1 输出backtrace信息**
 
 [-> debuggerd/Backtrace.cpp]
 
@@ -1215,54 +1217,54 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
       }
     }
 
-**输出stack信息**
+**4.4.5.2 输出stack信息**
 
 [-> debuggerd/tombstone.cpp]
 
-static void dump_stack(Backtrace* backtrace, log_t* log) {
-  size_t first = 0, last;
-  for (size_t i = 0; i < backtrace->NumFrames(); i++) {
-    const backtrace_frame_data_t* frame = backtrace->GetFrame(i);
-    if (frame->sp) {
+    static void dump_stack(Backtrace* backtrace, log_t* log) {
+      size_t first = 0, last;
+      for (size_t i = 0; i < backtrace->NumFrames(); i++) {
+        const backtrace_frame_data_t* frame = backtrace->GetFrame(i);
+        if (frame->sp) {
+          if (!first) {
+            first = i+1;
+          }
+          last = i;
+        }
+      }
       if (!first) {
-        first = i+1;
+        return;
       }
-      last = i;
-    }
-  }
-  if (!first) {
-    return;
-  }
-  first--;
+      first--;
 
-  // Dump a few words before the first frame.
-  word_t sp = backtrace->GetFrame(first)->sp - STACK_WORDS * sizeof(word_t);
-  dump_stack_segment(backtrace, log, &sp, STACK_WORDS, -1);
+      // Dump a few words before the first frame.
+      word_t sp = backtrace->GetFrame(first)->sp - STACK_WORDS * sizeof(word_t);
+      dump_stack_segment(backtrace, log, &sp, STACK_WORDS, -1);
 
-  // Dump a few words from all successive frames.
-  // Only log the first 3 frames, put the rest in the tombstone.
-  for (size_t i = first; i <= last; i++) {
-    const backtrace_frame_data_t* frame = backtrace->GetFrame(i);
-    if (sp != frame->sp) {
-      _LOG(log, logtype::STACK, "         ........  ........\n");
-      sp = frame->sp;
-    }
-    if (i == last) {
-      dump_stack_segment(backtrace, log, &sp, STACK_WORDS, i);
-      if (sp < frame->sp + frame->stack_size) {
-        _LOG(log, logtype::STACK, "         ........  ........\n");
+      // Dump a few words from all successive frames.
+      // Only log the first 3 frames, put the rest in the tombstone.
+      for (size_t i = first; i <= last; i++) {
+        const backtrace_frame_data_t* frame = backtrace->GetFrame(i);
+        if (sp != frame->sp) {
+          _LOG(log, logtype::STACK, "         ........  ........\n");
+          sp = frame->sp;
+        }
+        if (i == last) {
+          dump_stack_segment(backtrace, log, &sp, STACK_WORDS, i);
+          if (sp < frame->sp + frame->stack_size) {
+            _LOG(log, logtype::STACK, "         ........  ........\n");
+          }
+        } else {
+          size_t words = frame->stack_size / sizeof(word_t);
+          if (words == 0) {
+            words = 1;
+          } else if (words > STACK_WORDS) {
+            words = STACK_WORDS;
+          }
+          dump_stack_segment(backtrace, log, &sp, words, i);
+        }
       }
-    } else {
-      size_t words = frame->stack_size / sizeof(word_t);
-      if (words == 0) {
-        words = 1;
-      } else if (words > STACK_WORDS) {
-        words = STACK_WORDS;
-      }
-      dump_stack_segment(backtrace, log, &sp, words, i);
     }
-  }
-}
 
 #### 4.4.6 dump_memory_and_code
 [-> debuggerd/arm/Machine.cpp]
@@ -1377,11 +1379,9 @@ static void dump_stack(Backtrace* backtrace, log_t* log) {
 [-> debuggerd/tombstone.cpp]
 
     static void dump_logs(log_t* log, pid_t pid, unsigned int tail) {
-      dump_log_file(log, pid, "system", tail);
-      dump_log_file(log, pid, "main", tail);
+      dump_log_file(log, pid, "system", tail); //输出system log
+      dump_log_file(log, pid, "main", tail); //输出main log
     }
-
-输出system和main log
 
 ### 4.6 dump_thread(兄弟)
 
@@ -1411,6 +1411,12 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
       log->current_tid = log->crashed_tid;
     }
 
+兄弟线程dump_thread的输出内容：
+
+1. 线程相关信息，包含pid/tid以及相应name
+2. 寄存器状态
+3. backtrace以及stack
+
 ### 4.7 小节
 
 **engrave_tombstone**主要输出信息：
@@ -1424,21 +1430,16 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
 **主线程dump_thread**
 
 1. build相关头信息；
-2. 线程相关信息，包含pid/tid以及相应name
+2. **线程相关信息，包含pid/tid以及相应name**
 3. signal相关信息，包含fault address
-4. 寄存器状态
-5. backtrace
-6. stack
+4. **寄存器状态**
+5. **backtrace**
+6. **stack**
 7. memory near
 8. code around
 9. memory map
 
-**兄弟线程dump_thread**
-
-1. 线程相关信息，包含pid/tid以及相应name
-2. 寄存器状态
-3. backtrace
-4. stack
+其中加粗项2，4，5，6只是兄弟线程调用dump_thread也会输出的内容，其他项便只有主线程才会输出。
 
 ## 五、 backtrace
 
@@ -1556,7 +1557,7 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
       _LOG(log, logtype::BACKTRACE, "\n----- end %d -----\n", pid);
     }
 
-例如：----- end 1789 -----
+例如：`----- end 1789 -----`
 
 ### 5.5 小结
 
@@ -1631,6 +1632,11 @@ backtrace输出信息：
              b3589818  b6ebf07c  /system/lib/libcutils.so
              b358981c  b6eb4405  /system/lib/libcutils.so
 
+所有兄弟线程是以一系列`---`作为开头的分割符。
+
+### 总结
+
+这里主要以源码角度来分析debuggerd的原理，整个过程中最重要的产物便是tombstone文件，先留坑，后续再进一步讲述如何分析tombstone文件。
 
 ## 相关源码
 

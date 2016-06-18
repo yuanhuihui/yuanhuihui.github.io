@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "调试系列3：DropBox原理篇"
+title:  "调试系列3：dropBox源码篇"
 date:   2016-6-12 20:25:33
 catalog:    true
 tags:
@@ -435,7 +435,7 @@ dropbox文件格式为`dropboxTag@时间戳.txt`或者`tag@时间戳.txt.gz`，
 
 ### 小结
 
-DBMS数据保存在目录/data/system/dropbox，当出现crash, anr, wtf或者存储设备可用空间低，以及开机完成时利用DropBoxManager，再通过binder向DBMS发出请求，完成信息的收集工作。 DBMS有很多常量参数：
+当应用出现Crash时，调用AMS的handleApplicationCrash方法，该方法最终会调用DBMS，将数据保存在目录/data/system/dropbox，当出现crash, anr, wtf或者存储设备可用空间低，以及开机完成时利用DropBoxManager，再通过binder向DBMS发出请求，完成信息的收集工作。 DBMS有很多常量参数：
 
 - DEFAULT_AGE_SECONDS = 3 * 86400：文件最长可存活时长为3天
 - DEFAULT_MAX_FILES = 1000：最大dropbox文件个数为1000
