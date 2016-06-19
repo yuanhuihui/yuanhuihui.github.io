@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "调试系列5：native crash源码篇"
+title:  "调试系列5：debuggerd(native crash篇)"
 date:   2016-6-17 21:25:53
 catalog:    true
 tags:
@@ -8,9 +8,10 @@ tags:
     - debug
 
 ---
+
 ## 一、Native Crash
 
-Native crash的工作核心是由debuggerd守护进程来完成，上一篇文章[调试系列4：Debuggerd原理篇(上)]()，已经介绍过Debuggerdd的工作原理。
+Native crash的工作核心是由debuggerd守护进程来完成，上一篇文章[调试系列4：debuggerd源码篇)](http://gityuan.com/2016/06/15/android-debuggerd/)，已经介绍过Debuggerdd的工作原理。
 要了解Native Crash，首先从应用程序入口位于`begin.S`中的`__linker_init`入手。
 
 ### 1.1 begin.S
