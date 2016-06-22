@@ -219,7 +219,7 @@ signal_handler.cpp
 	        cmd->func(cmd->nargs, cmd->args);
 	    }
 	    //设置相应的service状态为restarting
-	    svc->NotifyStateChange("restarting"); 
+	    svc->NotifyStateChange("restarting");
 	    return true;
 	}
 
@@ -273,7 +273,7 @@ Action： 通过trigger，即以 on开头的语句，决定何时执行相应的
 - stop \<service_name\>： 停止正在运行的服务
 - setprop \<name\> \<value\>：设置属性值
 - mkdir \<path\>：创建指定目录
-- symlink \<target\> \<sym_link\>： 创建连接到\<target\>的\<sym_link\>符号链接； 
+- symlink \<target\> \<sym_link\>： 创建连接到\<target\>的\<sym_link\>符号链接；
 - write \<path\> \<string\>： 向文件path中写入字符串；
 - exec： fork并执行，会阻塞init进程直到程序完毕；
 - exprot \<name\> \<name\>：设定环境变量；
@@ -386,7 +386,9 @@ property_service.cpp
 
 **对于属性**：
 
-- 属性名以ctl开头，则认为是控制消息，控制消息用来执行一些命令。如：setprop ctl.start bootanim查看开机动画，setprop ctl.stop bootanim 关闭开机动画
-- 属性名以ro.开头，则表示是只读的，不能设置，所以直接返回。
-- 属性名以persist.开头，则需要把这些值写到对应文件中去。
-
+1. 属性名以`ctl.`开头，则表示是控制消息，控制消息用来执行一些命令。例如：
+    - setprop ctl.start bootanim 查看开机动画；
+    - setprop ctl.stop bootanim 关闭开机动画；
+    - setprop ctl.start pre-recovery 进入recovery模式。
+2. 属性名以`ro.``开头，则表示是只读的，不能设置，所以直接返回。
+3. 属性名以`persist.``开头，则需要把这些值写到对应文件中去。

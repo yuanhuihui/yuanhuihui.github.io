@@ -12,7 +12,7 @@ tags:
 > 本文基于Android 6.0的源代码，来分析Java层的handler消息处理机制
 
 **相关源码**
-	
+
 	framework/base/core/java/andorid/os/Handler.java
 	framework/base/core/java/andorid/os/Looper.java
 	framework/base/core/java/andorid/os/Message.java
@@ -48,16 +48,16 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 	class LooperThread extends Thread {
         public Handler mHandler;
-  
+
         public void run() {
             Looper.prepare();   //【见 2.1】
-  
+
             mHandler = new Handler() {  //【见 3.1】
                 public void handleMessage(Message msg) {
                     //TODO    定义消息处理逻辑. 【见 3.2】
                 }
             };
-  
+
             Looper.loop();  //【见 2.2】
         }
     }
@@ -73,7 +73,7 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 	private static void prepare(boolean quitAllowed) {
         //每个线程只允许执行一次该方法，第二次执行时线程的TLS已有数据，则会抛出异常。
-        if (sThreadLocal.get() != null) { 
+        if (sThreadLocal.get() != null) {
             throw new RuntimeException("Only one Looper may be created per thread");
         }
         //创建Looper对象，并保存到当前线程的TLS区域
@@ -92,7 +92,7 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 	        Values values = values(currentThread); //查找当前线程的本地储存区
 	        if (values == null) {
                 //当线程本地存储区，尚未存储该线程相关信息时，则创建Values对象
-	            values = initializeValues(currentThread); 
+	            values = initializeValues(currentThread);
 	        }
             //保存数据value到当前线程this
 	        values.put(this, value);
@@ -158,14 +158,14 @@ Looper.prepare()在每个线程只允许执行一次，该方法会创建Looper�
 
         Binder.clearCallingIdentity();
         //确保在权限检查时基于本地进程，而不是基于最初调用进程。
-        final long ident = Binder.clearCallingIdentity(); 
+        final long ident = Binder.clearCallingIdentity();
 
         for (;;) { //进入loop的主循环方法
             Message msg = queue.next(); //可能会阻塞 【见4.2】
             if (msg == null) { //没有消息，则退出循环
                 return;
             }
-            
+
             Printer logging = me.mLogging;  //默认为null，可通过setMessageLogging()方法来指定输出，用于debug功能
             if (logging != null) {
                 logging.println(">>>>> Dispatching to " + msg.target + " " +
@@ -196,7 +196,7 @@ loop()进入循环模式，不断重复下面的操作，直到没有消息时�
 ### 2.3 quit()
 
 	public void quit() {
-        mQueue.quit(false); //消息移除 
+        mQueue.quit(false); //消息移除
     }
 
 	public void quitSafely() {
@@ -235,7 +235,7 @@ Looper.quit()方法的实现最终调用的是MessageQueue.quit()方法
 
 ### 2.4 常用方法
 
-**myLooper()**
+#### 2.4.1 myLooper
 
 用于获取TLS存储的Looper对象
 
@@ -243,7 +243,7 @@ Looper.quit()方法的实现最终调用的是MessageQueue.quit()方法
 	        return sThreadLocal.get();
 	    }
 
-**post()**
+#### 2.4.2 post
 
 发送消息，并设置消息的callback，用于处理消息。
 
@@ -260,9 +260,9 @@ Looper.quit()方法的实现最终调用的是MessageQueue.quit()方法
 
 ## 三、Handler
 
-### 3.1 new Handler()
+### 3.1 创建Handler
 
-**(1)无参构造方法**
+#### 3.1.1 无参构造
 
     public Handler() {
         this(null, false);
@@ -290,7 +290,7 @@ Looper.quit()方法的实现最终调用的是MessageQueue.quit()方法
 
 对于Handler的无参构造方法，默认采用当前线程TLS中的Looper对象，并且callback回调方法为null，且消息为同步处理方式。只要执行的Looper.prepare()方法，那么便可以获取有效的Looper对象。
 
-**(2) 带参数Looper的构造方法**
+#### 3.1.2 有参构造
 
     public Handler(Looper looper) {
         this(looper, null, false);
@@ -306,7 +306,7 @@ Looper.quit()方法的实现最终调用的是MessageQueue.quit()方法
 Handler类在构造方法中，可指定Looper，Callback回调方法以及消息的处理方式(同步或异步)，对于无参的handler，默认是当前线程的Looper。
 
 
-### 3.2 dispatchMessage
+### 3.2 消息分发机制
 
 在Looper.loop()中，当发现有消息时，调用消息的目标handler，执行dispatchMessage()方法来分发消息。
 
@@ -322,19 +322,19 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
                 }
             }
             //Handler自身的回调方法handleMessage()
-            handleMessage(msg); 
+            handleMessage(msg);
         }
     }
 
 **分发消息流程：**
 
 1. 当`Message`的回调方法不为空时，则回调方法`msg.callback.run()`，其中callBack数据类型为Runnable,否则进入步骤2；
-2. 当`Handler`存在`mCallback`成员变量不为空时，则回调方法`mCallback.handleMessage(msg)`,否则进入步骤3；
+2. 当`Handler`的`mCallback`成员变量不为空时，则回调方法`mCallback.handleMessage(msg)`,否则进入步骤3；
 3. 调用`Handler`自身的回调方法`handleMessage()`，该方法默认为空，Handler子类通过覆写该方法来完成具体的逻辑。
 
 对于很多情况下，消息分发后的处理方法是第3种情况，即Handler.handleMessage()，一般地往往通过覆写该方法从而实现自己的业务逻辑。
 
-### 3.3 sendMessage
+### 3.3 消息发送
 
 发送消息调用链：
 
@@ -342,14 +342,14 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 从上图，可以发现所有的发消息方式，最终都是调用`MessageQueue.enqueueMessage()`;
 
-**(1) sendEmptyMessage**
+#### 3.3.1 sendEmptyMessage
 
 	public final boolean sendEmptyMessage(int what)
     {
         return sendEmptyMessageDelayed(what, 0);
     }
 
-**(2) sendEmptyMessageDelayed**
+#### 3.3.2 sendEmptyMessageDelayed
 
 	public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
         Message msg = Message.obtain();
@@ -357,7 +357,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
         return sendMessageDelayed(msg, delayMillis);
     }
 
-**(3) sendMessageDelayed**
+#### 3.3.3 sendMessageDelayed
 
 	public final boolean sendMessageDelayed(Message msg, long delayMillis)
     {
@@ -367,7 +367,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
         return sendMessageAtTime(msg, SystemClock.uptimeMillis() + delayMillis);
     }
 
-**(4) sendMessageAtTime**
+#### 3.3.4 sendMessageAtTime
 
 	public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
         MessageQueue queue = mQueue;
@@ -378,7 +378,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
     }
 
 
-**(5) sendMessageAtFrontOfQueue**
+#### 3.3.5 sendMessageAtFrontOfQueue
 
 	public final boolean sendMessageAtFrontOfQueue(Message msg) {
         MessageQueue queue = mQueue;
@@ -390,25 +390,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 该方法通过设置消息的触发时间为0，从而使Message加入到消息队列的队头。
 
-**(6) enqueueMessage**
-
-	private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
-        msg.target = this;
-        if (mAsynchronous) {
-            msg.setAsynchronous(true);
-        }
-        return queue.enqueueMessage(msg, uptimeMillis); 【见4.3】
-    }
-
-
-`Handler.sendEmptyMessage()`方法，最终调用`MessageQueue.enqueueMessage(msg, uptimeMillis)`，其中uptimeMillis为系统当前的运行时间，不包括休眠时间。
-
-
-### 3.4 常用方法
-
-**post**
-
-发送消息
+#### 3.3.6 post
 
     public final boolean post(Runnable r)
     {
@@ -421,7 +403,32 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
         return m;
     }
 
-**obtainMessage**
+#### 3.3.7 postAtFrontOfQueue
+
+    public final boolean postAtFrontOfQueue(Runnable r)
+    {
+        return sendMessageAtFrontOfQueue(getPostMessage(r));
+    }
+
+#### 3.3.8 enqueueMessage
+
+	private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
+        msg.target = this;
+        if (mAsynchronous) {
+            msg.setAsynchronous(true);
+        }
+        return queue.enqueueMessage(msg, uptimeMillis); 【见4.3】
+    }
+
+
+#### 3.3.8 小节
+
+ `Handler.sendEmptyMessage()`等系列方法最终调用`MessageQueue.enqueueMessage(msg, uptimeMillis)`，将消息添加到消息队列中，其中uptimeMillis为系统当前的运行时间，不包括休眠时间。
+
+
+### 3.4 其他方法
+
+#### 3.4.1 obtainMessage
 
 获取消息
 
@@ -432,36 +439,35 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 `Handler.obtainMessage()`方法，最终调用`Message.obtainMessage(this)`，其中this为当前的Handler对象。
 
-**removeMessages**
+#### 3.4.2 removeMessages
 
     public final void removeMessages(int what) {
         mQueue.removeMessages(this, what, null); 【见 4.5】
     }
 
 
-Handler类似于辅助类，更多的实现都是MessageQueue, Message中的方法。Handler的目的是为了更加方便的使用消息机制。
-
+`Handler`是消息机制中非常重要的辅助类，更多的实现都是`MessageQueue`, `Message`中的方法，Handler的目的是为了更加方便的使用消息机制。
 
 
 ## 四、MessageQueue
 
 MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心方法都交给native层来处理，其中MessageQueue类中涉及的native方法如下：
 
-	private native static long nativeInit(); 
-    private native static void nativeDestroy(long ptr); 
-    private native void nativePollOnce(long ptr, int timeoutMillis); 
+	private native static long nativeInit();
+    private native static void nativeDestroy(long ptr);
+    private native void nativePollOnce(long ptr, int timeoutMillis);
     private native static void nativeWake(long ptr);
     private native static boolean nativeIsPolling(long ptr);
     private native static void nativeSetFileDescriptorEvents(long ptr, int fd, int events);
 
 关于这些native方法的介绍，见[Android消息机制2-Handler(native篇)](http://gityuan.com/2015/12/27/handler-message-native/)。
 
-### 4.1 new MessageQueue()
+### 4.1 创建MessageQueue
 
     MessageQueue(boolean quitAllowed) {
         mQuitAllowed = quitAllowed;
         //通过native方法初始化消息队列，其中mPtr是供native代码使用
-        mPtr = nativeInit(); 
+        mPtr = nativeInit();
     }
 
 ### 4.2 next()
@@ -480,7 +486,7 @@ MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心�
                 Binder.flushPendingCommands();
             }
             //阻塞操作，当等待nextPollTimeoutMillis时长，或者消息队列被唤醒，都会返回
-            nativePollOnce(ptr, nextPollTimeoutMillis); 
+            nativePollOnce(ptr, nextPollTimeoutMillis);
             synchronized (this) {
                 final long now = SystemClock.uptimeMillis();
                 Message prevMsg = null;
@@ -506,7 +512,7 @@ MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心�
                         }
                         msg.next = null;
                         //设置消息的使用状态，即flags |= FLAG_IN_USE
-                        msg.markInUse(); 
+                        msg.markInUse();
                         return msg;   //成功地获取MessageQueue中的下一条即将要执行的消息
                     }
                 } else {
@@ -555,7 +561,11 @@ MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心�
         }
     }
 
-nativePollOnce(ptr, nextPollTimeoutMillis)是一个native方法，并且是阻塞操作。其中nextPollTimeoutMillis代表下一个消息到来前，还需要等待的时长；当nextPollTimeoutMillis = -1时，表示消息队列中无消息，会一直等待下去。空闲后，往往会执行IdleHandler中的方法。当nativePollOnce()返回后，next()从`mMessages`中提取一个消息。`nativePollOnce()`在native做了大量的工作，想进一步了解可查看 [Android消息机制2-Handler(native篇)](http://gityuan.com/2015/12/27/handler-message-native/#nativepollonce)。
+`nativePollOnce`是阻塞操作，其中`nextPollTimeoutMillis`代表下一个消息到来前，还需要等待的时长；当nextPollTimeoutMillis = -1时，表示消息队列中无消息，会一直等待下去。
+
+当处于空闲时，往往会执行`IdleHandler`中的方法。当nativePollOnce()返回后，next()从`mMessages`中提取一个消息。
+
+`nativePollOnce()`在native做了大量的工作，想进一步了解可查看 [Android消息机制2-Handler(native篇)](http://gityuan.com/2015/12/27/handler-message-native/#nativepollonce)。
 
 
 ### 4.3 enqueueMessage
@@ -586,7 +596,7 @@ nativePollOnce(ptr, nextPollTimeoutMillis)是一个native方法，并且是阻�
                 needWake = mBlocked; //当阻塞时需要唤醒
             } else {
                 //将消息按时间顺序插入到MessageQueue。一般地，不需要唤醒事件队列，除非
-                //消息队头存在barrier，并且同时Message是队列中最早的异步消息。 
+                //消息队头存在barrier，并且同时Message是队列中最早的异步消息。
                 needWake = mBlocked && p.target == null && msg.isAsynchronous();
                 Message prev;
                 for (;;) {
@@ -675,7 +685,7 @@ nativePollOnce(ptr, nextPollTimeoutMillis)是一个native方法，并且是阻�
 
 消息池常用的操作方法是obtain()和recycle()。
 
-**obtain()**
+#### 5.2.1 obtain
 
 从消息池中获取消息
 
@@ -695,7 +705,7 @@ nativePollOnce(ptr, nextPollTimeoutMillis)是一个native方法，并且是阻�
 
 obtain()，从消息池取Message，都是把消息池表头的Message取走，再把表头指向next;
 
-**recycle()**
+#### 5.2.2 recycle
 
 把不再使用的消息加入消息池
 
@@ -706,7 +716,7 @@ obtain()，从消息池取Message，都是把消息池表头的Message取走，�
             }
             return;
         }
-        recycleUnchecked(); 
+        recycleUnchecked();
     }
 
 	//对于不再使用的消息，加入到消息池
@@ -735,7 +745,7 @@ obtain()，从消息池取Message，都是把消息池表头的Message取走，�
 recycle()，将Message加入到消息池的过程，都是把Message加到链表的表头；
 
 
-## 总结
+## 六、总结
 
 最后用一张图，来表示整个消息机制
 

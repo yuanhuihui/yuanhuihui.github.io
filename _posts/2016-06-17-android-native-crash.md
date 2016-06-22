@@ -285,7 +285,7 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
 4. 当DEBUGGER_ACTION_CRASH，则执行activity_manager_connect；
 5. 调用drop_privileges来取消特权模式；
 6. 通过perform_dump执行dump操作；
-    - `SIGBUS等`致命信号，则`engrave_tombstone`()
+    - SIGBUS等致命信号，则调用`engrave_tombstone`()，这是核心方法
 7. 调用activity_manager_write，将进程crash情况告知AMS；
 8. 调用ptrace方法detach到目标进程;
 9. 当DEBUGGER_ACTION_CRASH，发送信号SIGKILL给目标进程tid
@@ -326,7 +326,7 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
       return amfd.release();
     }
 
-该方法的功能是建立与`ActivityManager`的socket连接。
+该方法的功能是建立跟上层`ActivityManager`的socket连接。对于"/data/system/ndebugsocket"的服务端是在，NativeCrashListener.java方法中创建并启动的。
 
 #### 2.3.2 perform_dump
 根据接收到不同的signal采取相应的操作
@@ -374,8 +374,6 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
       return true;
     }
 
-前一篇文章已介绍过[engrave_tombstone](http://gityuan.com/2016/06/15/android-debuggerd/#tombstone)的功能内容，此处忽略。
-
 对于以下信号都是致命的信号:
 
 - SIGABRT：abort退出异常
@@ -385,6 +383,8 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
 - SIGSEGV：内存访问异常
 - SIGSTKFLT：协处理器栈异常
 - SIGTRAP：陷阱异常
+
+另外，上篇文章已介绍过[engrave_tombstone](http://gityuan.com/2016/06/15/android-debuggerd/#tombstone)的功能内容，这里就不再累赘了。
 
 #### 2.3.3 activity_manager_write
 
@@ -417,9 +417,11 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
       android::base::ReadFully(amfd, &eodMarker, 1);
     }
 
+debuggerd与AMS的NativeCrashListener建立socket连接后，再通过该方法发送数据，数据项包括pid、signal、dump信息。
+
 #### 2.3.4 send_signal
 
-此处只是向目标进程发送SIGKILL信号，用于杀掉目标进程，文章[理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/#sendsignal)，已详细讲述过发送SIGKILL信号的处理流程。
+此处只是向目标进程发送SIGKILL信号，用于杀掉目标进程，文章[理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/#sendsignal)已详细讲述过发送SIGKILL信号的处理流程。
 
 ### 三、NativeCrashListener
 
@@ -432,7 +434,6 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
         mActivityManagerService.systemReady(new Runnable() {
            @Override
            public void run() {
-               ...
                mSystemServiceManager.startBootPhase(
                        SystemService.PHASE_ACTIVITY_MANAGER_READY);
                try {
@@ -445,7 +446,7 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
         }
     }
 
-当开机过程中启动服务启动到阶段PHASE_ACTIVITY_MANAGER_READY(550)，即服务可以广播自己的Intents，然后启动native crash的监听进程。
+当开机过程中启动服务启动到阶段`PHASE_ACTIVITY_MANAGER_READY`(550)，即服务可以广播自己的Intents，然后启动native crash的监听进程。
 
 #### 3.2 startObservingNativeCrashes
 
@@ -457,7 +458,7 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
         ncl.start();
     }
 
-NativeCrashListener继承于`Thread`，是一个独立的线程，调用start方法来启动线程开始工作。
+NativeCrashListener继承于`Thread`，可见这是线程，通过调用start方法来启动线程开始工作。
 
 #### 3.3 NativeCrashListener
 
@@ -512,7 +513,7 @@ NativeCrashListener继承于`Thread`，是一个独立的线程，调用start方
         }
     }
 
-"/data/system/ndebugsocket"文件权限700，owned为system:system，debuggerd是以root权限运行，因此可以与该socket建立连接，但对于第3放app则不能。
+"/data/system/ndebugsocket"文件权限700，owned为system:system，debuggerd是以root权限运行，因此可以与该socket建立连接，但对于第三方App则没有权限。
 
 #### 3.4 consumeNativeCrashData
 [-> NativeCrashListener.java]
@@ -578,6 +579,8 @@ NativeCrashListener继承于`Thread`，是一个独立的线程，调用start方
         }
     }
 
+读取debuggerd那端发送过来的数据，再通过NativeCrashReporter来把native crash事件报告给framework层。
+
 #### 3.5 NativeCrashReporter
 
 [-> NativeCrashListener.java]
@@ -600,5 +603,4 @@ NativeCrashListener继承于`Thread`，是一个独立的线程，调用start方
         }
     }
 
-handleApplicationCrashInner位于ActivityManagerService，不论是Native crash还是Java层crash都会调用到该方法，整个上层的crash流程比较复杂，
-下一篇文章会再展开说明。
+不论是Native crash还是framework crash最终都会调用到handleApplicationCrashInner()，该方法位于位于AMS服务。关于AMS的crash处理流程也颇为复杂，下一篇文章会再展开说明。
