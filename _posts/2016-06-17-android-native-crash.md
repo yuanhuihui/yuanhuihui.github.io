@@ -6,6 +6,7 @@ catalog:    true
 tags:
     - android
     - debug
+    - stability
 
 ---
 

@@ -296,7 +296,7 @@ trimToFit过程中触发条件是：
                         if (input != null) try { input.close(); } catch (IOException e) {}
                     }
                 }
-                //将logcat的输出到DropBox 【见小节2.2】
+                //将logcat的evets/system/main/crash信息输出到DropBox 【见小节2.2】
                 dbox.addText(dropboxTag, sb.toString());
             }
         };
@@ -320,8 +320,13 @@ trimToFit过程中触发条件是：
 
 **(2). dropbox文件名**
 
-dropbox文件格式为`dropboxTag@时间戳.txt`或者`tag@时间戳.txt.gz`，
-其中dropboxTag  = processClass(process) + "_" + eventType;
+dropbox文件名为`dropboxTag@xxx.txt`
+
+- dropboxTag  = processClass(process) + "_" + eventType;
+    - processClass：分为`system_server`, `system_app`, `data_app`;
+    - eventType：分为`crash`,`anr`,`wtf`等
+- xxx代表的是时间戳;
+- 后缀除了`.txt`，还可以是`.txt.gz`压缩格式。
 
      private static String processClass(ProcessRecord process) {
          //MY_PID代表的是当前进程pid，正是system_server进程
@@ -333,9 +338,6 @@ dropbox文件格式为`dropboxTag@时间戳.txt`或者`tag@时间戳.txt.gz`，
              return "data_app";
          }
      }
-
-- processClass：分为 `system_server`，`system_app`，`data_app`；
-- eventType：分为`crash`,`anr`,`wtf`等
 
 例如`system_server_crash@1465650845355.txt`，代表的是system_server进程出现crash，记录该文件时间戳为1465650845355。
 
