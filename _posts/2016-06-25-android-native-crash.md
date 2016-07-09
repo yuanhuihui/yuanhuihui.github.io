@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "调试系列5：debuggerd(native crash篇)"
-date:   2016-6-17 21:25:53
+title:  "理解Native crash处理流程"
+date:   2016-6-25 21:25:53
 catalog:    true
 tags:
     - android
@@ -10,9 +10,20 @@ tags:
 
 ---
 
+> 本文是基于Android 7.0源码，来分析Native Crash流程。
+
 ## 一、Native Crash
 
-Native crash的工作核心是由debuggerd守护进程来完成，上一篇文章[调试系列4：debuggerd源码篇)](http://gityuan.com/2016/06/15/android-debuggerd/)，已经介绍过Debuggerdd的工作原理。
+从系统全局来说，Crash分为Framework/App Crash， Native Crash，以及Kernel Crash。
+
+- 对于framework层或者app层的Crash(即Java层面Crash)，那么往往是通过抛出未捕获异常而导致的Crash，这个内容在本文的姊妹篇[理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)已详细介绍过。
+- 至于Kernel Crash，很多情况是发生Kernel panic，对于内核崩溃往往是驱动或者硬件出现故障。
+- Native Crash，即C/C++层面的Crash，这是介于系统framework层与Linux层之间的一层，这是本文接下来要讲解的内容。
+
+如果你是从事Android系统开发或者架构相关工作，或者遇到需要解系统性的疑难杂症，那么很有必要了解系统Native Crash处理流程；如果你是App开发，并写过JNI相关代码，就有可能会遇到Native Crash，因为JNI便是连接Java与Native的桥梁，如果没有写好JNI代码，极有可能导致应用发生Native Crash。
+
+接下来介绍介绍`Android N`的Native Crash处理流程，你没有看错，本文就是针对最新Android Noug来分析的。Native crash的工作核心是由debuggerd守护进程来完成，在文章[调试系列4：debuggerd源码篇)](http://gityuan.com/2016/06/15/android-debuggerd/)，已经介绍过Debuggerdd的工作原理。
+
 要了解Native Crash，首先从应用程序入口位于`begin.S`中的`__linker_init`入手。
 
 ### 1.1 begin.S
@@ -424,9 +435,9 @@ debuggerd与AMS的NativeCrashListener建立socket连接后，再通过该方法�
 
 此处只是向目标进程发送SIGKILL信号，用于杀掉目标进程，文章[理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/#sendsignal)已详细讲述过发送SIGKILL信号的处理流程。
 
-### 三、NativeCrashListener
+## 三、NativeCrashListener
 
-#### 3.1 startOtherServices
+### 3.1 startOtherServices
 
 [-> SystemServer.java]
 
@@ -449,7 +460,7 @@ debuggerd与AMS的NativeCrashListener建立socket连接后，再通过该方法�
 
 当开机过程中启动服务启动到阶段`PHASE_ACTIVITY_MANAGER_READY`(550)，即服务可以广播自己的Intents，然后启动native crash的监听进程。
 
-#### 3.2 startObservingNativeCrashes
+### 3.2 startObservingNativeCrashes
 
 [-> ActivityManagerService.java]
 
@@ -461,7 +472,7 @@ debuggerd与AMS的NativeCrashListener建立socket连接后，再通过该方法�
 
 NativeCrashListener继承于`Thread`，可见这是线程，通过调用start方法来启动线程开始工作。
 
-#### 3.3 NativeCrashListener
+### 3.3 NativeCrashListener
 
 [-> NativeCrashListener.java]
 
@@ -516,7 +527,7 @@ NativeCrashListener继承于`Thread`，可见这是线程，通过调用start方
 
 "/data/system/ndebugsocket"文件权限700，owned为system:system，debuggerd是以root权限运行，因此可以与该socket建立连接，但对于第三方App则没有权限。
 
-#### 3.4 consumeNativeCrashData
+### 3.4 consumeNativeCrashData
 [-> NativeCrashListener.java]
 
     void consumeNativeCrashData(FileDescriptor fd) {
@@ -582,7 +593,7 @@ NativeCrashListener继承于`Thread`，可见这是线程，通过调用start方
 
 读取debuggerd那端发送过来的数据，再通过NativeCrashReporter来把native crash事件报告给framework层。
 
-#### 3.5 NativeCrashReporter
+### 3.5 NativeCrashReporter
 
 [-> NativeCrashListener.java]
 
@@ -604,4 +615,6 @@ NativeCrashListener继承于`Thread`，可见这是线程，通过调用start方
         }
     }
 
-不论是Native crash还是framework crash最终都会调用到handleApplicationCrashInner()，该方法位于位于AMS服务。关于AMS的crash处理流程也颇为复杂，下一篇文章会再展开说明。
+不论是Native crash还是framework crash最终都会调用到`handleApplicationCrashInner()`，该方法见文章[理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/#handleApplicationCrashInner)。
+
+## 四、总结
