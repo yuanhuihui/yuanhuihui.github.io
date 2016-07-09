@@ -56,10 +56,10 @@ Google提供的4层架构图，是非常经典，但只是如垒砖般的方式�
 ### 2.4 Framework层
 
 - Zygote进程，是由init进程通过解析init.rc文件后fork生成的，Zygote进程主要包含：
-	- 加载ZygoteInit类，注册Zygote Socket服务端套接字；
-	- 加载虚拟机；
-	- preloadClasses；
-	- preloadResouces；
+    - 加载ZygoteInit类，注册Zygote Socket服务端套接字；
+    - 加载虚拟机；
+    - preloadClasses；
+    - preloadResouces；
 - Zygote进程fork出System Server进程，`System Server是Zygote孵化的第一个进程`，地位非常重要；
 - System Server进程：负责启动和管理整个Java framework，包含ActivityManager，PowerManager等服务。
 - Media Server进程：负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service等服务。
@@ -81,17 +81,17 @@ Google提供的4层架构图，是非常经典，但只是如垒砖般的方式�
 - [Android系统启动—init篇](http://gityuan.com/2016/02/05/android-init/)
 - [Android系统启动—Zygote篇](http://gityuan.com/2016/02/13/android-zygote/)
 - Android系统启动—SystemServer篇
-	- [SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)
-	- [SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)
+    - [SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)
+    - [SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)
 
 **（2）**再则就是在整个架构中有大量的服务，都是基于Binder来交互的，为了搞清楚binder，用了13篇文章来讲解[Binder](http://gityuan.com/2015/10/31/binder-prepare/)，从binder驱动到应用层整个完整的流程。针对比较核心服务来重点分析，计划分别用文章来对核心服务展开剖析：
 
 - Android服务篇-ActivityManagerService
-	- [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
+    - [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
 - Android服务篇-PackageManagerService
 - Android服务篇-PowerManagerService
 - Android服务篇-BatteryService
-	- [Android耗电统计算法](http://gityuan.com/2016/01/11/power_rank/)
+    - [Android耗电统计算法](http://gityuan.com/2016/01/11/power_rank/)
 - Android服务篇-WindowManagerService
 
 当然graphic也是一大块难啃的模块，也是需要整理的，先留个空位吧。
@@ -100,7 +100,7 @@ Google提供的4层架构图，是非常经典，但只是如垒砖般的方式�
 
 - Android组件-Activity
 - Android组件-Service
-	- [startService流程分析](http://gityuan.com/2016/03/06/start-service/)
+    - [startService流程分析](http://gityuan.com/2016/03/06/start-service/)
 - Android组件-Broadcast Receiver
 - Android组件-Content Provider
 
@@ -108,7 +108,7 @@ Google提供的4层架构图，是非常经典，但只是如垒砖般的方式�
 **（4）**有了这些，中间还缺少关于虚拟机ART的介绍，会需要对ART分析，后续还需要开展对ART虚拟机的一系列文章。另外，从架构中还有很多一块没有提及，那便是Linux Kernel，这部分内容，计划从进程，内存，IO的视角展开分析。
 
 - Linux内核-进程篇
-	- [进程的优先级](http://gityuan.com/2015/10/02/process-priority/)
+    - [进程的优先级](http://gityuan.com/2015/10/02/process-priority/)
 - Linux内核-内存篇
 - Linux内核-IO篇
 - Linux内核-驱动篇

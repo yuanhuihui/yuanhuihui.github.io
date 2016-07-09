@@ -13,18 +13,18 @@ tags:
 
 **相关源码**
 
-	framework/base/core/java/andorid/os/Handler.java
-	framework/base/core/java/andorid/os/Looper.java
-	framework/base/core/java/andorid/os/Message.java
-	framework/base/core/java/andorid/os/MessageQueue.java
-	libcore/luni/src/main/java/java/lang/ThreadLocal.java
+    framework/base/core/java/andorid/os/Handler.java
+    framework/base/core/java/andorid/os/Looper.java
+    framework/base/core/java/andorid/os/Message.java
+    framework/base/core/java/andorid/os/MessageQueue.java
+    libcore/luni/src/main/java/java/lang/ThreadLocal.java
 
 ## 一、概述
 在整个Android的源码世界里，有两大利剑，其一是Binder IPC机制，，另一个便是消息机制(由Handler/Looper/MessageQueue等构成的)。关于Binder在[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)中详细讲解过，有兴趣看看。
 
 Android有大量的消息驱动方式来进行交互，比如Android的四剑客`Activity`, `Service`, `Broadcast`, `ContentProvider`的启动过程的交互，都离不开消息机制，Android某种意义上也可以说成是一个以消息驱动的系统。消息机制涉及MessageQueue/Message/Looper/Handler这4个类。
 
-### 1.1 模型  
+### 1.1 模型
 消息机制主要包含：
 
 - **Message**：消息分为硬件产生的消息(如按钮、触摸)和软件生成的消息；
@@ -46,7 +46,7 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 ### 1.3 典型实例
 先展示一个典型的关于Handler/Looper的线程
 
-	class LooperThread extends Thread {
+    class LooperThread extends Thread {
         public Handler mHandler;
 
         public void run() {
@@ -71,13 +71,13 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 对于无参的情况，默认调用`prepare(true)`，表示的是这个Looper运行退出，而对于false的情况则表示当前Looper不运行退出。
 
-	private static void prepare(boolean quitAllowed) {
+    private static void prepare(boolean quitAllowed) {
         //每个线程只允许执行一次该方法，第二次执行时线程的TLS已有数据，则会抛出异常。
         if (sThreadLocal.get() != null) {
             throw new RuntimeException("Only one Looper may be created per thread");
         }
         //创建Looper对象，并保存到当前线程的TLS区域
-        sThreadLocal.set(new Looper(quitAllowed));   
+        sThreadLocal.set(new Looper(quitAllowed));
     }
 
 这里的`sThreadLocal`是ThreadLocal类型，下面，先说说ThreadLocal。
@@ -87,38 +87,38 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 - `ThreadLocal.set(T value)`：将value存储到当前线程的TLS区域，源码如下：
 
-	    public void set(T value) {
-	        Thread currentThread = Thread.currentThread(); //获取当前线程
-	        Values values = values(currentThread); //查找当前线程的本地储存区
-	        if (values == null) {
+        public void set(T value) {
+            Thread currentThread = Thread.currentThread(); //获取当前线程
+            Values values = values(currentThread); //查找当前线程的本地储存区
+            if (values == null) {
                 //当线程本地存储区，尚未存储该线程相关信息时，则创建Values对象
-	            values = initializeValues(currentThread);
-	        }
+                values = initializeValues(currentThread);
+            }
             //保存数据value到当前线程this
-	        values.put(this, value);
-	    }
+            values.put(this, value);
+        }
 
 - `ThreadLocal.get()`：获取当前线程TLS区域的数据，源码如下：
 
-	    public T get() {
-	        Thread currentThread = Thread.currentThread(); //获取当前线程
-	        Values values = values(currentThread); //查找当前线程的本地储存区
-	        if (values != null) {
-	            Object[] table = values.table;
-	            int index = hash & values.mask;
-	            if (this.reference == table[index]) {
-	                return (T) table[index + 1]; //返回当前线程储存区中的数据
-	            }
-	        } else {
+        public T get() {
+            Thread currentThread = Thread.currentThread(); //获取当前线程
+            Values values = values(currentThread); //查找当前线程的本地储存区
+            if (values != null) {
+                Object[] table = values.table;
+                int index = hash & values.mask;
+                if (this.reference == table[index]) {
+                    return (T) table[index + 1]; //返回当前线程储存区中的数据
+                }
+            } else {
                 //创建Values对象
-	            values = initializeValues(currentThread);
-	        }
-	        return (T) values.getAfterMiss(this); //从目标线程存储区没有查询是则返回null
-	    }
+                values = initializeValues(currentThread);
+            }
+            return (T) values.getAfterMiss(this); //从目标线程存储区没有查询是则返回null
+        }
 
 ThreadLocal的get()和set()方法操作的类型都是泛型，接着回到前面提到的`sThreadLocal`变量，其定义如下：
 
-	static final ThreadLocal<Looper> sThreadLocal = new ThreadLocal<Looper>()
+    static final ThreadLocal<Looper> sThreadLocal = new ThreadLocal<Looper>()
 
 可见`sThreadLocal`的get()和set()操作的类型都是`Looper`类型。
 
@@ -149,7 +149,7 @@ Looper.prepare()在每个线程只允许执行一次，该方法会创建Looper�
 
 ### 2.2 loop()
 
-	public static void loop() {
+    public static void loop() {
         final Looper me = myLooper();  //获取TLS存储的Looper对象 【见2.4】
         if (me == null) {
             throw new RuntimeException("No Looper; Looper.prepare() wasn't called on this thread.");
@@ -195,11 +195,11 @@ loop()进入循环模式，不断重复下面的操作，直到没有消息时�
 
 ### 2.3 quit()
 
-	public void quit() {
+    public void quit() {
         mQueue.quit(false); //消息移除
     }
 
-	public void quitSafely() {
+    public void quitSafely() {
         mQueue.quit(true); //安全地消息移除
     }
 
@@ -207,25 +207,25 @@ Looper.quit()方法的实现最终调用的是MessageQueue.quit()方法
 
 **MessageQueue.quit()**
 
-	void quit(boolean safe) {
-	        // 当mQuitAllowed为false，表示不运行退出，强行调用quit()会抛出异常
-	        if (!mQuitAllowed) {
-	            throw new IllegalStateException("Main thread not allowed to quit.");
-	        }
-	        synchronized (this) {
-	            if (mQuitting) { //防止多次执行退出操作
-	                return;
-	            }
-	            mQuitting = true;
-	            if (safe) {
-	                removeAllFutureMessagesLocked(); //移除尚未触发的所有消息
-	            } else {
-	                removeAllMessagesLocked(); //移除所有的消息
-	            }
-	            //mQuitting=false，那么认定为 mPtr != 0
-	            nativeWake(mPtr);
-	        }
-	    }
+    void quit(boolean safe) {
+            // 当mQuitAllowed为false，表示不运行退出，强行调用quit()会抛出异常
+            if (!mQuitAllowed) {
+                throw new IllegalStateException("Main thread not allowed to quit.");
+            }
+            synchronized (this) {
+                if (mQuitting) { //防止多次执行退出操作
+                    return;
+                }
+                mQuitting = true;
+                if (safe) {
+                    removeAllFutureMessagesLocked(); //移除尚未触发的所有消息
+                } else {
+                    removeAllMessagesLocked(); //移除所有的消息
+                }
+                //mQuitting=false，那么认定为 mPtr != 0
+                nativeWake(mPtr);
+            }
+        }
 
 消息退出的方式：
 
@@ -239,9 +239,9 @@ Looper.quit()方法的实现最终调用的是MessageQueue.quit()方法
 
 用于获取TLS存储的Looper对象
 
-	public static @Nullable Looper myLooper() {
-	        return sThreadLocal.get();
-	    }
+    public static @Nullable Looper myLooper() {
+            return sThreadLocal.get();
+        }
 
 #### 2.4.2 post
 
@@ -310,10 +310,10 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 在Looper.loop()中，当发现有消息时，调用消息的目标handler，执行dispatchMessage()方法来分发消息。
 
-	public void dispatchMessage(Message msg) {
+    public void dispatchMessage(Message msg) {
         if (msg.callback != null) {
             //当Message存在回调方法，回调msg.callback.run()方法；
-            handleCallback(msg);  
+            handleCallback(msg);
         } else {
             if (mCallback != null) {
                 //当Handler存在Callback成员变量时，回调方法handleMessage()；
@@ -344,14 +344,14 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 #### 3.3.1 sendEmptyMessage
 
-	public final boolean sendEmptyMessage(int what)
+    public final boolean sendEmptyMessage(int what)
     {
         return sendEmptyMessageDelayed(what, 0);
     }
 
 #### 3.3.2 sendEmptyMessageDelayed
 
-	public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
+    public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
         Message msg = Message.obtain();
         msg.what = what;
         return sendMessageDelayed(msg, delayMillis);
@@ -359,7 +359,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 #### 3.3.3 sendMessageDelayed
 
-	public final boolean sendMessageDelayed(Message msg, long delayMillis)
+    public final boolean sendMessageDelayed(Message msg, long delayMillis)
     {
         if (delayMillis < 0) {
             delayMillis = 0;
@@ -369,7 +369,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 #### 3.3.4 sendMessageAtTime
 
-	public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
+    public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
         MessageQueue queue = mQueue;
         if (queue == null) {
             return false;
@@ -380,7 +380,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 #### 3.3.5 sendMessageAtFrontOfQueue
 
-	public final boolean sendMessageAtFrontOfQueue(Message msg) {
+    public final boolean sendMessageAtFrontOfQueue(Message msg) {
         MessageQueue queue = mQueue;
         if (queue == null) {
             return false;
@@ -412,7 +412,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 #### 3.3.8 enqueueMessage
 
-	private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
+    private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
         msg.target = this;
         if (mAsynchronous) {
             msg.setAsynchronous(true);
@@ -432,7 +432,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 获取消息
 
-	public final Message obtainMessage()
+    public final Message obtainMessage()
     {
         return Message.obtain(this); 【见5.2】
     }
@@ -453,7 +453,7 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
 
 MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心方法都交给native层来处理，其中MessageQueue类中涉及的native方法如下：
 
-	private native static long nativeInit();
+    private native static long nativeInit();
     private native static void nativeDestroy(long ptr);
     private native void nativePollOnce(long ptr, int timeoutMillis);
     private native static void nativeWake(long ptr);
@@ -474,7 +474,7 @@ MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心�
 
 提取下一条message
 
-	Message next() {
+    Message next() {
         final long ptr = mPtr;
         if (ptr == 0) { //当消息循环已经退出，则直接返回
             return null;
@@ -689,7 +689,7 @@ MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心�
 
 从消息池中获取消息
 
-	public static Message obtain() {
+    public static Message obtain() {
         synchronized (sPoolSync) {
             if (sPool != null) {
                 Message m = sPool;
@@ -709,7 +709,7 @@ obtain()，从消息池取Message，都是把消息池表头的Message取走，�
 
 把不再使用的消息加入消息池
 
-	public void recycle() {
+    public void recycle() {
         if (isInUse()) { //判断消息是否正在使用
             if (gCheckRecycle) { //Android 5.0以后的版本默认为true,之前的版本默认为false.
                 throw new IllegalStateException("This message cannot be recycled because it is still in use.");
@@ -719,8 +719,8 @@ obtain()，从消息池取Message，都是把消息池表头的Message取走，�
         recycleUnchecked();
     }
 
-	//对于不再使用的消息，加入到消息池
-	void recycleUnchecked() {
+    //对于不再使用的消息，加入到消息池
+    void recycleUnchecked() {
         //将消息标示位置为IN_USE，并清空消息所有的参数。
         flags = FLAG_IN_USE;
         what = 0;

@@ -37,7 +37,7 @@ Java是Android的基础，建议初学者一定要先学习Java基本知识，�
 - [The Java Language Specification](https://docs.oracle.com/javase/specs/jls/se7/html/index.html)，官方Java文档（英文版）
 - [The Java® Virtual Machine Specification](https://docs.oracle.com/javase/specs/jvms/se7/html/)，官方Jvm文档（英文版）
 - 深入理解java虚拟机：这是国内关于Java虚拟机讲得非常全面的一本书，从Java GC到Java虚拟机内部实现以及优化策略，作为Java高手非常值得一看的书籍。
-	
+
 本文的重点是讲如何学习Android，所以姑且把Java基础与进阶的书都放到Android学习的基础篇里。作为Android开发者来说，完全没有必要一开始都对Java理解得那么深，只有要看一两本Java基本书，掌握Java面向对象的思想的核心要义即万物皆为对象，掌握Java基本语法，基本就可以开启Android的学习之路。在后续对Android也有一定理解后，再慢慢不断提升Java和Android水平。
 
 有朋友私信我觉着这个java书难度有点高，可能是本人在看Java书籍之前，还看过些许C和C++的入门书的缘故，所以看的第一本书《Java编程思想》。如果你真的是零基础，第一次接触编程，想以Java作为自己的入门语言，那么你可以先看看《Java语言程序设计》(基础篇) 或者《Java从入门到精通》，作为初学者险掌握Java基本语法，平时遇到不熟悉的方法，多查看API文档即可，慢慢地就熟悉了。
@@ -60,14 +60,14 @@ Android的基本书籍，只需一两本即可，没有必要看太多基础书�
 言归正传，如果你能看完并理解下列的内容，那么你完全可以没有必要再看前面介绍的书籍，并且对于Android已有相当熟悉了。
 
 - [developer.android.com](http://developer.android.com/intl/zh-cn/index.html)：Android开发官网，下面列举常用的资料：
-	- [Android training](http://developer.android.com/training/index.html)：Android培训文档；
-		- 另外由胡凯发起了[Android培训课程中文版](http://hukai.me/android-training-course-in-chinese/index.html)；对官方文档进行翻译；
-	- [Android API指南](http://developer.android.com/guide/index.html)：Android组件、Manifest配置文件，动画/图像等相关介绍；
-	- [Android Tools](http://developer.android.com/tools/performance/index.html)：性能、测试、Android Studio等各种工具说明文档；
-	- [source.android.com](https://source.android.com/)：介绍Android开源码相关的内容；
+    - [Android training](http://developer.android.com/training/index.html)：Android培训文档；
+        - 另外由胡凯发起了[Android培训课程中文版](http://hukai.me/android-training-course-in-chinese/index.html)；对官方文档进行翻译；
+    - [Android API指南](http://developer.android.com/guide/index.html)：Android组件、Manifest配置文件，动画/图像等相关介绍；
+    - [Android Tools](http://developer.android.com/tools/performance/index.html)：性能、测试、Android Studio等各种工具说明文档；
+    - [source.android.com](https://source.android.com/)：介绍Android开源码相关的内容；
 - [Android Performance Patterns](https://www.youtube.com/playlist?list=PLOU2XLYxmsIKEOXh5TwZEv89aofHzNCiu)：2015年Google陆续在Youtube上发布的Android性能优化的视频，目前已更新第4季。
-	- 国内Google组织，优酷上发布了相应的 [(中文)Android 性能模式 第四季](http://v.youku.com/v_show/id_XMTUyMTM0MzgyNA==.html?f=26946827)；
-	- 另外由胡凯发起了[Android性能优化典范中文版文档](http://hukai.me)；对官方视频进行翻译并整理；
+    - 国内Google组织，优酷上发布了相应的 [(中文)Android 性能模式 第四季](http://v.youku.com/v_show/id_XMTUyMTM0MzgyNA==.html?f=26946827)；
+    - 另外由胡凯发起了[Android性能优化典范中文版文档](http://hukai.me)；对官方视频进行翻译并整理；
 - [android-developers.blogspot.com](http://android-developers.blogspot.com/)：Android官方博客，有一些比较不错的feature，博客会第一时间呈现。
 
 ### 1.4 Android资源整理
@@ -134,14 +134,14 @@ Android的基本书籍，只需一两本即可，没有必要看太多基础书�
 **Android 系统源码分析**
 
 - [Innost的专栏](http://blog.csdn.net/innost?viewmode=contents)
-	- 邓凡平前辈所写博客，条例有序，覆盖了Android系统大部分内容；
-	- 《深入理解Android》 （卷I，卷II，卷III）
+    - 邓凡平前辈所写博客，条例有序，覆盖了Android系统大部分内容；
+    - 《深入理解Android》 （卷I，卷II，卷III）
 - [老罗的Android之旅](http://blog.csdn.net/luoshengyang/article/details/8923485)
-	- 罗升阳前辈所写博客，从各个层面介绍Android系统；
-	- 《Android系统源代码情景分析 》
+    - 罗升阳前辈所写博客，从各个层面介绍Android系统；
+    - 《Android系统源代码情景分析 》
 - [Gityuan源码分析](http://gityuan.com/android/)
-	- 对于邓凡平和罗升阳两位前辈的博客基于Android 2.x或4.x，目前Android已发展到Android 6.0。不管Android如何变化，其核心思维变化并没有很大，所以两位前辈的博客还是很有值得学习和参考的地方。话又说回来，Android经过了几个大版本的迭代，无论是从代码结构还是整体逻辑仍有不少变化。故博主计划写一关于Android 6.0源码系列的博文。
-	- Gityuan作为Android界新秀，能力尚不及很多前辈，但有一颗乐于分享的心，有一份痴于Android的品质，有一种坚持的态度，已经并一直还在努力奋斗的道路上...
+    - 对于邓凡平和罗升阳两位前辈的博客基于Android 2.x或4.x，目前Android已发展到Android 6.0。不管Android如何变化，其核心思维变化并没有很大，所以两位前辈的博客还是很有值得学习和参考的地方。话又说回来，Android经过了几个大版本的迭代，无论是从代码结构还是整体逻辑仍有不少变化。故博主计划写一关于Android 6.0源码系列的博文。
+    - Gityuan作为Android界新秀，能力尚不及很多前辈，但有一颗乐于分享的心，有一份痴于Android的品质，有一种坚持的态度，已经并一直还在努力奋斗的道路上...
 
 ### 2.5 进阶书籍
 
@@ -159,17 +159,19 @@ Android的基本书籍，只需一两本即可，没有必要看太多基础书�
 
 ## 三、其他
 
+另外，可以推荐看看`diycode`发起的，由一群社区较活跃的Android人士共同撰写(包括我)的[Android开发书籍推荐](http://www.diycode.cc/wiki/androidbook)。
+
 最后，再说说关于学习编程的番外篇：
 
 - 好奇心比雄心走得更远：很多人对未来空有满腔的雄心壮志，往往不如对技术要有一份好奇心，一份探索欲，再加上一份执着的人。
 - 要有open的心态：曾经的我也只是把自己的所思所得都放入自己的云笔记，很少整理，这其实不利于技术发展，有空应该多整理自己零散的知识点，觉得不错的点可以拿出来写成博客，那是对能力的又一层提升。另外，在低头做技术的同时，还应该有空抬头看世界，不能闭门造车。
 - 天道酬勤：学历只能代表过去，能力代表现在，潜力代表未来！ 你不把自己逼一把，你压根不知道自己有多优秀，只要努力去学习，去挖掘潜力，进而提升自我技术修为，未来不再是梦！共勉之！
 - 解决问题的方式：遇到问题，一定要先尝试自己解决，解决不了再请教他人。这是对自己的一个锻炼，也是对他人的一个尊重，可以有多种途径自行搜索：
-	- 百度一下，很多时候还是能有所帮助的，不要过分强调google，完全抛弃百度，毕竟中文看起来比较快；
-	- 先中文关键词google一下；再英文关键词google一下；
-	- [stackoverflow.com](http://stackoverflow.com/)、[知乎](http://zhihu.com)等技术问答网站内直接搜索；
-	- 查看官方文档；
-	- 如果有源码，尝试直接看源码，看能否解决；
+    - 百度一下，很多时候还是能有所帮助的，不要过分强调google，完全抛弃百度，毕竟中文看起来比较快；
+    - 先中文关键词google一下；再英文关键词google一下；
+    - [stackoverflow.com](http://stackoverflow.com/)、[知乎](http://zhihu.com)等技术问答网站内直接搜索；
+    - 查看官方文档；
+    - 如果有源码，尝试直接看源码，看能否解决；
 - 有空可以多逛逛github，多看看Google官方文档，多关注社区，定会收获不少；
 - 当然，最最重要的是能静得下心，持之以恒地专研技术。
 

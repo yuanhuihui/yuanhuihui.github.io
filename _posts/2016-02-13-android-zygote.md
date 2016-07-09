@@ -12,11 +12,11 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程的Zygote进程
 
-	/frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
-	/frameworks/base/core/jni/AndroidRuntime.cpp
-	/frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
-	/frameworks/base/core/java/com/android/internal/os/Zygote.java
-	/frameworks/base/core/java/android/net/LocalServerSocket.java
+    /frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
+    /frameworks/base/core/jni/AndroidRuntime.cpp
+    /frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
+    /frameworks/base/core/java/com/android/internal/os/Zygote.java
+    /frameworks/base/core/java/android/net/LocalServerSocket.java
 
 
 ## 一、启动调用栈
@@ -24,15 +24,15 @@ tags:
 
 Zygote启动函数调用类的栈关系：
 
-	App_main.main
-	    AndroidRuntime.start
-	        startVm
-	        startReg
-	        ZygoteInit.main
-	            registerZygoteSocket
-	            preload
-	            startSystemServer
-	            runSelectLoop
+    App_main.main
+        AndroidRuntime.start
+            startVm
+            startReg
+            ZygoteInit.main
+                registerZygoteSocket
+                preload
+                startSystemServer
+                runSelectLoop
 
 ## 二、App_main
 
@@ -42,170 +42,170 @@ Zygote是由[init进程](http://gityuan.com/2016/01/16/android-init//#zygote)通
 
 [-->App_main.cpp]
 
-	int main(int argc, char* const argv[])
-	{
-	    AppRuntime runtime(argv[0], computeArgBlockSize(argc, argv));
+    int main(int argc, char* const argv[])
+    {
+        AppRuntime runtime(argv[0], computeArgBlockSize(argc, argv));
 
-	    //忽略第一个参数
-	    argc--;
-	    argv++;
+        //忽略第一个参数
+        argc--;
+        argv++;
 
-	    int i;
-	    for (i = 0; i < argc; i++) {
-	        if (argv[i][0] != '-') {
-	            break;
-	        }
-	        if (argv[i][1] == '-' && argv[i][2] == 0) {
-	            ++i;
-	            break;
-	        }
-	        runtime.addOption(strdup(argv[i]));
-	    }
-	    //参数解析
-	    bool zygote = false;
-	    bool startSystemServer = false;
-	    bool application = false;
-	    String8 niceName;
-	    String8 className;
-	    ++i;
-	    while (i < argc) {
-	        const char* arg = argv[i++];
-	        if (strcmp(arg, "--zygote") == 0) {
-	            zygote = true;
-	            niceName = ZYGOTE_NICE_NAME; //对于64位系统nice_name为zygote64,32位系统为zygote
-	        } else if (strcmp(arg, "--start-system-server") == 0) {
-	            startSystemServer = true;
-	        } else if (strcmp(arg, "--application") == 0) {
-	            application = true;
-	        } else if (strncmp(arg, "--nice-name=", 12) == 0) {
-	            niceName.setTo(arg + 12);
-	        } else if (strncmp(arg, "--", 2) != 0) {
-	            className.setTo(arg);
-	            break;
-	        } else {
-	            --i;
-	            break;
-	        }
-	    }
-	    Vector<String8> args;
-	    if (!className.isEmpty()) {
-	        // 运行application或tool程序
-	        args.add(application ? String8("application") : String8("tool"));
-	        runtime.setClassNameAndArgs(className, argc - i, argv + i);
-	    } else {
-	        //进入zygote模式，创建 /data/dalvik-cache路径
-	        maybeCreateDalvikCache();
-	        if (startSystemServer) {
-	            args.add(String8("start-system-server"));
-	        }
-	        char prop[PROP_VALUE_MAX];
-	        if (property_get(ABI_LIST_PROPERTY, prop, NULL) == 0) {
-	            return 11;
-	        }
-	        String8 abiFlag("--abi-list=");
-	        abiFlag.append(prop);
-	        args.add(abiFlag);
+        int i;
+        for (i = 0; i < argc; i++) {
+            if (argv[i][0] != '-') {
+                break;
+            }
+            if (argv[i][1] == '-' && argv[i][2] == 0) {
+                ++i;
+                break;
+            }
+            runtime.addOption(strdup(argv[i]));
+        }
+        //参数解析
+        bool zygote = false;
+        bool startSystemServer = false;
+        bool application = false;
+        String8 niceName;
+        String8 className;
+        ++i;
+        while (i < argc) {
+            const char* arg = argv[i++];
+            if (strcmp(arg, "--zygote") == 0) {
+                zygote = true;
+                niceName = ZYGOTE_NICE_NAME; //对于64位系统nice_name为zygote64,32位系统为zygote
+            } else if (strcmp(arg, "--start-system-server") == 0) {
+                startSystemServer = true;
+            } else if (strcmp(arg, "--application") == 0) {
+                application = true;
+            } else if (strncmp(arg, "--nice-name=", 12) == 0) {
+                niceName.setTo(arg + 12);
+            } else if (strncmp(arg, "--", 2) != 0) {
+                className.setTo(arg);
+                break;
+            } else {
+                --i;
+                break;
+            }
+        }
+        Vector<String8> args;
+        if (!className.isEmpty()) {
+            // 运行application或tool程序
+            args.add(application ? String8("application") : String8("tool"));
+            runtime.setClassNameAndArgs(className, argc - i, argv + i);
+        } else {
+            //进入zygote模式，创建 /data/dalvik-cache路径
+            maybeCreateDalvikCache();
+            if (startSystemServer) {
+                args.add(String8("start-system-server"));
+            }
+            char prop[PROP_VALUE_MAX];
+            if (property_get(ABI_LIST_PROPERTY, prop, NULL) == 0) {
+                return 11;
+            }
+            String8 abiFlag("--abi-list=");
+            abiFlag.append(prop);
+            args.add(abiFlag);
 
-	        for (; i < argc; ++i) {
-	            args.add(String8(argv[i]));
-	        }
-	    }
+            for (; i < argc; ++i) {
+                args.add(String8(argv[i]));
+            }
+        }
 
-	    //设置进程名
-	    if (!niceName.isEmpty()) {
-	        runtime.setArgv0(niceName.string());
-	        set_process_name(niceName.string());
-	    }
-	    if (zygote) {
-	        // 启动AppRuntime 【见小节3】
-	        runtime.start("com.android.internal.os.ZygoteInit", args, zygote);
-	    } else if (className) {
-	        runtime.start("com.android.internal.os.RuntimeInit", args, zygote);
-	    } else {
-	        //没有指定类名或zygote，参数错误
-	        return 10;
-	    }
-	}
+        //设置进程名
+        if (!niceName.isEmpty()) {
+            runtime.setArgv0(niceName.string());
+            set_process_name(niceName.string());
+        }
+        if (zygote) {
+            // 启动AppRuntime 【见小节3】
+            runtime.start("com.android.internal.os.ZygoteInit", args, zygote);
+        } else if (className) {
+            runtime.start("com.android.internal.os.RuntimeInit", args, zygote);
+        } else {
+            //没有指定类名或zygote，参数错误
+            return 10;
+        }
+    }
 
 采用cmd命令，是通过fork进程来执行相应的类：
 
-	 app_process [可选参数] 命令所在路径 启动的类名 [可选参数]
+     app_process [可选参数] 命令所在路径 启动的类名 [可选参数]
 
 ## 三、AndroidRuntime
 
 AndroidRuntime.cpp
 
-	void AndroidRuntime::start(const char* className, const Vector<String8>& options, bool zygote)
-	{
-	    static const String8 startSystemServer("start-system-server");
+    void AndroidRuntime::start(const char* className, const Vector<String8>& options, bool zygote)
+    {
+        static const String8 startSystemServer("start-system-server");
 
-	    for (size_t i = 0; i < options.size(); ++i) {
-	        if (options[i] == startSystemServer) {
-	           const int LOG_BOOT_PROGRESS_START = 3000;
-	        }
-	    }
-	    const char* rootDir = getenv("ANDROID_ROOT");
-	    if (rootDir == NULL) {
-	        rootDir = "/system";
-	        if (!hasDir("/system")) {
-	            return;
-	        }
-	        setenv("ANDROID_ROOT", rootDir, 1);
-	    }
-	    JniInvocation jni_invocation;
-	    jni_invocation.Init(NULL);
-	    JNIEnv* env;
-	    // 虚拟机创建【见小节3.1】
-	    if (startVm(&mJavaVM, &env, zygote) != 0) {
-	        return;
-	    }
-	    onVmCreated(env);
-	    // JNI方法注册【见小节3.2】
-	    if (startReg(env) < 0) {
-	        ALOGE("Unable to register all android natives\n");
-	        return;
-	    }
+        for (size_t i = 0; i < options.size(); ++i) {
+            if (options[i] == startSystemServer) {
+               const int LOG_BOOT_PROGRESS_START = 3000;
+            }
+        }
+        const char* rootDir = getenv("ANDROID_ROOT");
+        if (rootDir == NULL) {
+            rootDir = "/system";
+            if (!hasDir("/system")) {
+                return;
+            }
+            setenv("ANDROID_ROOT", rootDir, 1);
+        }
+        JniInvocation jni_invocation;
+        jni_invocation.Init(NULL);
+        JNIEnv* env;
+        // 虚拟机创建【见小节3.1】
+        if (startVm(&mJavaVM, &env, zygote) != 0) {
+            return;
+        }
+        onVmCreated(env);
+        // JNI方法注册【见小节3.2】
+        if (startReg(env) < 0) {
+            ALOGE("Unable to register all android natives\n");
+            return;
+        }
 
-	    jclass stringClass;
-	    jobjectArray strArray;
-	    jstring classNameStr;
+        jclass stringClass;
+        jobjectArray strArray;
+        jstring classNameStr;
 
-	    //等价 strArray= new String[options.size() + 1];
-	    stringClass = env->FindClass("java/lang/String");
-	    strArray = env->NewObjectArray(options.size() + 1, stringClass, NULL);
+        //等价 strArray= new String[options.size() + 1];
+        stringClass = env->FindClass("java/lang/String");
+        strArray = env->NewObjectArray(options.size() + 1, stringClass, NULL);
 
-	    //等价 strArray[0] = "com.android.internal.os.ZygoteInit"
-	    classNameStr = env->NewStringUTF(className);
-	    env->SetObjectArrayElement(strArray, 0, classNameStr);
+        //等价 strArray[0] = "com.android.internal.os.ZygoteInit"
+        classNameStr = env->NewStringUTF(className);
+        env->SetObjectArrayElement(strArray, 0, classNameStr);
 
-	    //等价 strArray[1] = "start-system-server"；
-	    //   strArray[2] = "--abi-list=xxx"；其中xxx为系统响应的cpu架构类型，比如arm64-v8a.
-	    for (size_t i = 0; i < options.size(); ++i) {
-	        jstring optionsStr = env->NewStringUTF(options.itemAt(i).string());
-	        env->SetObjectArrayElement(strArray, i + 1, optionsStr);
-	    }
+        //等价 strArray[1] = "start-system-server"；
+        //   strArray[2] = "--abi-list=xxx"；其中xxx为系统响应的cpu架构类型，比如arm64-v8a.
+        for (size_t i = 0; i < options.size(); ++i) {
+            jstring optionsStr = env->NewStringUTF(options.itemAt(i).string());
+            env->SetObjectArrayElement(strArray, i + 1, optionsStr);
+        }
 
-	    //将"com.android.internal.os.ZygoteInit"转换为"com/android/internal/os/ZygoteInit"
-	    char* slashClassName = toSlashClassName(className);
-	    jclass startClass = env->FindClass(slashClassName);
-	    if (startClass == NULL) {
-	        ALOGE("JavaVM unable to locate class '%s'\n", slashClassName);
-	    } else {
-	        jmethodID startMeth = env->GetStaticMethodID(startClass, "main",
-	            "([Ljava/lang/String;)V");
-	        if (startMeth == NULL) {
-	            ALOGE("JavaVM unable to find main() in '%s'\n", className);
-	        } else {
-	            // 调用ZygoteInit.main()方法【见小节4.0】
-	            env->CallStaticVoidMethod(startClass, startMeth, strArray);
-	        }
-	    }
-	    free(slashClassName); //释放相应对象的内存空间
-	    if (mJavaVM->DetachCurrentThread() != JNI_OK)
-	        ALOGW("Warning: unable to detach main thread\n");
-	    if (mJavaVM->DestroyJavaVM() != 0)
-	        ALOGW("Warning: VM did not shut down cleanly\n");
-	}
+        //将"com.android.internal.os.ZygoteInit"转换为"com/android/internal/os/ZygoteInit"
+        char* slashClassName = toSlashClassName(className);
+        jclass startClass = env->FindClass(slashClassName);
+        if (startClass == NULL) {
+            ALOGE("JavaVM unable to locate class '%s'\n", slashClassName);
+        } else {
+            jmethodID startMeth = env->GetStaticMethodID(startClass, "main",
+                "([Ljava/lang/String;)V");
+            if (startMeth == NULL) {
+                ALOGE("JavaVM unable to find main() in '%s'\n", className);
+            } else {
+                // 调用ZygoteInit.main()方法【见小节4.0】
+                env->CallStaticVoidMethod(startClass, startMeth, strArray);
+            }
+        }
+        free(slashClassName); //释放相应对象的内存空间
+        if (mJavaVM->DetachCurrentThread() != JNI_OK)
+            ALOGW("Warning: unable to detach main thread\n");
+        if (mJavaVM->DestroyJavaVM() != 0)
+            ALOGW("Warning: VM did not shut down cleanly\n");
+    }
 
 
 ### 3.1 虚拟机创建startVm
@@ -214,46 +214,46 @@ AndroidRuntime.cpp
 
 创建Java虚拟机方法的主要篇幅是关于虚拟机参数的设置，下面只列举部分在调试优化过程中常用参数。
 
-	int AndroidRuntime::startVm(JavaVM** pJavaVM, JNIEnv** pEnv, bool zygote)
-	{
-	    // JNI检测功能，用于native层调用jni函数时进行常规检测，比较弱字符串格式是否符合要求，资源是否正确释放。该功能一般用于早期系统调试或手机Eng版，对于User版往往不会开启，引用该功能比较消耗系统CPU资源，降低系统性能。
-	    bool checkJni = false;
-	    property_get("dalvik.vm.checkjni", propBuf, "");
-	    if (strcmp(propBuf, "true") == 0) {
-	        checkJni = true;
-	    } else if (strcmp(propBuf, "false") != 0) {
-	        property_get("ro.kernel.android.checkjni", propBuf, "");
-	        if (propBuf[0] == '1') {
-	            checkJni = true;
-	        }
-	    }
-	    if (checkJni) {
-	        addOption("-Xcheck:jni");
-	    }
+    int AndroidRuntime::startVm(JavaVM** pJavaVM, JNIEnv** pEnv, bool zygote)
+    {
+        // JNI检测功能，用于native层调用jni函数时进行常规检测，比较弱字符串格式是否符合要求，资源是否正确释放。该功能一般用于早期系统调试或手机Eng版，对于User版往往不会开启，引用该功能比较消耗系统CPU资源，降低系统性能。
+        bool checkJni = false;
+        property_get("dalvik.vm.checkjni", propBuf, "");
+        if (strcmp(propBuf, "true") == 0) {
+            checkJni = true;
+        } else if (strcmp(propBuf, "false") != 0) {
+            property_get("ro.kernel.android.checkjni", propBuf, "");
+            if (propBuf[0] == '1') {
+                checkJni = true;
+            }
+        }
+        if (checkJni) {
+            addOption("-Xcheck:jni");
+        }
 
-	    //虚拟机产生的trace文件，主要用于分析系统问题，路径默认为/data/anr/traces.txt
-	    parseRuntimeOption("dalvik.vm.stack-trace-file", stackTraceFileBuf, "-Xstacktracefile:");
+        //虚拟机产生的trace文件，主要用于分析系统问题，路径默认为/data/anr/traces.txt
+        parseRuntimeOption("dalvik.vm.stack-trace-file", stackTraceFileBuf, "-Xstacktracefile:");
 
-	    //对于不同的软硬件环境，这些参数往往需要调整、优化，从而使系统达到最佳性能
-	    parseRuntimeOption("dalvik.vm.heapstartsize", heapstartsizeOptsBuf, "-Xms", "4m");
-	    parseRuntimeOption("dalvik.vm.heapsize", heapsizeOptsBuf, "-Xmx", "16m");
-	    parseRuntimeOption("dalvik.vm.heapgrowthlimit", heapgrowthlimitOptsBuf, "-XX:HeapGrowthLimit=");
-	    parseRuntimeOption("dalvik.vm.heapminfree", heapminfreeOptsBuf, "-XX:HeapMinFree=");
-	    parseRuntimeOption("dalvik.vm.heapmaxfree", heapmaxfreeOptsBuf, "-XX:HeapMaxFree=");
-	    parseRuntimeOption("dalvik.vm.heaptargetutilization",
-	                       heaptargetutilizationOptsBuf, "-XX:HeapTargetUtilization=");
+        //对于不同的软硬件环境，这些参数往往需要调整、优化，从而使系统达到最佳性能
+        parseRuntimeOption("dalvik.vm.heapstartsize", heapstartsizeOptsBuf, "-Xms", "4m");
+        parseRuntimeOption("dalvik.vm.heapsize", heapsizeOptsBuf, "-Xmx", "16m");
+        parseRuntimeOption("dalvik.vm.heapgrowthlimit", heapgrowthlimitOptsBuf, "-XX:HeapGrowthLimit=");
+        parseRuntimeOption("dalvik.vm.heapminfree", heapminfreeOptsBuf, "-XX:HeapMinFree=");
+        parseRuntimeOption("dalvik.vm.heapmaxfree", heapmaxfreeOptsBuf, "-XX:HeapMaxFree=");
+        parseRuntimeOption("dalvik.vm.heaptargetutilization",
+                           heaptargetutilizationOptsBuf, "-XX:HeapTargetUtilization=");
 
-	    //preloaded-classes文件内容是由WritePreloadedClassFile.java生成的，在ZygoteInit类中会预加载工作将其中的classes提前加载到内存，以提高系统性能
-	    if (!hasFile("/system/etc/preloaded-classes")) {
-	        return -1;
-	    }
-	    
-	    //创建虚拟机
-	    if (JNI_CreateJavaVM(pJavaVM, pEnv, &initArgs) < 0) {
-	        ALOGE("JNI_CreateJavaVM failed\n");
-	        return -1;
-	    }
-	}
+        //preloaded-classes文件内容是由WritePreloadedClassFile.java生成的，在ZygoteInit类中会预加载工作将其中的classes提前加载到内存，以提高系统性能
+        if (!hasFile("/system/etc/preloaded-classes")) {
+            return -1;
+        }
+
+        //创建虚拟机
+        if (JNI_CreateJavaVM(pJavaVM, pEnv, &initArgs) < 0) {
+            ALOGE("JNI_CreateJavaVM failed\n");
+            return -1;
+        }
+    }
 
 
 
@@ -263,42 +263,42 @@ AndroidRuntime.cpp
 
 [-->AndroidRuntime.cpp]
 
-	int AndroidRuntime::startReg(JNIEnv* env)
-	{
-	    //设置线程创建方法为javaCreateThreadEtc
-	    androidSetCreateThreadFunc((android_create_thread_fn) javaCreateThreadEtc);
+    int AndroidRuntime::startReg(JNIEnv* env)
+    {
+        //设置线程创建方法为javaCreateThreadEtc
+        androidSetCreateThreadFunc((android_create_thread_fn) javaCreateThreadEtc);
 
-	    env->PushLocalFrame(200);
-	    //进程NI方法的注册
-	    if (register_jni_procs(gRegJNI, NELEM(gRegJNI), env) < 0) {
-	        env->PopLocalFrame(NULL);
-	        return -1;
-	    }
-	    env->PopLocalFrame(NULL);
-	    return 0;
-	}
+        env->PushLocalFrame(200);
+        //进程NI方法的注册
+        if (register_jni_procs(gRegJNI, NELEM(gRegJNI), env) < 0) {
+            env->PopLocalFrame(NULL);
+            return -1;
+        }
+        env->PopLocalFrame(NULL);
+        return 0;
+    }
 
 **register_jni_procs**
 
-	static int register_jni_procs(const RegJNIRec array[], size_t count, JNIEnv* env)
-	{
-	    for (size_t i = 0; i < count; i++) {
-	        if (array[i].mProc(env) < 0) { 【见下文】
-	            return -1;
-	        }
-	    }
-	    return 0;
-	}
+    static int register_jni_procs(const RegJNIRec array[], size_t count, JNIEnv* env)
+    {
+        for (size_t i = 0; i < count; i++) {
+            if (array[i].mProc(env) < 0) { 【见下文】
+                return -1;
+            }
+        }
+        return 0;
+    }
 
 **gRegJNI**
 
 gRegJNI是一个数组,有100多个成员
 
-	static const RegJNIRec gRegJNI[] = {
-	    REG_JNI(register_com_android_internal_os_RuntimeInit),
-	    REG_JNI(register_android_os_Binder)，
-	    ...
-	}；
+    static const RegJNIRec gRegJNI[] = {
+        REG_JNI(register_com_android_internal_os_RuntimeInit),
+        REG_JNI(register_android_os_Binder)，
+        ...
+    }；
 
 **REG_JNI**
 
@@ -309,21 +309,21 @@ gRegJNI是一个数组,有100多个成员
 
 调用mProc，那么gRegJNI数组的其中之一REG_JNI(register_com_android_internal_os_RuntimeInit)，等价于调用下面方法：
 
-	int register_com_android_internal_os_RuntimeInit(JNIEnv* env)
-	{
-	    return jniRegisterNativeMethods(env, "com/android/internal/os/RuntimeInit",
-	        gMethods, NELEM(gMethods));
-	}
+    int register_com_android_internal_os_RuntimeInit(JNIEnv* env)
+    {
+        return jniRegisterNativeMethods(env, "com/android/internal/os/RuntimeInit",
+            gMethods, NELEM(gMethods));
+    }
 
-	//gMethods：java层方法名与jni层的方法的一一映射关系
-	static JNINativeMethod gMethods[] = {
-	    { "nativeFinishInit", "()V",
-	        (void*) com_android_internal_os_RuntimeInit_nativeFinishInit },
-	    { "nativeZygoteInit", "()V",
-	        (void*) com_android_internal_os_RuntimeInit_nativeZygoteInit },
-	    { "nativeSetExitWithoutCleanup", "(Z)V",
-	        (void*) com_android_internal_os_RuntimeInit_nativeSetExitWithoutCleanup },
-	};
+    //gMethods：java层方法名与jni层的方法的一一映射关系
+    static JNINativeMethod gMethods[] = {
+        { "nativeFinishInit", "()V",
+            (void*) com_android_internal_os_RuntimeInit_nativeFinishInit },
+        { "nativeZygoteInit", "()V",
+            (void*) com_android_internal_os_RuntimeInit_nativeZygoteInit },
+        { "nativeSetExitWithoutCleanup", "(Z)V",
+            (void*) com_android_internal_os_RuntimeInit_nativeSetExitWithoutCleanup },
+    };
 
 ## 四 ZygoteInit
 
@@ -398,7 +398,7 @@ gRegJNI是一个数组,有100多个成员
 
     static void preload() {
         //预加载位于/system/etc/preloaded-classes文件中的类
-        preloadClasses(); 
+        preloadClasses();
 
         //预加载资源，包含drawable和color资源
         preloadResources();
@@ -547,9 +547,3 @@ Zygote启动过程的调用流程图：
 5. preload()预加载通用类、drawable和color资源、openGL以及共享库以及WebView，用于提高ap启动效率；
 6. zygote完毕大部分工作，接下来再通过startSystemServer()，fork得力帮手system_server进程，也是上层framework的运行载体。
 7. zygote功成身退，调用runSelectLoop()，随时待命，当接收到请求创建新进程请求时立即唤醒并执行相应工作。
-
-
-
-
-
-

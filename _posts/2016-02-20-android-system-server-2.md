@@ -11,15 +11,15 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程的system_server进程
 
-	frameworks/base/core/java/android/app/ActivityThread.java
-	frameworks/base/core/java/android/app/LoadedApk.java
-	frameworks/base/core/java/android/app/ContextImpl.java
-	frameworks/base/core/java/com/android/server/LocalServices.java
-	frameworks/base/services/java/com/android/server/SystemServer.java
-	frameworks/base/services/core/java/com/android/server/SystemServiceManager.java
-	frameworks/base/services/core/java/com/android/server/ServiceThread.java
-	frameworks/base/services/core/java/com/android/server/pm/Installer.java
-	frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+    frameworks/base/core/java/android/app/ActivityThread.java
+    frameworks/base/core/java/android/app/LoadedApk.java
+    frameworks/base/core/java/android/app/ContextImpl.java
+    frameworks/base/core/java/com/android/server/LocalServices.java
+    frameworks/base/services/java/com/android/server/SystemServer.java
+    frameworks/base/services/core/java/com/android/server/SystemServiceManager.java
+    frameworks/base/services/core/java/com/android/server/ServiceThread.java
+    frameworks/base/services/core/java/com/android/server/pm/Installer.java
+    frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
 
 
 ## 一、 流程分析
@@ -229,7 +229,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
                     cl, appClass, appContext);
             appContext.setOuterContext(app);
         } catch (Exception e) {
-    		...
+            ...
         }
         // 将前面创建的app添加到应用列表。
         mActivityThread.mAllApplications.add(app);
@@ -457,18 +457,18 @@ system_server进程中的服务启动方式有两种，分别是SystemServiceMan
 
 System_server启动函数调用类的栈关系：
 
-	SystemServer.main
-		SystemServer.run
-			createSystemContext
-				ActivityThread.systemMain
-					ActivityThread.attach
-						LoadedApk.makeApplication
-				ActivityThread.getSystemContext
-					ContextImpl.createSystemContext
-			startBootstrapServices();
-			startCoreServices();    
-			startOtherServices();
-			Looper.loop();
+    SystemServer.main
+        SystemServer.run
+            createSystemContext
+                ActivityThread.systemMain
+                    ActivityThread.attach
+                        LoadedApk.makeApplication
+                ActivityThread.getSystemContext
+                    ContextImpl.createSystemContext
+            startBootstrapServices();
+            startCoreServices();
+            startOtherServices();
+            Looper.loop();
 
 
 ### 三、服务类别

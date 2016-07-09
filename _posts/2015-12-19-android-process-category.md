@@ -127,7 +127,7 @@ Zygote本身是一个Native的应用程序，刚开始的名字为“app_process
 
 在`adb shell`终端，输入:
 
-	ps -t | grep -E "NAME| 497 "
+    ps -t | grep -E "NAME| 497 "
 
 解释： `-E "NAME| 497 "` 是输出时能多显示`NAME`的那一行，方便查看每一列代表的具体含义，`497`是Zygote的进程号。
 
@@ -250,5 +250,3 @@ mediaserver 子线程，如下：
 图中zygote64/zygote/qseecomd/adbd的父进程都是init进程，而sh的父进程是adbd，而adb和qseecomd的父进程都是init进程。
 
 手机总计：`407`个进程，`1575`个线程。(该数据仅供参考，让大家对手机当前的进程和线程的数量级有个大概的感观)
-
-

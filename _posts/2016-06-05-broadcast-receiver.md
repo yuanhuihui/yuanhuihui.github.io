@@ -872,7 +872,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
                     curr = null;
                     it++;
                     NT++;
-                } else {  
+                } else {
                     it++;
                     curt = null;
                 }
@@ -916,7 +916,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 [-> BroadcastQueue.java]
 
-    public void scheduleBroadcastsLocked() {    
+    public void scheduleBroadcastsLocked() {
         // 正在处理BROADCAST_INTENT_MSG消息
         if (mBroadcastsScheduled) {
             return;
@@ -960,7 +960,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 ##### step1: 处理并行广播
 
-    BroadcastRecord r;           
+    BroadcastRecord r;
     mService.updateCpuStats(); //更新CPU统计信息
     if (fromMsg)  mBroadcastsScheduled = false;
 

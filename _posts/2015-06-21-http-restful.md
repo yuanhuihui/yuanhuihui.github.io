@@ -13,9 +13,9 @@ tags:
 
 ## 1.理解RESTful
 RESTful, 全称Representational State Transfer。REST通常基于使用HTTP，URI，和XML以及HTML这些现有的广泛流行的协议和标准。要理解RESTful概念，需要明白下面的概念：
-		
+
 ### 1.1 资源与URI
-REST全称是表述性状态转移，表述指的就是资源。资源通过`URI(Uniform Resource Identifier)`来标示。URI的设计应该遵循可寻址性原则，具有自描述性。   
+REST全称是表述性状态转移，表述指的就是资源。资源通过`URI(Uniform Resource Identifier)`来标示。URI的设计应该遵循可寻址性原则，具有自描述性。
 
 这里以github网站为例，给出一些还算不错的URI：
 
@@ -44,73 +44,73 @@ REST全称是表述性状态转移，表述指的就是资源。资源通过`URI
 
 > **GET**
 
-安全且幂等   
-获取表示  
-变更时获取表示（缓存）  
-200（OK） - 表示已在响应中发出      
-204（无内容） - 资源有空表示    
-301（Moved Permanently） - 资源的URI已被更新    
-303（See Other） - 其他（如，负载均衡）    
+安全且幂等
+获取表示
+变更时获取表示（缓存）
+200（OK） - 表示已在响应中发出
+204（无内容） - 资源有空表示
+301（Moved Permanently） - 资源的URI已被更新
+303（See Other） - 其他（如，负载均衡）
 304（not modified）- 资源未更改（缓存）
-400 （bad request）- 指代坏请求（如，参数错误）    
-404 （not found）- 资源不存在    
-406 （not acceptable）- 服务端不支持所需表示    
-500 （internal server error）- 通用错误响应    
-503 （Service Unavailable）- 服务端当前无法处理请求    
+400 （bad request）- 指代坏请求（如，参数错误）
+404 （not found）- 资源不存在
+406 （not acceptable）- 服务端不支持所需表示
+500 （internal server error）- 通用错误响应
+503 （Service Unavailable）- 服务端当前无法处理请求
 
-> **POST** 
+> **POST**
 
-不安全且不幂等   
-使用服务端管理的（自动产生）的实例号创建资源    
-创建子资源    
-部分更新资源  
-如果没有被修改，则不过更新资源（乐观锁）  
-200（OK）- 如果现有资源已被更改  
-201（created）- 如果新资源被创建  
-202（accepted）- 已接受处理请求但尚未完成（异步处理）   
-301（Moved Permanently）- 资源的URI被更新   
-303（See Other）- 其他（如，负载均衡）   
-400（bad request）- 指代坏请求  
-404 （not found）- 资源不存在  
-406 （not acceptable）- 服务端不支持所需表示  
-409 （conflict）- 通用冲突  
-412 （Precondition Failed）- 前置条件失败（如执行条件更新时的冲突）  
-415 （unsupported media type）- 接受到的表示不受支持  
-500 （internal server error）- 通用错误响应  
-503 （Service Unavailable）- 服务当前无法处理请求  
+不安全且不幂等
+使用服务端管理的（自动产生）的实例号创建资源
+创建子资源
+部分更新资源
+如果没有被修改，则不过更新资源（乐观锁）
+200（OK）- 如果现有资源已被更改
+201（created）- 如果新资源被创建
+202（accepted）- 已接受处理请求但尚未完成（异步处理）
+301（Moved Permanently）- 资源的URI被更新
+303（See Other）- 其他（如，负载均衡）
+400（bad request）- 指代坏请求
+404 （not found）- 资源不存在
+406 （not acceptable）- 服务端不支持所需表示
+409 （conflict）- 通用冲突
+412 （Precondition Failed）- 前置条件失败（如执行条件更新时的冲突）
+415 （unsupported media type）- 接受到的表示不受支持
+500 （internal server error）- 通用错误响应
+503 （Service Unavailable）- 服务当前无法处理请求
 
-> **PUT** 
+> **PUT**
 
-不安全但幂等  
-用客户端管理的实例号创建一个资源  
+不安全但幂等
+用客户端管理的实例号创建一个资源
 通过替换的方式更新资源
-如果未被修改，则更新资源（乐观锁）  
-200 （OK）- 如果已存在资源被更改  
-201 （created）- 如果新资源被创建  
-301（Moved Permanently）- 资源的URI已更改  
-303 （See Other）- 其他（如，负载均衡 ）  
-400 （bad request）- 指代坏请求  
-404 （not found）- 资源不存在  
-406 （not acceptable）- 服务端不支持所需表示  
-409 （conflict）- 通用冲突  
-412 （Precondition Failed）- 前置条件失败（如执行条件更新时的冲突）  
-415 （unsupported media type）- 接受到的表示不受支持    
-500 （internal server error）- 通用错误响应    
-503 （Service Unavailable）- 服务当前无法处理请求    
+如果未被修改，则更新资源（乐观锁）
+200 （OK）- 如果已存在资源被更改
+201 （created）- 如果新资源被创建
+301（Moved Permanently）- 资源的URI已更改
+303 （See Other）- 其他（如，负载均衡 ）
+400 （bad request）- 指代坏请求
+404 （not found）- 资源不存在
+406 （not acceptable）- 服务端不支持所需表示
+409 （conflict）- 通用冲突
+412 （Precondition Failed）- 前置条件失败（如执行条件更新时的冲突）
+415 （unsupported media type）- 接受到的表示不受支持
+500 （internal server error）- 通用错误响应
+503 （Service Unavailable）- 服务当前无法处理请求
 
 
-> **DELETE**  
+> **DELETE**
 
-不安全但幂等  
-删除资源  
-200 （OK）- 资源已被删除  
-301 （Moved Permanently）- 资源的URI已更改  
-303 （See Other）- 其他，如负载均衡  
-400 （bad request）- 指代坏请求  
-404 （not found）- 资源不存在  
-409 （conflict）- 通用冲突  
-500 （internal server error）- 通用错误响应  
-503 （Service Unavailable）- 服务端当前无法处理请求  
+不安全但幂等
+删除资源
+200 （OK）- 资源已被删除
+301 （Moved Permanently）- 资源的URI已更改
+303 （See Other）- 其他，如负载均衡
+400 （bad request）- 指代坏请求
+404 （not found）- 资源不存在
+409 （conflict）- 通用冲突
+500 （internal server error）- 通用错误响应
+503 （Service Unavailable）- 服务端当前无法处理请求
 
 #### 接下来再按一些实践中的常见问题
 
@@ -118,21 +118,21 @@ REST全称是表述性状态转移，表述指的就是资源。资源通过`URI
  - 客户端不一定都支持这些HTTP方法：较古老的基于浏览器的客户端，只能支持GET和POST两种方法。妥协的解决方法，通过隐藏参数_method=DELETE来传递真实的请求方法等措施来规避。
  - 统一资源接口对URI的意义：统一资源接口要求使用标准的HTTP方法对资源进行操作，所以URI只应该来表示资源的名称，而不应该包括资源的操作，如下是一些不符合统一接口要求的URI:
 
-	 - GET /getUser/1
-	 - POST /createUser
-	 - PUT /updateUser/1
-	 - DELETE /deleteUser/1
-	 
-	正确写法应该是 /User/1，不应该包含动词，具体的动作由请求方法来体现。
+     - GET /getUser/1
+     - POST /createUser
+     - PUT /updateUser/1
+     - DELETE /deleteUser/1
+
+    正确写法应该是 /User/1，不应该包含动词，具体的动作由请求方法来体现。
 
 ### 1.3 资源的表述
-	
+
 资源的表述是指对资源在特定时刻的状态的描述，客户端通过HTTP方法可以获取资源，更准确说是资源的表述而已。 资源在外界的具体呈现，可以有多种表述形式，在客户端和服务端之间传送的也是资源的表述，而不是资源本身。 例如文本资源可以采用html、xml、json等格式，图片可以使用PNG或JPG展现出来。
 
 资源的表述包括数据和描述数据的元数据，例如，HTTP头"Content-Type" 就是这样一个元数据属性。通过HTTP内容协商，客户端可以通过Accept头请求一种特定格式的表述，服务端则通过Content-Type告诉客户端资源的表述形式。
 
 ### 1.4 资源的链接
-REST是使用标准的HTTP方法来操作资源的，但仅仅因此就理解成带CURD的Web数据库架构就太过于简单了。这种反模式忽略了一个核心概念："超媒体即应用状态引擎"。 
+REST是使用标准的HTTP方法来操作资源的，但仅仅因此就理解成带CURD的Web数据库架构就太过于简单了。这种反模式忽略了一个核心概念："超媒体即应用状态引擎"。
 超媒体是什么?当你浏览Web网页时，从一个连接跳到一个页面，再从另一个连接跳到另外一个页面，就是利用了超媒体的概念：把一个个把资源链接起来.
 
 要达到这个目的，就要求在表述格式里边加入链接来引导客户端。在《RESTful Web Services》一书中，作者把这种具有链接的特性成为连通性。下面我们具体来看一些例子。
@@ -166,12 +166,3 @@ REST原则中的无状态通信原则，并不是说客户端应用不能有状�
 
 ## 总结
 本文从资源的定义、获取、表述、关联、状态变迁等角度， 试图快速理解RESTful架构背后的概念。RESTful架构与传统的RPC、SOAP等方式在理念上有很大的不同，希望本文能对各位理解REST有所帮助。
-
-
-
-
-
-
-
-
-

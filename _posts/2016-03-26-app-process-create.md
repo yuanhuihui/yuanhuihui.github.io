@@ -14,23 +14,23 @@ tags:
 
 
 
-	/frameworks/base/core/java/android/os/Process.java
-	/frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
-	/frameworks/base/core/java/com/android/internal/os/ZygoteConnection.java
-	/frameworks/base/core/java/com/android/internal/os/RuntimeInit.java
+    /frameworks/base/core/java/android/os/Process.java
+    /frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
+    /frameworks/base/core/java/com/android/internal/os/ZygoteConnection.java
+    /frameworks/base/core/java/com/android/internal/os/RuntimeInit.java
 
-	/frameworks/base/core/java/com/android/internal/os/Zygote.java
-	/frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
+    /frameworks/base/core/java/com/android/internal/os/Zygote.java
+    /frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
 
-	/frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
-	/frameworks/base/core/jni/AndroidRuntime.cpp
+    /frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
+    /frameworks/base/core/jni/AndroidRuntime.cpp
 
-	/libcore/dalvik/src/main/java/dalvik/system/ZygoteHooks.java
-	/art/runtime/native/dalvik_system_ZygoteHooks.cc
-	/art/runtime/Runtime.cc
-	/art/runtime/Thread.cc
-	/art/runtime/signal_catcher.cc
-	
+    /libcore/dalvik/src/main/java/dalvik/system/ZygoteHooks.java
+    /art/runtime/native/dalvik_system_ZygoteHooks.cc
+    /art/runtime/Runtime.cc
+    /art/runtime/Thread.cc
+    /art/runtime/signal_catcher.cc
+
 
 ### 概述
 
@@ -272,7 +272,7 @@ tags:
 
         try {
             //读取socket客户端发送过来的参数列表
-            args = readArgumentList(); 
+            args = readArgumentList();
             descriptors = mSocket.getAncillaryFileDescriptors();
         } catch (IOException ex) {
             closeSocket();
@@ -366,7 +366,7 @@ tags:
 
 [-> ZygoteHooks.java]
 
-	 public void preFork() {
+     public void preFork() {
         Daemons.stop(); //停止4个Daemon子线程【见流程6-1-1】
         waitUntilAllThreadsStopped(); //等待所有子线程结束【见流程6-1-2】
         token = nativePreFork(); //完成gc堆的初始化工作【见流程6-1-3】
@@ -389,7 +389,7 @@ tags:
         File tasks = new File("/proc/self/task");
         // 当/proc中线程数大于1，就出让CPU直到只有一个线程，才退出循环
         while (tasks.list().length > 1) {
-            Thread.yield(); 
+            Thread.yield();
         }
     }
 
@@ -397,23 +397,23 @@ tags:
 
 nativePreFork通过JNI最终调用的是dalvik_system_ZygoteHooks.cc中的ZygoteHooks_nativePreFork()方法，如下：
 
-	static jlong ZygoteHooks_nativePreFork(JNIEnv* env, jclass) {
-	    Runtime* runtime = Runtime::Current();
-	    CHECK(runtime->IsZygote()) << "runtime instance not started with -Xzygote";
-	    runtime->PreZygoteFork(); //【见流程6-1-3-1】
-	    if (Trace::GetMethodTracingMode() != TracingMode::kTracingInactive) {
-	      Trace::Pause();
-	    }
-	    //将线程转换为long型并保存到token，该过程是非安全的
-	    return reinterpret_cast<jlong>(ThreadForEnv(env));
-	}
+    static jlong ZygoteHooks_nativePreFork(JNIEnv* env, jclass) {
+        Runtime* runtime = Runtime::Current();
+        CHECK(runtime->IsZygote()) << "runtime instance not started with -Xzygote";
+        runtime->PreZygoteFork(); //【见流程6-1-3-1】
+        if (Trace::GetMethodTracingMode() != TracingMode::kTracingInactive) {
+          Trace::Pause();
+        }
+        //将线程转换为long型并保存到token，该过程是非安全的
+        return reinterpret_cast<jlong>(ThreadForEnv(env));
+    }
 
 **Step 6-1-3-1.** PreZygoteFork
 
-	void Runtime::PreZygoteFork() {
-	    // 堆的初始化工作。这里就不继续再往下追了，等后续有空专门谢谢关于art虚拟机
-	    heap_->PreZygoteFork(); 
-	}
+    void Runtime::PreZygoteFork() {
+        // 堆的初始化工作。这里就不继续再往下追了，等后续有空专门谢谢关于art虚拟机
+        heap_->PreZygoteFork();
+    }
 
 
 VM_HOOKS.preFork()的主要功能便是停止Zygote的4个Daemon子线程的运行，等待并确保Zygote是单线程（用于提升fork效率），并等待这些线程的停止，初始化gc堆的工作。
@@ -425,75 +425,75 @@ com_android_internal_os_Zygote_nativeForkAndSpecialize()方法，如下：
 
 [-> com_android_internal_os_Zygote.cpp]
 
-	static jint com_android_internal_os_Zygote_nativeForkAndSpecialize(
+    static jint com_android_internal_os_Zygote_nativeForkAndSpecialize(
         JNIEnv* env, jclass, jint uid, jint gid, jintArray gids,
         jint debug_flags, jobjectArray rlimits,
         jint mount_external, jstring se_info, jstring se_name,
         jintArray fdsToClose, jstring instructionSet, jstring appDataDir) {
-	    // 将CAP_WAKE_ALARM赋予蓝牙进程
-	    jlong capabilities = 0;
-	    if (uid == AID_BLUETOOTH) {
-	        capabilities |= (1LL << CAP_WAKE_ALARM);
-	    }
-	    //【见流程6-2-1】
-	    return ForkAndSpecializeCommon(env, uid, gid, gids, debug_flags,
-	            rlimits, capabilities, capabilities, mount_external, se_info,
-	            se_name, false, fdsToClose, instructionSet, appDataDir);
+        // 将CAP_WAKE_ALARM赋予蓝牙进程
+        jlong capabilities = 0;
+        if (uid == AID_BLUETOOTH) {
+            capabilities |= (1LL << CAP_WAKE_ALARM);
+        }
+        //【见流程6-2-1】
+        return ForkAndSpecializeCommon(env, uid, gid, gids, debug_flags,
+                rlimits, capabilities, capabilities, mount_external, se_info,
+                se_name, false, fdsToClose, instructionSet, appDataDir);
     }
 
 **Step 6-2-1.**ForkAndSpecializeCommon
 
 [-> com_android_internal_os_Zygote.cpp]
 
-	static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray javaGids,
-	                                     jint debug_flags, jobjectArray javaRlimits,
-	                                     jlong permittedCapabilities, jlong effectiveCapabilities,
-	                                     jint mount_external,
-	                                     jstring java_se_info, jstring java_se_name,
-	                                     bool is_system_server, jintArray fdsToClose,
-	                                     jstring instructionSet, jstring dataDir) {
-	  //设置子进程的signal信号处理函数
-	  SetSigChldHandler(); 
-	  //fork子进程 【见流程6-2-1-1】
-	  pid_t pid = fork(); 
-	  if (pid == 0) {
-	    //进入子进程
-	    DetachDescriptors(env, fdsToClose); //关闭并清除文件描述符
+    static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray javaGids,
+                                         jint debug_flags, jobjectArray javaRlimits,
+                                         jlong permittedCapabilities, jlong effectiveCapabilities,
+                                         jint mount_external,
+                                         jstring java_se_info, jstring java_se_name,
+                                         bool is_system_server, jintArray fdsToClose,
+                                         jstring instructionSet, jstring dataDir) {
+      //设置子进程的signal信号处理函数
+      SetSigChldHandler();
+      //fork子进程 【见流程6-2-1-1】
+      pid_t pid = fork();
+      if (pid == 0) {
+        //进入子进程
+        DetachDescriptors(env, fdsToClose); //关闭并清除文件描述符
 
-	    if (!is_system_server) {
-	        //对于非system_server子进程，则创建进程组
-	        int rc = createProcessGroup(uid, getpid());
-	    }
-	    SetGids(env, javaGids); //设置设置group
-	    SetRLimits(env, javaRlimits); //设置资源limit
+        if (!is_system_server) {
+            //对于非system_server子进程，则创建进程组
+            int rc = createProcessGroup(uid, getpid());
+        }
+        SetGids(env, javaGids); //设置设置group
+        SetRLimits(env, javaRlimits); //设置资源limit
 
-	    int rc = setresgid(gid, gid, gid);
-	    rc = setresuid(uid, uid, uid);
+        int rc = setresgid(gid, gid, gid);
+        rc = setresuid(uid, uid, uid);
 
-	    SetCapabilities(env, permittedCapabilities, effectiveCapabilities);
-	    SetSchedulerPolicy(env); //设置调度策略
+        SetCapabilities(env, permittedCapabilities, effectiveCapabilities);
+        SetSchedulerPolicy(env); //设置调度策略
 
-	     //selinux上下文
-	    rc = selinux_android_setcontext(uid, is_system_server, se_info_c_str, se_name_c_str);
+         //selinux上下文
+        rc = selinux_android_setcontext(uid, is_system_server, se_info_c_str, se_name_c_str);
 
-	    if (se_info_c_str == NULL && is_system_server) {
-	      se_name_c_str = "system_server";
-	    }
-	    if (se_info_c_str != NULL) {
-	      SetThreadName(se_name_c_str); //设置线程名为system_server，方便调试
-	    }
-	    //在Zygote子进程中，设置信号SIGCHLD的处理器恢复为默认行为
-	    UnsetSigChldHandler(); 
-	    //等价于调用zygote.callPostForkChildHooks() 【见流程6-2-2-1】
-	    env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, debug_flags,
-	                              is_system_server ? NULL : instructionSet);
-	    ...
+        if (se_info_c_str == NULL && is_system_server) {
+          se_name_c_str = "system_server";
+        }
+        if (se_info_c_str != NULL) {
+          SetThreadName(se_name_c_str); //设置线程名为system_server，方便调试
+        }
+        //在Zygote子进程中，设置信号SIGCHLD的处理器恢复为默认行为
+        UnsetSigChldHandler();
+        //等价于调用zygote.callPostForkChildHooks() 【见流程6-2-2-1】
+        env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, debug_flags,
+                                  is_system_server ? NULL : instructionSet);
+        ...
 
-	  } else if (pid > 0) {
-	    //进入父进程，即Zygote进程
-	  }
-	  return pid;
-	}
+      } else if (pid > 0) {
+        //进入父进程，即Zygote进程
+      }
+      return pid;
+    }
 
 **Step 6-2-1-1.** fork()
 
@@ -537,56 +537,56 @@ Zygote进程是所有Android进程的母体，包括system_server进程以及App
 
 [-> dalvik_system_ZygoteHooks.cc]
 
-	static void ZygoteHooks_nativePostForkChild(JNIEnv* env, jclass, jlong token, jint debug_flags,
-	                                            jstring instruction_set) {
-	    Thread* thread = reinterpret_cast<Thread*>(token);
-	    //设置新进程的主线程id
-	    thread->InitAfterFork();
-	    ..
-	    if (instruction_set != nullptr) {
-	      ScopedUtfChars isa_string(env, instruction_set);
-	      InstructionSet isa = GetInstructionSetFromString(isa_string.c_str());
-	      Runtime::NativeBridgeAction action = Runtime::NativeBridgeAction::kUnload;
-	      if (isa != kNone && isa != kRuntimeISA) {
-	        action = Runtime::NativeBridgeAction::kInitialize;
-	      }
-	      //【见流程6-2-2-1-1-1】
-	      Runtime::Current()->DidForkFromZygote(env, action, isa_string.c_str());
-	    } else {
-	      Runtime::Current()->DidForkFromZygote(env, Runtime::NativeBridgeAction::kUnload, nullptr);
-	    }
-	}
+    static void ZygoteHooks_nativePostForkChild(JNIEnv* env, jclass, jlong token, jint debug_flags,
+                                                jstring instruction_set) {
+        Thread* thread = reinterpret_cast<Thread*>(token);
+        //设置新进程的主线程id
+        thread->InitAfterFork();
+        ..
+        if (instruction_set != nullptr) {
+          ScopedUtfChars isa_string(env, instruction_set);
+          InstructionSet isa = GetInstructionSetFromString(isa_string.c_str());
+          Runtime::NativeBridgeAction action = Runtime::NativeBridgeAction::kUnload;
+          if (isa != kNone && isa != kRuntimeISA) {
+            action = Runtime::NativeBridgeAction::kInitialize;
+          }
+          //【见流程6-2-2-1-1-1】
+          Runtime::Current()->DidForkFromZygote(env, action, isa_string.c_str());
+        } else {
+          Runtime::Current()->DidForkFromZygote(env, Runtime::NativeBridgeAction::kUnload, nullptr);
+        }
+    }
 
 **Step 6-2-2-1-1-1.** DidForkFromZygote
 
 [-> Runtime.cc]
 
-	void Runtime::DidForkFromZygote(JNIEnv* env, NativeBridgeAction action, const char* isa) {
-	  is_zygote_ = false;
-	  if (is_native_bridge_loaded_) {
-	    switch (action) {
-	      case NativeBridgeAction::kUnload:
-	        UnloadNativeBridge(); //卸载用于跨平台的桥连库
-	        is_native_bridge_loaded_ = false;
-	        break;
-	      case NativeBridgeAction::kInitialize:
-	        InitializeNativeBridge(env, isa);//初始化用于跨平台的桥连库
-	        break;
-	    }
-	  }
-	  //创建Java堆处理的线程池
-	  heap_->CreateThreadPool();
-	  //重置gc性能数据，以保证进程在创建之前的GCs不会计算到当前app上。
-	  heap_->ResetGcPerformanceInfo();
-	  if (jit_.get() == nullptr && jit_options_->UseJIT()) {
-	    //当flag被设置，并且还没有创建JIT时，则创建JIT
-	    CreateJit();
-	  }
-	  //设置信号处理函数
-	  StartSignalCatcher();
-	  //启动JDWP线程，当命令debuger的flags指定"suspend=y"时，则暂停runtime
-	  Dbg::StartJdwp();
-	}
+    void Runtime::DidForkFromZygote(JNIEnv* env, NativeBridgeAction action, const char* isa) {
+      is_zygote_ = false;
+      if (is_native_bridge_loaded_) {
+        switch (action) {
+          case NativeBridgeAction::kUnload:
+            UnloadNativeBridge(); //卸载用于跨平台的桥连库
+            is_native_bridge_loaded_ = false;
+            break;
+          case NativeBridgeAction::kInitialize:
+            InitializeNativeBridge(env, isa);//初始化用于跨平台的桥连库
+            break;
+        }
+      }
+      //创建Java堆处理的线程池
+      heap_->CreateThreadPool();
+      //重置gc性能数据，以保证进程在创建之前的GCs不会计算到当前app上。
+      heap_->ResetGcPerformanceInfo();
+      if (jit_.get() == nullptr && jit_options_->UseJIT()) {
+        //当flag被设置，并且还没有创建JIT时，则创建JIT
+        CreateJit();
+      }
+      //设置信号处理函数
+      StartSignalCatcher();
+      //启动JDWP线程，当命令debuger的flags指定"suspend=y"时，则暂停runtime
+      Dbg::StartJdwp();
+    }
 
 关于信号处理过程，其代码位于signal_catcher.cc文件中，后续会单独讲解。
 
@@ -614,22 +614,22 @@ VM_HOOKS.postForkCommon的主要功能是在fork新进程后，启动Zygote的4�
 
 调用关系链：
 
-	Zygote.forkAndSpecialize
-		ZygoteHooks.preFork
-			Daemons.stop
-			ZygoteHooks.nativePreFork
-				dalvik_system_ZygoteHooks.ZygoteHooks_nativePreFork
-					Runtime::PreZygoteFork
-						heap_->PreZygoteFork()
-		Zygote.nativeForkAndSpecialize
-			com_android_internal_os_Zygote.ForkAndSpecializeCommon
-				fork()
-				Zygote.callPostForkChildHooks
-					ZygoteHooks.postForkChild
-						dalvik_system_ZygoteHooks.nativePostForkChild
-							Runtime::DidForkFromZygote
-		ZygoteHooks.postForkCommon
-			Daemons.start
+    Zygote.forkAndSpecialize
+        ZygoteHooks.preFork
+            Daemons.stop
+            ZygoteHooks.nativePreFork
+                dalvik_system_ZygoteHooks.ZygoteHooks_nativePreFork
+                    Runtime::PreZygoteFork
+                        heap_->PreZygoteFork()
+        Zygote.nativeForkAndSpecialize
+            com_android_internal_os_Zygote.ForkAndSpecializeCommon
+                fork()
+                Zygote.callPostForkChildHooks
+                    ZygoteHooks.postForkChild
+                        dalvik_system_ZygoteHooks.nativePostForkChild
+                            Runtime::DidForkFromZygote
+        ZygoteHooks.postForkCommon
+            Daemons.start
 
 
 **时序图：**
@@ -718,8 +718,8 @@ VM_HOOKS.postForkCommon的主要功能是在fork新进程后，启动Zygote的4�
         TimeZone.setDefault(null);
 
         //重置log配置
-        LogManager.getLogManager().reset(); 
-        new AndroidConfig(); 
+        LogManager.getLogManager().reset();
+        new AndroidConfig();
 
         // 设置默认的HTTP User-agent格式,用于 HttpURLConnection。
         String userAgent = getDefaultUserAgent();
@@ -731,7 +731,7 @@ VM_HOOKS.postForkCommon的主要功能是在fork新进程后，启动Zygote的4�
 
 默认的HTTP User-agent格式，例如：
 
-	 "Dalvik/1.1.0 (Linux; U; Android 6.0.1；LenovoX3c70 Build/LMY47V)".
+     "Dalvik/1.1.0 (Linux; U; Android 6.0.1；LenovoX3c70 Build/LMY47V)".
 
 ### 10. nativeZygoteInit
 
@@ -739,10 +739,10 @@ nativeZygoteInit()方法在AndroidRuntime.cpp中，进行了jni映射，对应�
 
 [-->AndroidRuntime.cpp]
 
-	static void com_android_internal_os_RuntimeInit_nativeZygoteInit(JNIEnv* env, jobject clazz)
-	{
-	    gCurRuntime->onZygoteInit(); //此处的gCurRuntime为AppRuntime，是在AndroidRuntime.cpp中定义的
-	}
+    static void com_android_internal_os_RuntimeInit_nativeZygoteInit(JNIEnv* env, jobject clazz)
+    {
+        gCurRuntime->onZygoteInit(); //此处的gCurRuntime为AppRuntime，是在AndroidRuntime.cpp中定义的
+    }
 
 [-->app_main.cpp]
 
@@ -831,7 +831,7 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
         public void run() {
             try {
                 //根据传递过来的参数，可知此处通过反射机制调用的是ActivityThread.main()方法
-                mMethod.invoke(null, new Object[] { mArgs }); 
+                mMethod.invoke(null, new Object[] { mArgs });
             } catch (IllegalAccessException ex) {
                 throw new RuntimeException(ex);
             } catch (InvocationTargetException ex) {
@@ -862,9 +862,9 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面�
 
 1. **system_server进程**（`即流程1~3`）：通过Process.start()方法发起创建新进程请求，会先收集各种新进程uid、gid、nice-name等相关的参数，然后通过socket通道发送给zygote进程；
 2. **zygote进程**（`即流程4~6`）：接收到system_server进程发送过来的参数后封装成Arguments对象，图中绿色框forkAndSpecialize()方法是进程创建过程中最为核心的一个环节（[详见流程6](http://gityuan.com/2016/03/26/app-process-create/#forkandspecialize-1)），其具体工作是依次执行下面的3个方法：
-	- preFork()：先停止Zygote的4个Daemon子线程（java堆内存整理线程、对线下引用队列线程、析构线程以及监控线程）的运行以及初始化gc堆；
-	- nativeForkAndSpecialize()：调用linux的fork()出新进程，创建Java堆处理的线程池，重置gc性能数据，设置进程的信号处理函数，启动JDWP线程；
-	- postForkCommon()：在启动之前被暂停的4个Daemon子线程。
+    - preFork()：先停止Zygote的4个Daemon子线程（java堆内存整理线程、对线下引用队列线程、析构线程以及监控线程）的运行以及初始化gc堆；
+    - nativeForkAndSpecialize()：调用linux的fork()出新进程，创建Java堆处理的线程池，重置gc性能数据，设置进程的信号处理函数，启动JDWP线程；
+    - postForkCommon()：在启动之前被暂停的4个Daemon子线程。
 3. **新进程**（`即流程7~13`）：进入handleChildProc()方法，设置进程名，打开binder驱动，启动新的binder线程；然后设置art虚拟机参数，再反射调用目标类的main()方法，即Activity.main()方法。
 
 再之后的流程，如果是startActivity则将要进入Activity的onCreate/onStart/onResume等生命周期；如果是startService则将要进入Service的onCreate等生命周期。

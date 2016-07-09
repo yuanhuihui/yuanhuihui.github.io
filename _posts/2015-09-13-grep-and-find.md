@@ -74,17 +74,17 @@ pattern正则表达式主要参数：
 
 搜索文件的命令
 
-    命令格式  find pathname -options [ actions]  
+    命令格式  find pathname -options [ actions]
     命令格式  find 查找目录  -查找规则 [执行操作]
 
 ### 2.1 查找目录
 
-(1) 如果不写，默认为当前路径；  
-(2) 支持多个路径，目录直接用空格间隔；  
+(1) 如果不写，默认为当前路径；
+(2) 支持多个路径，目录直接用空格间隔；
 
     find . -name demo
 
-### 2.2 查找规则 
+### 2.2 查找规则
 
 #### 2.2.1 根据文件名(name)
 
@@ -148,10 +148,10 @@ pattern正则表达式主要参数：
 可以通过`stat`命令来查看文件的时间，下列是按照文件的各种时间来查找文件：
 
 - -mtime  -n  +n: 根据更改(modify)时间，-n指n天以内，+n指n天以前
-- -atime  -n  +n: 根据访问(access)时间，-n指n天以内，+n指n天以前 
+- -atime  -n  +n: 根据访问(access)时间，-n指n天以内，+n指n天以前
 - -ctime  -n  +n: 根据创建(create)时间，-n指n天以内，+n指n天以前
 - -mmin   -n  +n: 根据更改(modify)时间，-n指n分钟以内，+n指n分钟以前
-- -amin   -n  +n: 根据访问(access)时间，-n指n分钟以内，+n指n分钟以前 
+- -amin   -n  +n: 根据访问(access)时间，-n指n分钟以内，+n指n分钟以前
 - -cmin   -n  +n: 根据创建(create)时间，-n指n分钟以内，+n指n分钟以前
 
 #### 2.2.9  多条件连接
@@ -168,16 +168,14 @@ pattern正则表达式主要参数：
 ### 2.3 执行操作
 
 - `-print`   匹配文件输出到标准输出，默认操作
--  `-ls`       查找到的结果，以ls方式显示   
+-  `-ls`       查找到的结果，以ls方式显示
 
-        find -name app -ls  
+        find -name app -ls
 
-- `-ok [command]`     查找完成后，执行command执行，询问执行   
-   
+- `-ok [command]`     查找完成后，执行command执行，询问执行
+
         find -name app -ok cat {} \;   //注意：{}前后有空格
 
-- `-exec [command]`   查找完成后，执行command执行，直接执行  
- 
+- `-exec [command]`   查找完成后，执行command执行，直接执行
+
         find -name app  -exec ls {} \;
-
-

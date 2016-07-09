@@ -16,9 +16,9 @@ tags:
 关于Android Build系统，这个话题很早就打算整理下，迟迟没有下笔，决定跟大家分享下。先看下面几条指令，相信编译过Android源码的人都再熟悉不过的。
 
 
-	source setenv.sh
-	lunch
-	make -j12
+    source setenv.sh
+    lunch
+    make -j12
 
 记得最初刚接触Android时，同事告诉我用上面的指令就可以编译Android源码，指令虽短但过几天就记不全或者忘记顺序，每次编译时还需要看看自己的云笔记，冰冷的指令总是难以让我记忆。后来我决定认真研究下这个指令的含义。知其然还需知其所以然，这样能更深层次的理解并记忆，才能与自身的知识体系建立强连接，或许**还有意外收获**，果然如此，接下来跟大家分享一下在研究上述几条指令含义的过程中，深入了解到的Android Build(编译)系统。
 
@@ -29,19 +29,19 @@ tags:
 
 接下来，解释一下**本文开头的引用**的命令：
 
-	source setenv.sh  //初始化编译环境，包括后面的lunch和make指令
-	lunch  //指定此次编译的目标设备以及编译类型
-	make  -j12 //开始编译，默认为编译整个系统，其中-j12代表的是编译的job数量为12。
+    source setenv.sh  //初始化编译环境，包括后面的lunch和make指令
+    lunch  //指定此次编译的目标设备以及编译类型
+    make  -j12 //开始编译，默认为编译整个系统，其中-j12代表的是编译的job数量为12。
 
 所有的编译命令都在`envsetup.sh`文件能找到相对应的function，比如上述的命令`lunch`，`make`，在文件一定能找到
 
-	function lunch(){
-		...
-	}
+    function lunch(){
+        ...
+    }
 
-	function make(){
-		...
-	}
+    function make(){
+        ...
+    }
 
 `source envsetup.sh`，需要cd到setenv.sh文件所在路径执行，路径可能在build/envsetup.sh，或者integrate/envsetup.sh，再或者不排除有些厂商会封装自己的.sh脚本，但核心思路是一致的。
 
@@ -74,7 +74,7 @@ tags:
 上述mmm命令同样适用于mm/mma/mmma，编译系统采用的是增量编译，只会编译发生变化的目标文件。当需要重新编译所有的相关模块，则需要编译命令后增加参数`-B`，比如make -B [module_name]，或者 mm -B [module_path]。
 
 
-**Tips:** 
+**Tips:**
 
 - 对于`m、mm、mmm、mma、mmma`这些命令的实现都是通过`make`方式来完成的。
 - mmm/mm编译的效率很高，而make/mma/mmma编译较缓慢；
@@ -97,22 +97,22 @@ tags:
 
 上述指令用法最终实现方式都是基于`grep`指令，各个指令用法格式：
 
-	xgrep [keyword]  //x代表的是上表的搜索指令
+    xgrep [keyword]  //x代表的是上表的搜索指令
 
 例如，搜索所有AndroidManifest.xml文件中的`launcher`关键字所在文件的具体位置，指令
 
-	mangrep launcher
+    mangrep launcher
 
 再如，搜索所有Java代码中包含zygote所在文件
 
-	jgrep zygote
+    jgrep zygote
 
 又如，搜索所有system_app的selinux权限信息
 
-	sepgrep system_app
+    sepgrep system_app
 
 **Tips:** Android源码非常庞大，直接采用grep来搜索代码，不仅方法笨拙、浪费时间，而且搜索出很多无意义的混淆结果。根据具体需求，来选择合适的代码搜索指令，能节省代码搜索时间，提高搜索结果的精准度，方便定位目标代码。
-  
+
 ### 2.3 导航指令
 
 |导航指令|解释|
@@ -122,7 +122,7 @@ tags:
 |godir [filename]|跳转到包含某个文件的目录|
 
 **Tips:**  当每次修改完某个文件后需要编译时，执行`cproj`后会跳转到当前模块的根目录，也就是Android.mk文件所在目录，然后再执行mm指令，即可编译目标模块；当进入源码层级很深后，需要返回到根目录，使用`croot`一条指令完成；另外`cd -` 指令可用于快速切换至上次目录。
-  
+
 ### 2.4 信息查询
 
 |查询指令|解释|
@@ -181,8 +181,8 @@ Android 编译系统是Android源码的一部分，用于编译Android系统，A
 
 对于Android.mk文件，通常都是以下面两行
 
-	LOCAL_PATH := $(call my-dir)  //设置当编译路径为当前文件夹所在路径
-	include $(CLEAR_VARS)  //清空编译环境的变量（由其他模块设置过的变量）
+    LOCAL_PATH := $(call my-dir)  //设置当编译路径为当前文件夹所在路径
+    include $(CLEAR_VARS)  //清空编译环境的变量（由其他模块设置过的变量）
 
 为方便模块编译，编译系统设置了很多的编译环境变量，如下：
 
@@ -207,19 +207,17 @@ Android 编译系统是Android源码的一部分，用于编译Android系统，A
 
 示例：
 
-	  LOCAL_PATH := $(call my-dir) 
-	  include $(CLEAR_VARS) 
-	   
-	  # 获取所有子目录中的Java文件
-	  LOCAL_SRC_FILES := $(call all-subdir-java-files) 
-	   
-	  # 当前模块依赖的动态Java库名称
-	  LOCAL_JAVA_LIBRARIES := com.gityuan.lib 
-	   
-	  # 当前模块的名称
-	  LOCAL_MODULE := demo 
-	   
-	  # 将当前模块编译成一个静态的Java库
-	  include $(BUILD_STATIC_JAVA_LIBRARY)
+      LOCAL_PATH := $(call my-dir)
+      include $(CLEAR_VARS)
 
+      # 获取所有子目录中的Java文件
+      LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
+      # 当前模块依赖的动态Java库名称
+      LOCAL_JAVA_LIBRARIES := com.gityuan.lib
+
+      # 当前模块的名称
+      LOCAL_MODULE := demo
+
+      # 将当前模块编译成一个静态的Java库
+      include $(BUILD_STATIC_JAVA_LIBRARY)

@@ -7,7 +7,7 @@ tags:
     - android
     - performance
     - debug
-    
+
 ---
 
 ## Traceview
@@ -17,8 +17,8 @@ tags:
 
 **代码实现:**
 
-	Debug.startMethodTracing("demo");
-	Debug.stopMethodTracing();
+    Debug.startMethodTracing("demo");
+    Debug.stopMethodTracing();
 
 
 **视图:**
@@ -49,5 +49,3 @@ tags:
 
 - `Cpu Time/Call` 函数平均执行时间较长的函数；
 - `Call+Recur Calls/Total`，调用次数非常频繁的函数。
-
-

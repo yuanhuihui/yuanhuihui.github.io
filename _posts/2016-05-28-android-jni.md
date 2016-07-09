@@ -91,11 +91,11 @@ register_jni_procs(gRegJNI, NELEM(gRegJNI), env)这行代码的作用就是就�
      private native void nativePollOnce(long ptr, int timeoutMillis);
 
 
-**步骤1：**  
-`MessageQueue.java`的全限定名为android.os.MessageQueue.java，方法名：android.os.MessageQueue.nativePollOnce()，而相对应的native层方法名只是将点号替换为下划线，可得`android_os_MessageQueue_nativePollOnce()`。  
+**步骤1：**
+`MessageQueue.java`的全限定名为android.os.MessageQueue.java，方法名：android.os.MessageQueue.nativePollOnce()，而相对应的native层方法名只是将点号替换为下划线，可得`android_os_MessageQueue_nativePollOnce()`。
 **Tips：** nativePollOnce ==> android_os_MessageQueue_nativePollOnce()
 
-**步骤2：**  
+**步骤2：**
 有了native方法，那么接下来需要知道该native方法所在那个文件。前面已经介绍过Android系统启动时就已经注册了大量的JNI方法，见AndroidRuntime.cpp的`gRegJNI`数组。这些注册方法命令方式：
 
     register_[包名]_[类名]
@@ -366,14 +366,14 @@ JNINativeMethod结构体中有一个字段为signature(签名)，再介绍signat
 
 |Signature格式|Java|Native
 |---| --- |
-|B|	byte|jbyte
-|C|	char|jchar
-|D|	double|jdouble
-|F|	float|jfloat
-|I|	int|jint
-|S|	short|jshort
-|J|	long|jlong
-|Z|	boolean|jboolean
+|B|    byte|jbyte
+|C|    char|jchar
+|D|    double|jdouble
+|F|    float|jfloat
+|I|    int|jint
+|S|    short|jshort
+|J|    long|jlong
+|Z|    boolean|jboolean
 |V|void|void
 
 #### 4.1.2 数组数据类型
@@ -425,7 +425,7 @@ JNINativeMethod结构体中有一个字段为signature(签名)，再介绍signat
 
 另外，ART虚拟机在GC算法有所优化，为了减少内存碎片化问题，在GC之后有可能会移动对象内存的位置，对于Java层程序并没有影响，但是对于JNI程序可要小心了，对于通过指针来直接访问内存对象是，Dalvik能正确运行的程序，ART下未必能正常运行。
 
-**(二)异常处理**  
+**(二)异常处理**
 Java层出现异常，虚拟机会直接抛出异常，这是需要try..catch或者继续往外throw。但是对于JNI出现异常时，即执行到JNIEnv中某个函数异常时，并不会立即抛出异常来中断程序的执行，还可以继续执行内存之类的清理工作，直到返回到Java层时才会抛出相应的异常。
 
 另外，`Dalvik`虚拟机有些情况下JNI函数出错可能返回NULL，但`ART`虚拟机在出错时更多的是抛出异常。这样导致的问题就可能是在Dalvik版本能正常运行的程序，在ART虚拟机上由于没有正确处理异常而崩溃。

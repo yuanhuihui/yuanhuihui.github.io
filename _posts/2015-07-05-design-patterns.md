@@ -45,6 +45,3 @@ tags:
 暂时先推荐一篇写得不错的，后续有时间，博主自己写
 
 [设计模式参考](http://design-patterns.readthedocs.org/zh_CN/latest/read_uml.html)
-
-
-

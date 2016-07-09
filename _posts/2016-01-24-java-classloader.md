@@ -137,47 +137,47 @@ ClassLoader的双亲委派模型中，各个ClassLoader之间的关系是通过�
 
 自定义类加载器示例：
 
-	package com.yuanhh.classloader;
-	
-	import java.io.IOException;
-	import java.io.InputStream;
-	
-	public class ClassLoadDemo{
-	
-	    public static void main(String[] args) throws Exception {
-	        
-	        ClassLoader clazzLoader = new ClassLoader() {
-	            @Override
-	            public Class<?> loadClass(String name) throws ClassNotFoundException {
-	                try {
-	                    String clazzName = name.substring(name.lastIndexOf(".") + 1) + ".class";
-	                    
-	                    InputStream is = getClass().getResourceAsStream(clazzName);
-	                    if (is == null) {
-	                        return super.loadClass(name);
-	                    }
-	                    byte[] b = new byte[is.available()];
-	                    is.read(b);
-	                    return defineClass(name, b, 0, b.length);
-	                } catch (IOException e) {
-	                    throw new ClassNotFoundException(name);
-	                }
-	            }
-	        };
-	        
-	        String currentClass = "com.yuanhh.classloader.ClassLoadDemo";
-	        Class<?> clazz = clazzLoader.loadClass(currentClass);
-	        Object obj = clazz.newInstance();
-	        
-	        System.out.println(obj.getClass());
-	        System.out.println(obj instanceof com.yuanhh.classloader.ClassLoadDemo);
-	    }
-	}
+    package com.yuanhh.classloader;
+
+    import java.io.IOException;
+    import java.io.InputStream;
+
+    public class ClassLoadDemo{
+
+        public static void main(String[] args) throws Exception {
+
+            ClassLoader clazzLoader = new ClassLoader() {
+                @Override
+                public Class<?> loadClass(String name) throws ClassNotFoundException {
+                    try {
+                        String clazzName = name.substring(name.lastIndexOf(".") + 1) + ".class";
+
+                        InputStream is = getClass().getResourceAsStream(clazzName);
+                        if (is == null) {
+                            return super.loadClass(name);
+                        }
+                        byte[] b = new byte[is.available()];
+                        is.read(b);
+                        return defineClass(name, b, 0, b.length);
+                    } catch (IOException e) {
+                        throw new ClassNotFoundException(name);
+                    }
+                }
+            };
+
+            String currentClass = "com.yuanhh.classloader.ClassLoadDemo";
+            Class<?> clazz = clazzLoader.loadClass(currentClass);
+            Object obj = clazz.newInstance();
+
+            System.out.println(obj.getClass());
+            System.out.println(obj instanceof com.yuanhh.classloader.ClassLoadDemo);
+        }
+    }
 
 上面代码的输出结果：
 
-	class com.yuanhh.classloader.ClassLoadDemo
-	false
+    class com.yuanhh.classloader.ClassLoadDemo
+    false
 
 输出结果的第一行，可以看出这个对象的确是`com.yuanhh.classloader.ClassLoadDemo`实例化的对象；但第二句是false，这是由于代码中的obj是由用户自定义的类加载器clazzLoader来加载的，可通过obj.getClass().getClassLoader()获取该对象的类加载器为com.yuanhh.classloader.ClassLoadDemo$xxx，而虚拟机本身会由系统类加载器加载的类ClassLoadDemo，可通过ClassLoadDemo.class.getClassLoader()得其类加载器为sun.misc.Launcher$AppClassLoader@XXX。所以可得出结论：即使都是来自同一个Class文件，加载器不同，仍然是两个不同的类，所以返回值是false。
 
@@ -186,9 +186,9 @@ ClassLoader的双亲委派模型中，各个ClassLoader之间的关系是通过�
 ## 四、 经典应用场景
 
 - Tomcat，类加载器架构，自己定义了多个类加载器，
-	- 保证了同一个服务器的两个Web应用程序的Java类库隔离；
-	- 保证了同一个服务器的两个Web应用程序的Java类库又可以相互共享；比如多个Spring组织的应用程序不能共享，会造成资源浪费；
-	- 保证了服务器尽可能保证自身的安全不受不受部署Web应用程序影响；
-	- 支持JSP应用的服务器，大多需要支持热替换(HotSwap)功能。
+    - 保证了同一个服务器的两个Web应用程序的Java类库隔离；
+    - 保证了同一个服务器的两个Web应用程序的Java类库又可以相互共享；比如多个Spring组织的应用程序不能共享，会造成资源浪费；
+    - 保证了服务器尽可能保证自身的安全不受不受部署Web应用程序影响；
+    - 支持JSP应用的服务器，大多需要支持热替换(HotSwap)功能。
 
 - OSGi(Open Service GateWay Initiative)，是基于Java语言的动态模块化规范。已成为Java世界的“事实上”的模块化标准，最为熟悉的案例的Eclipse IDE。

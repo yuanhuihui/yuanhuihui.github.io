@@ -17,16 +17,16 @@ tags:
 
 (1) 拨打电话10086
 
-	adb shell am start -a android.intent.action.CALL -d tel:10086
+    adb shell am start -a android.intent.action.CALL -d tel:10086
 
 (2) 打开网站`www.gityuan.com`
 
-	adb shell am start -a android.intent.action.VIEW -d  http://gityuan.com
+    adb shell am start -a android.intent.action.VIEW -d  http://gityuan.com
 
 
 (3) 启动Activity： 启动包名为`com.yuanhh.app`，主Activity为`.MainActivity`，且extra数据以"website"为key, "yuanh.com"为value。通过java代码要完成该功能虽然不复杂，但至少需要一个android环境，而通过adb的方式，只需要在adb窗口，输入如下命令便可完成:
 
-	am start -n com.yuanhh.app/.MainActivity -es website gityuan.com
+    am start -n com.yuanhh.app/.MainActivity -es website gityuan.com
 
 
 am命令还可以启动Service、Broadcast，杀进程，监控等功能，这些功能都非常便捷调试程序，接下来讲述关于am更多更详细的功能。
@@ -35,7 +35,7 @@ am命令还可以启动Service、Broadcast，杀进程，监控等功能，这�
 
 命令格式：
 
-	am [subcommand] [options]
+    am [subcommand] [options]
 
 命令列表：
 
@@ -77,14 +77,14 @@ am命令实的实现方式在Am.java，最终几乎都是调用`ActivityManagerS
 
 启动Activity的实现原理： 存在-W参数则调用startActivityAndWait()方法来运行，否则startActivityAsUser()。
 
-### 3.2 收紧内存 
+### 3.2 收紧内存
 命令
 
-	am send-trim-memory  <pid> <level>
+    am send-trim-memory  <pid> <level>
 
 例如： 向pid=12345的进程，发出level=RUNNING_LOW的收紧内存命令
 
-	am send-trim-memory 12345 RUNNING_LOW。
+    am send-trim-memory 12345 RUNNING_LOW。
 
 
 那么level取值范围为： HIDDEN、RUNNING_MODERATE、BACKGROUND、RUNNING_LOW、MODERATE、RUNNING_CRITICAL、COMPLETE。
@@ -95,7 +95,7 @@ am命令实的实现方式在Am.java，最终几乎都是调用`ActivityManagerS
 
 例如：启动id=10010的用户的指定service。
 
-	am startservice --user 10010
+    am startservice --user 10010
 
 ## 四、 Intent
 
@@ -114,11 +114,11 @@ Intent的参数和flags较多，本文为方便起见，分为3种类型参数�
 
 实例
 
-	am start -a android.intent.action.VIEW
-	am start -n com.yuanhh.app/.MainActivity
-	am start -d content://contacts/people/1
-	am start -t image/png
-	am start -c android.intent.category.APP_CONTACTS
+    am start -a android.intent.action.VIEW
+    am start -n com.yuanhh.app/.MainActivity
+    am start -d content://contacts/people/1
+    am start -t image/png
+    am start -c android.intent.category.APP_CONTACTS
 
 ### 4.2 Extra参数
 
@@ -131,7 +131,7 @@ Intent的参数和flags较多，本文为方便起见，分为3种类型参数�
 
 比如参数es是Extra String首字母简称，实例：
 
-	am start -n com.yuanhh.app/.MainActivity -es website gityuan.com 
+    am start -n com.yuanhh.app/.MainActivity -es website gityuan.com
 
 此处`-es website gityuan.com`，等价于Intent.putExtra("website", "gityuan.com");
 
@@ -143,7 +143,7 @@ Intent的参数和flags较多，本文为方便起见，分为3种类型参数�
 
 比如参数eia，是Extra int array首字母简称，多个value值之间以逗号隔开，实例：
 
-	am start -n com.yuanhh.app/.MainActivity -ela weekday 1,2,3,4,5 
+    am start -n com.yuanhh.app/.MainActivity -ela weekday 1,2,3,4,5
 
 此处`-ela weekday 1,2,3,4,5`，等价于Intent.putExtra("weekday", new int[]{1,2,3,4,5});
 
@@ -155,7 +155,7 @@ Intent的参数和flags较多，本文为方便起见，分为3种类型参数�
 
 比如参数efal，是Extra float Array List首字母简称，多个value值之间以逗号隔开，实例：
 
-	am start -n com.yuanhh.app/.MainActivity -efal nums 1.2,2.2
+    am start -n com.yuanhh.app/.MainActivity -efal nums 1.2,2.2
 
 此处`-efal nums 1.2,2.2`，等价于先构造ArrayList变量，再通过putExtra放入第二个参数。
 
@@ -163,21 +163,20 @@ Intent的参数和flags较多，本文为方便起见，分为3种类型参数�
 
 在参数类型1中，提到有`-f <FLAGS>`，是通过`Intent.setFlags(int )`方法，来设置Intent的flags.本小节也是关于flags，是通过`Intent.addFlags(int )`方法。如下所示，所有的flags参数。
 
-	[--grant-read-uri-permission] [--grant-write-uri-permission]
-	[--grant-persistable-uri-permission] [--grant-prefix-uri-permission]
-	[--debug-log-resolution]
-	[--exclude-stopped-packages] [--include-stopped-packages]
-	[--activity-brought-to-front] [--activity-clear-top]
-	[--activity-clear-when-task-reset] [--activity-exclude-from-recents]
-	[--activity-launched-from-history] [--activity-multiple-task]
-	[--activity-no-animation] [--activity-no-history]
-	[--activity-no-user-action] [--activity-previous-is-top]
-	[--activity-reorder-to-front] [--activity-reset-task-if-needed]
-	[--activity-single-top] [--activity-clear-task]
-	[--activity-task-on-home]
-	[--receiver-registered-only] [--receiver-replace-pending]
+    [--grant-read-uri-permission] [--grant-write-uri-permission]
+    [--grant-persistable-uri-permission] [--grant-prefix-uri-permission]
+    [--debug-log-resolution]
+    [--exclude-stopped-packages] [--include-stopped-packages]
+    [--activity-brought-to-front] [--activity-clear-top]
+    [--activity-clear-when-task-reset] [--activity-exclude-from-recents]
+    [--activity-launched-from-history] [--activity-multiple-task]
+    [--activity-no-animation] [--activity-no-history]
+    [--activity-no-user-action] [--activity-previous-is-top]
+    [--activity-reorder-to-front] [--activity-reset-task-if-needed]
+    [--activity-single-top] [--activity-clear-task]
+    [--activity-task-on-home]
+    [--receiver-registered-only] [--receiver-replace-pending]
 
 例如，发送action="broadcast.demo"的广播，并且对于forceStopPackage()的应用不允许接收该广播，命令如下：
 
-	am broadcast -a broadcast.demo --exclude-stopped-packages
-
+    am broadcast -a broadcast.demo --exclude-stopped-packages

@@ -33,15 +33,15 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
         ExecutorService cachedThreadPool = Executors.newCachedThreadPool();
         for (int i = 0; i < 5; i++) {
             final int index = i;
-            
+
             cachedThreadPool.execute(new Runnable() {
-         
+
                 @Override
                 public void run() {
                     System.out.println(Thread.currentThread().getName()+", index="+index);
                 }
             });
-            
+
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -52,11 +52,11 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
 
 运行结果：
 
-	pool-1-thread-1, index=0
-	pool-1-thread-1, index=1
-	pool-1-thread-1, index=2
-	pool-1-thread-1, index=3
-	pool-1-thread-1, index=4
+    pool-1-thread-1, index=0
+    pool-1-thread-1, index=1
+    pool-1-thread-1, index=2
+    pool-1-thread-1, index=3
+    pool-1-thread-1, index=4
 
 从运行结果可以看出，整个过程都在同一个线程`pool-1-thread-1`中运行，后面线程复用前面的线程。
 
@@ -68,15 +68,15 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
         ExecutorService fixedThreadPool = Executors.newFixedThreadPool(3);
         for (int i = 0; i < 6; i++) {
             final int index = i;
-            
+
             fixedThreadPool.execute(new Runnable() {
-         
+
                 @Override
                 public void run() {
                     System.out.println(Thread.currentThread().getName()+", index="+index);
                 }
             });
-            
+
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -87,12 +87,12 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
 
 运行结果：
 
-	pool-1-thread-1, index=0
-	pool-1-thread-2, index=1
-	pool-1-thread-3, index=2
-	pool-1-thread-1, index=3
-	pool-1-thread-2, index=4
-	pool-1-thread-3, index=5
+    pool-1-thread-1, index=0
+    pool-1-thread-2, index=1
+    pool-1-thread-3, index=2
+    pool-1-thread-1, index=3
+    pool-1-thread-2, index=4
+    pool-1-thread-3, index=5
 
 从运行结果可以看出，线程池大小为3，每休眠1s后将任务提交给线程池的各个线程轮番交错地执行。线程池的大小设置，可参数Runtime.getRuntime().availableProcessors()。
 
@@ -104,15 +104,15 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
         ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor();
         for (int i = 0; i < 3; i++) {
             final int index = i;
-            
+
             singleThreadExecutor.execute(new Runnable() {
-         
+
                 @Override
                 public void run() {
                     System.out.println(Thread.currentThread().getName()+", index="+index);
                 }
             });
-            
+
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
@@ -123,9 +123,9 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
 
 运行结果：
 
-	pool-1-thread-1, index=0
-	pool-1-thread-1, index=1
-	pool-1-thread-1, index=2
+    pool-1-thread-1, index=0
+    pool-1-thread-1, index=1
+    pool-1-thread-1, index=2
 
 从运行结果可以看出，所有任务都是在单一线程运行的。
 
@@ -137,7 +137,7 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
         ScheduledExecutorService scheduledThreadPool = Executors.newScheduledThreadPool(3);
         //定时执行一次的任务，延迟1s后执行
         scheduledThreadPool.schedule(new Runnable() {
-         
+
             @Override
             public void run() {
                 System.out.println(Thread.currentThread().getName()+", delay 1s");
@@ -156,11 +156,11 @@ Java API针对不同需求，利用`Executors`类提供了4种不同的线程池
 
 运行结果：
 
-	pool-1-thread-1, delay 1s
-	pool-1-thread-1, every 3s
-	pool-1-thread-2, every 3s
-	pool-1-thread-2, every 3s
-	...
+    pool-1-thread-1, delay 1s
+    pool-1-thread-1, every 3s
+    pool-1-thread-2, every 3s
+    pool-1-thread-2, every 3s
+    ...
 
 - schedule(Runnable command, long delay, TimeUnit unit)，延迟一定时间后执行Runnable任务；
 - schedule(Callable<V> callable, long delay, TimeUnit unit)，延迟一定时间后执行Callable任务；
@@ -241,20 +241,20 @@ Executors类提供4个静态工厂方法：newCachedThreadPool()、newFixedThrea
 
 3. keepAliveTime（线程存活保持时间）：默认情况下，当线程池的线程个数多于corePoolSize时，线程的空闲时间超过keepAliveTime则会终止。但只要keepAliveTime大于0，allowCoreThreadTimeOut(boolean) 方法也可将此超时策略应用于核心线程。另外，也可以使用setKeepAliveTime()动态地更改参数。
 
-4. unit（存活时间的单位）：时间单位，分为7类，从细到粗顺序：NANOSECONDS（纳秒），MICROSECONDS（微妙），MILLISECONDS（毫秒），SECONDS（秒），MINUTES（分），HOURS（小时），DAYS（天）；   
+4. unit（存活时间的单位）：时间单位，分为7类，从细到粗顺序：NANOSECONDS（纳秒），MICROSECONDS（微妙），MILLISECONDS（毫秒），SECONDS（秒），MINUTES（分），HOURS（小时），DAYS（天）；
 
 5. workQueue（任务队列）：用于传输和保存等待执行任务的阻塞队列。可以使用此队列与线程池进行交互：
-	- 如果运行的线程数少于 corePoolSize，则 Executor 始终首选添加新的线程，而不进行排队。
-	- 如果运行的线程数等于或多于 corePoolSize，则 Executor 始终首选将请求加入队列，而不添加新的线程。
-	- 如果无法将请求加入队列，则创建新的线程，除非创建此线程超出 maximumPoolSize，在这种情况下，任务将被拒绝。
+    - 如果运行的线程数少于 corePoolSize，则 Executor 始终首选添加新的线程，而不进行排队。
+    - 如果运行的线程数等于或多于 corePoolSize，则 Executor 始终首选将请求加入队列，而不添加新的线程。
+    - 如果无法将请求加入队列，则创建新的线程，除非创建此线程超出 maximumPoolSize，在这种情况下，任务将被拒绝。
 
 6. threadFactory（线程工厂）：用于创建新线程。由同一个threadFactory创建的线程，属于同一个ThreadGroup，创建的线程优先级都为Thread.NORM_PRIORITY，以及是非守护进程状态。threadFactory创建的线程也是采用new Thread()方式，threadFactory创建的线程名都具有统一的风格：`pool-m-thread-n`（m为线程池的编号，n为线程池内的线程编号）;
 
 7. handler（线程饱和策略）：当线程池和队列都满了，则表明该线程池已达饱和状态。
-	- ThreadPoolExecutor.AbortPolicy：处理程序遭到拒绝，则直接抛出运行时异常 RejectedExecutionException。(默认策略)
-	- ThreadPoolExecutor.CallerRunsPolicy：调用者所在线程来运行该任务，此策略提供简单的反馈控制机制，能够减缓新任务的提交速度。
-	- ThreadPoolExecutor.DiscardPolicy：无法执行的任务将被删除。
-	- ThreadPoolExecutor.DiscardOldestPolicy：如果执行程序尚未关闭，则位于工作队列头部的任务将被删除，然后重新尝试执行任务（如果再次失败，则重复此过程）。
+    - ThreadPoolExecutor.AbortPolicy：处理程序遭到拒绝，则直接抛出运行时异常 RejectedExecutionException。(默认策略)
+    - ThreadPoolExecutor.CallerRunsPolicy：调用者所在线程来运行该任务，此策略提供简单的反馈控制机制，能够减缓新任务的提交速度。
+    - ThreadPoolExecutor.DiscardPolicy：无法执行的任务将被删除。
+    - ThreadPoolExecutor.DiscardOldestPolicy：如果执行程序尚未关闭，则位于工作队列头部的任务将被删除，然后重新尝试执行任务（如果再次失败，则重复此过程）。
 
 
 **排队有三种通用策略：**
@@ -267,11 +267,11 @@ Executors类提供4个静态工厂方法：newCachedThreadPool()、newFixedThrea
 
 BlockingQueue的插入/移除/检查这些方法，对于不能立即满足但可能在将来某一时刻可以满足的操作，共有4种不同的处理方式：第一种是抛出一个异常，第二种是返回一个特殊值（null 或 false，具体取决于操作），第三种是在操作可以成功前，无限期地阻塞当前线程，第四种是在放弃前只在给定的最大时间限制内阻塞。如下表格：
 
-|操作|抛出异常|特殊值|	阻塞|超时|
+|操作|抛出异常|特殊值|    阻塞|超时|
 |---|---|---|
-|插入|	add(e)|	offer(e)|	put(e)|offer(e, time, unit)|
-|移除|	remove()|	poll()|	take()|	poll(time, unit)|
-|检查|	element()	|peek()	|不可用|	不可用|
+|插入|    add(e)|    offer(e)|    put(e)|offer(e, time, unit)|
+|移除|    remove()|    poll()|    take()|    poll(time, unit)|
+|检查|    element()    |peek()    |不可用|    不可用|
 
 
 **实现BlockingQueue接口的常见类如下：**

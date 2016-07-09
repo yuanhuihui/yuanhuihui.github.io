@@ -38,12 +38,12 @@ sleep()和wait()方法都是暂停当前正在执行的线程，出让CPU资源�
 |sleep|Thread|静态方法|不释放锁|timeout,interrupt|无限制|线程内的控制|
 |wait|Object|非静态方法|释放锁|timeout,notify,interrupt|同步语句块|线程间的通信|
 
-	public static void sleep(long millis) throws InterruptedException
-	public static void sleep(long millis, int nanos) throws InterruptedException
-	
-	public final void wait() throws InterruptedException
-	public final void wait(long timeout) throws InterruptedException
-	public final void wait(long timeout, int nanos) throws InterruptedException
+    public static void sleep(long millis) throws InterruptedException
+    public static void sleep(long millis, int nanos) throws InterruptedException
+
+    public final void wait() throws InterruptedException
+    public final void wait(long timeout) throws InterruptedException
+    public final void wait(long timeout, int nanos) throws InterruptedException
 
 ### wait && notify
 调用对象的wait()、notify()、notifyAll()方法的线程，必须是作为此对象监视器的所有者。常见的场景便是就是synchronized关键字的语句块内部使用这3个方法，如果直接在线程中使用wait()、notify()、notifyAll()方法，那么会抛出异常IllegalMonitorStateException，抛出的异常表明某一线程已经试图等待对象的监视器，或者试图通知其他正在等待对象的监视器而本身没有指定监视器的线程。。

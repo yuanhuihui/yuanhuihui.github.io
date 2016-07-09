@@ -28,23 +28,23 @@ Google官方提供了一张[经典的四层架构图](http://gityuan.com/2016/01
 点击查看[大图](http://gityuan.com/images/android-process/android-boot.jpg)
 
 ![process_status](/images/android-process/android-boot.jpg)
-  
-  
-**图解：**  
+
+
+**图解：**
 Android系统启动过程由上图从下往上的一个过程：`Loader` -> `Kernel` -> `Native` -> `Framework` -> `App`，接来下简要说说每个过程：
 
 ### 2.1 Loader层
 
 - Boot ROM: 当手机处于关机状态时，长按Power键开机，引导芯片开始从固化在`ROM`里的预设出代码开始执行，然后加载引导程序到`RAM`；
 - Boot Loader：这是启动Android系统之前的引导程序，主要是检查RAM，初始化硬件参数等功能。
-	
+
 ### 2.2 Kernel层
 
 Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 
 - 启动Kernel的0号进程：初始化进程管理、内存管理，加载Display,Camera Driver，Binder Driver等相关工作；
 - 启动kthreadd进程（pid=2）：是Linux系统的内核进程，会创建内核工作线程kworkder，软中断线程ksoftirqd，thermal等内核守护进程。`kthreadd进程是所有内核进程的鼻祖`。
-	
+
 ### 2.3 Native层
 
 这里的Native层主要包括init孵化来的用户空间的守护进程、HAL层以及开机动画等。启动init进程(pid=1),是Linux系统的用户进程，`init进程是所有用户进程的鼻祖`。
@@ -62,7 +62,7 @@ Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 	- preloadResouces。
 - System Server进程，是由Zygote进程fork而来，`System Server是Zygote孵化的第一个进程`，System Server负责启动和管理整个Java framework，包含ActivityManager，PowerManager等服务。
 - Media Server进程，是由init进程fork而来，负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service，等服务。
-	
+
 ### 2.5 App层
 
 - Zygote进程孵化出的第一个App进程是Launcher，这是用户看到的桌面App；
@@ -81,7 +81,7 @@ Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 想深入理解Android内核层架构，必须先深入理解Linux现有的IPC机制；对于Android上层架构，则最常用的通信方式是Binder、Socket、Handler，当然也有少量其他的IPC方式，比如杀进程Process.killProcess()采用的是signal方式。下面说说Binder、Socket、Handler：
 
 
-### 3.1 Binder 
+### 3.1 Binder
 
 Binder作为Android系统提供的一种IPC机制，无论从系统开发还是应用开发，都是Android系统中最重要的组成，也是最难理解的一块知识点，想了解[为什么Android要采用Binder作为IPC机制？](https://www.zhihu.com/question/39440766/answer/89210950)，可查看博主在知乎上的回答。深入了解Binder机制，最好的方法便是阅读源码，借用Linux鼻祖Linus Torvalds曾说过的一句话：Read The Fucking Source Code。下面简要说说Binder IPC原理。
 
@@ -90,7 +90,7 @@ Binder作为Android系统提供的一种IPC机制，无论从系统开发还是�
 Binder通信采用c/s架构，从组件视角来说，包含Client、Server、ServiceManager以及binder驱动，其中ServiceManager用于管理系统中的各种服务。
 
 ![ServiceManager](/images/binder/prepare/IPC-Binder.jpg)
-	
+
 - 想进一步了解Binder，可查看[Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)，Binder系列用了13篇文章，从源码角度出发来，讲述驱动、native、framework、app四个层面的整个完整流程。
 
 ### 3.2 Socket
@@ -133,7 +133,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - Android系统启动—SystemServer篇
 	- [SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)
 	- [SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)
-  
+
 **（2）**再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
 - Android服务篇-ActivityManagerService
@@ -143,7 +143,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - Android服务篇-BatteryService
 	- [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
 - Android服务篇-WindowManagerService
-  
+
 当然graphic也是一大块难啃的模块，也是需要整理的，先留个空位吧。
 
 **（3）**对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：
@@ -153,9 +153,10 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - Android组件-Service
 	- [startService流程分析](http://gityuan.com/2016/03/06/start-service/)
 - Android组件-Broadcast Receiver
+    - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
 - Android组件-Content Provider
 
-  
+
 **（4）**有了这些，中间还缺少关于虚拟机ART的介绍，会需要对ART分析，后续还需要开展对ART虚拟机的一系列文章。回顾整个架构，谈谈系统性能，需要先掌握进程、内存、IO这些层面知识，这里牵涉面较广，从底层Linux层直至上层App
 
 - 进程篇
@@ -168,8 +169,15 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 	- [Linux内存管理](http://gityuan.com/2015/10/30/kernel-memory/)
 - IO篇
 - Linux驱动篇
- 
-**（5）**最后，说说Android相关的一些常用命令和工具
+
+**（5） 系统分析**
+
+- [理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)
+- [理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)
+- [Android ANR原理分析](http://gityuan.com/2016/07/02/android-anr/)
+- [WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)
+
+**（6）**最后，说说Android相关的一些常用命令和工具
 
 - [理解Android编译命令](http://gityuan.com/2016/03/19/android-build/)
 - [性能工具Systrace](http://gityuan.com/2016/01/17/systrace/)
@@ -178,6 +186,9 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - [Am命令用法](http://gityuan.com/2016/02/27/am-command/)
 - [Pm命令用法](http://gityuan.com/2016/02/28/pm-command/)
 - [dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)
-  
-  
+- [调试系列1：bugreport源码篇](http://gityuan.com/2016/06/10/bugreport/)
+- [调试系列2：bugreport实战篇](http://gityuan.com/2016/06/11/bugreport-2/)
+- [调试系列3：dropBox源码篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
+- [调试系列4：debuggerd源码篇](http://gityuan.com/2016/06/15/android-debuggerd/)
+
 本博客还有很多文章并没有写到上面这个清单，先写这么多，后续再不断更新与完善。最后，欢迎大家交流与纠错，大家来找茬。

@@ -12,19 +12,19 @@ tags:
 > 基于Android 6.0的源码剖析， 分析android Activity启动流程中ActivityManagerService所扮演的角色
 
 
-	/frameworks/base/services/core/java/com/android/server/am/ActiveServices.java
-	/frameworks/base/services/core/java/com/android/server/am/ProcessRecord.java
+    /frameworks/base/services/core/java/com/android/server/am/ActiveServices.java
+    /frameworks/base/services/core/java/com/android/server/am/ProcessRecord.java
 
-	/frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
-	/frameworks/base/core/java/android/app/IActivityManager.java
-	/frameworks/base/core/java/android/app/ActivityManagerNative.java (内含ActivityManagerProxy类)
-	/frameworks/base/core/java/android/app/ActivityManager.java
+    /frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+    /frameworks/base/core/java/android/app/IActivityManager.java
+    /frameworks/base/core/java/android/app/ActivityManagerNative.java (内含ActivityManagerProxy类)
+    /frameworks/base/core/java/android/app/ActivityManager.java
 
-	/frameworks/base/core/java/android/app/IApplicationThread.java
-	/frameworks/base/core/java/android/app/ApplicationThreadNative.java (内含ApplicationThreadProxy类)
-	/frameworks/base/core/java/android/app/ActivityThread.java (内含ApplicationThread类)
+    /frameworks/base/core/java/android/app/IApplicationThread.java
+    /frameworks/base/core/java/android/app/ApplicationThreadNative.java (内含ApplicationThreadProxy类)
+    /frameworks/base/core/java/android/app/ActivityThread.java (内含ApplicationThread类)
 
-	/frameworks/base/core/java/android/app/ContextImpl.java
+    /frameworks/base/core/java/android/app/ContextImpl.java
 
 
 ### 一、启动过程
@@ -97,37 +97,37 @@ Activity的生命周期中只有在以下3种状态之一，才能较长时间�
 
 **调用链**
 
-	ActivityThread.handleLaunchActivity
-		ActivityThread.handleConfigurationChanged
-			ActivityThread.performConfigurationChanged
-				ComponentCallbacks2.onConfigurationChanged
+    ActivityThread.handleLaunchActivity
+        ActivityThread.handleConfigurationChanged
+            ActivityThread.performConfigurationChanged
+                ComponentCallbacks2.onConfigurationChanged
 
-		ActivityThread.performLaunchActivity
-			LoadedApk.makeApplication
-				Instrumentation.callApplicationOnCreate
-					Application.onCreate
-		
-			Instrumentation.callActivityOnCreate
-				Activity.performCreate
-					Activity.onCreate
-	
-			Instrumentation.callActivityonRestoreInstanceState
-				Activity.performRestoreInstanceState
-					Activity.onRestoreInstanceState
+        ActivityThread.performLaunchActivity
+            LoadedApk.makeApplication
+                Instrumentation.callApplicationOnCreate
+                    Application.onCreate
 
-		ActivityThread.handleResumeActivity
-			ActivityThread.performResumeActivity
-				Activity.performResume
-					Activity.performRestart
-						Instrumentation.callActivityOnRestart
-							Activity.onRestart
-	
-						Activity.performStart
-							Instrumentation.callActivityOnStart
-								Activity.onStart
-	
-					Instrumentation.callActivityOnResume
-						Activity.onResume
+            Instrumentation.callActivityOnCreate
+                Activity.performCreate
+                    Activity.onCreate
+
+            Instrumentation.callActivityonRestoreInstanceState
+                Activity.performRestoreInstanceState
+                    Activity.onRestoreInstanceState
+
+        ActivityThread.handleResumeActivity
+            ActivityThread.performResumeActivity
+                Activity.performResume
+                    Activity.performRestart
+                        Instrumentation.callActivityOnRestart
+                            Activity.onRestart
+
+                        Activity.performStart
+                            Instrumentation.callActivityOnStart
+                                Activity.onStart
+
+                    Instrumentation.callActivityOnResume
+                        Activity.onResume
 
 采用缩进方式，来代表方法的调用链，相同缩进层的方法代表来自位于同一个调用方法里。callActivityOnCreate和callActivityonRestoreInstanceState相同层级，代表都是由上一层级的ActivityThread.performLaunchActivity()方法中调用。
 
@@ -140,9 +140,9 @@ Activity的生命周期中只有在以下3种状态之一，才能较长时间�
 3. Activity.onCreate()
 4. Activity.onRestoreInstanceState()
 5. Activity.onRestart()
-6. Activity.onStart() 
-7. Activity.onResume() 
- 
+6. Activity.onStart()
+7. Activity.onResume()
+
 Application和Activity都实现了ComponentCallbacks2接口；所以Application和Activity会先执行onConfigurationChanged()回调方法。在前面说过onCreate()是过渡状态，紧跟着会执行handleResumeActivity()方法，然后就进入Resumed状态。
 
 #### 3.2 恢复应用
@@ -151,25 +151,25 @@ Application和Activity都实现了ComponentCallbacks2接口；所以Application�
 
 **调用链**
 
-	ActivityThread.handleResumeActivity
-		ActivityThread.performResumeActivity
-			Activity.performResume
-				Activity.performRestart
-					Instrumentation.callActivityOnRestart
-						Activity.onRestart
+    ActivityThread.handleResumeActivity
+        ActivityThread.performResumeActivity
+            Activity.performResume
+                Activity.performRestart
+                    Instrumentation.callActivityOnRestart
+                        Activity.onRestart
 
-					Activity.performStart
-						Instrumentation.callActivityOnStart
-							Activity.onStart
+                    Activity.performStart
+                        Instrumentation.callActivityOnStart
+                            Activity.onStart
 
-				Instrumentation.callActivityOnResume
-					Activity.onResume
+                Instrumentation.callActivityOnResume
+                    Activity.onResume
 
 **App角度**
 
 1. Activity.onRestart()
-2. Activity.onStart() 
-3. Activity.onResume() 
+2. Activity.onStart()
+3. Activity.onResume()
 
 App处于运行状态，UI可见。
 
@@ -179,16 +179,16 @@ msg: `PAUSE_ACTIVITY`
 
 **调用链**
 
-	ActivityThread.handlePauseActivity
-		ActivityThread.performPauseActivity
-			ActivityThread.callCallActivityOnSaveInstanceState
-				Instrumentation.callActivityOnSaveInstanceState
-					Activity.performSaveInstanceState
-						Activity.onSaveInstanceState
+    ActivityThread.handlePauseActivity
+        ActivityThread.performPauseActivity
+            ActivityThread.callCallActivityOnSaveInstanceState
+                Instrumentation.callActivityOnSaveInstanceState
+                    Activity.performSaveInstanceState
+                        Activity.onSaveInstanceState
 
-			Instrumentation.callActivityOnPause
-				Activity.performPause
-					Activity.onPause
+            Instrumentation.callActivityOnPause
+                Activity.performPause
+                    Activity.onPause
 
 **App角度**
 
@@ -203,31 +203,31 @@ msg: `STOP_ACTIVITY_HIDE`
 
 **调用链**
 
-	ActivityThread.handleStopActivity
-		ActivityThread.performStopActivityInner
-			ActivityThread.callCallActivityOnSaveInstanceState
-				Instrumentation.callActivityOnSaveInstanceState
-					Activity.performSaveInstanceState
-						Activity.onSaveInstanceState
+    ActivityThread.handleStopActivity
+        ActivityThread.performStopActivityInner
+            ActivityThread.callCallActivityOnSaveInstanceState
+                Instrumentation.callActivityOnSaveInstanceState
+                    Activity.performSaveInstanceState
+                        Activity.onSaveInstanceState
 
-			ActivityThread.performStop
-				Activity.performStop
-					Instrumentation.callActivityOnStop
-						Activity.onStop
+            ActivityThread.performStop
+                Activity.performStop
+                    Instrumentation.callActivityOnStop
+                        Activity.onStop
 
-		updateVisibility
+        updateVisibility
 
-		H.post(StopInfo)
-			AMP.activityStopped
-				AMS.activityStopped
-					ActivityStack.activityStoppedLocked
-					AMS.trimApplications
-						ProcessRecord.kill
-						ApplicationThread.scheduleExit
-							Looper.myLooper().quit()
+        H.post(StopInfo)
+            AMP.activityStopped
+                AMS.activityStopped
+                    ActivityStack.activityStoppedLocked
+                    AMS.trimApplications
+                        ProcessRecord.kill
+                        ApplicationThread.scheduleExit
+                            Looper.myLooper().quit()
 
-						AMS.cleanUpApplicationRecordLocked
-						AMS.updateOomAdjLocked
+                        AMS.cleanUpApplicationRecordLocked
+                        AMS.updateOomAdjLocked
 
 **App角度**
 
@@ -242,21 +242,21 @@ msg: `DESTROY_ACTIVITY`
 
 **调用链**
 
-	ActivityThread.handleDestroyActivity
-		ActivityThread.performDestroyActivity
-			Instrumentation.callActivityOnPause
-			Activity.performStop()
-			Instrumentation.callActivityOnDestroy
-				Activity.performDestroy
-					Window.destroy
-					Activity.onDestroy
+    ActivityThread.handleDestroyActivity
+        ActivityThread.performDestroyActivity
+            Instrumentation.callActivityOnPause
+            Activity.performStop()
+            Instrumentation.callActivityOnDestroy
+                Activity.performDestroy
+                    Window.destroy
+                    Activity.onDestroy
 
-		AMP.activityDestroyed
-			AMS.activityDestroyed
-				ActivityStack.activityDestroyedLocked
-					ActivityStackSupervisor.resumeTopActivitiesLocked
-						ActivityStack.resumeTopActivityLocked
-							ActivityStack.resumeTopActivityInnerLocked
+        AMP.activityDestroyed
+            AMS.activityDestroyed
+                ActivityStack.activityDestroyedLocked
+                    ActivityStackSupervisor.resumeTopActivitiesLocked
+                        ActivityStack.resumeTopActivityLocked
+                            ActivityStack.resumeTopActivityInnerLocked
 
 **App角度**
 
@@ -270,27 +270,27 @@ msg: `NEW_INTENT` （打开已经处于栈顶的Activity，则会发送给NEW_IN
 
 **调用链**
 
-	ActivityThread.handleNewIntent
-		performNewIntents
-			Instrumentation.callActivityOnPause
-				Activity.performPause
-					Activity.onPause
+    ActivityThread.handleNewIntent
+        performNewIntents
+            Instrumentation.callActivityOnPause
+                Activity.performPause
+                    Activity.onPause
 
-			deliverNewIntents
-				Instrumentation.callActivityOnNewIntent
-					Activity.onNewIntent
+            deliverNewIntents
+                Instrumentation.callActivityOnNewIntent
+                    Activity.onNewIntent
 
-			Activity.performResume
-				Activity.performRestart
-					Instrumentation.callActivityOnRestart
-						Activity.onRestart
+            Activity.performResume
+                Activity.performRestart
+                    Instrumentation.callActivityOnRestart
+                        Activity.onRestart
 
-					Activity.performStart
-						Instrumentation.callActivityOnStart
-							Activity.onStart
+                    Activity.performStart
+                        Instrumentation.callActivityOnStart
+                            Activity.onStart
 
-				Instrumentation.callActivityOnResume
-					Activity.onResume
+                Instrumentation.callActivityOnResume
+                    Activity.onResume
 
 **App角度**
 
