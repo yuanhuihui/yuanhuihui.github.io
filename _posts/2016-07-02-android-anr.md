@@ -172,7 +172,7 @@ BroadcastQueue Timeout触发时机，简单说就是BroadcastQueue中的`mHandle
 
 在前面文章[Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)详细介绍广播启动流程，在发送广播过程中会执行`scheduleBroadcastsLocked`方法来处理相关的广播，然后会调用到`processNextBroadcast`方法来处理下一条广播。
 
-processNextBroadcast执行过程分4步骤：        
+processNextBroadcast执行过程分4步骤：
 
 - step1. 处理并行广播
 - step2. 处理当前有序广播
@@ -779,4 +779,8 @@ UI线程，例如：
 - Mainthread handler: handleMessage(), post*(runnable r), etc
 - ...
 
-**ANR分析**：需要关注CPU/IO，trace死锁等数据，下篇文章再介绍。
+**ANR分析**：需要关注CPU/IO，trace死锁等数据。
+
+----
+
+先写到这，本文尚未写完，待续...

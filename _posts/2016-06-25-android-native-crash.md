@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解Native crash处理流程"
+title:  "理解Native Crash处理流程"
 date:   2016-6-25 21:25:53
 catalog:    true
 tags:
@@ -20,9 +20,9 @@ tags:
 - 至于Kernel Crash，很多情况是发生Kernel panic，对于内核崩溃往往是驱动或者硬件出现故障。
 - Native Crash，即C/C++层面的Crash，这是介于系统framework层与Linux层之间的一层，这是本文接下来要讲解的内容。
 
-如果你是从事Android系统开发或者架构相关工作，或者遇到需要解系统性的疑难杂症，那么很有必要了解系统Native Crash处理流程；如果你是App开发，并写过JNI相关代码，就有可能会遇到Native Crash，因为JNI便是连接Java与Native的桥梁，如果没有写好JNI代码，极有可能导致应用发生Native Crash。
+如果你是从事Android系统开发或者架构相关工作，或者遇到需要解系统性的疑难杂症，再或者需要写JNI代码，则就有可能遇到Native Crash，了解系统Native Crash处理流程就很有必要。
 
-接下来介绍介绍`Android N`的Native Crash处理流程，你没有看错，本文就是针对最新Android Noug来分析的。Native crash的工作核心是由debuggerd守护进程来完成，在文章[调试系列4：debuggerd源码篇)](http://gityuan.com/2016/06/15/android-debuggerd/)，已经介绍过Debuggerdd的工作原理。
+接下来介绍介绍`Android N`的Native Crash处理流程，你没有看错，本文就是针对最新Android Nouget来分析的。Native crash的工作核心是由debuggerd守护进程来完成，在文章[调试系列4：debuggerd源码篇)](http://gityuan.com/2016/06/15/android-debuggerd/)，已经介绍过Debuggerdd的工作原理。
 
 要了解Native Crash，首先从应用程序入口位于`begin.S`中的`__linker_init`入手。
 
@@ -202,8 +202,10 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
 [-> /debuggerd/debuggerd.cpp]
 
     static void handle_request(int fd) {
-      ...
-      //读取client发送过来的请求【见小节3.5】
+      android::base::unique_fd closer(fd);
+      debugger_request_t request;
+      memset(&request, 0, sizeof(request));
+      //读取client发送过来的请求【见小节2.3】
       int status = read_request(fd, &request);
       ...
 
@@ -212,15 +214,66 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
       if (fork_pid == -1) {
         ALOGE("debuggerd: failed to fork: %s\n", strerror(errno));
       } else if (fork_pid == 0) {
-         //子进程执行【见小节2.3】
+         //子进程执行【见小节2.4】
         worker_process(fd, request);
       } else {
-        //父进程执行【见小节2.4】
+        //父进程执行【见小节2.5】
         monitor_worker_process(fork_pid, request);
       }
     }
 
-### 2.3 worker_process
+### 2.3 read_request
+
+[-> /debuggerd/debuggerd.cpp]
+
+    static int read_request(int fd, debugger_request_t* out_request) {
+      ucred cr;
+      socklen_t len = sizeof(cr);
+      //从fd获取client进程的pid,uid,gid
+      int status = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cr, &len);
+      ...
+      fcntl(fd, F_SETFL, O_NONBLOCK);
+
+      pollfd pollfds[1];
+      pollfds[0].fd = fd;
+      pollfds[0].events = POLLIN;
+      pollfds[0].revents = 0;
+      //读取tid
+      status = TEMP_FAILURE_RETRY(poll(pollfds, 1, 3000));
+      debugger_msg_t msg;
+      memset(&msg, 0, sizeof(msg));
+      //从fd读取数据并保存到结构体msg
+      status = TEMP_FAILURE_RETRY(read(fd, &msg, sizeof(msg)));
+      ...
+
+      out_request->action = static_cast<debugger_action_t>(msg.action);
+      out_request->tid = msg.tid;
+      out_request->pid = cr.pid;
+      out_request->uid = cr.uid;
+      out_request->gid = cr.gid;
+      out_request->abort_msg_address = msg.abort_msg_address;
+      out_request->original_si_code = msg.original_si_code;
+
+      if (msg.action == DEBUGGER_ACTION_CRASH) {
+        // native crash时发送过来的请求
+        char buf[64];
+        struct stat s;
+        snprintf(buf, sizeof buf, "/proc/%d/task/%d", out_request->pid, out_request->tid);
+        if (stat(buf, &s)) {
+          return -1;  //tid不存在，忽略该显式dump请求
+        }
+      } else if (cr.uid == 0
+                || (cr.uid == AID_SYSTEM && msg.action == DEBUGGER_ACTION_DUMP_BACKTRACE)) {
+        ...
+      } else {
+        return -1;
+      }
+      return 0;
+    }
+
+read_request执行完成后，则从socket通道中读取到out_request。
+
+### 2.4 worker_process
 
 处于client发送过来的请求，server端通过子进程来处理
 
@@ -245,13 +298,13 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
         exit(1); //attach失败则退出该进程
       }
       ...
-      //生成backtrace【见小节3.6.2】
+      //生成backtrace
       std::unique_ptr<BacktraceMap> backtrace_map(BacktraceMap::Create(request.pid));
 
       int amfd = -1;
       std::unique_ptr<std::string> amfd_data;
       if (request.action == DEBUGGER_ACTION_CRASH) {
-        //当发生native crash，则连接到AMS【见小节2.3.1】
+        //当发生native crash，则连接到AMS【见小节2.4.1】
         amfd = activity_manager_connect();
         amfd_data.reset(new std::string);
       }
@@ -264,12 +317,12 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
       }
 
       int crash_signal = SIGKILL;
-      //执行dump操作，【见小节2.3.2】
+      //执行dump操作，【见小节2.4.2】
       succeeded = perform_dump(request, fd, tombstone_fd, backtrace_map.get(), siblings,
                                &crash_signal, amfd_data.get());
 
       if (!attach_gdb) {
-        //将进程crash情况告知AMS【见小节2.3.3】
+        //将进程crash情况告知AMS【见小节2.4.3】
         activity_manager_write(request.pid, crash_signal, amfd, *amfd_data.get());
       }
       //detach目标进程
@@ -280,14 +333,13 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
       }
 
       if (!attach_gdb && request.action == DEBUGGER_ACTION_CRASH) {
-        //发送信号SIGKILL给目标进程[【见小节2.3.4】
+        //发送信号SIGKILL给目标进程[【见小节2.4.4】
         if (!send_signal(request.pid, request.tid, crash_signal)) {
           ALOGE("debuggerd: failed to kill process %d: %s", request.pid, strerror(errno));
         }
       }
       ...
     }
-
 
 整个过程比较复杂，下面只介绍attach_gdb=false的执行流程：
 
@@ -303,7 +355,7 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
 9. 当DEBUGGER_ACTION_CRASH，发送信号SIGKILL给目标进程tid
 
 
-#### 2.3.1 activity_manager_connect
+#### 2.4.1 activity_manager_connect
 
 [-> debuggerd.cpp]
 
@@ -340,7 +392,7 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
 
 该方法的功能是建立跟上层`ActivityManager`的socket连接。对于"/data/system/ndebugsocket"的服务端是在，NativeCrashListener.java方法中创建并启动的。
 
-#### 2.3.2 perform_dump
+#### 2.4.2 perform_dump
 根据接收到不同的signal采取相应的操作
 
 [-> debuggerd.cpp]
@@ -398,7 +450,7 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
 
 另外，上篇文章已介绍过[engrave_tombstone](http://gityuan.com/2016/06/15/android-debuggerd/#tombstone)的功能内容，这里就不再累赘了。
 
-#### 2.3.3 activity_manager_write
+#### 2.4.3 activity_manager_write
 
 [-> debuggerd.cpp]
 
@@ -431,9 +483,79 @@ debuggerd 守护进程启动后，一直在等待socket client的连接。当nat
 
 debuggerd与AMS的NativeCrashListener建立socket连接后，再通过该方法发送数据，数据项包括pid、signal、dump信息。
 
-#### 2.3.4 send_signal
+#### 2.4.4 send_signal
 
 此处只是向目标进程发送SIGKILL信号，用于杀掉目标进程，文章[理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/#sendsignal)已详细讲述过发送SIGKILL信号的处理流程。
+
+### 2.5 monitor_worker_process
+
+    static void monitor_worker_process(int child_pid, const debugger_request_t& request) {
+      struct timespec timeout = {.tv_sec = 10, .tv_nsec = 0 };
+      if (should_attach_gdb(request)) {
+        //如果使能wait_for_gdb，则将timeout设置为非常大
+        timeout.tv_sec = INT_MAX;
+      }
+      sigset_t signal_set;
+      sigemptyset(&signal_set);
+      sigaddset(&signal_set, SIGCHLD);
+      bool kill_worker = false;
+      bool kill_target = false;
+      bool kill_self = false;
+      int status;
+      siginfo_t siginfo;
+      int signal = TEMP_FAILURE_RETRY(sigtimedwait(&signal_set, &siginfo, &timeout));
+      if (signal == SIGCHLD) {
+        pid_t rc = waitpid(-1, &status, WNOHANG | WUNTRACED);
+        if (rc != child_pid) {
+          ALOGE("debuggerd: waitpid returned unexpected pid (%d), committing murder-suicide", rc);
+          if (WIFEXITED(status)) {
+            ALOGW("debuggerd: pid %d exited with status %d", rc, WEXITSTATUS(status));
+          } else if (WIFSIGNALED(status)) {
+            ALOGW("debuggerd: pid %d received signal %d", rc, WTERMSIG(status));
+          } else if (WIFSTOPPED(status)) {
+            ALOGW("debuggerd: pid %d stopped by signal %d", rc, WSTOPSIG(status));
+          } else if (WIFCONTINUED(status)) {
+            ALOGW("debuggerd: pid %d continued", rc);
+          }
+          kill_worker = true;
+          kill_target = true;
+          kill_self = true;
+        } else if (WIFSIGNALED(status)) {
+          ALOGE("debuggerd: worker process %d terminated due to signal %d", child_pid, WTERMSIG(status));
+          kill_worker = false;
+          kill_target = true;
+        } else if (WIFSTOPPED(status)) {
+          ALOGE("debuggerd: worker process %d stopped due to signal %d", child_pid, WSTOPSIG(status));
+          kill_worker = true;
+          kill_target = true;
+        }
+      } else {
+        ALOGE("debuggerd: worker process %d timed out", child_pid);
+        kill_worker = true;
+        kill_target = true;
+      }
+
+该方法是运行在debuggerd父进程，用于监控子进程的执行情况。
+
+### 2.6 小结
+
+debuggerd服务端调用链：
+
+    do_server
+        handle_request
+            read_request
+            worker_process(子进程执行)
+                open_tombstone
+                ptrace(PTRACE_ATTACH, request.tid, 0, 0)
+                backtrace_map
+                activity_manager_connect
+                perform_dump
+                activity_manager_write
+                ptrace(PTRACE_DETACH, request.tid, 0, 0);
+                send_signal
+            monitor_worker_process(父进程执行)
+
+handle_request方法中通过fork机制，创建子进程来执行worker_process，由于fork返回两次，返回到父进程则执行monitor_worker_process。
 
 ## 三、NativeCrashListener
 
@@ -465,7 +587,7 @@ debuggerd与AMS的NativeCrashListener建立socket连接后，再通过该方法�
 [-> ActivityManagerService.java]
 
     public void startObservingNativeCrashes() {
-        //【见】
+        //【见小节3.3】
         final NativeCrashListener ncl = new NativeCrashListener(this);
         ncl.start();
     }
@@ -525,7 +647,12 @@ NativeCrashListener继承于`Thread`，可见这是线程，通过调用start方
         }
     }
 
-"/data/system/ndebugsocket"文件权限700，owned为system:system，debuggerd是以root权限运行，因此可以与该socket建立连接，但对于第三方App则没有权限。
+该方法主要功能：
+
+1. 创建socket服务端："/data/system/ndebugsocket"文件权限700，owned为system:system，debuggerd是以root权限运行，因此可以与该socket建立连接，但对于第三方App则没有权限；
+2. 等待socket客户端(即debuggerd)来建立连接；
+3. 调用consumeNativeCrashData来处理native crash信息；
+4. 应答debuggerd已经建立连接，并写入应答消息告知debuggerd进程。
 
 ### 3.4 consumeNativeCrashData
 [-> NativeCrashListener.java]
@@ -617,4 +744,37 @@ NativeCrashListener继承于`Thread`，可见这是线程，通过调用start方
 
 不论是Native crash还是framework crash最终都会调用到`handleApplicationCrashInner()`，该方法见文章[理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/#handleApplicationCrashInner)。
 
+### 3.6 小结
+
+system_server进程启动过程中，调用`startOtherServices`来启动各种其他系统Service时，也正是这个时机会创建一个用于监听native crash事件的NativeCrashListener对象(继承于线程)，通过socket机制来监听，等待即debuggerd与该线程创建连接，并处理相应事件。紧接着调用`handleApplicationCrashInner`来处理crash流程。
+
+NativeCrashListener的主要工作：
+
+1. 创建socket服务端"/data/system/ndebugsocket"
+2. 等待socket客户端(即debuggerd)来建立连接；
+3. 调用consumeNativeCrashData来处理native crash信息；
+4. 应答debuggerd已经建立连接，并写入应答消息告知debuggerd进程。
+
+
 ## 四、总结
+
+点击查看[大图](http://gityuan.com/images/stability/native_crash.jpg)
+
+![native_crash](/images/stability/native_crash.jpg)
+
+Native程序通过link连接后，当发生Native Crash时，则kernel会发送相应的`signal`，当进程捕获致命的`signal`，通知`debuggerd`调用`ptrace`来获取有价值的信息(这是发生在crash前)。
+
+1. kernel 发送signal给target进程(包含native代码)；
+2. target进程通过debuggerd_signal_handler，捕获signal；
+    - 建立于debuggerd进程的socket通道；
+    - 将action = DEBUGGER_ACTION_CRASH的消息发送给debuggerd服务端；
+    - 阻塞等待debuggerd服务端的回应数据。
+3. debuggerd作为守护进程，一直在等待socket client的连接，此时收到action = DEBUGGER_ACTION_CRASH的消息；
+4. 执行到handle_request时，通过fork创建子进程来执行各种dump相关操作；
+5. 新创建的进程，通过socket与system_server进程中的NativeCrashListener线程建立socket通道，并向其发送native crash信息；
+6. NativeCrashListener线程通过创建新的名为“NativeCrashReport”的子线程来执行AMS的handleApplicationCrashInner方法。
+
+这个流程图只是从整体来概要介绍native crash流程，其中有两个部分是核心方法：
+
+- 其一是图中红色块`perform_dump`是整个debuggerd的核心工作，该方法内部调用`engrave_tombstone`，该方法的具体工作见文章[调试系列4：debuggerd源码篇](http://gityuan.com/2016/06/15/android-debuggerd/#tombstone)的功能内容，这个过程还需要与target进程通信来获取target进程更多信息。
+- 其二是AMS的handleApplicationCrashInner，该方法的工作见姊妹篇[理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/#handleApplicationCrashInner)。
