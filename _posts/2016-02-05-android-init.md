@@ -28,7 +28,7 @@ init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启�
 - 处理子进程的终止(signal方式);
 - 提供属性服务。
 
-### 主方法main()
+### 1.1 main()
 
 下面展示main()方法的骨干逻辑：
 
@@ -132,7 +132,7 @@ signal_handler.cpp
 - SIGCHLD_handler：向signal_write_fd写入1；
 - handle_signal：读取signal_read_fd数据，放入buf；
 
-### 3. 循环处理子进程
+### 2. 循环处理子进程
 
 signal_handler.cpp
 
@@ -349,7 +349,7 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
 
 ## 五、属性服务
 
-当某个进程A，通过property_set()修改属性值后，init进程会检查访问权限，当权限满足要求后，则更改相应的属性值，属性值一旦改变则会触发相应的触发器（即rc文件中的on开头的语句)，在Android Shared Memmory（共享内存区域）中有一个_system_property_area_区域，里面记录着素有的属性值。对于进程A通过property_get（）方法，获取的也是该共享内存区域的属性值。
+当某个进程A，通过property_set()修改属性值后，init进程会检查访问权限，当权限满足要求后，则更改相应的属性值，属性值一旦改变则会触发相应的触发器（即rc文件中的on开头的语句)，在Android Shared Memmory（共享内存区域）中有一个_system_property_area_区域，里面记录着所有的属性值。对于进程A通过property_get（）方法，获取的也是该共享内存区域的属性值。
 
 
 property_service.cpp
