@@ -24,7 +24,7 @@ BroadcastReceiver分为两类：
 
 - 普通广播：通过Context.sendBroadcast()发送，可并行处理
 - 有序广播：通过Context.sendOrderedBroadcast()发送，串行处理
-- Sticky广播：通过Context.sendOrderedBroadcast()发送
+- Sticky广播：通过Context.sendStickyBroadcast()发送
 
 ### 二、注册广播
 
