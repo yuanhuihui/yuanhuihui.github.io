@@ -50,7 +50,10 @@ tags:
 |当前替换 | Ctrl + R            |
 |全局查找 | Ctrl + Shift + F           |
 |全局替换 | Ctrl + Shift + R            |
+<<<<<<< HEAD
 |文件结构| Ctrl + F12|
+=======
+>>>>>>> 8394d22fc07cad9ca53498549fa96a21f4e539a2
 |查找下一处出现 |  Ctrl + L  | F3          |
 |查找上一处出现 | Ctrl + Shift + L　| Shift + F3 |
 |搜索任意内容| **双击 Shift**     |

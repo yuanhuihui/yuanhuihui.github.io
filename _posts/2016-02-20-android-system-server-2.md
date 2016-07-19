@@ -11,46 +11,34 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程的system_server进程
 
-	frameworks/base/core/java/android/app/ActivityThread.java
-	frameworks/base/core/java/android/app/LoadedApk.java
-	frameworks/base/core/java/android/app/ContextImpl.java
-	frameworks/base/core/java/com/android/server/LocalServices.java
-	frameworks/base/services/java/com/android/server/SystemServer.java
-	frameworks/base/services/core/java/com/android/server/SystemServiceManager.java
-	frameworks/base/services/core/java/com/android/server/ServiceThread.java
-	frameworks/base/services/core/java/com/android/server/pm/Installer.java
-	frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+    frameworks/base/core/java/android/app/ActivityThread.java
+    frameworks/base/core/java/android/app/LoadedApk.java
+    frameworks/base/core/java/android/app/ContextImpl.java
+    frameworks/base/core/java/com/android/server/LocalServices.java
+    frameworks/base/services/java/com/android/server/SystemServer.java
+    frameworks/base/services/core/java/com/android/server/SystemServiceManager.java
+    frameworks/base/services/core/java/com/android/server/ServiceThread.java
+    frameworks/base/services/core/java/com/android/server/pm/Installer.java
+    frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
 
 
-### 一、启动调用栈
+## 一、 流程分析
 
-System_server启动函数调用类的栈关系：
+上一篇文章[Android系统启动-systemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程。简单回顾下，在`RuntimeInit.java`中invokeStaticMain方法通过创建并抛出异常ZygoteInit.MethodAndArgsCaller，在`ZygoteInit.java`中的main()方法会捕捉该异常，并调用`caller.run()`，再通过反射便会调用到SystemServer.main()方法，那么本文就接着该方法执行流程。
 
-	SystemServer.main
-		SystemServer.run
-			createSystemContext
-				ActivityThread.systemMain
-					ActivityThread.attach
-						LoadedApk.makeApplication
-				ActivityThread.getSystemContext
-					ContextImpl.createSystemContext
-			startBootstrapServices(); 
-			startCoreServices();    
-			startOtherServices();
-			Looper.loop();
+### 1.1 main
 
-### 二、 SystemServer分析
-
-上一篇文章[Android系统启动-systemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程，本文重要是讲述system_server所承载的java framework的系统服务框架，是如何一路路启动的。
-
-**Step 1.** SystemServer.main
-
-    public static void main(String[] args) {
-        //先初始化SystemServer对象，再调用对象的run()方法， 【见Step 2】
-        new SystemServer().run(); 
+    public final class SystemServer {
+        ...
+        public static void main(String[] args) {
+            //先初始化SystemServer对象，再调用对象的run()方法， 【见小节1.2】
+            new SystemServer().run();
+        }
     }
 
-**Step 2.** SystemServer.run
+### 1.2 run
+
+[-->SystemServer.java]
 
     private void run() {
         //当系统时间比1970年更早，就设置当前系统时间为1970年
@@ -99,7 +87,7 @@ System_server启动函数调用类的栈关系：
         //检测上次关机过程是否失败，该方法可能不会返回
         performPendingShutdown();
 
-        //初始化系统上下文 【见Step 3】
+        //初始化系统上下文 【见小节1.3】
         createSystemContext();
 
         //创建系统服务管理
@@ -107,12 +95,12 @@ System_server启动函数调用类的栈关系：
         //将mSystemServiceManager添加到本地服务的成员sLocalServiceObjects
         LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
 
-        
+
         //启动各种系统服务
         try {
-            startBootstrapServices(); // 启动引导服务【见Step 4】
-            startCoreServices();      // 启动核心服务【见Step 5】
-            startOtherServices();     // 启动其他服务【见Step 6】
+            startBootstrapServices(); // 启动引导服务【见小节1.4】
+            startCoreServices();      // 启动核心服务【见小节1.5】
+            startOtherServices();     // 启动其他服务【见小节1.6】
         } catch (Throwable ex) {
             Slog.e("System", "************ Failure starting system services", ex);
             throw ex;
@@ -129,18 +117,20 @@ System_server启动函数调用类的栈关系：
 
 LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务类名为key，以具体服务对象为value的Map结构。
 
-**Step 3.** SystemServer.createSystemContext
+### 1.3 createSystemContext
+
+[-->SystemServer.java]
 
     private void createSystemContext() {
-        //创建ActivityThread对象【见Step 3-1】
+        //创建ActivityThread对象【见小节1.3.1】
         ActivityThread activityThread = ActivityThread.systemMain();
-        //创建ContextImpl、LoadedApk对象【见Step 3-2】
+        //创建ContextImpl、LoadedApk对象【见小节1.3.2】
         mSystemContext = activityThread.getSystemContext();
         //设置主题
         mSystemContext.setTheme(android.R.style.Theme_DeviceDefault_Light_DarkActionBar);
     }
 
-**Step 3-1.**  ActivityThread.systemMain
+#### 1.3.1  ActivityThread.systemMain
 
     public static ActivityThread systemMain() {
         //对于低内存的设备，禁用硬件加速
@@ -151,12 +141,12 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
         }
         // 创建ActivityThread
         ActivityThread thread = new ActivityThread();
-        // 创建Application以及调用其onCreate()方法【见Step 3-1-1】
+        // 创建Application以及调用其onCreate()方法【见小节1.3.1.1】
         thread.attach(true);
         return thread;
     }
 
-**Step 3-1-1.**  ActivityThread.attach
+##### 1.3.1.1  ActivityThread.attach
 
     private void attach(boolean system) {
         sCurrentActivityThread = this;
@@ -174,7 +164,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
                 // 创建应用上下文
                 ContextImpl context = ContextImpl.createAppContext(
                         this, getSystemContext().mPackageInfo);
-                //创建Application 【见Step 3-1-1-1】
+                //创建Application 【见小节1.3.1.2】
                 mInitialApplication = context.mPackageInfo.makeApplication(true, null);
                 //调用Application.onCreate()方法
                 mInitialApplication.onCreate();
@@ -213,7 +203,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 
 主要工作是创建应用上下文ContextImpl，创建Application以及调用其onCreate()方法，设置DropBox以及ComponentCallbacks2回调方法。
 
-**Step 3-1-1-1.**  LoadedApk.makeApplication
+##### 1.3.1.2  LoadedApk.makeApplication
 
     public Application makeApplication(boolean forceDefaultAppClass,
             Instrumentation instrumentation) {
@@ -239,7 +229,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
                     cl, appClass, appContext);
             appContext.setOuterContext(app);
         } catch (Exception e) {
-    		...
+            ...
         }
         // 将前面创建的app添加到应用列表。
         mActivityThread.mAllApplications.add(app);
@@ -252,19 +242,19 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 在该方法调用之前，已经创建了LoadedApk对象，该对象的成员变量mPackageName="android"; mClassLoader = ClassLoader.getSystemClassLoader();
 
 
-**Step 3-2.** ActivityThread.getSystemContext
+#### 1.3.2 ActivityThread.getSystemContext
 
     public ContextImpl getSystemContext() {
         synchronized (this) {
             if (mSystemContext == null) {
-                //创建ContextImpl对象【见Step 3-2-1】
+                //创建ContextImpl对象【见小节1.3.2.1】
                 mSystemContext = ContextImpl.createSystemContext(this);
             }
             return mSystemContext;
         }
     }
 
-**Step 3-2-1.** ContextImpl.createSystemContext
+##### 1.3.2.1 ContextImpl.createSystemContext
 
     static ContextImpl createSystemContext(ActivityThread mainThread) {
         //创建LoadedApk对象
@@ -272,7 +262,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
         //创建ContextImpl对象
         ContextImpl context = new ContextImpl(null, mainThread,
                 packageInfo, null, null, false, null, null, Display.INVALID_DISPLAY);
-        context.mResources.updateConfiguration(context.mResourcesManager.getConfiguration(), 
+        context.mResources.updateConfiguration(context.mResourcesManager.getConfiguration(),
                 context.mResourcesManager.getDisplayMetricsLocked());
         return context;
     }
@@ -280,7 +270,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 运行到这里，system_server的准备环境基本完成，接下来开始system_server中最为核心的过程，启动系统服务。
 通过`startBootstrapServices()`, `startCoreServices()`, `startOtherServices()`3个方法。
 
-**Step 4.** startBootstrapServices
+### 1.4 startBootstrapServices
 
 [-->SystemServer.java]
 
@@ -300,7 +290,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
         //初始化power management
         mActivityManagerService.initPowerManagement();
 
-        //启动服务LightsService 
+        //启动服务LightsService
         mSystemServiceManager.startService(LightsService.class);
 
         //启动服务DisplayManagerService
@@ -338,7 +328,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 该方法所创建的服务：ActivityManagerService, PowerManagerService, LightsService, DisplayManagerService， PackageManagerService， UserManagerService， sensor服务.
 
 
-**Step 5.** startCoreServices
+### 1.5 startCoreServices
 
     private void startCoreServices() {
         //启动服务BatteryService，用于统计电池电量，需要LightService.
@@ -357,85 +347,167 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 
 启动服务BatteryService，UsageStatsService，WebViewUpdateService。
 
-**Step 6.** startOtherServices
+### 1.6 startOtherServices
 
 该方法比较长，有近千行代码，逻辑很简单，主要是启动一系列的服务，这里就不列举源码了，在第四节直接对其中的服务进行一个简单分类。
 
-### 三、Service启动过程
+## 二、启动系统服务
 
-接下来，开始正式进入启动系统服务的过程。
-
-#### 启动方式
-system_server进程中的服务启动方式有两种，
-
-1. 一种是通过SystemServiceManager的`startService()`，该方法用于启动继承于SystemService的服务。主要功能：创建serviceClass类的对象，将刚创建对象添加到SystemServiceManager的成员变量mServices，再调用刚创建对象的onStart()方法。对于服务启动到一定阶段，进入相应的Phase时，会调用SystemServiceManager的`startBootPhase()`回调方法，该方法会循环遍历所有向`SystemServiceManager`注册过的service的`onBootPhase()`方法。
-2. 另一种是通过ServiceManager的`addService(String name, IBinder service)`，该方法用于初始化继承于IBinder的服务。主要功能将该服务向Native层的[service Manager注册服务](http://gityuan.com/2015/11/14/binder-add-service/#addservice)。
-
-#### 启动流程
+### 2.1 启动阶段
 SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶段从`PHASE_WAIT_FOR_DEFAULT_DISPLAY`到`PHASE_BOOT_COMPLETED`，如下图：
-  
+
 ![system_server服务启动流程](/images/boot/systemServer/system_server_boot_process.jpg)
 
-**启动流程分析：**
+**启动阶段顺序：**
 
-1. `PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段等待Display有默认显示;
-2. `PHASE_LOCK_SETTINGS_READY=480`，进入该阶段服务能获取锁屏设置的数据;
+1. `PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段等待Display有默认显示
+2. `PHASE_LOCK_SETTINGS_READY=480`，进入该阶段服务能获取锁屏设置的数据
 3. `PHASE_SYSTEM_SERVICES_READY=500`，进入该阶段服务能安全地调用核心系统服务，如PMS;
 4. `PHASE_ACTIVITY_MANAGER_READY=550`，进入该阶段服务能广播Intent;
 5. `PHASE_THIRD_PARTY_APPS_CAN_START=600`，进入该阶段服务能start/bind第三方apps，app能通过BInder调用service;
 6. `PHASE_BOOT_COMPLETED=1000`，该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
 
+**各个启动阶段所在源码位置：**
 
-**Phase 100**
+    public final class SystemServer {
+
+        private void startBootstrapServices() {
+          ...
+          //phase100
+          mSystemServiceManager.startBootPhase(SystemService.PHASE_WAIT_FOR_DEFAULT_DISPLAY);
+          ...
+        }
+
+        private void startOtherServices() {
+            ...
+            //phase480 和phase500
+            mSystemServiceManager.startBootPhase(SystemService.PHASE_LOCK_SETTINGS_READY);
+            mSystemServiceManager.startBootPhase(SystemService.PHASE_SYSTEM_SERVICES_READY);
+            ...
+            mActivityManagerService.systemReady(new Runnable() {
+               @Override
+               public void run() {
+                   //phase550
+                   mSystemServiceManager.startBootPhase(
+                           SystemService.PHASE_ACTIVITY_MANAGER_READY);
+                   ...
+                   //phase600
+                   mSystemServiceManager.startBootPhase(
+                           SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);
+                }
+            }
+        }
+    }
+
+接下来再说说简单每个阶段的大概完成的工作：
+
+#### 2.1.1 Phase100
 
 创建ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService共4项服务；
+接着则进入阶段`Phase100`，该阶段调用DisplayManagerService的`onBootPhase()`方法。
 
-接着则进入阶段`100`，该阶段调用DisplayManagerService的`onBootPhase()`方法。
-
-**Phase 480&&500**
+#### 2.1.2 Phase480
 
 创建PackageManagerService、WindowManagerService、InputManagerService、NetworkManagerService、DropBoxManagerService/FingerprintService等服务
+接着则进入阶段`Phase480`，该阶段调用DevicePolicyManagerService的`onBootPhase()`方法；
 
-接着则进入阶段`480`，该阶段调用DevicePolicyManagerService的`onBootPhase()`方法；
-紧接着进入阶段`500`，实现该阶段的回调方法的服务较多。
+#### 2.1.3 Phase500
 
+阶段480后,紧接着进入阶段500，中间并没有等待,实现该阶段的回调方法的服务较多，此处先省略。
 
-**Phase 550**
+#### 2.1.4 Phase550
 
-WindowManagerService、PowerManagerService、PackageManagerService、DisplayManagerService分别依次执行`systemReady()`方法；然后ActivityManagerService进入`systemReady()`方法; 
+WindowManagerService、PowerManagerService、PackageManagerService、DisplayManagerService分别依次执行`systemReady()`方法；然后ActivityManagerService进入`systemReady()`方法;
+接着则进入阶段`Phase550`，实现该阶段的回调方法的服务较多，此处先省略
 
-接着则进入阶段`550`，实现该阶段的回调方法的服务较多。
-
-**Phase 600**
+#### 2.1.5 Phase600
 
 AMS启动native crash监控,，加载WebView，启动SystemUi；然后是NetworkScoreService、NetworkManagementService、NetworkStatsService、NetworkPolicyManagerService、ConnectivityService、AudioService分别依次执行`systemReady()`方法，然后是启动Watchdog。
+接着则进入阶段`Phase600`，实现该阶段的回调方法的服务较多。
 
-接着则进入阶段`600`，实现该阶段的回调方法的服务较多。
+#### 2.1.6 Phase1000
+
+WallpaperManagerService、InputMethodManagerService、LocationManagerService、CountryDetectorService、NetworkTimeUpdateService、CommonTimeManagementService、TextServicesManagerService、AssetAtlasService、InputManagerService、TelephonyRegistry、MediaRouterService、MmsServiceBroker这些服务依次执行其`systemRunning()`方法。
+在经过一系列流程，再调用`AMS.finishBooting()`时，则进入阶段`Phase1000`。
+
+到此，系统服务启动阶段完成就绪，system_server进程启动完成则进入`Looper.loop()`状态，随时待命，等待消息队列MessageQueue中的消息到来，则马上进入执行状态。
+
+### 2.2 启动方式
+system_server进程中的服务启动方式有两种，分别是SystemServiceManager的`startService()`和ServiceManager的`addService`
+
+#### 2.2.1 startService
+
+通过SystemServiceManager的`startService(Class<T> serviceClass)`用于启动继承于`SystemService`的服务。主要功能：
+
+- 创建`serviceClass`类对象，将新建对象注册到SystemServiceManager的成员变量mServices;
+- 调用新建对象的onStart()方法，即调用`serviceClass.onStart()`；
+- 当系统启动到一个新的阶段Phase时，SystemServiceManager的`startBootPhase()`会循环遍历所有向`SystemServiceManager`注册过服务的`onBootPhase()`方法，即调用`serviceClass.onBootPhase()`。
+
+例如：`mSystemServiceManager.startService(PowerManagerService.class);`
+
+#### 2.2.2 addService
+
+通过ServiceManager的`addService(String name, IBinder service)`用于初始化继承于`IBinder`的服务。主要功能:
+
+- 将该服务向Native层的[serviceManager注册服务](http://gityuan.com/2015/11/14/binder-add-service/#addservice)。
+
+例如：`ServiceManager.addService(Context.WINDOW_SERVICE, wm);`
+
+### 2.3 小结
+
+System_server启动函数调用类的栈关系：
+
+    SystemServer.main
+        SystemServer.run
+            createSystemContext
+                ActivityThread.systemMain
+                    ActivityThread.attach
+                        LoadedApk.makeApplication
+                ActivityThread.getSystemContext
+                    ContextImpl.createSystemContext
+            startBootstrapServices();
+            startCoreServices();
+            startOtherServices();
+            Looper.loop();
 
 
-**Phase 1000**
-
-WallpaperManagerService、InputMethodManagerService、LocationManagerService、CountryDetectorService、NetworkTimeUpdateService、CommonTimeManagementService、TextServicesManagerService、AssetAtlasService、InputManagerService、TelephonyRegistry、MediaRouterService、MmsServiceBroker这些服务依次执行其`systemRunning()`方法。经过一定流程，当ActivityManagerServer进入`finishBooting()`时，则启动流程进入阶段`PHASE_BOOT_COMPLETED=1000`。
-
-到此所有服务启动完成，system_server进程启动完成，则进入`Looper.loop()`状态，随时待命，等待MessageQueue中的消息到来，则马上进入执行状态。
-
-### 四、服务分类
+### 三、服务类别
 
 system_server进程，从源码角度划分为引导服务、核心服务、其他服务3类。
 
-1. 引导服务：ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService、PackageManagerService、UserManagerService、SensorService共7项服务；
-2. 核心服务：BatteryService、UsageStatsService、WebViewUpdateService共3项服务；
-3. 其他服务：AlarmManagerService、VibratorService等共70多项服务
+1. 引导服务(7个)：ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService、PackageManagerService、UserManagerService、SensorService；
+2. 核心服务(3个)：BatteryService、UsageStatsService、WebViewUpdateService；
+3. 其他服务(70个+)：AlarmManagerService、VibratorService等。
 
-合计总大约80多个服务，下面只是简单地对所有服务分类（个人划分，便于后期分析）：
+合计总大约80个系统服务：
 
-1. **重量级服务：****ActivityManagerService**、**PackageManagerService**、**WindowManagerService**
-2. **功耗相关：****PowerManagerService**、BatteryService、BatteryStatsService、DreamManagerService
-3. **统计调度相关：****DropBoxManagerService**、**SamplingProfilerService**、UsageStatsService、DiskStatsService、SchedulingPolicyService、DeviceStorageMonitorService、AlarmManagerService、DeviceIdleController、DockObserver、ThermalObserver、JobSchedulerService、AccessibilityManagerService
-4. **UI相关：**DisplayManagerService、LightsService、GraphicsStatsService、StatusBarManagerService、NotificationManagerService、WallpaperManagerService、UiModeManagerService、AppWidgetService、LauncherAppsService、TextServicesManagerService、ContentService、LockSettingsService、InputManagerService、InputMethodManagerServiceMountService、FingerprintService、TvInputManagerService
-5. **网络相关：**NetworkManagementService、NetworkScoreService、NetworkStatsService、NetworkPolicyManagerService、ConnectivityService、BluetoothService、WifiP2pService、WifiService、WifiScanningService、EthernetService、WebViewUpdateService
-6. **Media相关：**AudioService、MediaRouterService、VoiceInteractionManagerService、MediaProjectionManagerService、MediaSessionService、
-7. **设备相关：**DevicePolicyManagerService、PrintManagerService、BackupManagerService、UserManagerService、AccountManagerService、TrustManagerService、**SensorService**、LocationManagerService、VibratorService、CountryDetectorService、GestureLauncherService、PersistentDataBlockService、ClipboardService
-8. **其他：**TelephonyRegistry、TelecomLoaderService、NsdService、UpdateLockService、SerialService、SearchManagerService、CommonTimeManagementService、AssetAtlasService、ConsumerIrService、MidiServiceCameraService、TwilightService、RestrictionsManagerService、MmsServiceBroker、RttService、UsbService。
+|---|---|---|
+|`ActivityManagerService`|`PackageManagerService`|`WindowManagerService`|
+|`PowerManagerService`|`BatteryService`|`BatteryStatsService`|
+|`DreamManagerService`|`DropBoxManagerService`|`SamplingProfilerService`|
+|`UsageStatsService`|`DiskStatsService`|`DeviceStorageMonitorService`|
+|SchedulingPolicyService|`AlarmManagerService`|DeviceIdleController|
+|ThermalObserver|JobSchedulerService|`AccessibilityManagerService`|
+|DisplayManagerService|LightsService|`GraphicsStatsService`|
+|StatusBarManagerService|NotificationManagerService|WallpaperManagerService|
+|UiModeManagerService|AppWidgetService|LauncherAppsService|
+|TextServicesManagerService|ContentService|LockSettingsService|
+|InputMethodManagerService|InputManagerService|`MountService`|
+|FingerprintService|TvInputManagerService|DockObserver|
+|NetworkManagementService|NetworkScoreService|`NetworkStatsService`|
+|NetworkPolicyManagerService|ConnectivityService|BluetoothService|
+|WifiP2pService|WifiService|WifiScanningService|
+|AudioService|MediaRouterService|VoiceInteractionManagerService|
+|MediaProjectionManagerService|MediaSessionService|
+|DevicePolicyManagerService|PrintManagerService|`BackupManagerService`|
+|`UserManagerService`|AccountManagerService|`TrustManagerService`|
+|`SensorService`|LocationManagerService|VibratorService|
+|CountryDetectorService|GestureLauncherService|PersistentDataBlockService|
+|EthernetService|WebViewUpdateService|ClipboardService|
+|TelephonyRegistry|TelecomLoaderService|NsdService
+|UpdateLockService|SerialService|SearchManagerService|
+|CommonTimeManagementService|AssetAtlasService|ConsumerIrService|
+|MidiServiceCameraService|TwilightService|RestrictionsManagerService|
+|MmsServiceBroker|RttService|UsbService|
 
-后续，会针对其中比较重要的服务进行展开详解。
+Service类别众多，其中表中加粗项是指博主挑选的较重要或者较常见的Service，并且在本博客中已经展开或者计划展开讲解的Service，当然如果有精力会讲解更多service，后续再更新。

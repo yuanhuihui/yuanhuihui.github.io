@@ -12,15 +12,15 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android系统服务ActivityManagerService，简称AMS
 
-	frameworks/base/core/java/android/app/ActivityThread.java
-	frameworks/base/core/java/android/app/LoadedApk.java
-	frameworks/base/core/java/android/app/ContextImpl.java
-	frameworks/base/core/java/com/android/server/LocalServices.java
-	frameworks/base/services/java/com/android/server/SystemServer.java
-	frameworks/base/services/core/java/com/android/server/SystemServiceManager.java
-	frameworks/base/services/core/java/com/android/server/ServiceThread.java
-	frameworks/base/services/core/java/com/android/server/pm/Installer.java
-	frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+    frameworks/base/core/java/android/app/ActivityThread.java
+    frameworks/base/core/java/android/app/LoadedApk.java
+    frameworks/base/core/java/android/app/ContextImpl.java
+    frameworks/base/core/java/com/android/server/LocalServices.java
+    frameworks/base/services/java/com/android/server/SystemServer.java
+    frameworks/base/services/core/java/com/android/server/SystemServiceManager.java
+    frameworks/base/services/core/java/com/android/server/ServiceThread.java
+    frameworks/base/services/core/java/com/android/server/pm/Installer.java
+    frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
 
 
 ### 一、概述
@@ -33,7 +33,7 @@ tags:
 [-->SystemServer.java]
 
     private void startBootstrapServices() {
-		...
+        ...
         //启动AMS服务【见小节2】
         mActivityManagerService = mSystemServiceManager.startService(
                 ActivityManagerService.Lifecycle.class).getService();
@@ -87,10 +87,10 @@ tags:
         }
         //注册Lifecycle服务，并添加到成员变量mServices
         mServices.add(service);
-        
+
         try {
             //启动ActivityManagerService.Lifecycle的onStart() 【见小节2-3】
-            service.onStart(); 
+            service.onStart();
         } catch (RuntimeException ex) {
             throw new RuntimeException("",ex);
         }
@@ -126,7 +126,7 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
         }
     }
 
-该过程： 
+该过程：
 
 1. 创建AMS内部类的Lifecycle对象，以及创建AMS对象；
 2. 将Lifecycle对象添加到mSystemServiceManager的成员变量mServices；
@@ -229,7 +229,7 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
                         } catch (InterruptedException e) {
                         }
                         updateCpuStatsNow(); //更新CPU状态
-                    } catch (Exception e) { 
+                    } catch (Exception e) {
                         Slog.e(TAG, "Unexpected exception collecting process stats", e);
                     }
                 }
@@ -369,11 +369,11 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
 
 ### 5. startCoreServices
 
-	private void startCoreServices() {
-	        //设置AMS的App使用情况统计服务
-	        mActivityManagerService.setUsageStatsManager(
-	                LocalServices.getService(UsageStatsManagerInternal.class));
-	}
+    private void startCoreServices() {
+            //设置AMS的App使用情况统计服务
+            mActivityManagerService.setUsageStatsManager(
+                    LocalServices.getService(UsageStatsManagerInternal.class));
+    }
 
 可通过`dumpys usagestats`查看用户的每个应用的使用情况
 

@@ -19,23 +19,23 @@ tags:
 
 * Android系统每隔16ms发出VSYNC信号，触发UI进行渲染，达到我们常说的60fps。 为了能实现流畅的画面，程序必须在16ms内完成渲染操作。
 
-	![render 1](/images/android-studio-performance-1/1_1.jpg)
+    ![render 1](/images/android-studio-performance-1/1_1.jpg)
 
 * 如果某一次渲染操作花费的时间是24ms，那么此次的渲染在完成16/24=67%的时候，会收到系统的VSYNC信号，但是渲染操作尚未完成，就会发生dropped frame(丢帧)，用户看到的界面还是停留在上一次的画面。在等到下次渲染成功时，由画面1 直接跳到画面3，用户会有卡顿的感觉。
 ![render 2](/images/android-studio-performance-1/1_2.jpg)
 
 * CPU或者GPU的负载过重，从而无法在16ms内完成渲染操作的可能情况：
 
-		- 过于复杂的layout；
-		- 过多的层叠绘制的布局（Overdraw）；
-		- 过多的动画执行的次数；
-		- 过多的复杂计算；
+        - 过于复杂的layout；
+        - 过多的层叠绘制的布局（Overdraw）；
+        - 过多的动画执行的次数；
+        - 过多的复杂计算；
 
 * 性能分析工具：
 
-		- HierarchyViewer，查看布局是否过于复杂；
-		- Show GPU Overdraw，查看布局Overdraw情况；
-		- TraceView，查看CPU使用情况；
+        - HierarchyViewer，查看布局是否过于复杂；
+        - Show GPU Overdraw，查看布局Overdraw情况；
+        - TraceView，查看CPU使用情况；
 
 
 ---
@@ -44,16 +44,16 @@ tags:
 
 *  Overdraw(过度绘制)描述的是屏幕上的某个像素在同一帧的时间内被绘制了多次。在多层次的UI结构里面，如果不可见的UI也在做绘制的操作，这就会导致某些像素区域被绘制了多次。这就浪费大量的CPU以及GPU资源。
 
-	![overdraw](/images/android-studio-performance-1/overdraw.jpg)
+    ![overdraw](/images/android-studio-performance-1/overdraw.jpg)
 
 * 当设计上追求更华丽的视觉效果的时候，容易陷入采用越来越多的层叠组件来实现这种视觉效果的怪圈。这很容易导致大量的性能问题，为了获得最佳的性能，必须尽量减少Overdraw的情况发生。可以通过手机设置里面的开发者选项，打开Show GPU Overdraw的选项，可以观察UI上的Overdraw情况。
-		![overdraw2](/images/android-studio-performance-1/overdraw2.jpg)
+        ![overdraw2](/images/android-studio-performance-1/overdraw2.jpg)
 
 * 蓝色，淡绿，淡红，深红代表了4种不同程度的Overdraw情况，我们的目标就是尽量减少红色Overdraw，看到更多的蓝色区域。
-	
-	- UI布局存在大量重叠的部分
-	- 非必须的重叠背景。例如某个Activity有一个背景，然后里面的Layout又有自己的背景，同时子View又分别有自己的背景。
-	- 仅仅是通过移除非必须的背景图片，就能够减少大量的红色Overdraw区域，增加蓝色区域的占比。
+
+    - UI布局存在大量重叠的部分
+    - 非必须的重叠背景。例如某个Activity有一个背景，然后里面的Layout又有自己的背景，同时子View又分别有自己的背景。
+    - 仅仅是通过移除非必须的背景图片，就能够减少大量的红色Overdraw区域，增加蓝色区域的占比。
 
 ---
 
@@ -96,8 +96,8 @@ tags:
 >在屏幕上显示为条形图
 
 * 在手机画面上看到丰富的GPU绘制图形信息，屏幕上方的图像反应的是通知栏的使用时间，屏幕下方的图像反应的是当前活动Activity的渲染情况。
-	
-	![gpu_render_1](/images/android-studio-performance-1/gpu_render_1.jpg)
+
+    ![gpu_render_1](/images/android-studio-performance-1/gpu_render_1.jpg)
 
 * 当我们与应用程序互动时，会看到一条垂直的柱状图在屏幕上，按照从左到右的顺序显示的；每一个垂直的柱状图代表一帧的渲染时间，柱状图越长，代表渲染时间越长。
 其中绿色标记线代表16毫秒，要确保一秒钟内达到60帧的速率，需要确保这些帧的每一条线都在16毫秒的绿色标记线以下。
@@ -106,22 +106,22 @@ tags:
 * 每个垂直柱状图实际是由三种颜色堆叠在一起的，下面将详细讲解三种不同颜色的含义：
 
 1. 蓝色：代表测量绘制的时间，也就是需要花多长的时间去创建和更新你的Java Display Lists.
-		
-	- 视图在实际渲染之前，必须先转换成一个GPU所能识别的格式。
-	- 接着，Display List对象被系统送入cache
-	- 当**蓝色条过长**：代表一堆视图突然变得无效，或者  一个或多个自定义的视图中存在特别复杂的On-Draw绘制函数
 
-	![gpu_render_3](/images/android-studio-performance-1/gpu_render_3.jpg)
+    - 视图在实际渲染之前，必须先转换成一个GPU所能识别的格式。
+    - 接着，Display List对象被系统送入cache
+    - 当**蓝色条过长**：代表一堆视图突然变得无效，或者  一个或多个自定义的视图中存在特别复杂的On-Draw绘制函数
+
+    ![gpu_render_3](/images/android-studio-performance-1/gpu_render_3.jpg)
 
 2. 红色：代表的是Android 2D的渲染执行Display List所花的执行时间；
-		
-	- 为了绘制到屏幕上，android 需要使用OpenGLES API将数据发送到GPU，最终在屏幕上显示出来。一个越复杂的视图，比如自定义视图，需要越多复杂的OpenGL指令来绘制它。
-	- 当**红色过长**：可是是由于视图过于复杂；也可能是由于重新提交了视图绘制而造成的，而这些视图并非无效的，比如视图旋转，需要先清理这个区域的视图，这可能会影响到这个视图下面的视图，因为这些视图都需要进行重新绘制的操作。
 
-	![gpu_render_4](/images/android-studio-performance-1/gpu_render_4.jpg)
+    - 为了绘制到屏幕上，android 需要使用OpenGLES API将数据发送到GPU，最终在屏幕上显示出来。一个越复杂的视图，比如自定义视图，需要越多复杂的OpenGL指令来绘制它。
+    - 当**红色过长**：可是是由于视图过于复杂；也可能是由于重新提交了视图绘制而造成的，而这些视图并非无效的，比如视图旋转，需要先清理这个区域的视图，这可能会影响到这个视图下面的视图，因为这些视图都需要进行重新绘制的操作。
+
+    ![gpu_render_4](/images/android-studio-performance-1/gpu_render_4.jpg)
 
 3. 橙色部分表示的是处理时间，或者说这是CPU告诉GPU它已经完成了渲染一帧，这是一个阻塞调用。CPU会一致等待GPU发出接命令的响应。
-	 
+
  - 当**橙色过长**：意味着给GPU太多的工作，太多复杂视图需要OpenGL命令去绘制和处理。
 
 ---
@@ -141,20 +141,20 @@ tags:
 对于android程序，复杂的XML布局文件是如何被识别而绘制出来？activity的画面是如何绘制到屏幕上的？
 
 * Rasterization(栅格化)是绘制XML布局文件中是由一系列Button, TextView, Bitmap, String等组件的基本操作。帧是由像素点构成的，屏幕绘制一帧时，像素点是一行一行的进行填充的。而针对每个组件，需要通过栅格化把它拆分到不同的像素上进行显示。这是一个费时操作。GPU本身被设计成使用一组特定的图元，引入GPU从而加快栅格化的操作。
-	
-	![ui_gpu_1](/images/android-studio-performance-1/ui_gpu_1.jpg)
+
+    ![ui_gpu_1](/images/android-studio-performance-1/ui_gpu_1.jpg)
 
 * CPU负责把UI组件Polygons（多边形化），Texture（纹理化）；再由GPU负责栅格化渲染；
-	
-	![ui_gpu_2](/images/android-studio-performance-1/ui_gpu_2.jpg)
+
+    ![ui_gpu_2](/images/android-studio-performance-1/ui_gpu_2.jpg)
 
 UI对象被绘制在频幕上，首先在CPU上转换成多边形和纹理，再传递给GPU进行光栅化处理，这两个过程也并非迅速完成。所幸的是OpenGL ES API允许你将内容传送到GPU内存中，在下次需要渲染的时候直接进行操作。
 
 * 渲染性能优化策略：
 
-		- 尽量减少需要CPU转换对象的数量；
-		- 尽量减少提交到GPU的数量；
-		- 尽可能多且快的将更多的数据上传到GPU，然后留在GPU中 尽可能长的时间内不去修改，这是是Android系统遵守的一项原则。
+        - 尽量减少需要CPU转换对象的数量；
+        - 尽量减少提交到GPU的数量；
+        - 尽可能多且快的将更多的数据上传到GPU，然后留在GPU中 尽可能长的时间内不去修改，这是是Android系统遵守的一项原则。
 
 具体：主题提供了一些资源，包括位图和一些可绘制的东西，被组合在一起形成一个纹理 并且驻留在GPU中。需要使用这些资源，都是值从纹理里面获取渲染，不需要任何转换，故尽量使用这些资源。随着UI组件的越来越丰富，有了更多演变的形态。例如，图片显示，CPU计算加载到内存，再传递给GPU渲染; 文字显示，CPU换算成纹理，再传递给GPU渲染；动画则更为负责，后续再介绍动画。
 
@@ -171,9 +171,9 @@ UI对象被绘制在频幕上，首先在CPU上转换成多边形和纹理，再
 ![7_1](/images/android-studio-performance-1/7_1.jpg)
 
 * 减少Measure Layout的计算时间：
-	- 尽量较少无效布局来提高整体的性能
-	- 尽量保持扁平化布局，
-	- 移除非必需的UI组件
+    - 尽量较少无效布局来提高整体的性能
+    - 尽量保持扁平化布局，
+    - 移除非必需的UI组件
 
 ---
 
@@ -194,4 +194,3 @@ UI对象被绘制在频幕上，首先在CPU上转换成多边形和纹理，再
 
 
 总之，尽可能保证每一帧在16ms内完成所有的渲染操作，让App更加顺畅。
- 

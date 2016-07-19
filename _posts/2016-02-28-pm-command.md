@@ -14,7 +14,7 @@ tags:
 
 命令格式：
 
-	pm <command>
+    pm <command>
 
 命令列表：
 
@@ -44,7 +44,7 @@ pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManage
 
 查看所有的package
 
-	list packages [options] <FILTER>
+    list packages [options] <FILTER>
 
 **其中[options]参数：**
 
@@ -61,11 +61,11 @@ pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManage
 
 比如：查看第3方应用：
 
-	pm list packages -3
+    pm list packages -3
 
 又比如，查看已经被禁用的包名。（国内的厂商一般把google的服务禁用了）
 
-	pm list packages -d
+    pm list packages -d
 
 **`<FILTER`>参数：**
 
@@ -73,7 +73,7 @@ pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManage
 
 比如，查看包名带google字段的包名
 
-	pm list packages google
+    pm list packages google
 
 
 ### 2.2 pm install
@@ -81,7 +81,7 @@ pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManage
 
 安装应用
 
-	pm install [options] <PATH>
+    pm install [options] <PATH>
 
 **其中[options]参数：**
 
@@ -101,16 +101,14 @@ pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManage
 
 ### 2.3 其他参数
 
-	pm list users //查看当前手机用户
-	pm list libraries //查看当前设备所支持的库
-	pm list features //查看系统所有的features
-	pm list instrumentation //所有测试包的信息
-	pm list permission-groups //查看所有的权限组
-	pm list permissions [options] <group> 查看权限
-		-g: 以组形式组织；
-		-f: 打印所有信息；
-		-s: 简要信息；
-		-d: 只列举危险权限；
-		-u: 只列举用户可见的权限。
-
-
+    pm list users //查看当前手机用户
+    pm list libraries //查看当前设备所支持的库
+    pm list features //查看系统所有的features
+    pm list instrumentation //所有测试包的信息
+    pm list permission-groups //查看所有的权限组
+    pm list permissions [options] <group> 查看权限
+        -g: 以组形式组织；
+        -f: 打印所有信息；
+        -s: 简要信息；
+        -d: 只列举危险权限；
+        -u: 只列举用户可见的权限。

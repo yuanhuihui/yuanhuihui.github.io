@@ -12,25 +12,25 @@ tags:
 > 基于Android 6.0的源码剖析， 分析android Service启动流程中ActivityManagerService所扮演的角色
 
 
-	/frameworks/base/services/core/java/com/android/server/am/ActiveServices.java
-	/frameworks/base/services/core/java/com/android/server/am/ServiceRecord.java
-	/frameworks/base/services/core/java/com/android/server/am/ProcessRecord.java
+    /frameworks/base/services/core/java/com/android/server/am/ActiveServices.java
+    /frameworks/base/services/core/java/com/android/server/am/ServiceRecord.java
+    /frameworks/base/services/core/java/com/android/server/am/ProcessRecord.java
 
-	/frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
-	/frameworks/base/core/java/android/app/IActivityManager.java
-	/frameworks/base/core/java/android/app/ActivityManagerNative.java (内含ActivityManagerProxy类)
-	/frameworks/base/core/java/android/app/ActivityManager.java
+    /frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+    /frameworks/base/core/java/android/app/IActivityManager.java
+    /frameworks/base/core/java/android/app/ActivityManagerNative.java (内含ActivityManagerProxy类)
+    /frameworks/base/core/java/android/app/ActivityManager.java
 
-	/frameworks/base/core/java/android/app/IApplicationThread.java
-	/frameworks/base/core/java/android/app/ApplicationThreadNative.java (内含ApplicationThreadProxy类)
-	/frameworks/base/core/java/android/app/ActivityThread.java (内含ApplicationThread类)
+    /frameworks/base/core/java/android/app/IApplicationThread.java
+    /frameworks/base/core/java/android/app/ApplicationThreadNative.java (内含ApplicationThreadProxy类)
+    /frameworks/base/core/java/android/app/ActivityThread.java (内含ApplicationThread类)
 
-	/frameworks/base/core/java/android/app/ContextImpl.java
+    /frameworks/base/core/java/android/app/ContextImpl.java
 
 ### 概述
 
 看过前面介绍[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)文章，相信对Binder架构有了较深地理解。在[Android系统启动-开篇](http://gityuan.com/2016/01/03/android-boot/)中讲述了Binder的地位是非常之重要，整个Java framework的提供ActivityManagerService、PackageManagerService等服务都是基于Binder架构来通信的，另外
-[handle消息机制](http://gityuan.com/2015/12/26/handler-message/)在进程内的通信使用非常多。本文将开启对ActivityManagerService的分析。  
+[handle消息机制](http://gityuan.com/2015/12/26/handler-message/)在进程内的通信使用非常多。本文将开启对ActivityManagerService的分析。
 
 ActivityManagerService是Android的Java framework的服务框架最重要的服务之一。对于Andorid的Activity、Service、Broadcast、ContentProvider四剑客的管理，包含其生命周期都是通过ActivityManagerService来完成的。对于这四剑客的介绍，此处先略过，后续博主会针对这4剑客分别阐述。
 
@@ -48,7 +48,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 在app中启动一个service，就一行语句搞定，
 
-	startService()； //或 binderService()
+    startService()； //或 binderService()
 
 该过程如下：
 
@@ -61,7 +61,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 3. ActivityManagerService向新生成的ActivityThread进程，通过Binder方式发送生成服务的请求；
 4. ActivityThread启动运行服务，这便于服务启动的简易过程，真正流程远比这服务；
 
-**启动服务的流程图：**  
+**启动服务的流程图：**
 
 点击查看[大图](http://gityuan.com/images/android-service/am/Seq_start_service.png)
 
@@ -82,41 +82,41 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 ### 1. ContextWrapper.startService
 
-	public class ContextWrapper extends Context {
-	    @Override
-	    public ComponentName startService(Intent service) {
-	        return mBase.startService(service); //其中mBase为ContextImpl对象 【见流程2-1】
-	    }
-	}
+    public class ContextWrapper extends Context {
+        @Override
+        public ComponentName startService(Intent service) {
+            return mBase.startService(service); //其中mBase为ContextImpl对象 【见流程2-1】
+        }
+    }
 
 ### 2. ContextImpl.startService
 
 **[2-1]**
 
-	class ContextImpl extends Context {
-		@Override
-	    public ComponentName startService(Intent service) {
-	        //当system进程调用此方法时输出warn信息，system进程建立调用startServiceAsUser方法
-	        warnIfCallingFromSystemProcess(); 
-	        return startServiceCommon(service, mUser); //【见流程2-2】
-	    }
+    class ContextImpl extends Context {
+        @Override
+        public ComponentName startService(Intent service) {
+            //当system进程调用此方法时输出warn信息，system进程建立调用startServiceAsUser方法
+            warnIfCallingFromSystemProcess();
+            return startServiceCommon(service, mUser); //【见流程2-2】
+        }
 
 **[2-2]**
 
     private ComponentName startServiceCommon(Intent service, UserHandle user) {
         try {
             //检验service，当service为空则throw异常
-            validateServiceIntent(service); 
+            validateServiceIntent(service);
             service.prepareToLeaveProcess();
             // 调用ActivityManagerNative类 【见流程3】
             ComponentName cn = ActivityManagerNative.getDefault().startService(
                 mMainThread.getApplicationThread(), service, service.resolveTypeIfNeeded(getContentResolver()), getOpPackageName(), user.getIdentifier());
             if (cn != null) {
                 if (cn.getPackageName().equals("!")) {
-                    throw new SecurityException("Not allowed to start service " + 
+                    throw new SecurityException("Not allowed to start service " +
                         service + " without permission " + cn.getClassName());
                 } else if (cn.getPackageName().equals("!!")) {
-                    throw new SecurityException("Unable to start service " + 
+                    throw new SecurityException("Unable to start service " +
                         service  ": " + cn.getClassName());
                 }
             }
@@ -132,7 +132,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
         return gDefault.get();
     }
 
-	//获取IActivityManager的代理类
+    //获取IActivityManager的代理类
     private static final Singleton<IActivityManager> gDefault = new Singleton<IActivityManager>() {
         protected IActivityManager create() {
             //获取名为"activity"的服务，服务都注册到ServiceManager来统一管理
@@ -142,17 +142,17 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
         }
     };
 
-	//单例模式，此处的mInstance为IActivityManager类的代理对象，即ActivityManagerProxy。
-	public abstract class Singleton<T> {
-	    public final T get() {
-	        synchronized (this) {
-	            if (mInstance == null) {
-	                mInstance = create();
-	            }
-	            return mInstance;
-	        }
-	    }
-	}
+    //单例模式，此处的mInstance为IActivityManager类的代理对象，即ActivityManagerProxy。
+    public abstract class Singleton<T> {
+        public final T get() {
+            synchronized (this) {
+                if (mInstance == null) {
+                    mInstance = create();
+                }
+                return mInstance;
+            }
+        }
+    }
 
 该方法返回的是ActivityManagerProxy对象，那么下一步调用ActivityManagerProxy.startService()方法。
 
@@ -164,8 +164,8 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 该类位于文件ActivityManagerNative.java
 
-	public ComponentName startService(IApplicationThread caller, Intent service,
-	            String resolvedType, String callingPackage, int userId) throws RemoteException
+    public ComponentName startService(IApplicationThread caller, Intent service,
+                String resolvedType, String callingPackage, int userId) throws RemoteException
     {
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
@@ -225,8 +225,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             String resolvedType, String callingPackage, int userId)
             throws TransactionTooLargeException {
         //当调用者是孤立进程，则抛出异常。
-        enforceNotIsolatedCaller("startService"); 
-        
+        enforceNotIsolatedCaller("startService");
+
         if (service != null && service.hasFileDescriptors() == true) {
             throw new IllegalArgumentException("File descriptors passed in Intent");
         }
@@ -258,7 +258,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 
 ### 6. ActiveServices.startServiceLocked
-	
+
 **[6-1]**
 
     ComponentName startServiceLocked(IApplicationThread caller, Intent service, String resolvedType,
@@ -268,13 +268,13 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         final boolean callerFg;
         if (caller != null) {
             final ProcessRecord callerApp = mAm.getRecordForAppLocked(caller);
-            if (callerApp == null) 
+            if (callerApp == null)
                 throw new SecurityException(""); //抛出异常，此处省略异常字符串
             callerFg = callerApp.setSchedGroup != Process.THREAD_GROUP_BG_NONINTERACTIVE;
         } else {
             callerFg = true;
         }
-        //检索服务信息 
+        //检索服务信息
         ServiceLookupResult res =  retrieveServiceLocked(service, resolvedType, callingPackage,
                     callingPid, callingUid, userId, true, callerFg);
         if (res == null) {
@@ -315,13 +315,13 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             } else if (proc.curProcState >= ActivityManager.PROCESS_STATE_SERVICE) {
                 //将新的服务加入到后台启动队列，该队列也包含当前正在运行其他services或者receivers的进程
                 addToStarting = true;
-            } 
-        } 
+            }
+        }
         return startServiceInnerLocked(smap, service, r, callerFg, addToStarting); //【见流程6-2】
     }
 
 **[6-2]**
-	
+
     ComponentName startServiceInnerLocked(ServiceMap smap, Intent service, ServiceRecord r,
             boolean callerFg, boolean addToStarting) throws TransactionTooLargeException {
         ProcessStats.ServiceState stracker = r.getTracker();
@@ -398,7 +398,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
                 try {
                     app.addPackage(r.appInfo.packageName, r.appInfo.versionCode, mAm.mProcessStats);
                     // 启动服务 【见流程10-2】
-                    realStartServiceLocked(r, app, execInFg); 
+                    realStartServiceLocked(r, app, execInFg);
                     return null;
                 } catch (TransactionTooLargeException e) {
                     throw e;
@@ -415,7 +415,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             //启动service所要运行的进程 【见流程7-1】
             if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
                     "service", r.name, false, isolated, false)) == null) {
-                String msg = "" 
+                String msg = ""
                 bringDownServiceLocked(r); // 进程启动失败
                 return msg;
             }
@@ -424,7 +424,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             }
         }
         if (!mPendingServices.contains(r)) {
-            mPendingServices.add(r); 
+            mPendingServices.add(r);
         }
         if (r.delayedStop) {
             r.delayedStop = false;
@@ -435,7 +435,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return null;
     }
 
- 
+
 对于非前台进程调用而需要启动的服务，如果已经有其他的后台服务正在启动中，那么我们可能希望延迟其启动。这是用来避免启动同时启动过多的进程(非必须的)。
 
 ### 7. AMS.startProcessLocked
@@ -560,7 +560,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
                 } catch (RemoteException e) {
                     throw e.rethrowAsRuntimeException();
                 }
-                
+
                 //添加共享app和gids，用于app直接共享资源
                 if (ArrayUtils.isEmpty(permGids)) {
                     gids = new int[2];
@@ -628,7 +628,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
             boolean isActivityProcess = (entryPoint == null);
             if (entryPoint == null) entryPoint = "android.app.ActivityThread";
-            //请求Zygote创建新进程 【见流程8，此处跳级见后面说明】 
+            //请求Zygote创建新进程 【见流程8，此处跳级见后面说明】
             Process.ProcessStartResult startResult = Process.start(entryPoint,
                     app.processName, uid, uid, gids, debugFlags, mountExternal,
                     app.info.targetSdkVersion, app.info.seinfo, requiredAbi, instructionSet,
@@ -690,7 +690,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
         Looper.prepareMainLooper();
         //创建ActivityThread对象
-        ActivityThread thread = new ActivityThread(); 
+        ActivityThread thread = new ActivityThread();
         //建立Binder通道 【见流程8-2】
         thread.attach(false);
         if (sMainThreadHandler == null) {
@@ -724,12 +724,12 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             final IActivityManager mgr = ActivityManagerNative.getDefault();
             try {
                 //调用基于IActivityManager接口的Binder通道【见流程9-1】
-                mgr.attachApplication(mAppThread); 
+                mgr.attachApplication(mAppThread);
             } catch (RemoteException ex) {
                 // Ignore
             }
 
-            //观察是否快接近heap的上限 
+            //观察是否快接近heap的上限
             BinderInternal.addGcWatcher(new Runnable() {
                 @Override public void run() {
                     if (!mSomeActivitiesChanged) {
@@ -887,7 +887,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         mHandler.removeMessages(PROC_START_TIMEOUT_MSG, app); //移除进程启动超时的消息
         boolean normalMode = mProcessesReady || isAllowedWhileBooting(app.info);
         List<ProviderInfo> providers = normalMode ? generateApplicationProvidersLocked(app) : null;
-        
+
         try {
             int testMode = IApplicationThread.DEBUG_OFF;
             if (mDebugApp != null && mDebugApp.equals(processName)) {
@@ -928,7 +928,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             if (app.instrumentationClass != null) {
                 ensurePackageDexOpt(app.instrumentationClass.getPackageName());
             }
-          
+
             ApplicationInfo appInfo = app.instrumentationInfo != null
                     ? app.instrumentationInfo : app.info;
             app.compat = compatibilityInfoForPackageLocked(appInfo);
@@ -955,7 +955,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             startProcessLocked(app, "bind fail", processName);
             return false;
         }
-        
+
         mPersistentStartingProcesses.remove(app);
         mProcessesOnHold.remove(app);
         boolean badApp = false;
@@ -972,7 +972,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
         //寻找所有需要在该进程中运行的服务 【见流程10-1】
         if (!badApp) {
-            try { 
+            try {
                 didSomething |= mServices.attachApplicationLocked(app, processName);
             } catch (Exception e) {
                 badApp = true;
@@ -1194,7 +1194,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             case UNBIND_SERVICE:
                 handleUnbindService((BindServiceData)msg.obj);
                 break;
-            case SERVICE_ARGS: 
+            case SERVICE_ARGS:
                 handleServiceArgs((ServiceArgsData)msg.obj);  // serviceStart
                 break;
             case STOP_SERVICE:
@@ -1249,7 +1249,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 ### 13. Service.onCreate
 
     public abstract class Service extends ContextWrapper implements ComponentCallbacks2 {
-        public void onCreate(){	}
+        public void onCreate(){    }
     }
 
 最终调用到抽象类Service.onCreate()方法，对于真正的Service都会通过覆写该方式，调用真正的onCreate()方法。拨云见日，到此总算是进入了Service的生命周期。

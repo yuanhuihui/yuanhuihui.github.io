@@ -13,18 +13,18 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Binder IPC通信的权限控制方法clearCallingIdentity和restoreCallingIdentity的原理和用途。
 
-	/frameworks/base/core/java/android/os/Binder.java
-	/frameworks/base/core/jni/android_util_Binder.cpp
-	/frameworks/native/libs/binder/IPCThreadState.cpp
+    /frameworks/base/core/java/android/os/Binder.java
+    /frameworks/base/core/jni/android_util_Binder.cpp
+    /frameworks/native/libs/binder/IPCThreadState.cpp
 
 ## 一、概述
 
 在[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)中通过十篇文章，深入探讨了Android M的Binder IPC机制。看过Android系统源代码的朋友，一定看到过`Binder.clearCallingIdentity()`和`Binder.restoreCallingIdentity()`这两个方法，其定义在`Binder.java`文件：
 
-	//作用是清空远程调用端的uid和pid，用当前本地进程的uid和pid替代；
-	public static final native long clearCallingIdentity();
-	//作用是恢复远程调用端的uid和pid信息，正好是`clearCallingIdentity`的反过程;
-	public static final native void restoreCallingIdentity(long token);
+    //作用是清空远程调用端的uid和pid，用当前本地进程的uid和pid替代；
+    public static final native long clearCallingIdentity();
+    //作用是恢复远程调用端的uid和pid信息，正好是`clearCallingIdentity`的反过程;
+    public static final native void restoreCallingIdentity(long token);
 
 
 这两个方法涉及的uid和pid，每个线程都有自己独一无二的`IPCThreadState`对象，记录当前线程的pid和uid，可通过方法`Binder.getCallingPid()`和`Binder.getCallingUid()`获取相应的pid和uid。
@@ -40,27 +40,27 @@ clearCallingIdentity(), restoreCallingIdentity()这两个方法使用过程都�
 
 **[-->android_util_Binder.cpp]**
 
-	static jlong android_os_Binder_clearCallingIdentity(JNIEnv* env, jobject clazz)
-	{
-	    //调用IPCThreadState类的方法执行
-	    return IPCThreadState::self()->clearCallingIdentity();
-	}
+    static jlong android_os_Binder_clearCallingIdentity(JNIEnv* env, jobject clazz)
+    {
+        //调用IPCThreadState类的方法执行
+        return IPCThreadState::self()->clearCallingIdentity();
+    }
 
 
 **[-->IPCThreadState.cpp]**
 
-	int64_t IPCThreadState::clearCallingIdentity()
-	{
-	    int64_t token = ((int64_t)mCallingUid<<32) | mCallingPid;
-	    clearCaller();
-	    return token;
-	}
+    int64_t IPCThreadState::clearCallingIdentity()
+    {
+        int64_t token = ((int64_t)mCallingUid<<32) | mCallingPid;
+        clearCaller();
+        return token;
+    }
 
-	void IPCThreadState::clearCaller()
-	{
-	    mCallingPid = getpid(); //当前进程pid赋值给mCallingPid
-	    mCallingUid = getuid(); //当前进程uid赋值给mCallingUid
-	}
+    void IPCThreadState::clearCaller()
+    {
+        mCallingPid = getpid(); //当前进程pid赋值给mCallingPid
+        mCallingUid = getuid(); //当前进程uid赋值给mCallingUid
+    }
 
 - mCallingUid(记为UID)，保存Binder IPC通信的调用方进程的Uid；
 - mCallingPid(记为PID)，保存Binder IPC通信的调用方进程的Pid；
@@ -71,27 +71,27 @@ UID和PID是IPCThreadState的成员变量， 都是32位的int型数据，通过
 
 **[-->android_util_Binder.cpp]**
 
-	static void android_os_Binder_restoreCallingIdentity(JNIEnv* env, jobject clazz, jlong token)
-	{
-	    //token记录着uid信息，将其右移32位得到的是uid
-	    int uid = (int)(token>>32);
-	    if (uid > 0 && uid < 999) {
-	        //目前Android中不存在小于999的uid，当uid<999则抛出异常。
-	        char buf[128];
-	        jniThrowException(env, "java/lang/IllegalStateException", buf);
-	        return;
-	    }
-	    //调用IPCThreadState类的方法执行
-	    IPCThreadState::self()->restoreCallingIdentity(token);
-	}
+    static void android_os_Binder_restoreCallingIdentity(JNIEnv* env, jobject clazz, jlong token)
+    {
+        //token记录着uid信息，将其右移32位得到的是uid
+        int uid = (int)(token>>32);
+        if (uid > 0 && uid < 999) {
+            //目前Android中不存在小于999的uid，当uid<999则抛出异常。
+            char buf[128];
+            jniThrowException(env, "java/lang/IllegalStateException", buf);
+            return;
+        }
+        //调用IPCThreadState类的方法执行
+        IPCThreadState::self()->restoreCallingIdentity(token);
+    }
 
 **[-->IPCThreadState.cpp]**
 
-	void IPCThreadState::restoreCallingIdentity(int64_t token)
-	{
-	    mCallingUid = (int)(token>>32);
-	    mCallingPid = (int)token;
-	}
+    void IPCThreadState::restoreCallingIdentity(int64_t token)
+    {
+        mCallingUid = (int)(token>>32);
+        mCallingPid = (int)token;
+    }
 
 从`token`中解析出PID和UID，并赋值给相应的变量。该方法正好是`clearCallingIdentity`的反过程。
 

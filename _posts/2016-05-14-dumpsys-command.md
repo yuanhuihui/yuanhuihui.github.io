@@ -62,9 +62,9 @@ tags:
 
 通过下面命令可打印具体某一项服务：`dumpsys <service>`，其中<service>便是前面表格中的服务名，比如：
 
-	dumpsys cpuinfo //打印一段时间进程的CPU使用百分比排行榜
-	dumpsys meminfo -h  //查看dump内存的帮助信息
-	dumpsys package <packagename> //查看指定包的信息
+    dumpsys cpuinfo //打印一段时间进程的CPU使用百分比排行榜
+    dumpsys meminfo -h  //查看dump内存的帮助信息
+    dumpsys package <packagename> //查看指定包的信息
 
 
 系统服务非常之多，那么接下来将重点说说其中之一:`dumpsys activity`用法.
@@ -72,12 +72,12 @@ tags:
 
 ## 二、 Activity
 
-	dumpsys activity [options] [cmd]
+    dumpsys activity [options] [cmd]
 
 下面分别说说options和cmd有哪些可选值
 
 ### 2.1 options
-	 
+
 options可选值：
 
 - `-a`：dump所有；
@@ -159,7 +159,7 @@ cmd可选值
 
 
 **场景3：查询某个App所有的Activity状态**
-    
+
 输出结果较多，尤其是`View Hierarchy`，下面截取部分：
 
     dumpsys activity a com.sina.weibo
@@ -190,5 +190,3 @@ cmd可选值
 
 
 > 由于本人最近刚刚换工作，个人下班时间严重缩减，迟迟没有更新博客，今天就先写到这里，后续再更新。
-
-

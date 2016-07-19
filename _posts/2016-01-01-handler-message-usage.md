@@ -13,13 +13,13 @@ tags:
 > 本文基于Android 6.0的源代码，来分析Handler的用法
 
 **相关源码**
-	
-	framework/base/core/java/andorid/os/HandlerThread.java
+
+    framework/base/core/java/andorid/os/HandlerThread.java
 
 
 ## 一、HandlerThread
 
-[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)  
+[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)
 [Android消息机制2-Handler(native篇)](http://gityuan.com/2015/12/27/handler-message-native/#nativepollonce)
 
 这两篇文章已经讲解了消息机制，那么对于Handler的用法，往往是在一个线程中运行Looper，其他线程通过Handler来发送消息到Looper所在线程，这里涉及线程间的通信。既然涉及多个线程的通信，会有同步的问题，Android对此直接提供了HandlerThread类，下面来讲讲HandlerThread类的设计。
@@ -34,7 +34,7 @@ HandlerThread 继承于 Thread类
         mPriority = Process.THREAD_PRIORITY_DEFAULT; //默认优先级
     }
 
-	public HandlerThread(String name, int priority) {
+    public HandlerThread(String name, int priority) {
         super(name);
         mPriority = priority;
     }
@@ -48,7 +48,7 @@ HandlerThread 继承于 Thread类
         if (!isAlive()) {
             return null;
         }
-        
+
         //当线程已经启动，则等待直到looper创建完成
         synchronized (this) {
             while (isAlive() && mLooper == null) {
@@ -71,7 +71,7 @@ HandlerThread 继承于 Thread类
             mLooper = Looper.myLooper(); //获取looper对象
             notifyAll(); //唤醒等待线程
         }
-        Process.setThreadPriority(mPriority); 
+        Process.setThreadPriority(mPriority);
         onLooperPrepared();  // 该方法可通过覆写，实现自己的逻辑
         Looper.loop();   //进入循环模式
         mTid = -1;
@@ -107,21 +107,21 @@ quit()与quitSafely()的区别，仅仅在于是否移除当前正在处理的�
 
 示例代码：
 
-	// Step 1: 创建并启动HandlerThread线程，内部包含Looper	
-	HandlerThread handlerThread = new HandlerThread("gityuan.com");
-	handlerThread.start();
-	
-	// Step 2: 创建Handler
-	Handler handler = new Handler(handlerThread.getLooper());
-	
-	// Step 3: 发送消息
-	handler.post(new Runnable() {  
-	          
-	        @Override  
-	        public void run() {  
-	            System.out.println("thread id="+Thread.currentThread().getId());  
-	        }  
-	    });  
+    // Step 1: 创建并启动HandlerThread线程，内部包含Looper
+    HandlerThread handlerThread = new HandlerThread("gityuan.com");
+    handlerThread.start();
+
+    // Step 2: 创建Handler
+    Handler handler = new Handler(handlerThread.getLooper());
+
+    // Step 3: 发送消息
+    handler.post(new Runnable() {
+
+            @Override
+            public void run() {
+                System.out.println("thread id="+Thread.currentThread().getId());
+            }
+        });
 
 或者 handler.postDelayed(Runnable r, long delayMillis)用于延迟执行。
 
@@ -130,25 +130,25 @@ quit()与quitSafely()的区别，仅仅在于是否移除当前正在处理的�
 
 示例代码：
 
-	class LooperThread extends Thread {
-	    public Handler mHandler;
-	
-	    public void run() {
-	        Looper.prepare();   
-	        // Step 1: 创建Handler
-	        mHandler = new Handler() {  
-	            public void handleMessage(Message msg) {
-	                //TODO  处理即将发送过来的消息 
-	            }
-	        };
-	
-	        Looper.loop(); 
-	    }
-	}
+    class LooperThread extends Thread {
+        public Handler mHandler;
 
-	// Step 2: 创建并启动LooperThread线程，内部包含Looper	
-	LooperThread looperThread = new LooperThread("gityuan.com");
-	looperThread.start();
+        public void run() {
+            Looper.prepare();
+            // Step 1: 创建Handler
+            mHandler = new Handler() {
+                public void handleMessage(Message msg) {
+                    //TODO  处理即将发送过来的消息
+                }
+            };
 
-	// Step 3: 发送消息
-	LooperThread.mHandler.sendEmptyMessage(10);  
+            Looper.loop();
+        }
+    }
+
+    // Step 2: 创建并启动LooperThread线程，内部包含Looper
+    LooperThread looperThread = new LooperThread("gityuan.com");
+    looperThread.start();
+
+    // Step 3: 发送消息
+    LooperThread.mHandler.sendEmptyMessage(10);

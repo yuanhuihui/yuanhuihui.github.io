@@ -11,15 +11,15 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程的system_server进程
 
-	/frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
-	/frameworks/base/core/java/com/android/internal/os/RuntimeInit.java
-	/frameworks/base/core/services/java/com/android/server/SystemServer.java
+    /frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
+    /frameworks/base/core/java/com/android/internal/os/RuntimeInit.java
+    /frameworks/base/core/services/java/com/android/server/SystemServer.java
 
-	/frameworks/base/core/java/com/android/internal/os/Zygote.java
-	/frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
+    /frameworks/base/core/java/com/android/internal/os/Zygote.java
+    /frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
 
-	/frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
-	/frameworks/base/core/jni/AndroidRuntime.cpp
+    /frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
+    /frameworks/base/core/jni/AndroidRuntime.cpp
 
 ### 启动流程
 
@@ -36,7 +36,7 @@ SystemServer的在Android体系中所处的地位，SystemServer由Zygote fork�
 
     private static boolean startSystemServer(String abiList, String socketName)
             throws MethodAndArgsCaller, RuntimeException {
-		...
+        ...
         //参数准备
         String args[] = {
             "--setuid=1000",
@@ -104,27 +104,27 @@ nativeForkSystemServer()，该native方法事在AndroidRuntime.cpp中注册的�
 
 [-->com_android_internal_os_Zygote.cpp]
 
-	static jint com_android_internal_os_Zygote_nativeForkSystemServer(
-	        JNIEnv* env, jclass, uid_t uid, gid_t gid, jintArray gids,
-	        jint debug_flags, jobjectArray rlimits, jlong permittedCapabilities,
-	        jlong effectiveCapabilities) {
-	  //fork子进程，见【见小节4】
-	  pid_t pid = ForkAndSpecializeCommon(env, uid, gid, gids,
-	                                      debug_flags, rlimits,
-	                                      permittedCapabilities, effectiveCapabilities,
-	                                      MOUNT_EXTERNAL_DEFAULT, NULL, NULL, true, NULL,
-	                                      NULL, NULL);
-	  if (pid > 0) {
-	      // zygote进程，检测system_server进程是否创建
-	      gSystemServerPid = pid;
-	      int status;
-	      if (waitpid(pid, &status, WNOHANG) == pid) {
-	          //当system_server进程死亡后，重启zygote进程
-	          RuntimeAbort(env);
-	      }
-	  }
-	  return pid;
-	}
+    static jint com_android_internal_os_Zygote_nativeForkSystemServer(
+            JNIEnv* env, jclass, uid_t uid, gid_t gid, jintArray gids,
+            jint debug_flags, jobjectArray rlimits, jlong permittedCapabilities,
+            jlong effectiveCapabilities) {
+      //fork子进程，见【见小节4】
+      pid_t pid = ForkAndSpecializeCommon(env, uid, gid, gids,
+                                          debug_flags, rlimits,
+                                          permittedCapabilities, effectiveCapabilities,
+                                          MOUNT_EXTERNAL_DEFAULT, NULL, NULL, true, NULL,
+                                          NULL, NULL);
+      if (pid > 0) {
+          // zygote进程，检测system_server进程是否创建
+          gSystemServerPid = pid;
+          int status;
+          if (waitpid(pid, &status, WNOHANG) == pid) {
+              //当system_server进程死亡后，重启zygote进程
+              RuntimeAbort(env);
+          }
+      }
+      return pid;
+    }
 
 当system_server进程创建失败时，将会重启zygote进程。这里需要注意，对于Android 5.0以上系统，有两个zygote进程，分别是zygote、zygote64两个进程，system_server的父进程，一般来说64位系统其父进程是zygote64进程
 
@@ -137,52 +137,52 @@ nativeForkSystemServer()，该native方法事在AndroidRuntime.cpp中注册的�
 
 [-->com_android_internal_os_Zygote.cpp]
 
-	static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray javaGids,
-	                                     jint debug_flags, jobjectArray javaRlimits,
-	                                     jlong permittedCapabilities, jlong effectiveCapabilities,
-	                                     jint mount_external,
-	                                     jstring java_se_info, jstring java_se_name,
-	                                     bool is_system_server, jintArray fdsToClose,
-	                                     jstring instructionSet, jstring dataDir) {
-	  SetSigChldHandler(); //设置子进程的signal信号处理函数
-	  pid_t pid = fork(); //fork子进程
-	  if (pid == 0) {
-	    //进入子进程
-	    DetachDescriptors(env, fdsToClose); //关闭并清除文件描述符
+    static pid_t ForkAndSpecializeCommon(JNIEnv* env, uid_t uid, gid_t gid, jintArray javaGids,
+                                         jint debug_flags, jobjectArray javaRlimits,
+                                         jlong permittedCapabilities, jlong effectiveCapabilities,
+                                         jint mount_external,
+                                         jstring java_se_info, jstring java_se_name,
+                                         bool is_system_server, jintArray fdsToClose,
+                                         jstring instructionSet, jstring dataDir) {
+      SetSigChldHandler(); //设置子进程的signal信号处理函数
+      pid_t pid = fork(); //fork子进程
+      if (pid == 0) {
+        //进入子进程
+        DetachDescriptors(env, fdsToClose); //关闭并清除文件描述符
 
-	    if (!is_system_server) {
-	        //对于非system_server子进程，则创建进程组
-	        int rc = createProcessGroup(uid, getpid());
-	    }
-	    SetGids(env, javaGids); //设置设置group
-	    SetRLimits(env, javaRlimits); //设置资源limit
+        if (!is_system_server) {
+            //对于非system_server子进程，则创建进程组
+            int rc = createProcessGroup(uid, getpid());
+        }
+        SetGids(env, javaGids); //设置设置group
+        SetRLimits(env, javaRlimits); //设置资源limit
 
-	    int rc = setresgid(gid, gid, gid);
-	    rc = setresuid(uid, uid, uid);
+        int rc = setresgid(gid, gid, gid);
+        rc = setresuid(uid, uid, uid);
 
-	    SetCapabilities(env, permittedCapabilities, effectiveCapabilities);
-	    SetSchedulerPolicy(env); //设置调度策略
+        SetCapabilities(env, permittedCapabilities, effectiveCapabilities);
+        SetSchedulerPolicy(env); //设置调度策略
 
-	     //selinux上下文
-	    rc = selinux_android_setcontext(uid, is_system_server, se_info_c_str, se_name_c_str);
+         //selinux上下文
+        rc = selinux_android_setcontext(uid, is_system_server, se_info_c_str, se_name_c_str);
 
-	    if (se_info_c_str == NULL && is_system_server) {
-	      se_name_c_str = "system_server";
-	    }
-	    if (se_info_c_str != NULL) {
-	      SetThreadName(se_name_c_str); //设置线程名为system_server，方便调试
-	    }
-	    UnsetSigChldHandler(); //设置子进程的signal信号处理函数为默认函数
-	    //等价于调用zygote.callPostForkChildHooks()
-	    env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, debug_flags,
-	                              is_system_server ? NULL : instructionSet);
-	    ...
+        if (se_info_c_str == NULL && is_system_server) {
+          se_name_c_str = "system_server";
+        }
+        if (se_info_c_str != NULL) {
+          SetThreadName(se_name_c_str); //设置线程名为system_server，方便调试
+        }
+        UnsetSigChldHandler(); //设置子进程的signal信号处理函数为默认函数
+        //等价于调用zygote.callPostForkChildHooks()
+        env->CallStaticVoidMethod(gZygoteClass, gCallPostForkChildHooks, debug_flags,
+                                  is_system_server ? NULL : instructionSet);
+        ...
 
-	  } else if (pid > 0) {
-	    //进入父进程，即zygote进程
-	  }
-	  return pid;
-	}
+      } else if (pid > 0) {
+        //进入父进程，即zygote进程
+      }
+      return pid;
+    }
 
 fork()创建新进程，采用copy on write方式，这是linux创建进程的标准方法，会有两次return,对于pid==0为子进程的返回，对于pid>0为父进程的返回。  到此system_server进程已完成了创建的所有工作，接下来开始了system_server进程的真正工作。在前面startSystemServer()方法中，zygote进程执行完forkSystemServer()后，新创建出来的system_server进程便进入handleSystemServerProcess()方法。关于fork()，可查看另一个文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/#nativeforkandspecialize)。
 
@@ -303,8 +303,8 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
         TimeZone.setDefault(null);
 
         //重置log配置
-        LogManager.getLogManager().reset(); 
-        new AndroidConfig(); 
+        LogManager.getLogManager().reset();
+        new AndroidConfig();
 
         // 设置默认的HTTP User-agent格式,用于 HttpURLConnection。
         String userAgent = getDefaultUserAgent();
@@ -316,7 +316,7 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
 
 默认的HTTP User-agent格式，例如：
 
-	 "Dalvik/1.1.0 (Linux; U; Android 6.0.1；LenovoX3c70 Build/LMY47V)".
+     "Dalvik/1.1.0 (Linux; U; Android 6.0.1；LenovoX3c70 Build/LMY47V)".
 
 ### 9. nativeZygoteInit
 
@@ -324,10 +324,10 @@ nativeZygoteInit()方法在AndroidRuntime.cpp中，进行了jni映射，对应�
 
 [-->AndroidRuntime.cpp]
 
-	static void com_android_internal_os_RuntimeInit_nativeZygoteInit(JNIEnv* env, jobject clazz)
-	{
-	    gCurRuntime->onZygoteInit(); //此处的gCurRuntime为AppRuntime，是在AndroidRuntime.cpp中定义的
-	}
+    static void com_android_internal_os_RuntimeInit_nativeZygoteInit(JNIEnv* env, jobject clazz)
+    {
+        gCurRuntime->onZygoteInit(); //此处的gCurRuntime为AppRuntime，是在AndroidRuntime.cpp中定义的
+    }
 
 [-->app_main.cpp]
 
@@ -432,7 +432,7 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
         public void run() {
             try {
                 //根据传递过来的参数，可知此处通过反射机制调用的是SystemServer.main()方法
-                mMethod.invoke(null, new Object[] { mArgs }); 
+                mMethod.invoke(null, new Object[] { mArgs });
             } catch (IllegalAccessException ex) {
                 throw new RuntimeException(ex);
             } catch (InvocationTargetException ex) {
@@ -448,4 +448,3 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
     }
 
 到此，总算是进入到了SystemServer类的main()方法， 在文章[Android系统启动-SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)中会紧接着这里开始讲述。
-
