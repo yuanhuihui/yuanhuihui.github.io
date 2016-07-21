@@ -36,8 +36,8 @@ tags:
 | 跳转至某个文件 |  Ctrl + + Shift + N     |
 | 跳转至某一行 |  Ctrl + G     |
 |跳转导航栏|Alt + Home|
-|跳转至声明|Ctrl + B|
-|跳转至实现|Ctrl + Alt + B|
+|跳转至声明|Ctrl + B|Ctrl +鼠标左键
+|跳转至实现|Ctrl + Alt + B|Ctrl + Alt +鼠标左键
 |跳转至超类的方法|Ctrl + U|
 |跳转至测试|Ctrl + Shift + T|
 
@@ -50,10 +50,7 @@ tags:
 |当前替换 | Ctrl + R            |
 |全局查找 | Ctrl + Shift + F           |
 |全局替换 | Ctrl + Shift + R            |
-<<<<<<< HEAD
 |文件结构| Ctrl + F12|
-=======
->>>>>>> 8394d22fc07cad9ca53498549fa96a21f4e539a2
 |查找下一处出现 |  Ctrl + L  | F3          |
 |查找上一处出现 | Ctrl + Shift + L　| Shift + F3 |
 |搜索任意内容| **双击 Shift**     |

@@ -321,7 +321,7 @@ framework Binder架构图：
 
 ==> android_util_binder.cpp
 
-将Java对象转换为native对象，更准确地说是将BpBinder(Java对象)转换成一个BinderProxy(C++对象)。
+根据BpBinder(C++)生成BinderProxy(Java)对象. 主要工作是创建BinderProxy对象,并把BpBinder对象地址保存到BinderProxy.mObject成员变量.
 
     jobject javaObjectForIBinder(JNIEnv* env, const sp<IBinder>& val)
     {
@@ -368,8 +368,6 @@ framework Binder架构图：
         }
         return object;
     }
-
-BinderProxy.mObject成员变量记录着BpBinder对象.
 
 到此，可知ServiceManagerNative.asInterface(BinderInternal.getContextObject()) 等价于
 
@@ -465,6 +463,8 @@ framework层的ServiceManager的调用实际的工作确实交给远程接口Ser
         }
         return NULL;
     }
+
+根据Binde(Java)生成JavaBBinderHolder(C++)对象. 主要工作是创建avaBBinderHolder对象,并把avaBBinderHolder对象地址保存到Binder.mObject成员变量.
 
 ### 3.7 JavaBBinderHolder.get()
 ==> android_util_Binder.cpp

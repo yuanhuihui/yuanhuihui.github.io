@@ -908,6 +908,15 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 广播队列中有一个成员变量`mOrderedBroadcasts`，类型为ArrayList<BroadcastRecord>，记录着所有的有序广播。
 
+
+#### 3.5 小结
+
+- 注册广播的小节[2.4]阶段, 会处理Sticky广播;
+- 发送广播的[step 6]阶段, 会处理并行广播;
+- 发送广播的[step 8]阶段, 会处理串行广播;
+
+上述3个处理过程都是通过调用scheduleBroadcastsLocked()方法来完成的,接下来再来看看这个方法.
+
 ### 四、 处理广播
 
 在发送广播过程中会执行`scheduleBroadcastsLocked`方法来处理相关的广播

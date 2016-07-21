@@ -9,12 +9,6 @@ header-img: "img/nav-resource.jpg"
 > 优秀资源分享区，正在建设中...
 
 
-#### Friends
-
-- ![diycode](/images/friends/diycode.ico)  [diycode.cc](http://diycode.cc)
-
-----
-
 #### Android一手资料
 
 - [Android官方网站](http://developer.android.com/intl/zh-cn/index.html)；最权威的Google官方资料，极力推荐；
