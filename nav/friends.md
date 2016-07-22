@@ -20,6 +20,9 @@ header-img: "img/nav-resource.jpg"
 |[![androidyue.](/images/friends/androidyue.jpg)](http://droidyue.com/)| 专注于分享高质量Java和Android技术文章|
 |[![gank](/images/friends/gank.jpg)](http://gank.io/)|代码家|
 |[![diycode](/images/friends/diycode.png)](http://www.diycode.cc/)|面向开发者的技术社区|
-|[![androiddevtools](/images/friends/androiddevtools.jpg)](http://androiddevtools.cn/)|Android开发者的工具与资料集|
+|[![androiddevtools](/images/friends/androiddevtools.jpg)](http://androiddevtools.cn/)|收集整理Android开发所需的Android SDK、开发中用到的工具、Android开发教程、Android设计规范，免费的设计素材等|
+
+|---|---|---|---|
+|[![codekk](/images/friends/gityuan.jpg)](http://www.codekk.com)  |codekk 专注于Android开源分享、源码分析、文章推荐|
 
 
