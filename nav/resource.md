@@ -11,16 +11,15 @@ header-img: "img/nav-resource.jpg"
 
 #### Android一手资料
 
-- [Android官方网站](http://developer.android.com/intl/zh-cn/index.html)；最权威的Google官方资料，极力推荐；
-- [Android官方博客](http://android-developers.blogspot.com/)：官方资讯、文章；
-- [Android官方视频](https://www.youtube.com/playlist?list=PLOU2XLYxmsIKEOXh5TwZEv89aofHzNCiu)：Google发布于Youtube的官方Android性能优化的视频。
+- [Android官网](http://developer.android.com/intl/zh-cn/index.html)；最权威的Google官方资料，极力推荐；
+- [Android官博](http://android-developers.blogspot.com/)：官方资讯、文章；
+- [Android官视频](https://www.youtube.com/playlist?list=PLOU2XLYxmsIKEOXh5TwZEv89aofHzNCiu)：Google发布于Youtube的官方Android性能优化的视频。
 
 #### Android周刊
 
 - [Android Weekly ](http://androidweekly.net/)，由一群**国外Android开发者**维护；
 - [Android开发技术周报](http://www.androidweekly.cn/)，由**脉脉不嘚語**维护；
 - [Android周报](http://www.race604.com/tag/android-weekly/)，由**Android笔记**维护；
-- [干货集中营](http://gank.io/)，由**代码家**维护。
 - [Android Blog 周刊](http://androidblog.cn/)，由**Jomeslu**维护。
 - [开发技术前线](http://www.devtf.cn/)，更多的是翻译国外Android/IOS文章。
 
@@ -31,7 +30,3 @@ header-img: "img/nav-resource.jpg"
 - [codeKK.com](http://a.codekk.com/)：从源码的角度分析Android优秀开源框架；
 - [codota.com](http://www.codota.com/)：收集各种API优秀示例Java代码并提供搜索功能。
 - [androidxref](http://androidxref.com/)：查看Android系统源码。
-
-#### 工具集
-
-- [androiddevtools](http://www.androiddevtools.cn/)
