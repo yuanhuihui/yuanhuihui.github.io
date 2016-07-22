@@ -21,8 +21,10 @@ header-img: "img/nav-resource.jpg"
 |[![gank](/images/friends/gank.jpg)](http://gank.io/)|代码家|
 |[![diycode](/images/friends/diycode.png)](http://www.diycode.cc/)|面向开发者的技术社区|
 |[![androiddevtools](/images/friends/androiddevtools.jpg)](http://androiddevtools.cn/)|收集整理Android开发所需的Android SDK、开发中用到的工具、Android开发教程、Android设计规范，免费的设计素材等|
+|[![drakeet](/images/friends/drakeet.jpg)](http://drakeet.me/)|drakeet|
+
 
 |---|---|---|---|
-|[![codekk](/images/friends/gityuan.jpg)](http://www.codekk.com)  |codekk 专注于Android开源分享、源码分析、文章推荐|
+|[![gityuan](/images/friends/gityuan.png)](http://gityuan.com/)  |专注于Android最新源码的架构分析|
 
 
