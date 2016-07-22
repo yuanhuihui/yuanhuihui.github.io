@@ -17,8 +17,9 @@ header-img: "img/nav-resource.jpg"
 |[![stormzhang](/images/friends/stormzhang.png)](http://stormzhang.com) |Android学习之路，分享Android经验|
 |[![trinea](/images/friends/trinea.png)](http://www.trinea.cn/)  | Focus on Android, Java, Open Source, Performance Optimization|
 |[![liaohuqiu](/images/friends/liaohuqiu.png)](http://www.liaohuqiu.net/)| 秋百万|
-|[![gank](/images/friends/gank.jpg)](http://gank.io/)|代码家: 每日分享妹子图 和 技术干货，还有供大家中午休息的休闲视频|
-|[![diycode](/images/friends/diycode.png)](http://www.diycode.cc/)|一个开发者社区|
+|[![androidyue.](/images/friends/androidyue.jpg)](http://droidyue.com/)| 专注于分享高质量Java和Android技术文章|
+|[![gank](/images/friends/gank.jpg)](http://gank.io/)|代码家|
+|[![diycode](/images/friends/diycode.png)](http://www.diycode.cc/)|面向开发者的技术社区|
 |[![androiddevtools](/images/friends/androiddevtools.jpg)](http://androiddevtools.cn/)|Android开发者的工具与资料集|
 
 
