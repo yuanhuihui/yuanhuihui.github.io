@@ -17,11 +17,12 @@ tags:
 
 Android系统非常庞大、错中复杂，其底层是采用Linux作为基底，上层采用包含虚拟机的Java层以及Native层，通过系统调用(Syscall)连通系统的内核空间与用户空间。用户空间主要采用C++和Java代码，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而融为一体。
 
-Google官方提供了一张[经典的四层架构图](http://gityuan.com/2016/01/30/android-boot/#android)，从下往上依次分为Linux内核、系统库和Android运行时环境、框架层以及应用层这4层架构，其中每一层都包含大量的子模块或子系统。这只是如垒砖般地简单分层，还远不足以表达Android整个系统的内部架构，运行机理，以及各个模块之间是如何衔接与配合工作的。为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，**以进程的视角**来诠释Android系统全貌，全方位的深度剖析各个模块功能，争取各个击破。
+Google官方提供了一张经典的四层架构图，从下往上依次分为Linux内核、系统库和Android运行时环境、框架层以及应用层这4层架构，其中每一层都包含大量的子模块或子系统。这只是如垒砖般地分层，并没有表达Android整个系统的内部架构、运行机理，以及各个模块之间是如何衔接与配合工作的。为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，**以进程的视角**来诠释Android M系统全貌，全方位的深度剖析各个模块功能，争取各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
 
-**本站所有Android系列的文章，都是基于Android 6.0源码**，深入剖析Android系统架构，力争各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
+![android-arch1](/images/boot/android-arch1.png)
 
 ## 二、Android架构
+Google提供的4层架构图很经典，但为了更进一步透视Android系统架构，本文更多的是以进程的视角，以分层的架构来诠释Android系统的全貌，阐述Android内部的环环相扣的内在联系。
 
 **系统启动架构图**
 
@@ -168,6 +169,8 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - 内存篇
 	- [Linux内存管理](http://gityuan.com/2015/10/30/kernel-memory/)
 - IO篇
+    - [Android存储系统之源码篇](http://gityuan.com/2016/07/17/android-io/)
+    - [Android存储系统之架构篇](http://gityuan.com/2016/07/23/android-io-arch)
 - Linux驱动篇
 
 **（5） 系统分析**
@@ -191,4 +194,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - [调试系列3：dropBox源码篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
 - [调试系列4：debuggerd源码篇](http://gityuan.com/2016/06/15/android-debuggerd/)
 
-本博客还有很多文章并没有写到上面这个清单，先写这么多，后续再不断更新与完善。最后，欢迎大家交流与纠错，大家来找茬。
+
+本博客还有很多文章并没有写到上面这个清单，先写这么多，后续再不断更新与完善本博客中的文章。
+
+**由于本人能力水平很有限，加上博客并没有时间反复校验，如果您发现文章存在逻辑、文字或者表述存在错误，还望海涵，可直接博客留言或者微博<a target="_blank" href="http://weibo.com/gityuan">Gityuan</a>跟我沟通，谢谢。**
