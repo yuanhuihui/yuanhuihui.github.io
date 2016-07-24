@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解Android存储系统架构"
+title:  "Android存储系统之源码篇"
 date:   2016-07-17 2:20:00
 catalog:  true
 tags:
@@ -14,6 +14,9 @@ tags:
     /framework/base/services/core/java/com/android/server/MountService.java
     /framework/base/services/core/java/com/android/server/NativeDaemonConnector.java
     /framework/base/services/core/java/com/android/server/NativeDaemonEvent.java
+    /framework/base/core/java/android/os/storage/IMountService.java
+    /framework/base/core/java/android/os/storage/IMountServiceListener.java
+    /framework/base/core/java/android/os/storage/StorageManager.java
 
     /system/vold/Main.cpp
     /system/vold/VolumeManager.cpp
@@ -44,87 +47,6 @@ tags:
 - **MountService**：Android Binder服务，运行在system_server进程，用于跟Vold进行消息通信，比如`MountService`向`Vold`发送挂载SD卡的命令,或者接收到来自`Vold`的外设热插拔事件。
 - **Vold:**全称为Volume Daemon，用于管理外部存储设备的Native守护进程，这是一个非常重要的守护进程，由NetlinkManager，VolumeManager，CommandListener这3部分组成。
 
-### 1.1 模块架构
-
-从模块地角度划分, Android整个存储架构:
-
-![arch-vold-mount](/images/io/arch-vold-mount.jpg)
-
-1. Linux Kernel:通过uevent向Vold的NetlinkManager发送Uevent事件；
-2. NetlinkManager:接收来自Kernel的`Uevent`事件，再转发给VolumeManager；
-3. VolumeManager: 接收来自NetlinkManager的事件，再转发给CommandListener进行处理；
-4. CommandListener: 接收来自VolumeManager的事件，通过`socket`通信方式发送给MountService；
-5. MountService： 接收来自CommandListener的事件。
-
-### 1.2 进程架构
-
-从进程/线程视角再来看看这个架构:
-
-![arch-vold-mount2](/images/io/arch-vold-mount-2.jpg)
-
-- Java层采用1个system_server主线程+3个子线程;
-- Native采用1个vold主线程+3个子线程+1子进程的架构；
-
-总共采用了9个进程/线程,即上图中红色字体代表的都是一个进程/线程.当然, 除了这9个进/线程,另外还会在handler消息处理过程中使用到system_server的两个线程"android.fg"和"android.io"。
-
-
-(1)先看看Java framework层的线程：
-
-    root@gityuan:/ # ps -t | grep 1212
-    system    1212  557   2334024 160340 SyS_epoll_ 7faedddbe4 S system_server
-    system    2662  1212  2334024 160340 SyS_epoll_ 7faedddbe4 S MountService
-    system    2663  1212  2334024 160340 unix_strea 7faedde73c S VoldConnector
-    system    2664  1212  2334024 160340 unix_strea 7faedde73c S CryptdConnector
-    ...
-
-
-(2)再看看Native层的线程：
-
-    root@gityuan:/ # ps -t | grep " 387 "
-    USER      PID   PPID  VSIZE  RSS   WCHAN              PC  NAME
-    root      387   1     13572  2912  hrtimer_na 7fa34755d4 S /system/bin/vold
-    root      397   387   13572  2912  poll_sched 7fa3474d1c S vold
-    root      399   387   13572  2912  poll_sched 7fa3474d1c S vold
-    root      400   387   13572  2912  poll_sched 7fa3474d1c S vold
-    media_rw  2702  387   7140   2036  inotify_re 7f84b1d6ac S /system/bin/sdcard
-
-**小技巧：**有读者可能会好奇，为什么/system/bin/sdcard是子进程，而非子线程呢？要回答这个问题，有两个方法，其一就是直接看撸源码，会发现这是通过`fork`方式创建的，而其他子线程都是通过`pthread_create`方式创建的。当然其实还有个更快捷的小技巧，就是直接看上图中的第4列，这一列的含义是`VSIZE`，代表的是进程虚拟地址空间大小，是否共享地址空间，这是进程与线程最大的区别，再来看看/sdcard的VSIZE大小跟父进程不一样，基本可以确实/sdcard是子进程。
-
-
-Tips: 同一个模块可以运行在各个不同的进程/线程， 同一个进程可以运行不同模块的代码,所以从进程角度和模块角度划分还有会有所不同的.
-
-### 1.3 NativeDaemonEvent
-
-|响应码|事件类别|对应方法
-|---|---|---|
-|[100, 200)|部分响应，随后继续产生事件|isClassContinue
-|[200, 300)|成功响应|isClassOk
-|[400, 500)|远程服务端错误|isClassServerError
-|[500, 600)|本地客户端错误|isClassClientError
-|[600, 700)|远程Vold进程自触发的事件|isClassUnsolicited
-
-例如当操作执行成功，VoldConnector线程能收到类似`RCV <- {200 3 Command succeeded}的响应事件。
-其中对于[600,700)响应码是由Vold进程"不请自来"的事件，主要是针对disk，volume的一系列操作，比如设备创建，状态、路径改变，以及文件类型、uid、标签改变等事件都是底层直接触发。
-
-|命令|响应吗|
-|---|---|---|
-|DISK_CREATED|640|
-|DISK_SIZE_CHANGED|641|
-|DISK_LABEL_CHANGED|642|
-|DISK_SCANNED|643|
-|DISK_SYS_PATH_CHANGED|644|
-|DISK_DESTROYED|649|
-|VOLUME_CREATED|650|
-|VOLUME_STATE_CHANGED|651|
-|VOLUME_FS_TYPE_CHANGED|652|
-|VOLUME_FS_UUID_CHANGED|653|
-|VOLUME_FS_LABEL_CHANGED|654|
-|VOLUME_PATH_CHANGED|655|
-|VOLUME_INTERNAL_PATH_CHANGED|656|
-|VOLUME_DESTROYED|659|
-|MOVE_STATUS|660|
-|BENCHMARK_RESULT|661|
-|TRIM_RESULT|662|
 
 ## 二、MountService
 
@@ -741,7 +663,7 @@ ReentrantLock的劣势：
         }
     }
 
-### MountService小结
+### 2.16 小节
 
 这里以一张简单的流程图来说明上述过程:
 
@@ -1396,79 +1318,12 @@ socket名为“vold”
         return 0;
     }
 
+## 四、小结
 
-## 四、 案例分析
+- **Linux Kernel**：通过`uevent`向Vold的NetlinkManager发送Uevent事件；
+- **NetlinkManager**：接收来自Kernel的`Uevent`事件，再转发给VolumeManager；
+- **VolumeManager**：接收来自NetlinkManager的事件，再转发给CommandListener进行处理；
+- **CommandListener**：接收来自VolumeManager的事件，通过`socket`通信方式发送给MountService；
+- **MountService**：接收来自CommandListener的事件。
 
-MountService根据收到消息会发送VM处理。
-例如待SD卡插入后，VM会将(来自NM的“Disk Insert”的)消息发送给MountService，而后MountService则发送“Mount”指令给Vold，指示它挂载这个SD卡。有些应用程序需要检测外部存储卡的插入/拔出事件，这些事件是由MountService通过Intent广播发出的，例如外部存储卡插入后，MountService就会发送ACTION_MEDIA_MOUNTED消息。
-
-### 4.1 Kernel上报处理流程
-
-插入SD卡动作： 通过硬件驱动会引起Kernel向NM发送uevent，NM转发消息给VM，再通过CL发送给MountService；MountService收到后则向Vold发送Mount命令，来挂载SD卡。
-
-整个流程： Kernel Uevent -> volumeManager -> NetlinkManager -> CommandListener -> NativeDaemonConnector -> MountService
-
-    Kernel => uevent
-        SocketListener::startListener
-            SocketListener::threadStart
-                SocketListener::runListener
-                    NetlinkListener.onDataAvailable
-                        NetlinkHandler.onEvent
-                            VM.handleBlockEvent
-                                Disk.create
-                                    Disk::notifyEvent
-                                        SocketListener::sendBroadcast
-                                            发送socket事件给上层
-
-
-### 4.2 framework下发处理流程
-
-    MountServic发送socket，执行mount
-        SocketListener::startListener
-            SocketListener::threadStart
-                SocketListener::runListener
-                    FrameworkListener::onDataAvailable
-                        FrameworkListener::dispatchCommand
-                            VolumeCmd.runCommand
-                                VolumeBase.mount
-                                    EmulatedVolume.doMount(内置)
-                                    PublicVolume.doMount(外置)
-                                        vfat::Check
-                                        vfat::Mount
-                                        fork (/sdcard)
-
-### 4.3 startUser流程
-
-    AMS.systemReady
-        goingCallback.run();
-            onBootPhase(550)
-                MountService.systemReady(); => mSystemReady = true
-                    MountService.resetIfReadyAndConnectedLocked
-                        mConnector.execute("volume", "reset");
-                             RCV <- {650 emulated  --> VOLUME_CREATED
-                             RCV <- {650 public  --> VOLUME_CREATED
-                         mConnector.execute("volume", "user_added", user.id, user.serialNumber);
-                         mConnector.execute("volume", "user_started", userId);
-
-        mSystemServiceManager.startUser(mCurrentUserId);
-            MountService.onStartUser
-                mConnector.execute("volume", "user_started", userId);
-                mHandler.obtainMessage(H_VOLUME_BROADCAST, userVol).sendToTarget();
-                    MountServiceHandler.handleMessage -->case H_VOLUME_BROADCAS
-
-
-NDC监听流程：
-
-    NDC.istenToSocket
-         NativeDaemonConnector.handleMessage -->
-            MountService.onEvent
-                onEventLocked -->
-                    case VoldResponseCode.VOLUME_CREATED
-                        MountService.onVolumeCreatedLocked
-                            MountServiceHandler.handleMessage -->
-                                case H_VOLUME_MOUNT
-                                    mConnector.execute("volume", "mount");
-
-## 五、未完待续
-
-今天梳理了下流程,增加了几张图, 还在整理中。。。
+本文从源码视角主要介绍了相关模块的创建与启动过程以及部分流程的介绍。要想更进一步了解,[Android存储系统之架构篇](http://gityuan.com/2016/07/23/android-io-arch).

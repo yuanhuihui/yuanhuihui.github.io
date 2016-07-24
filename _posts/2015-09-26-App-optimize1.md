@@ -11,7 +11,7 @@ tags:
 
 ---
 
-> 本文是针对Android的App开发优化(一)。
+> 本文是针对Android的App开发优化(一)
 
 
 # 一、代码优化
@@ -191,9 +191,6 @@ ArrayList采用for循环+临时变量保存size，效率最高。 foreach方式�
 - 根据手机尺寸大小，配置不同大小的图片，保证使用尽可能小的图片资源。
 
 
-
-
-
 ## 6. Object Pool
 内存对象，通过对象池技术来达到重复利用，减少对象重复创建。，从而减少内存分配和回收。
 
@@ -227,7 +224,7 @@ Enum比静态常量，至少需要多过于2倍以上的内存空间，应该在
 - 使用弱引用
 
 
-## 参考
+## 相关资料
 
 - <http://www.trinea.cn/android/hashmap-loop-performance/>
 - <http://developer.android.com/training/displaying-bitmaps/index.html>
