@@ -183,10 +183,10 @@ system_server进程与vold守护进程间采用socket进行通信，这个通信
 
 [-> NativeDaemonConnector.java]
 
-public NativeDaemonEvent execute(String cmd, Object... args)
-    throws NativeDaemonConnectorException {
-return execute(DEFAULT_TIMEOUT, cmd, args);
-}
+    public NativeDaemonEvent execute(String cmd, Object... args)
+        throws NativeDaemonConnectorException {
+        return execute(DEFAULT_TIMEOUT, cmd, args);
+    }
 
 其中`DEFAULT_TIMEOUT=1min`，即命令执行超时时长为1分钟。经过层层调用到executeForList()
 
@@ -312,25 +312,25 @@ MountService线程通过socket发送cmd事件给vold，对于vold守护进程在
         if (cmd == "reset") {
                return sendGenericOkFail(cli, vm->reset());
         }else if (cmd == "mount" && argc > 2) {
-                // mount [volId] [flags] [user]
-                std::string id(argv[2]);
-                auto vol = vm->findVolume(id);
-                if (vol == nullptr) {
-                    return cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown volume", false);
-                }
+            // mount [volId] [flags] [user]
+            std::string id(argv[2]);
+            auto vol = vm->findVolume(id);
+            if (vol == nullptr) {
+                return cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown volume", false);
+            }
 
-                int mountFlags = (argc > 3) ? atoi(argv[3]) : 0;
-                userid_t mountUserId = (argc > 4) ? atoi(argv[4]) : -1;
+            int mountFlags = (argc > 3) ? atoi(argv[3]) : 0;
+            userid_t mountUserId = (argc > 4) ? atoi(argv[4]) : -1;
 
-                vol->setMountFlags(mountFlags);
-                vol->setMountUserId(mountUserId);
-                //真正的挂载操作【见2.1.6】
-                int res = vol->mount();
-                if (mountFlags & android::vold::VolumeBase::MountFlags::kPrimary) {
-                    vm->setPrimary(vol);
-                }
-                //发送应答消息给MountService【见2.2.1】
-                return sendGenericOkFail(cli, res);
+            vol->setMountFlags(mountFlags);
+            vol->setMountUserId(mountUserId);
+            //真正的挂载操作【见2.1.6】
+            int res = vol->mount();
+            if (mountFlags & android::vold::VolumeBase::MountFlags::kPrimary) {
+                vm->setPrimary(vol);
+            }
+            //发送应答消息给MountService【见2.2.1】
+            return sendGenericOkFail(cli, res);
         }
         // 省略其他的else if
         ...
