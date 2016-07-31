@@ -75,6 +75,9 @@ Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 - Native与Kernel之间有一层系统调用(SysCall)层，见[Linux系统调用(Syscall)原理](http://gityuan.com/2016/05/21/syscall/);
 - Java层与Native(C/C++)层之间的纽带JNI，见[Android JNI原理分析](http://gityuan.com/2016/05/28/android-jni/)。
 
+
+另外，对于Android整个系统架构，关于学习和研究Android的经验之谈，可以查看 [如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)
+
 ##  三、通信方式
 
 无论是Android系统，还是各种Linux衍生系统，各个组件、模块往往运行在各种不同的进程和线程内，这里就必然涉及进程/线程之间的通信。对于IPC(Inter-Process Communication, 进程间通信)，Linux现有管道、消息队列、共享内存、套接字、信号量、信号这些IPC机制，Android额外还有Binder IPC机制，Android OS中的Zygote进程的IPC采用的是Socket机制，在上层system server、media server以及上层App之间更多的是采用Binder IPC方式来完成跨进程间的通信。对于Android上层架构中，还多时候是在同一个进程的线程之间需要相互通信，例如同一个进程的主线程与工作线程之间的通信，往往采用的Handler消息机制。
@@ -126,7 +129,6 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 2016年新的一年刚开始，首先祝大家、也祝自己在新的一年诸事顺心，事业蒸蒸日上。在过去的一年，对于Android从底层一路到上层有不少自己的理解和沉淀，但总体较零散，未成体系。借着今天（元旦假日的最后一天），给自己的新的一年提前做一个计划，把知识进行归档整理与再学习，从而加深对Android架构的理解。通过前面对系统启动的介绍，相信大家对Android系统有了一个整体观，接下来需要抓核心、理思路。
 
-
 **（1）**Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote`、`system_server`进程:
 
 - [Android系统启动—init篇](http://gityuan.com/2016/02/05/android-init/)
@@ -156,6 +158,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - Android组件-Broadcast Receiver
     - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
 - Android组件-Content Provider
+    - [理解ContentProvider原理(一)](http://gityuan.com/2016/07/30/content-provider/)
 
 
 **（4）**有了这些，中间还缺少关于虚拟机ART的介绍，会需要对ART分析，后续还需要开展对ART虚拟机的一系列文章。回顾整个架构，谈谈系统性能，需要先掌握进程、内存、IO这些层面知识，这里牵涉面较广，从底层Linux层直至上层App
