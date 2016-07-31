@@ -27,14 +27,14 @@ tags:
 
     /frameworks/base/core/java/android/app/ContextImpl.java
 
-### 概述
+## 一、概述
 
 看过前面介绍[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)文章，相信对Binder架构有了较深地理解。在[Android系统启动-开篇](http://gityuan.com/2016/01/03/android-boot/)中讲述了Binder的地位是非常之重要，整个Java framework的提供ActivityManagerService、PackageManagerService等服务都是基于Binder架构来通信的，另外
 [handle消息机制](http://gityuan.com/2015/12/26/handler-message/)在进程内的通信使用非常多。本文将开启对ActivityManagerService的分析。
 
 ActivityManagerService是Android的Java framework的服务框架最重要的服务之一。对于Andorid的Activity、Service、Broadcast、ContentProvider四剑客的管理，包含其生命周期都是通过ActivityManagerService来完成的。对于这四剑客的介绍，此处先略过，后续博主会针对这4剑客分别阐述。
 
-**类图**
+### 1.1 类图
 
 下面先看看ActivityManagerService相关的类图：
 
@@ -44,7 +44,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 单单就一个ActivityManagerService.java文件就代码超过20000万行，我们需要需要一个线，再结合binder的知识，来把我们想要了解的东西串起来，那么本文将从App启动的视角来分析ActivityManagerService。
 
 
-**启动服务**
+### 1.2 流程图
 
 在app中启动一个service，就一行语句搞定，
 
@@ -80,35 +80,38 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 接下来，我们正式从代码角度来分析服务启动的过程。首先在我们应用程序的Activity类的调用startService()方法，该方法调用【流程1】的方法。
 
-### 1. ContextWrapper.startService
+## 二、源码分析
+
+### 1. CW.startService
+[-> ContextWrapper.java]
 
     public class ContextWrapper extends Context {
         @Override
         public ComponentName startService(Intent service) {
-            return mBase.startService(service); //其中mBase为ContextImpl对象 【见流程2-1】
+            return mBase.startService(service); //其中mBase为ContextImpl对象 【见流程2】
         }
     }
 
-### 2. ContextImpl.startService
-
-**[2-1]**
+### 2. CI.startService
+[-> ContextImpl.java]
 
     class ContextImpl extends Context {
         @Override
         public ComponentName startService(Intent service) {
             //当system进程调用此方法时输出warn信息，system进程建立调用startServiceAsUser方法
             warnIfCallingFromSystemProcess();
-            return startServiceCommon(service, mUser); //【见流程2-2】
+            return startServiceCommon(service, mUser); //【见流程3】
         }
 
-**[2-2]**
+### 3. CI.startServiceCommon
+[-> ContextImpl.java]
 
     private ComponentName startServiceCommon(Intent service, UserHandle user) {
         try {
             //检验service，当service为空则throw异常
             validateServiceIntent(service);
             service.prepareToLeaveProcess();
-            // 调用ActivityManagerNative类 【见流程3】
+            // 调用ActivityManagerNative类 【见流程3.1 以及流程4】
             ComponentName cn = ActivityManagerNative.getDefault().startService(
                 mMainThread.getApplicationThread(), service, service.resolveTypeIfNeeded(getContentResolver()), getOpPackageName(), user.getIdentifier());
             if (cn != null) {
@@ -126,7 +129,8 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
         }
     }
 
-**ActivityManagerNative.getDefault()**
+#### 3.1 AMN.getDefault
+[-> ActivityManagerNative.java]
 
     static public IActivityManager getDefault() {
         return gDefault.get();
@@ -160,7 +164,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 ![Activity_Manager_Service](/images/android-service/am/Activity_Manager_Service.png)
 
-### 3. AMP.startService
+### 4. AMP.startService
 
 该类位于文件ActivityManagerNative.java
 
@@ -175,7 +179,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
         data.writeString(resolvedType);
         data.writeString(callingPackage);
         data.writeInt(userId);
-        //通过Binder 传递数据　【见流程4】
+        //通过Binder 传递数据　【见流程5】
         mRemote.transact(START_SERVICE_TRANSACTION, data, reply, 0);
         reply.readException();
         ComponentName res = ComponentName.readFromParcel(reply);
@@ -186,7 +190,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 mRemote.transact()是binder通信的客户端发起方法，经过binder驱动，最后回到binder服务端ActivityManagerNative的onTransact()方法。
 
-### 4. AMN.onTransact
+### 5. AMN.onTransact
 
     @Override
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
@@ -202,7 +206,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             String resolvedType = data.readString();
             String callingPackage = data.readString();
             int userId = data.readInt();
-            //调用ActivityManagerService的startService()方法【见流程5】
+            //调用ActivityManagerService的startService()方法【见流程6】
             ComponentName cn = startService(app, service, resolvedType, callingPackage, userId);
             reply.writeNoException();
             ComponentName.writeToParcel(cn, reply);
@@ -218,7 +222,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 与IActivityManager的binder通信原理一样，ApplicationThreadProxy作为binder通信的客户端，ApplicationThreadNative作为Binder通信的服务端,ApplicationThread继承ApplicationThreadProxy类，覆写其中的部分方法。
 
-### 5. AMS.startService
+### 6. AMS.startService
 
     @Override
     public ComponentName startService(IApplicationThread caller, Intent service,
@@ -240,7 +244,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             final int callingPid = Binder.getCallingPid(); //调用者pid
             final int callingUid = Binder.getCallingUid(); //调用者uid
             final long origId = Binder.clearCallingIdentity();
-            //此次的mServices为ActiveServices对象 【见流程6-1】
+            //此次的mServices为ActiveServices对象 【见流程7】
             ComponentName res = mServices.startServiceLocked(caller, service,
                     resolvedType, callingPid, callingUid, callingPackage, userId);
             Binder.restoreCallingIdentity(origId);
@@ -257,9 +261,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 - userId: int类型，用户的id
 
 
-### 6. ActiveServices.startServiceLocked
-
-**[6-1]**
+### 7. AS.startServiceLocked
+[-> ActiveServices.java]
 
     ComponentName startServiceLocked(IApplicationThread caller, Intent service, String resolvedType,
             int callingPid, int callingUid, String callingPackage, int userId)
@@ -317,10 +320,12 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
                 addToStarting = true;
             }
         }
-        return startServiceInnerLocked(smap, service, r, callerFg, addToStarting); //【见流程6-2】
+        //【见流程7.1】
+        return startServiceInnerLocked(smap, service, r, callerFg, addToStarting);
     }
 
-**[6-2]**
+#### 7.1 AS.startServiceInnerLocked
+[-> ActiveServices.java]
 
     ComponentName startServiceInnerLocked(ServiceMap smap, Intent service, ServiceRecord r,
             boolean callerFg, boolean addToStarting) throws TransactionTooLargeException {
@@ -332,7 +337,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         synchronized (r.stats.getBatteryStats()) {
             r.stats.startRunningLocked(); //用于耗电统计，开启运行的状态
         }
-        String error = bringUpServiceLocked(r, service.getFlags(), callerFg, false); //【见流程6-3】
+        //【见流程7.2】
+        String error = bringUpServiceLocked(r, service.getFlags(), callerFg, false);
         if (error != null) {
             return new ComponentName("!!", error);
         }
@@ -349,8 +355,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return r.name;
     }
 
-**[6-3]**
-
+#### 7.2 AS.bringUpServiceLocked
+[-> ActiveServices.java]
 
     private final String bringUpServiceLocked(ServiceRecord r, int intentFlags, boolean execInFg,
             boolean whileRestarting) throws TransactionTooLargeException {
@@ -380,13 +386,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             return msg;
         }
         //服务正在启动，设置package停止状态为false
-        try {
-            AppGlobals.getPackageManager().setPackageStoppedState(
-                    r.packageName, false, r.userId);
-        } catch (RemoteException e) {
-        } catch (IllegalArgumentException e) {
-            Slog.w(TAG, "Failed trying to unstop package " + r.packageName + ": " + e);
-        }
+        AppGlobals.getPackageManager().setPackageStoppedState(
+                r.packageName, false, r.userId);
 
         final boolean isolated = (r.serviceInfo.flags&ServiceInfo.FLAG_ISOLATED_PROCESS) != 0;
         final String procName = r.processName;
@@ -397,7 +398,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             if (app != null && app.thread != null) {
                 try {
                     app.addPackage(r.appInfo.packageName, r.appInfo.versionCode, mAm.mProcessStats);
-                    // 启动服务 【见流程10-2】
+                    // 启动服务 【见流程13】
                     realStartServiceLocked(r, app, execInFg);
                     return null;
                 } catch (TransactionTooLargeException e) {
@@ -412,7 +413,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
         //对于进程没有启动的情况
         if (app == null) {
-            //启动service所要运行的进程 【见流程7-1】
+            //启动service所要运行的进程 【见流程8】
             if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
                     "service", r.name, false, isolated, false)) == null) {
                 String msg = ""
@@ -438,9 +439,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 对于非前台进程调用而需要启动的服务，如果已经有其他的后台服务正在启动中，那么我们可能希望延迟其启动。这是用来避免启动同时启动过多的进程(非必须的)。
 
-### 7. AMS.startProcessLocked
-
-**[7-1]**
+### 8. AMS.startProcessLocked
+[-> ActivityManagerService.java]
 
     final ProcessRecord startProcessLocked(String processName,
             ApplicationInfo info, boolean knownToBeDead, int intentFlags,
@@ -449,10 +449,10 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return startProcessLocked(processName, info, knownToBeDead, intentFlags, hostingType,
                 hostingName, allowWhileBooting, isolated, 0 /* isolatedUid */, keepIfLarge,
                 null /* ABI override */, null /* entryPoint */, null /* entryPointArgs */,
-                null /* crashHandler */);  //【见7-2】
+                null /* crashHandler */);  //【见流程8.1】
     }
 
-**[7-2]**
+#### 8.1 AMS.startProcessLocked
 
     final ProcessRecord startProcessLocked(String processName, ApplicationInfo info,
             boolean knownToBeDead, int intentFlags, String hostingType, ComponentName hostingName,
@@ -514,12 +514,12 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             }
             return app;
         }
-        // 启动进程【7-3】
+        // 启动进程【见流程8.2】
         startProcessLocked(app, hostingType, hostingNameStr, abiOverride, entryPoint, entryPointArgs);
         return (app.pid != 0) ? app : null;
     }
 
-**[7-3]**
+#### 8.2 AMS.startProcessLocked
 
     private final void startProcessLocked(ProcessRecord app, String hostingType,
             String hostingNameStr, String abiOverride, String entryPoint, String[] entryPointArgs) {
@@ -628,7 +628,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
             boolean isActivityProcess = (entryPoint == null);
             if (entryPoint == null) entryPoint = "android.app.ActivityThread";
-            //请求Zygote创建新进程 【见流程8，此处跳级见后面说明】
+            //请求Zygote创建新进程
             Process.ProcessStartResult startResult = Process.start(entryPoint,
                     app.processName, uid, uid, gids, debugFlags, mountExternal,
                     app.info.targetSdkVersion, app.info.seinfo, requiredAbi, instructionSet,
@@ -668,13 +668,11 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
     }
 
-关于**Process.start()**是通过socket通信，告知[Zygote](http://gityuan.com/2016/02/13/android-zygote/)创建fork子进程，创建完新进程，将ActivityThread类加载到新进程，并调用ActivityThread.main()方法。该过程详细情况，见[Android Process创建过程分析](http://gityuan.com/2016/03/26/app-process-create/)。
+关于**Process.start()**是通过socket通信告知[Zygote](http://gityuan.com/2016/02/13/android-zygote/)创建fork子进程，创建新进程后将ActivityThread类加载到新进程，并调用`ActivityThread.main()`方法。见[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/)。
 
 
-
-### 8. ActivityThread.main
-
-**[8-1]**
+### 9. AT.main
+[-> ActivityThread.java]
 
     public static void main(String[] args) {
         //性能统计默认是关闭的
@@ -691,7 +689,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         Looper.prepareMainLooper();
         //创建ActivityThread对象
         ActivityThread thread = new ActivityThread();
-        //建立Binder通道 【见流程8-2】
+        //建立Binder通道 【见流程10】
         thread.attach(false);
         if (sMainThreadHandler == null) {
             sMainThreadHandler = thread.getHandler();
@@ -706,7 +704,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 此处的`mAppThread = new ApplicationThread()`；
 
-**[8-2]**
+### 10. AT.attach
+[-> ActivityThread.java]
 
     private void attach(boolean system) {
         sCurrentActivityThread = this;
@@ -723,7 +722,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             //创建ActivityManagerProxy对象
             final IActivityManager mgr = ActivityManagerNative.getDefault();
             try {
-                //调用基于IActivityManager接口的Binder通道【见流程9-1】
+                //调用基于IActivityManager接口的Binder通道【见流程11】
                 mgr.attachApplication(mAppThread);
             } catch (RemoteException ex) {
                 // Ignore
@@ -784,9 +783,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
     }
 
 
-### 9. AMP.attachApplication
-
-**[9-1] ActivityManagerProxy.attachApplication**
+### 11. AMP.attachApplication
+[-> ActivityManagerProxy.java]
 
     public void attachApplication(IApplicationThread app) throws RemoteException
     {
@@ -794,16 +792,15 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         Parcel reply = Parcel.obtain();
         data.writeInterfaceToken(IActivityManager.descriptor);
         data.writeStrongBinder(app.asBinder());
-        mRemote.transact(ATTACH_APPLICATION_TRANSACTION, data, reply, 0); //【见流程9-2】
+        mRemote.transact(ATTACH_APPLICATION_TRANSACTION, data, reply, 0); //【见流程11.1】
         reply.readException();
         data.recycle();
         reply.recycle();
     }
 
+#### 11.1 AMN.onTransact
+[-> ActivityManagerNative.java]
 
-**[9-2] ActivityManagerNative.onTransact**
-
-    @Override
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
             throws RemoteException {
         switch (code) {
@@ -813,7 +810,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             IApplicationThread app = ApplicationThreadNative.asInterface(
                     data.readStrongBinder());
             if (app != null) {
-                attachApplication(app); //此处是ActivityManagerService类中的方法 【见流程9-3】
+                attachApplication(app); //此处是ActivityManagerService类中的方法 【见流程11.2】
             }
             reply.writeNoException();
             return true;
@@ -821,40 +818,37 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
     }
 
-**[9-3] ActivityManagerService.attachApplication**
+#### 11.2 AMS.attachApplication
+[-> ActivityManagerService.java]
 
-    @Override
     public final void attachApplication(IApplicationThread thread) {
         synchronized (this) {
             int callingPid = Binder.getCallingPid();
             final long origId = Binder.clearCallingIdentity();
-            attachApplicationLocked(thread, callingPid); // 【见流程9-4】
+            attachApplicationLocked(thread, callingPid); // 【见流程11.3】
             Binder.restoreCallingIdentity(origId);
         }
     }
 
-**[9-4]**
+#### 11.3 AMS.attachApplicationLocked
+[-> ActivityManagerService.java]
 
     private final boolean attachApplicationLocked(IApplicationThread thread,
             int pid) {
         ProcessRecord app;
         if (pid != MY_PID && pid >= 0) {
             synchronized (mPidsSelfLocked) {
-                app = mPidsSelfLocked.get(pid); // 根据pid获取 ProcessRecord
+                app = mPidsSelfLocked.get(pid); // 根据pid获取ProcessRecord
             }
         } else {
             app = null;
         }
         if (app == null) {
-            //ProcessRecord为空，则杀掉该进程
             if (pid > 0 && pid != MY_PID) {
+                //ProcessRecord为空，则杀掉该进程
                 Process.killProcessQuiet(pid);
             } else {
-                try {
-                    thread.scheduleExit();
-                } catch (Exception e) {
-                    // Ignore exceptions.
-                }
+                thread.scheduleExit();
             }
             return false;
         }
@@ -889,45 +883,10 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         List<ProviderInfo> providers = normalMode ? generateApplicationProvidersLocked(app) : null;
 
         try {
-            int testMode = IApplicationThread.DEBUG_OFF;
-            if (mDebugApp != null && mDebugApp.equals(processName)) {
-                testMode = mWaitForDebugger
-                    ? IApplicationThread.DEBUG_WAIT: IApplicationThread.DEBUG_ON;
-                app.debugging = true;
-                if (mDebugTransient) {
-                    mDebugApp = mOrigDebugApp;
-                    mWaitForDebugger = mOrigWaitForDebugger;
-                }
-            }
-            String profileFile = app.instrumentationProfileFile;
-            ParcelFileDescriptor profileFd = null;
-            int samplingInterval = 0;
-            boolean profileAutoStop = false;
-            if (mProfileApp != null && mProfileApp.equals(processName)) {
-                mProfileProc = app;
-                profileFile = mProfileFile;
-                profileFd = mProfileFd;
-                samplingInterval = mSamplingInterval;
-                profileAutoStop = mAutoStopProfiler;
-            }
-            boolean enableOpenGlTrace = false;
-            if (mOpenGlTraceApp != null && mOpenGlTraceApp.equals(processName)) {
-                enableOpenGlTrace = true;
-                mOpenGlTraceApp = null;
-            }
-
-            boolean isRestrictedBackupMode = false;
-            if (mBackupTarget != null && mBackupAppName.equals(processName)) {
-                isRestrictedBackupMode = (mBackupTarget.backupMode == BackupRecord.RESTORE)
-                        || (mBackupTarget.backupMode == BackupRecord.RESTORE_FULL)
-                        || (mBackupTarget.backupMode == BackupRecord.BACKUP_FULL);
-            }
+            ...
             ensurePackageDexOpt(app.instrumentationInfo != null
                     ? app.instrumentationInfo.packageName
                     : app.info.packageName);
-            if (app.instrumentationClass != null) {
-                ensurePackageDexOpt(app.instrumentationClass.getPackageName());
-            }
 
             ApplicationInfo appInfo = app.instrumentationInfo != null
                     ? app.instrumentationInfo : app.info;
@@ -970,9 +929,10 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
                 badApp = true;
             }
         }
-        //寻找所有需要在该进程中运行的服务 【见流程10-1】
+
         if (!badApp) {
             try {
+                //寻找所有需要在该进程中运行的服务 【见流程12】
                 didSomething |= mServices.attachApplicationLocked(app, processName);
             } catch (Exception e) {
                 badApp = true;
@@ -1008,11 +968,10 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return true;
     }
 
-### 10. attachApplicationLocked
+这个过程，有一个方法thread.bindApplication，用于绑定system_server与新创建的子进程的关系，这里就不说了。继续说说service相关的操作。
 
+### 12. AS.attachApplicationLocked
 [-> ActiveServices.java]
-
-**[10-1]**
 
     boolean attachApplicationLocked(ProcessRecord proc, String processName)
             throws RemoteException {
@@ -1032,7 +991,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
                     // 将当前服务的包信息加入到proc
                     proc.addPackage(sr.appInfo.packageName, sr.appInfo.versionCode,
                             mAm.mProcessStats);
-                    // 启动服务，即将进入服务的生命周期 【见流程10-2】
+                    // 启动服务，即将进入服务的生命周期 【见流程13】
                     realStartServiceLocked(sr, proc, sr.createdFromFg);
                     didSomething = true;
                 }
@@ -1058,7 +1017,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return didSomething;
     }
 
-**[10-2]**
+### 13 AS.realStartServiceLocked
+[-> ActiveServices.java]
 
     private final void realStartServiceLocked(ServiceRecord r,
             ProcessRecord app, boolean execInFg) throws RemoteException {
@@ -1079,7 +1039,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             }
             mAm.ensurePackageDexOpt(r.serviceInfo.packageName);
             app.forceProcessStateUpTo(ActivityManager.PROCESS_STATE_SERVICE);
-            //服务 进入 onCreate() 【见流程11】
+            //服务进入 onCreate() 【见流程14】
             app.thread.scheduleCreateService(r, r.serviceInfo,
                     mAm.compatibilityInfoForPackageLocked(r.serviceInfo.applicationInfo),
                     app.repProcState);
@@ -1111,7 +1071,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             r.pendingStarts.add(new ServiceRecord.StartItem(r, false, r.makeNextStartId(),
                     null, null));
         }
-        //服务 进入onStartCommand() 【见流程12-1】
+        //服务 进入onStartCommand() 【见流程15】
         sendServiceArgsLocked(r, execInFg, true);
         if (r.delayed) {
             getServiceMap(r.userId).mDelayedStartList.remove(r);
@@ -1125,9 +1085,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
     }
 
-### 11. scheduleCreateService
-
-**[11-1] ApplicationThreadProxy.scheduleCreateService**
+### 14. ATP.scheduleCreateService
+[-> ApplicationThreadProxy.java]
 
     public final void scheduleCreateService(IBinder token, ServiceInfo info,
             CompatibilityInfo compatInfo, int processState) throws RemoteException {
@@ -1138,7 +1097,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         compatInfo.writeToParcel(data, 0);
         data.writeInt(processState);
         try {
-            //【见流程11-2】
+            //【见流程14.1】
             mRemote.transact(SCHEDULE_CREATE_SERVICE_TRANSACTION, data, null, IBinder.FLAG_ONEWAY);
         } catch (TransactionTooLargeException e) {
             throw e;
@@ -1146,7 +1105,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         data.recycle();
     }
 
-**[11-2] ApplicationThreadNative.onTransact**
+#### 14.1 ATN.onTransact
+[-> ApplicationThreadNative.java]
 
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
             throws RemoteException {
@@ -1157,15 +1117,14 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             ServiceInfo info = ServiceInfo.CREATOR.createFromParcel(data);
             CompatibilityInfo compatInfo = CompatibilityInfo.CREATOR.createFromParcel(data);
             int processState = data.readInt();
-            // 【见流程11-3】
+            // 【见流程14.2】
             scheduleCreateService(token, info, compatInfo, processState);
             return true;
         }
     }
 
-**[11-3] ApplicationThread.scheduleCreateService**
-
-位于ActivityThread线程
+#### 14.2 AT.scheduleCreateService
+[-> ApplicationThread.java]
 
     public final void scheduleCreateService(IBinder token,
                 ServiceInfo info, CompatibilityInfo compatInfo, int processState) {
@@ -1174,19 +1133,20 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         s.token = token;
         s.info = info;
         s.compatInfo = compatInfo;
-        sendMessage(H.CREATE_SERVICE, s); //发送消息 【见流程12-1】
+        //发送消息 【见流程15】
+        sendMessage(H.CREATE_SERVICE, s);
     }
 
-### 12. handleCreateService
+该方法的执行在ActivityThread线程
 
-**[12-1] ActivityThread.H**
+### 15. H.handleMessage
+[-> ActivityThread.java]
 
     public void handleMessage(Message msg) {
         switch (msg.what) {
             ...
-
             case CREATE_SERVICE:
-                handleCreateService((CreateServiceData)msg.obj); //【见流程12-2】
+                handleCreateService((CreateServiceData)msg.obj); //【见流程16】
                 break;
             case BIND_SERVICE:
                 handleBindService((BindServiceData)msg.obj);
@@ -1204,7 +1164,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
     }
 
-**[12-2]**
+### 16. AT.handleCreateService
+[-> ActivityThread.java]
 
     private void handleCreateService(CreateServiceData data) {
         //当应用处于后台即将进行GC，而此时被调回到活动状态，则跳过本次gc。
@@ -1229,7 +1190,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             Application app = packageInfo.makeApplication(false, mInstrumentation);
             service.attach(context, this, data.info.name, data.token, app,
                     ActivityManagerNative.getDefault());
-            service.onCreate(); //调用服务的 onCreate()方法 【见流程13】
+            service.onCreate(); //调用服务的 onCreate()方法 【见流程17】
             mServices.put(data.token, service);
             try {
                 ActivityManagerNative.getDefault().serviceDoneExecuting(
@@ -1246,7 +1207,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
     }
 
-### 13. Service.onCreate
+### 17. Service.onCreate
 
     public abstract class Service extends ContextWrapper implements ComponentCallbacks2 {
         public void onCreate(){    }
@@ -1255,7 +1216,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 最终调用到抽象类Service.onCreate()方法，对于真正的Service都会通过覆写该方式，调用真正的onCreate()方法。拨云见日，到此总算是进入了Service的生命周期。
 
 
-### 总结
+## 三、总结
 
 在整个startService过程，从进程角度看服务启动过程
 
