@@ -69,7 +69,7 @@ Android中对于内存的回收，主要依靠Lowmemorykiller来完成，是一�
 
 ### 2.1 ADJ级别
 
-oom_adj划分为16级，从-17 到16之间取值。
+定义在ProcessList.java文件，oom_adj划分为16级，从-17到16之间取值。
 
 | ADJ级别   | 取值|解释|
 | --------   | :-----  | :-----  |
@@ -90,8 +90,32 @@ oom_adj划分为16级，从-17 到16之间取值。
 |SYSTEM_ADJ |-16|系统进程
 |NATIVE_ADJ | -17|native进程（不被系统管理）
 
+### 2.2 进程state级别
 
-### 2.2 策略
+定义在ActivityManager.java文件，process_state划分18类，从-1到16之间取值。
+
+| state级别   | 取值|解释|
+| --------   | :-----  | :-----  |
+|PROCESS_STATE_CACHED_EMPTY|16|进程处于cached状态，且为空进程|
+|PROCESS_STATE_CACHED_ACTIVITY_CLIENT|15|进程处于cached状态，且为另一个cached进程(内含Activity)的client进程|
+|PROCESS_STATE_CACHED_ACTIVITY|14|进程处于cached状态，且内含Activity|
+|PROCESS_STATE_LAST_ACTIVITY|13|后台进程，且拥有上一次显示的Activity|
+|PROCESS_STATE_HOME|12|后台进程，且拥有home Activity|
+|PROCESS_STATE_RECEIVER|11|后台进程，且正在运行receiver|
+|PROCESS_STATE_SERVICE|10|后台进程，且正在运行service|
+|PROCESS_STATE_HEAVY_WEIGHT|9|后台进程，但无法执行restore，因此尽量避免kill该进程|
+|PROCESS_STATE_BACKUP|8|后台进程，正在运行backup/restore操作|
+|PROCESS_STATE_IMPORTANT_BACKGROUND|7|对用户很重要的进程，用户不可感知其存在|
+|PROCESS_STATE_IMPORTANT_FOREGROUND|6|对用户很重要的进程，用户可感知其存在|
+|PROCESS_STATE_TOP_SLEEPING|5|与PROCESS_STATE_TOP一样，但此时设备正处于休眠状态|
+|PROCESS_STATE_FOREGROUND_SERVICE|4|拥有给一个前台Service|
+|PROCESS_STATE_BOUND_FOREGROUND_SERVICE|3|拥有给一个前台Service，且由系统绑定|
+|PROCESS_STATE_TOP|2|拥有当前用户可见的top Activity|
+|PROCESS_STATE_PERSISTENT_UI|1|persistent系统进程，并正在执行UI操作|
+|PROCESS_STATE_PERSISTENT|0|persistent系统进程|
+|PROCESS_STATE_NONEXISTENT|-1|不存在的进程|
+
+### 2.3 lmk策略
 
 Lowmemorykiller根据当前可用内存情况来进行进程释放，总设计了6个级别，即上表中“解释列”加粗的行，即Lowmemorykiller的杀进程的6档，如下：
 
