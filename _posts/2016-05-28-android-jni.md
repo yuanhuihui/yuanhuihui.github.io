@@ -140,6 +140,12 @@ Binder.java所对应的native文件：android_util_Binder.cpp
 
 有人可能好奇，既然如何遇到打破常规的文件命令，怎么办？这个并不难，首先，可以尝试在`/framework/base/core/jni/`中搜索，对于binder.java，可以直接搜索binder关键字，其他也类似。如果这里也找不到，可以通过grep全局搜索`android_os_Binder_getCallingPid`这个方法在哪个文件。
 
+**jni存在的常见目录：**
+
+- `/framework/base/core/jni/`
+- `/framework/base/services/core/jni/`
+- `/framework/base/media/jni/`
+
 #### 2.2.3 实例(三)
 
 前面两种都是在Android系统启动之初，便已经注册过JNI所对应的方法。 那么如果程序自己定义的jni方法，该如何查看jni方法所在位置呢？下面以MediaPlayer.java为例，其包名为android.media：

@@ -141,6 +141,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 - Android服务篇-ActivityManagerService
 	- [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
+	- [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
 - Android服务篇-PackageManagerService
 - Android服务篇-PowerManagerService
 - Android服务篇-BatteryService
@@ -169,6 +170,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 	- [Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)
 	- [Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)
 	- [进程优先级](http://gityuan.com/2015/10/01/process-priority/)
+	- [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
 - 内存篇
 	- [Linux内存管理](http://gityuan.com/2015/10/30/kernel-memory/)
 - IO篇
