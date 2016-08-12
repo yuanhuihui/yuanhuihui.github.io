@@ -10,9 +10,60 @@ tags:
 
 ## 一、概述
 
-提到进程调度，可能大家首先想到的是cpu调度算法，进程优先级这些概念，本文并不打算介绍这些内容，而是介绍Android framework层中承载activity/service/contentprovider/broadcastrecevier的进程是如何根据组件运行状态而动态调节进程自身的状态。进程有两个比较重要的状态值，即adj(定义在`ProcessList.java`)和procState(定义在`ActivityManager.java`)。
+提到进程调度，可能大家首先想到的是Linux cpu调度算法，进程优先级之类概念，本文并不打算介绍这些内容，而是介绍Android framework层中承载activity/service/contentprovider/broadcastrecevier的进程是如何根据组件运行状态而动态调节进程自身的状态。进程有两个比较重要的状态值，即adj(定义在`ProcessList.java`)和procState(定义在`ActivityManager.java`)。
 
-### 1.1 核心方法
+本文是根据android 6.0原生系统的算法分析，不同手机厂商都会有各自的激进策略。先来看看系统adj和procState有哪些级别
+
+### 1.1 ADJ级别
+
+定义在ProcessList.java文件，oom_adj划分为16级，从-17到16之间取值。
+
+| ADJ级别   | 取值|解释|
+| --------   | :-----  | :-----  |
+|UNKNOWN_ADJ|16|一般指将要会缓存进程，无法获取确定值
+|CACHED_APP_MAX_ADJ|15|不可见进程的adj最大值
+|CACHED_APP_MIN_ADJ|9|不可见进程的adj最小值
+|SERVICE_B_AD| 8| B List中的Service（较老的、使用可能性更小）
+|PREVIOUS_APP_ADJ| 7|上一个App的进程(往往通过按返回键)
+|HOME_APP_ADJ | 6|Home进程
+|SERVICE_ADJ | 5|服务进程(Service process)
+|HEAVY_WEIGHT_APP_ADJ | 4|后台的重量级进程，system/rootdir/init.rc文件中设置
+|BACKUP_APP_ADJ | 3|备份进程
+|PERCEPTIBLE_APP_ADJ | 2|可感知进程，比如后台音乐播放  
+|VISIBLE_APP_ADJ | 1|可见进程(Visible process)
+|FOREGROUND_APP_ADJ | 0|前台进程（Foreground process
+|PERSISTENT_SERVICE_ADJ | -11|关联着系统或persistent进程
+|PERSISTENT_PROC_ADJ | -12|系统persistent进程，比如telephony
+|SYSTEM_ADJ |-16|系统进程
+|NATIVE_ADJ | -17|native进程（不被系统管理）
+
+### 1.2 进程state级别
+
+定义在ActivityManager.java文件，process_state划分18类，从-1到16之间取值。
+
+| state级别   | 取值|解释|
+| --------   | :-----  | :-----  |
+|PROCESS_STATE_CACHED_EMPTY|16|进程处于cached状态，且为空进程|
+|PROCESS_STATE_CACHED_ACTIVITY_CLIENT|15|进程处于cached状态，且为另一个cached进程(内含Activity)的client进程|
+|PROCESS_STATE_CACHED_ACTIVITY|14|进程处于cached状态，且内含Activity|
+|PROCESS_STATE_LAST_ACTIVITY|13|后台进程，且拥有上一次显示的Activity|
+|PROCESS_STATE_HOME|12|后台进程，且拥有home Activity|
+|PROCESS_STATE_RECEIVER|11|后台进程，且正在运行receiver|
+|PROCESS_STATE_SERVICE|10|后台进程，且正在运行service|
+|PROCESS_STATE_HEAVY_WEIGHT|9|后台进程，但无法执行restore，因此尽量避免kill该进程|
+|PROCESS_STATE_BACKUP|8|后台进程，正在运行backup/restore操作|
+|PROCESS_STATE_IMPORTANT_BACKGROUND|7|对用户很重要的进程，用户不可感知其存在|
+|PROCESS_STATE_IMPORTANT_FOREGROUND|6|对用户很重要的进程，用户可感知其存在|
+|PROCESS_STATE_TOP_SLEEPING|5|与PROCESS_STATE_TOP一样，但此时设备正处于休眠状态|
+|PROCESS_STATE_FOREGROUND_SERVICE|4|拥有给一个前台Service|
+|PROCESS_STATE_BOUND_FOREGROUND_SERVICE|3|拥有给一个前台Service，且由系统绑定|
+|PROCESS_STATE_TOP|2|拥有当前用户可见的top Activity|
+|PROCESS_STATE_PERSISTENT_UI|1|persistent系统进程，并正在执行UI操作|
+|PROCESS_STATE_PERSISTENT|0|persistent系统进程|
+|PROCESS_STATE_NONEXISTENT|-1|不存在的进程|
+
+
+### 1.3 核心方法
 
 调整进程的adj的3大护法：
 
@@ -24,12 +75,12 @@ tags:
 
     无参方法：updateOomAdjLocked()
     一参方法：updateOomAdjLocked(ProcessRecord app)
-    三参方法：updateOomAdjLocked(ProcessRecord app, int cachedAdj,
+    五参方法：updateOomAdjLocked(ProcessRecord app, int cachedAdj,
         ProcessRecord TOP_APP, boolean doingAll, long now)
 
 updateOomAdjLocked的实现过程中依次会`computeOomAdjLocked`和`applyOomAdjLocked`。
 
-### 1.2 使用场景
+### 1.4 使用场景
 
 到底哪些地方会需要updateOomAdjLocked呢，其实很多地方，下面列举常见场景：
 
@@ -59,7 +110,7 @@ ADJ算法，其核心也就是updateOomAdjLocked方法。
         final int cachedAdj = app.curRawAdj >= ProcessList.CACHED_APP_MIN_ADJ
                 ? app.curRawAdj : ProcessList.UNKNOWN_ADJ;
 
-        //执行三参updateOomAdjLocked【见小节2.2】
+        //执行五参updateOomAdjLocked【见小节2.2】
         boolean success = updateOomAdjLocked(app, cachedAdj, TOP_APP, false,
                 SystemClock.uptimeMillis());
 
@@ -72,10 +123,10 @@ ADJ算法，其核心也就是updateOomAdjLocked方法。
 
 该方法：
 
-1. 执行`三参updateOomAdjLocked`；
+1. 执行`五参updateOomAdjLocked`；
 2. 当app经过更新adj操作后，其cached状态改变(包括由cached变成非cached，或者非cached变成cached)，或者curRawAdj=16，则执行``无参updateOomAdjLocked`；
 
-### 2.2  三参updateOomAdjLocked
+### 2.2  五参updateOomAdjLocked
 
     private final boolean updateOomAdjLocked(ProcessRecord app, int cachedAdj,
             ProcessRecord TOP_APP, boolean doingAll, long now) {

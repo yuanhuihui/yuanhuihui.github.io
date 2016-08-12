@@ -408,7 +408,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
                           filp->f_flags & O_NONBLOCK);
             trace_binder_read_done(ret);
             if (!list_empty(&proc->todo))
-                wake_up_interruptible(&proc->wait); //进入休眠，等待中断唤醒
+                wake_up_interruptible(&proc->wait); //唤醒等待状态的线程
             if (ret < 0) { //当读失败，再将bwr数据写回用户空间，并返回
                 if (copy_to_user(ubuf, &bwr, sizeof(bwr)))
                     ret = -EFAULT;
