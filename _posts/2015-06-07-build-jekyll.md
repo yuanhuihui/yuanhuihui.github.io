@@ -37,7 +37,7 @@ Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby�
 
 ##  二、安装Jekyll
 
-打开CMD窗口
+对于Window则打开CMD窗口，对于Linux或者MAC则打开终端窗口：
 
 ### 1. 更换源
 
@@ -68,12 +68,16 @@ Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby�
 
 ## 三、使用jekyll
 
-*  先把github博客Clone下来,然后启动jekyll服务
+*  先把github博客Clone下来
 
-        git clone https://github.com/xxxx/xxxx.github.io.git
+        git clone https://github.com/[username]/[username].github.io.git
+        git clone git@github.com:[username]/[username].github.io.git
+
+clone有两种方法，第一种是https方法，通过直接输入账号密码的格式提交代码；第二种是ssh的方式，需要提前配置SSH，之后可直接push代码。
+
+* 启动jekyll服务
 
         cd xxxx.github.io.git
-
         jekyll serve --watch
 
 *  浏览：[http://localhost:4000/index.html](http://localhost:4000/index.html)
