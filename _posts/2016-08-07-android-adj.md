@@ -12,11 +12,11 @@ tags:
 
 提到进程调度，可能大家首先想到的是Linux cpu调度算法，进程优先级之类概念，本文并不打算介绍这些内容，而是介绍Android framework层中承载activity/service/contentprovider/broadcastrecevier的进程是如何根据组件运行状态而动态调节进程自身的状态。进程有两个比较重要的状态值，即adj(定义在`ProcessList.java`)和procState(定义在`ActivityManager.java`)。
 
-本文是根据android 6.0原生系统的算法分析，不同手机厂商都会有各自的激进策略。先来看看系统adj和procState有哪些级别
+本文是根据android 6.0原生系统的算法分析，不同手机厂商都会有各自的激进策略。先来看看系统adj和procState有哪些级别。
 
 ### 1.1 ADJ级别
 
-定义在ProcessList.java文件，oom_adj划分为16级，从-17到16之间取值。
+定义在ProcessList.java文件，oom_adj划分为16级，从-17到16之间取值。**adj值越大，优先级越低**，adj<0的进程都是系统进程。
 
 | ADJ级别   | 取值|解释|
 | --------   | :-----  | :-----  |
@@ -36,6 +36,8 @@ tags:
 |PERSISTENT_PROC_ADJ | -12|系统persistent进程，比如telephony
 |SYSTEM_ADJ |-16|系统进程
 |NATIVE_ADJ | -17|native进程（不被系统管理）
+
+lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同adj级别的进程，[Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)。
 
 ### 1.2 进程state级别
 
@@ -121,10 +123,10 @@ ADJ算法，其核心也就是updateOomAdjLocked方法。
         return success;
     }
 
-该方法：
+该方法主要功能：
 
 1. 执行`五参updateOomAdjLocked`；
-2. 当app经过更新adj操作后，其cached状态改变(包括由cached变成非cached，或者非cached变成cached)，或者curRawAdj=16，则执行``无参updateOomAdjLocked`；
+2. 当app经过更新adj操作后，其cached状态改变(包括由cached变成非cached，或者非cached变成cached)，或者curRawAdj=16，则执行`无参updateOomAdjLocked`；
 
 ### 2.2  五参updateOomAdjLocked
 

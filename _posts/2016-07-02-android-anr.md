@@ -630,7 +630,7 @@ keyDispatching timout与inputDispatching Timeout流畅基本一致。
             EventLog.writeEvent(EventLogTags.AM_ANR, app.userId, app.pid,
                     app.processName, app.info.flags, annotation);
 
-            // Dump thread traces as quickly as we can, starting with "interesting" processes.
+            //尽可能快地dump线程traces信息，先dump重要的线程
             firstPids.add(app.pid);
 
             int parentPid = app.pid;
@@ -729,7 +729,7 @@ keyDispatching timout与inputDispatching Timeout流畅基本一致。
                 return;
             }
 
-            // Set the app's notResponding state, and look up the errorReportReceiver
+            //设置app的ANR状态，病查询错误报告receiver
             makeAppNotRespondingLocked(app,
                     activity != null ? activity.shortComponentName : null,
                     annotation != null ? "ANR " + annotation : "ANR",
@@ -745,7 +745,8 @@ keyDispatching timout与inputDispatching Timeout流畅基本一致。
             if (activity != null) {
                 map.put("activity", activity);
             }
-
+            
+            //向ui线程发送，内容为SHOW_NOT_RESPONDING_MSG的消息
             mUiHandler.sendMessage(msg);
         }
     }
