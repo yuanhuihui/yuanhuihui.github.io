@@ -436,6 +436,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return null;
     }
 
+- 当start service的过程中，目标进程已经存在，则直接执行流程13来调用realStartServiceLocked；
+- 当目标进程不存在，则需要先创建进程，进入流程8，之后再调用realStartServiceLocked。
 
 对于非前台进程调用而需要启动的服务，如果已经有其他的后台服务正在启动中，那么我们可能希望延迟其启动。这是用来避免启动同时启动过多的进程(非必须的)。
 
@@ -1029,6 +1031,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         r.app = app;
         r.restartTime = r.lastActivity = SystemClock.uptimeMillis();
         final boolean newService = app.services.add(r);
+
+        //发送delay消息(SERVICE_TIMEOUT_MSG)
         bumpServiceExecutingLocked(r, execInFg, "create");
         mAm.updateLruProcessLocked(app, false, null);
         mAm.updateOomAdjLocked();
@@ -1064,9 +1068,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
         requestServiceBindingsLocked(r, execInFg);
         updateServiceClientActivitiesLocked(app, null, true);
-        // If the service is in the started state, and there are no
-        // pending arguments, then fake up one so its onStartCommand() will
-        // be called.
+
         if (r.startRequested && r.callStart && r.pendingStarts.size() == 0) {
             r.pendingStarts.add(new ServiceRecord.StartItem(r, false, r.makeNextStartId(),
                     null, null));
@@ -1084,6 +1086,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             }
         }
     }
+
+在bumpServiceExecutingLocked会发送一个延迟处理的消息SERVICE_TIMEOUT_MSG。在方法scheduleCreateService执行完成，也就是onCreate回调执行完成之后，便会remove掉该消息。但是如果没能在延时时间之内remove该消息，则会进入执行service timeout流程。
 
 ### 14. ATP.scheduleCreateService
 [-> ApplicationThreadProxy.java]

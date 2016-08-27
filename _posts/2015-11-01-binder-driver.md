@@ -329,9 +329,9 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
     }
 
 
-**2.4.1 binder_get_thread()**
+#### 2.4.1 binder_get_thread
 
-从binder_proc中查找binder_thread,如果存在则直接返回，如果不存在则新建一个，并添加到当前的proc
+从binder_proc中查找binder_thread,如果当前线程已经加入到proc的线程队列则直接返回，如果不存在则创建binder_thread，并将当前线程添加到当前的proc
 
     static struct binder_thread *binder_get_thread(struct binder_proc *proc)
     {
@@ -366,7 +366,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
         return thread;
     }
 
-**2.4.2 binder_ioctl_write_read()**
+#### 2.4.2 binder_ioctl_write_read
 
 对于ioctl()方法中，传递进来的命令是cmd = `BINDER_WRITE_READ`时执行该方法，arg是一个`binder_write_read`结构体
 

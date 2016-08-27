@@ -57,8 +57,8 @@ lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同a
 |PROCESS_STATE_IMPORTANT_BACKGROUND|7|对用户很重要的进程，用户不可感知其存在|
 |PROCESS_STATE_IMPORTANT_FOREGROUND|6|对用户很重要的进程，用户可感知其存在|
 |PROCESS_STATE_TOP_SLEEPING|5|与PROCESS_STATE_TOP一样，但此时设备正处于休眠状态|
-|PROCESS_STATE_FOREGROUND_SERVICE|4|拥有给一个前台Service|
-|PROCESS_STATE_BOUND_FOREGROUND_SERVICE|3|拥有给一个前台Service，且由系统绑定|
+|PROCESS_STATE_FOREGROUND_SERVICE|4|拥有一个前台Service|
+|PROCESS_STATE_BOUND_FOREGROUND_SERVICE|3|拥有一个前台Service，且由系统绑定|
 |PROCESS_STATE_TOP|2|拥有当前用户可见的top Activity|
 |PROCESS_STATE_PERSISTENT_UI|1|persistent系统进程，并正在执行UI操作|
 |PROCESS_STATE_PERSISTENT|0|persistent系统进程|
@@ -1386,6 +1386,12 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 - ContentProvider情况
 - 调整adj
 
+原则1：取大优先，Android给进程优先级评级策略是选择最高的优先级，例如：当进程既有后台Service，也有前台Activity时，该进程的优先级则会评定为前台进程(adj=0)，而非服务进程(adj=5).
+
+原则2：
+
+一个进程的级别可能会因其他进程对它的依赖而有所提高，即服务于另一进程的进程其级别永远不会低于其所服务的进程。 例如，如果进程 A 中的内容提供程序为进程 B 中的客户端提供服务，或者如果进程 A 中的服务绑定到进程 B 中的组件，则进程 A 始终被视为至少与进程 B 同样重要。
+？？？
 
 #### 3.3 applyOomAdjLocked
 

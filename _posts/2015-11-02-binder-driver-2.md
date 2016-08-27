@@ -328,6 +328,11 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
         return;
     }
 
+有handle -> ref,  ref-> node(target_node), target_node -> target_proc
+
+reply的过程会找到target_thread, 非reply则只能找到target_proc
+
+
 ### 2.4 响应协议
 
 binder响应码，是用`enum binder_driver_return_protocol`来定义的，是binder设备向应用程序回复的消息，，应用程序包含Client端和Server端，以BR_开头，总18条；
