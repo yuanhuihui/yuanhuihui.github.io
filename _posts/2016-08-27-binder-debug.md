@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Binder后传之调试分析(一)"
+title:  "Binder外传之调试分析(一)"
 date:   2016-08-27 09:30:00
 catalog:  true
 tags:
@@ -13,7 +13,7 @@ tags:
 在博客以前有写过关于binder系列，大概写了10篇关于binder的文章，从binder驱动，到native层，再到framework，一路写到app层的使用。有兴趣的可以看看
 [Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)。
 
-虽然写完binder系列，其实还是有很多细节没有讲透彻，计划再一个`binder后传`系列，不会涉及太多的源码，更多的是将binder从上至下再串一串。本文先从Binder调试说一说，接下来进入正题。
+虽然写完binder系列，其实还是有很多细节没有讲透彻，计划再一个`binder外传`系列，不会涉及太多的源码，更多的是将binder从上至下再串一串。本文先从Binder调试说一说，接下来进入正题。
 
 ## 二.Binder驱动调试
 
@@ -118,7 +118,7 @@ binder_release中各个变量的含义：
 - `active_transactions`是指当前进程中所有binder线程的transactions总和；
 - `buffers`是指当前进程已分配的buffer个数
 - `page_count`是指当前进程已分配的物理page个数
-
+、
 ### 3.2 对应函数
 
 上述log每一行相对应的函数：
