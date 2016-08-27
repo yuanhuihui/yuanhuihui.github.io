@@ -23,46 +23,47 @@ tags:
 
 |Log类型|mask值|解释|
 |---|---|---|
-|BINDER_DEBUG_USER_ERROR|1U << 0|用户使用错误|
-|BINDER_DEBUG_FAILED_TRANSACTION|1U << 1|transaction失败|
-|BINDER_DEBUG_DEAD_TRANSACTION|1U << 2|transaction死亡
-|BINDER_DEBUG_OPEN_CLOSE|1U << 3|**binder的open、close、mmap、flush、release信息**
-|BINDER_DEBUG_DEAD_BINDER|1U << 4|binder/node的正常或者异常死亡
-|BINDER_DEBUG_DEATH_NOTIFICATION|1U << 5|binder死亡通知信息|
-|BINDER_DEBUG_READ_WRITE|1U << 6|binder的read/write信息
-|BINDER_DEBUG_USER_REFS|  1U << 7|binder引用计数
-|BINDER_DEBUG_THREADS|      1U << 8|**binder_thread信息**|
-|BINDER_DEBUG_TRANSACTION|        1U << 9|transaction信息
-|BINDER_DEBUG_TRANSACTION_COMPLETE | 1U << 10|transaction完成信息
-|BINDER_DEBUG_FREE_BUFFER  |        1U << 11|binder buffer释放信息
-|BINDER_DEBUG_INTERNAL_REFS  |     1U << 12|binder内部引用计数
-|BINDER_DEBUG_BUFFER_ALLOC |     1U << 13|**同步内存分配信息**
-|BINDER_DEBUG_PRIORITY_CAP  |         1U << 14|调整binder线程的nice值
-|BINDER_DEBUG_BUFFER_ALLOC_ASYNC  |   1U << 15|**异步内存分配信息**
+|BINDER_DEBUG_USER_ERROR|1|用户使用错误|
+|BINDER_DEBUG_FAILED_TRANSACTION|2|transaction失败|
+|BINDER_DEBUG_DEAD_TRANSACTION|4|transaction死亡
+|BINDER_DEBUG_OPEN_CLOSE|8|**binder的open/close/mmap信息**
+|BINDER_DEBUG_DEAD_BINDER|16|binder/node的正常或者异常死亡
+|BINDER_DEBUG_DEATH_NOTIFICATION|32|binder死亡通知信息|
+|BINDER_DEBUG_READ_WRITE|64|binder的read/write信息
+|BINDER_DEBUG_USER_REFS|128|binder引用计数
+|BINDER_DEBUG_THREADS|256|**binder_thread信息**|
+|BINDER_DEBUG_TRANSACTION|512|transaction信息
+|BINDER_DEBUG_TRANSACTION_COMPLETE |1024|transaction完成信息
+|BINDER_DEBUG_FREE_BUFFER  |2048|binder buffer释放信息
+|BINDER_DEBUG_INTERNAL_REFS  |4096|binder内部引用计数
+|BINDER_DEBUG_BUFFER_ALLOC |8192|**同步内存分配信息**
+|BINDER_DEBUG_PRIORITY_CAP  |16384|调整binder线程的nice值
+|BINDER_DEBUG_BUFFER_ALLOC_ASYNC  |32768|**异步内存分配信息**
 
+每一项mask值通过将1左移N位，也就是等于2的倍数
 
 ### 2.2 调试开关
 
 通过节点`/sys/module/binder/parameters/debug_mask`来动态控制选择开启上表中的debug log.
 
-(1)例如打开`BINDER_DEBUG_OPEN_CLOSE`调试开关，mask= 1<<3 = 2^3 =8，则通过adb shell执行如下命令：
+(1)例如打开`BINDER_DEBUG_OPEN_CLOSE`调试开关，则通过adb shell执行如下命令：
 
-  echo 8 > /sys/module/binder/parameters/debug_mask
+    echo 8 > /sys/module/binder/parameters/debug_mask
 
-(2)再例如同时打开`BINDER_DEBUG_FAILED_TRANSACTION`和`BINDER_DEBUG_DEAD_BINDER`，将各个mask值做或运算即可，（1 << 1）| (1 << 4) =18.
+(2)再例如同时打开`BINDER_DEBUG_FAILED_TRANSACTION`和`BINDER_DEBUG_DEAD_BINDER`，将各个mask值相加即可，16+2 =18.
 
-  echo 18 > /sys/module/binder/parameters/debug_mask
+    echo 18 > /sys/module/binder/parameters/debug_mask
 
-(3)要打开多个开关，只需将各个开关的mask做或运算的值写入debug_mask即可。这里要注意的是千万别把这16个开关同时打开，否则你的kernel log输出太过于密集，早已超出缓冲区大小，以至于显示不了多长时间地log信息，最好还是按需打开相应开关。
-
-打开调试开关后，可通过adb shell，执行`cat /proc/kmsg | grep binder`，即可查看相应的binder log信息。
+(3)要打开多个开关，只需将各个开关的mask值相加写入debug_mask即可。打开调试开关后，可通过adb shell，执行`cat /proc/kmsg | grep binder`，即可查看相应的binder log信息。
 
 
 ### 2.3 原理
 
-利用或运算，通过一个变量控制16个开关，而不是采用16个变量，这是比较经典的设计方案。
+mask相加，其实现其实是利用或运算，通过一个变量控制16个开关，而不是采用16个变量，这是比较经典的设计方案。在binder Driver中通过下面语句完成节点控制debug的功能：
 
-在binder Driver中通过`module_param_named(debug_mask, binder_debug_mask, uint, S_IWUSR | S_IRUGO);`语句，
+    module_param_named(debug_mask, binder_debug_mask, uint, S_IWUSR | S_IRUGO);
+
+module_param_named的功能：
 
 - 首先会生成`/sys/module/binder/parameters/`目录；
 - module_param_named的第一个参数为`debug_mask`，则会在parameters目录下创建`debug_mask`文件节点；
@@ -91,35 +92,40 @@ binder_debug宏定义，如下：
 
 ### 3.1 BINDER_DEBUG_OPEN_CLOSE
 
-当打开调试开关`BINDER_DEBUG_OPEN_CLOSE`时，kernel log：
+当打开调试开关`BINDER_DEBUG_OPEN_CLOSE`时，主要输出binder的open, mmap, close, flush, release方法中的log信息
 
-**binder_open:** 4681:4681  
-**binder_mmap:** 4681 b6b42000-b6c40000 (1016 K) vma 200071 pagep 79f  
-**binder:** 4681 close vm area b6b42000-b6c40000 (1016 K) vma 2220051 pagep 79f  
-**binder_flush:** 4681 woke 0 threads  
-**binder_release:** 4681 threads 1, nodes 0 (ref 0), refs 2, active transactions 0, buffers 1, pages 1
+具体kernel log，如下：
 
-这5行log含义几何呢？log解析：
+1. **binder_open:** 4681:4681  
+2. **binder_mmap:** 4681 b6b42000-b6c40000 (1016 K) vma 200071 pagep 79f  
+3. **binder:** 4681 close vm area b6b42000-b6c40000 (1016 K) vma 2220051 pagep 79f  
+4. **binder_flush:** 4681 woke 0 threads  
+5. **binder_release:** 4681 threads 1, nodes 0 (ref 0), refs 2, active transactions 0, buffers 1, pages 1
 
-**binder_open:** `group_leader->pid`:`pid`  
-**binder_mmap:** `pid` vm_start-vm_end (`vm_size` K) vma vm_flags pagep VMA访问权限
-**binder:** `pid` close vm area vm_start-vm_end (`vm_size` K) vma vm_flags pagep VMA访问权限  
-**binder_flush:** `pid` woke `wake_count` threads  
-**binder_release:** `pid` threads `threads`, nodes `nodes` (ref `incoming_refs`), refs `outgoing_refs`, active transactions `active_transactions`, buffers `buffers`, pages `page_count`
 
-binder_flush中变量 `wake_count`:是指该进程唤醒了处于`BINDER_LOOPER_STATE_WAITING`休眠等待状态的线程个数。
 
-binder_release中各个变量的含义：
+### 3.2 解析
 
-- `threads`是指该进程中的线程个数，
-- `nodes`代表该进程中创建binder_node个数，  
-- `incoming_refs`指向当前node的refs个数，
+上面各行log所对应的信息项：
+
+1. **binder_open:** `group_leader->pid`:`pid`  
+2. **binder_mmap:** `pid` vm_start-vm_end (`vm_size` K) vma vm_flags pagep VMA访问权限
+3. **binder:** `pid` close vm area vm_start-vm_end (`vm_size` K) vma vm_flags pagep VMA访问权限  
+4. **binder_flush:** `pid` woke `wake_count` threads  
+5. **binder_release:** `pid` threads `threads`, nodes `nodes` (ref `incoming_refs`), refs `outgoing_refs`, active transactions `active_transactions`, buffers `buffers`, pages `page_count`
+
+进一步说明其中部分关键词的含义：
+
+- `wake_count`:是指该进程唤醒了处于`BINDER_LOOPER_STATE_WAITING`休眠等待状态的线程个数；
+- `threads`是指该进程中的线程个数；
+- `nodes`代表该进程中创建binder_node个数；
+- `incoming_refs`指向当前node的refs个数；
 - `outgoing_refs`指向其他进程的refs个数；
 - `active_transactions`是指当前进程中所有binder线程的transactions总和；
-- `buffers`是指当前进程已分配的buffer个数
-- `page_count`是指当前进程已分配的物理page个数
-、
-### 3.2 对应函数
+- `buffers`是指当前进程已分配的buffer个数；
+- `page_count`是指当前进程已分配的物理page个数。
+
+### 3.3 对应函数
 
 上述log每一行相对应的函数：
 
@@ -129,7 +135,7 @@ binder_release中各个变量的含义：
 4. binder_deferred_flush()   由binder_flush调用（见下方调用栈）
 5. binder_deferred_release()  由binder_release调用（见下方调用栈）
 
-**方法调用栈：**
+**binder_flush调用栈：**
 
     binder_flush  
       binder_defer_work(proc, BINDER_DEFERRED_FLUSH);
@@ -137,6 +143,7 @@ binder_release中各个变量的含义：
           binder_deferred_func    //通过 DECLARE_WORK(binder_deferred_work, binder_deferred_func);
             binder_deferred_flush
 
+**binder_release调用栈：**
 
     binder_release  
       binder_defer_work(proc, BINDER_DEFERRED_RELEASE);
