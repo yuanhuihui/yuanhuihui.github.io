@@ -25,20 +25,20 @@ tags:
 |---|---|---|
 |BINDER_DEBUG_USER_ERROR|1|用户使用错误|
 |BINDER_DEBUG_FAILED_TRANSACTION|2|transaction失败|
-|BINDER_DEBUG_DEAD_TRANSACTION|4|transaction死亡
-|BINDER_DEBUG_OPEN_CLOSE|8|**binder的open/close/mmap信息**
-|BINDER_DEBUG_DEAD_BINDER|16|binder/node的正常或者异常死亡
+|BINDER_DEBUG_DEAD_TRANSACTION|4|transaction死亡|
+|BINDER_DEBUG_OPEN_CLOSE|8|**binder的open/close/mmap信息**|
+|BINDER_DEBUG_DEAD_BINDER|16|binder/node死亡信息|
 |BINDER_DEBUG_DEATH_NOTIFICATION|32|binder死亡通知信息|
-|BINDER_DEBUG_READ_WRITE|64|binder的read/write信息
-|BINDER_DEBUG_USER_REFS|128|binder引用计数
+|BINDER_DEBUG_READ_WRITE|64|binder的read/write信息|
+|BINDER_DEBUG_USER_REFS|128|binder引用计数|
 |BINDER_DEBUG_THREADS|256|**binder_thread信息**|
-|BINDER_DEBUG_TRANSACTION|512|transaction信息
-|BINDER_DEBUG_TRANSACTION_COMPLETE |1024|transaction完成信息
-|BINDER_DEBUG_FREE_BUFFER  |2048|binder buffer释放信息
-|BINDER_DEBUG_INTERNAL_REFS  |4096|binder内部引用计数
-|BINDER_DEBUG_BUFFER_ALLOC |8192|**同步内存分配信息**
-|BINDER_DEBUG_PRIORITY_CAP  |16384|调整binder线程的nice值
-|BINDER_DEBUG_BUFFER_ALLOC_ASYNC  |32768|**异步内存分配信息**
+|BINDER_DEBUG_TRANSACTION|512|transaction信息|
+|BINDER_DEBUG_TRANSACTION_COMPLETE |1024|transaction完成信息|
+|BINDER_DEBUG_FREE_BUFFER  |2048|可用buffer信息|
+|BINDER_DEBUG_INTERNAL_REFS  |4096|binder内部引用计数|
+|BINDER_DEBUG_BUFFER_ALLOC |8192|**同步内存分配信息**|
+|BINDER_DEBUG_PRIORITY_CAP  |16384|调整binder线程的nice值|
+|BINDER_DEBUG_BUFFER_ALLOC_ASYNC  |32768|**异步内存分配信息**|
 
 每一项mask值通过将1左移N位，也就是等于2的倍数
 
@@ -109,13 +109,14 @@ binder_debug宏定义，如下：
 上面各行log所对应的信息项：
 
 1. **binder_open:** `group_leader->pid`:`pid`  
-2. **binder_mmap:** `pid` vm_start-vm_end (`vm_size` K) vma vm_flags pagep VMA访问权限
-3. **binder:** `pid` close vm area vm_start-vm_end (`vm_size` K) vma vm_flags pagep VMA访问权限  
+2. **binder_mmap:** `pid` vm_start-vm_end (`vm_size` K) vma vm_flags pagep `vm_page_prot`
+3. **binder:** `pid` close vm area vm_start-vm_end (`vm_size` K) vma vm_flags pagep `vm_page_prot`  
 4. **binder_flush:** `pid` woke `wake_count` threads  
 5. **binder_release:** `pid` threads `threads`, nodes `nodes` (ref `incoming_refs`), refs `outgoing_refs`, active transactions `active_transactions`, buffers `buffers`, pages `page_count`
 
 进一步说明其中部分关键词的含义：
 
+- `vm_page_prot`:是指当前进程的VMA访问权限；
 - `wake_count`:是指该进程唤醒了处于`BINDER_LOOPER_STATE_WAITING`休眠等待状态的线程个数；
 - `threads`是指该进程中的线程个数；
 - `nodes`代表该进程中创建binder_node个数；
@@ -156,6 +157,76 @@ binder_debug宏定义，如下：
 
 但并不是每个close系统调用都会触发调用release()方法. 只有真正释放设备数据结构才调用release(),内核维持一个文件结构被使用多少次的计数，即便是应用程序没有明显地关闭它打开的文件也适用: 内核在进程exit()时会释放所有内存和关闭相应的文件资源, 通过使用close系统调用最终也会release binder.
 
-## 四. 小结
+## 四. 其他实例
+
+### 4.1 BINDER_DEBUG_DEAD_BINDER
+
+//debug_id, node的引用次数，死亡通知个数
+binder: node `1078337` now dead, refs `1`, death `0`
+
+//ref->proc->pid, ref->debug_id, ref->desc(handle)
+binder: `13839` delete ref `1078335` desc `1` has death notification
+
+//proc->pid, thread->pid, (u64)cookie,  death
+binder: `1788`:`1805` BC_DEAD_BINDER_DONE `9ce308c0` found `f10a5400`
+
+
+### 4.2 BINDER_DEBUG_FREE_BUFFER
+
+**查询可用buffer：**
+
+//proc->pid, thread->pid, (u64)data_ptr,  buffer->debug_id,  buffer->transaction
+binder: `463`:`5919` BC_FREE_BUFFER u`b4641028` found buffer `1183795` for `finished` transaction
+binder: `277`:`2771` BC_FREE_BUFFER u`b6c58028` found buffer `1183806` for `active` transaction
+
+另外，buffer->transaction ? "active" : "finished"
+
+位于方法`binder_thread_write()`
+
+### 4.3 BINDER_DEBUG_BUFFER_ALLOC_ASYNC(异步)
+
+**申请和释放异步buffer:**
+
+//proc->pid, size, proc->free_async_space
+binder: `1788`: binder_alloc_buf size `148` async free `520004`
+binder: `1788`: binder_free_buf size `148` async free `520192`
+
+**解析：**
+
+- binder_alloc_buf：进程1788，申请148 Bytes，则该进程的可用异步空间大小520004 Bytes；
+- binder_free_buf： 进程1788，释放148 Bytes，则该进程的可用异步空间大小520192 Bytes；
+
+**内存大小计算：**
+
+free_async_space = 520004 Bytes，再释放148 Bytes后，则可用大小应该是 520152 Bytes，这里却为520192 Bytes，这里多出来的40 Bytes是哪来得呢？这是因为`binder_free_buf`还会同时释放struct binder_buffer，该结构体大小则为40 Bytes.
+
+
+另外：buffer申请内存`binder_alloc_buf`和释放内存`binder_free_buf`，除了本身内存申请和释放，会同时伴随着binder_buffer结构体的创建和释放，这便是每次操作40 Bytes差距所在。
+
+**初始化值**
+
+proc->free_async_space = proc->buffer_size / 2 = (1M-8K)/2 = 520192 Bytes。当进程刚打开binder驱动，执行完binder_mmap方法后，异步可用空间总大小为 520192 Bytes.
+
+
+### 4.4 BINDER_DEBUG_BUFFER_ALLOC(同步)
+
+// 参数：proc->pid, size, buffer, buffer_size  
+binder: `1788`: binder_alloc_buf size `76` got buffer `c7800128` size `208`  
+binder: `1788`: `allocate` pages `c7801000-c7800000`  
+// 参数：proc->pid, new_buffer_size, new_buffer  
+binder: `1788`: add free buffer, size `92`, at `c780019c`  
+binder: `1788`: `free` pages `c7801000-c7800000`   
+//参数：proc->pid, buffer, prev
+binder: `1788`: merge free, buffer `c780019c` share page with `c7800128`
+
+**解析：**
+
+- binder_alloc_buf: 从proc->free_buffers这棵红黑色树，找到一块大小大于并最接近`76`Bytes的buffer,该buffer大小为`208`Bytes;
+- binder_update_page_range：申请一个page大小的物理内存，地址为`c7801000-c7800000`。
+- binder_insert_free_buffer: 将空闲buffer添加到proc->free_buffers；
+- binder_update_page_range：释放一个page大小的物理内存，地址为`c7801000-c7800000`。
+- binder_delete_free_buffer：在执行binder_free_buf()过程，合并释放的buffer，由于该buffer跟上一个buffer共享同一page，则无需释放。
+
+## 五. 小结
 
 本文主要介绍控制调试开关和各个开关的含义及原理，最后再通过一个实例来进一步来说明其中一项开关打开后的log信息该如何分析。后续会介绍更多的调试含义和调试工具，以及从上至下binder是如何通信。
