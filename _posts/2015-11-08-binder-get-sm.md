@@ -267,7 +267,7 @@ interface_cast，这是一个模板函数，如下：
 
 接下来，再说说这两行代码分别完成的功能：
 
-**（1） DECLARE_META_INTERFACE(IServiceManager)**
+**（1） DECLARE_META_INTERFACE(IServiceManager)**  
 ==> `/framework/native/include/binder/IServiceManager.h`
 
 根据`IInterface.h`中的模板函数，展开即可得：
@@ -281,7 +281,7 @@ interface_cast，这是一个模板函数，如下：
     IServiceManager ();
     virtual ~IServiceManager();
 
-**（2） IMPLEMENT_META_INTERFACE(ServiceManager,"android.os.IServiceManager")**
+**（2） IMPLEMENT_META_INTERFACE(ServiceManager,"android.os.IServiceManager")**  
 ==> `/framework/native/libs/binder/IServiceManager.cpp`
 
 
@@ -317,7 +317,7 @@ interface_cast，这是一个模板函数，如下：
 
 创建BpServiceManager对象的过程，会先初始化父类对象：
 
-**（1）初始化BpServiceManager**
+**（1）初始化BpServiceManager**  
 ==> `/framework/native/libs/binder/IServiceManager.cpp`
 
     BpServiceManager(const sp<IBinder>& impl)
@@ -325,7 +325,7 @@ interface_cast，这是一个模板函数，如下：
     {
     }
 
-**（2）初始化父类BpInterface**
+**（2）初始化父类BpInterface**  
 ==> `/framework/native/include/binder/IInterface.h`
 
     inline BpInterface<INTERFACE>::BpInterface(const sp<IBinder>& remote)
@@ -333,7 +333,7 @@ interface_cast，这是一个模板函数，如下：
     {
     }
 
-**（3）初始化父类BpRefBase**
+**（3）初始化父类BpRefBase**  
 ==> `/framework/native/libs/binder/Binder.cpp`
 
     BpRefBase::BpRefBase(const sp<IBinder>& o)

@@ -391,16 +391,24 @@ framework Binder架构图：
         return new ServiceManagerProxy(obj);
     }
 
-由此，可知ServiceManagerNative.asInterface(new BinderProxy())  等价于
+由此，可知ServiceManagerNative.asInterface(new BinderProxy()) 等价于`new ServiceManagerProxy(new BinderProxy())`. 为了方便，ServiceManagerProxy简称为SMP。
 
-    new ServiceManagerProxy(new BinderProxy())
+#### 3.2.4 mRemote
+==> ServiceManagerNative.java
 
-**getIServiceManager小结:**
+    class ServiceManagerProxy implements IServiceManager {
+        public ServiceManagerProxy(IBinder remote) {
+            mRemote = remote;
+        }
+    }
 
-`ServiceManager.getIServiceManager`最终等价于`new ServiceManagerProxy(new BinderProxy())`；
+mRemote为BinderProxy对象，该BinderProxy对象对应于BpBinder(0)，其作为binder代理端，指向native层大管家service Manager。
+
+#### 3.2.5 getIServiceManager小结
+
+`ServiceManager.getIServiceManager`最终等价于`new ServiceManagerProxy(new BinderProxy())`,意味着【3.1】中的getIServiceManager().addService()，等价于SMP.addService().
+
 framework层的ServiceManager的调用实际的工作确实交给远程接口ServiceManagerProxy的成员变量BinderProxy；而BinderProxy通过jni方式，最终会调用BpBinder对象；可见上层binder架构的核心功能基本都是靠native架构的服务来完成的。
-
-也就意味着【3.1】中的 getIServiceManager().addService()，等价于ServiceManagerProxy.addService()，ServiceManagerProxy简称为SMP，接下来再看SMP.addService方法。
 
 ### 3.3 SMP.addService
 
@@ -412,7 +420,8 @@ framework层的ServiceManager的调用实际的工作确实交给远程接口Ser
         Parcel reply = Parcel.obtain();
         data.writeInterfaceToken(IServiceManager.descriptor);
         data.writeString(name);
-        data.writeStrongBinder(service); //【见3.4】
+        //【见3.4】
+        data.writeStrongBinder(service);
         data.writeInt(allowIsolated ? 1 : 0);
         //mRemote为BinderProxy【见3.9】
         mRemote.transact(ADD_SERVICE_TRANSACTION, data, reply, 0);
@@ -515,7 +524,6 @@ transactNative经过jni调用，进入下面的方法
 ### 3.10 android_os_BinderProxy_transact
 ==> android_util_Binder.cpp
 
-    //该方法可抛出RemoteException
     static jboolean android_os_BinderProxy_transact(JNIEnv* env, jobject obj,
         jint code, jobject dataObj, jobject replyObj, jint flags)
     {
@@ -546,7 +554,7 @@ transactNative经过jni调用，进入下面的方法
         return JNI_FALSE;
     }
 
-Java层的BinderProxy.transact()最终交由Native层的BpBinder::transact()完成。Native Binder的[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)中有详细说明BpBinder执行过程。
+Java层的BinderProxy.transact()最终交由Native层的BpBinder::transact()完成。Native Binder的[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)中有详细说明BpBinder执行过程。另外，该方法可抛出RemoteException。
 
 ### 3.11 小结
 
@@ -602,23 +610,95 @@ addService的核心过程：
         return binder;
     }
 
-mRemote.transact()在前面，已经说明过，通过JNI调用，最终调用的是BpBinder::transact（)方法。
+mRemote.transact()在前面已经说明过，通过JNI最终调用的是BpBinder::transact（)方法。
 
 ### 4.3 readStrongBinder
 ==> Parcel.java
 
-readStrongBinder的过程基本与前面的writeStrongBinder时逆过程。
+readStrongBinder的过程基本是writeStrongBinder逆过程。
 
     static jobject android_os_Parcel_readStrongBinder(JNIEnv* env, jclass clazz, jlong nativePtr)
     {
         Parcel* parcel = reinterpret_cast<Parcel*>(nativePtr);
         if (parcel != NULL) {
+            //【见小节4.4】
             return javaObjectForIBinder(env, parcel->readStrongBinder());
         }
         return NULL;
     }
 
-javaObjectForIBinder在第【3.3】中已经介绍过javaObjectForIBinder(env, new BpBinder(handle));
+javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象。
+
+### 4.4 parcel->readStrongBinder
+==> Parcel.cpp
+
+    sp<IBinder> Parcel::readStrongBinder() const
+    {
+        sp<IBinder> val;
+        //【见小节4.5】
+        unflatten_binder(ProcessState::self(), *this, &val);
+        return val;
+    }
+
+### 4.5 unflatten_binder
+==> Parcel.cpp
+
+    status_t unflatten_binder(const sp<ProcessState>& proc,
+        const Parcel& in, sp<IBinder>* out)
+    {
+        const flat_binder_object* flat = in.readObject(false);
+        if (flat) {
+            switch (flat->type) {
+                case BINDER_TYPE_BINDER:
+                    *out = reinterpret_cast<IBinder*>(flat->cookie);
+                    return finish_unflatten_binder(NULL, *flat, in);
+                case BINDER_TYPE_HANDLE:
+                    //进入该分支【见4.6】
+                    *out = proc->getStrongProxyForHandle(flat->handle);
+                    //创建BpBinder对象
+                    return finish_unflatten_binder(
+                        static_cast<BpBinder*>(out->get()), *flat, in);
+            }
+        }
+        return BAD_TYPE;
+    }
+
+### 4.6 getStrongProxyForHandle
+==> ProcessState.cpp
+
+    sp<IBinder> ProcessState::getStrongProxyForHandle(int32_t handle)
+    {
+        sp<IBinder> result;
+
+        AutoMutex _l(mLock);
+        //查找handle对应的资源项
+        handle_entry* e = lookupHandleLocked(handle);
+
+        if (e != NULL) {
+            IBinder* b = e->binder;
+            if (b == NULL || !e->refs->attemptIncWeak(this)) {
+                if (handle == 0) {
+                    Parcel data;
+                    //通过ping操作测试binder是否准备就绪
+                    status_t status = IPCThreadState::self()->transact(
+                            0, IBinder::PING_TRANSACTION, data, NULL, 0);
+                    if (status == DEAD_OBJECT)
+                       return NULL;
+                }
+                //当handle值所对应的IBinder不存在或弱引用无效时，则创建BpBinder对象
+                b = new BpBinder(handle);
+                e->binder = b;
+                if (b) e->refs = b->getWeakRefs();
+                result = b;
+            } else {
+                result.force_set(b);
+                e->refs->decWeak(this);
+            }
+        }
+        return result;
+    }
+
+经过该方法，最终创建了指向Binder服务端的BpBinder代理对象。回到[小节4.3] 经过javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象。 也就是说通过getService()最终获取了指向目标Binder服务端的代理对象BinderProxy。
 
 
 ### 4.4 小结
@@ -634,5 +714,4 @@ getServicee的核心过程：
     }
 
 javaObjectForIBinder作用是创建BinderProxy对象，并将BpBinder对象的地址保存到BinderProxy对象的mObjects中。
-
 获取服务过程就是通过BpBinder来发送`GET_SERVICE_TRANSACTION`命令，与实现与binder驱动进行数据交互。
