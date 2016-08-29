@@ -517,7 +517,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
                 则`curEmptyAdj = nextEmptyAdj`，（nextEmptyAdj加2，nextEmptyAdj上限为15）；
 
     - 根据当前进程procState状态来决策：
-        - 当curProcState=14或15，且cached进程超过上限(cachedProcessLimit=32)，则杀掉该进程
+        - 当curProcState=14或15，且cached进程超过上限(cachedProcessLimit=16)，则杀掉该进程
         - 当curProcState=16的前提下：
             - 当空进程超过上限(TRIM_EMPTY_APPS=8)，且空闲时间超过30分钟，则杀掉该进程
             - 否则，当空进程超过上限(emptyProcessLimit=16)，则杀掉该进程
@@ -1362,7 +1362,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 主要工作：
 
 - 遍历mLruProcesses进程，更新进程adj，并杀掉满足以下条件的进程：
-    - 当curProcState=14或15，且cached进程超过上限(cachedProcessLimit=32)
+    - 当curProcState=14或15，且cached进程超过上限(cachedProcessLimit=16)
     - 当curProcState=16，且空进程超过上限(TRIM_EMPTY_APPS=8)，且空闲时间超过30分钟
     - 当curProcState=16，且空进程超过上限(emptyProcessLimit=16)
 
