@@ -24,7 +24,7 @@ Android系统体系架构分为5层，自顶而下分别是：
 - 系统服务层（Android System Services）
 - 硬件抽象层（HAL）
 - Linux内核（Linux Kernel）
--
+
 ----------
 
 ### 1.1 应用程序框架（Application Framework）

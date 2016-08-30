@@ -115,7 +115,7 @@ dump_backtrace等于true代表的是输出backtrace到控制台，否则意味�
 
 该方法的功能：
 
-- 首先，向debuggerd的socket服务端发出DEBUGGER_ACTION_DUMP_BACKTRACE请求，然后阻塞等待；
+- 首先，向debuggerd的socket服务端发出`DEBUGGER_ACTION_DUMP_BACKTRACE`请求，然后阻塞等待；
 - 循环遍历读取debuggerd服务端发送过来的数据，并写入到buffer;
 - 再将buffer数据输出到fd，此处是stdout文件描述符(屏幕终端)。
 
@@ -156,7 +156,7 @@ dump_backtrace等于true代表的是输出backtrace到控制台，否则意味�
 
 该方法的功能：
 
-- 首先，向debuggerd的socket服务端发出DEBUGGER_ACTION_DUMP_TOMBSTONE请求，然后阻塞等待；
+- 首先，向debuggerd的socket服务端发出`DEBUGGER_ACTION_DUMP_TOMBSTONE`请求，然后阻塞等待；
 - 循环遍历读取debuggerd服务端发送过来的tombstone文件名，并写入到buffer;
 - 将buffer数据拷贝到pathbuf，即拷贝tombstone文件名。
 
@@ -173,7 +173,7 @@ dump_backtrace等于true代表的是输出backtrace到控制台，否则意味�
       int sock_fd = socket_local_client(DEBUGGER_SOCKET_NAME, ANDROID_SOCKET_NAMESPACE_ABSTRACT,
           SOCK_STREAM | SOCK_CLOEXEC);
       ...
-      //通过write()方法将msg信息写入文件描述符sock_fd【见小节2.5】
+      //通过write()方法将msg信息写入文件描述符sock_fd【见小节2.6】
       if (send_request(sock_fd, &msg, sizeof(msg)) < 0) {
         close(sock_fd);
         return -1;
