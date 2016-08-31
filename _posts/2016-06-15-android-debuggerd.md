@@ -583,23 +583,10 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
 
 #### 3.6.2 BacktraceMap::Create
 
-[-> UnwindMap.cpp]
+[-> BacktraceMap.cpp]
 
-    BacktraceMap* BacktraceMap::Create(pid_t pid, bool uncached) {
-      BacktraceMap* map;
-
-       //uncached默认值为false
-      if (uncached) {
-        map = new BacktraceMap(pid);
-      } else if (pid == getpid()) {
-        //本地进程
-        map = new UnwindMapLocal();
-      } else {
-        //远程进程
-        map = new UnwindMapRemote(pid);
-      }
-
-      //获取BacktraceMap
+    BacktraceMap* BacktraceMap::Create(pid_t pid, bool /*uncached*/) {
+      BacktraceMap* map = new BacktraceMap(pid);
       if (!map->Build()) {
         delete map;
         return nullptr;
@@ -868,9 +855,14 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
 
 **可知：**
 
-- `debuggerd -b <tid>`指令，发送请求的action为DEBUGGER_ACTION_DUMP_BACKTRACE，则调用dump_backtrace();
-- `debuggerd <tid>`指令，发送请求的action为DEBUGGER_ACTION_DUMP_TOMBSTONE，则调用engrave_tombstone();
-- `native crash`，发送请求的action为DEBUGGER_ACTION_CRASH，且发送信号为SIGBUS等致命信号，则调用engrave_tombstone()。
+`debuggerd -b <tid>`:  
+发送请求的action为`DEBUGGER_ACTION_DUMP_BACKTRACE`，则调用`dump_backtrace()`;
+
+`debuggerd <tid>`:
+发送请求的action为`DEBUGGER_ACTION_DUMP_TOMBSTONE`，则调用`engrave_tombstone()`;
+
+`native crash`:
+发送请求的action为`DEBUGGER_ACTION_CRASH`，且发送信号为SIGBUS等致命信号，则调用`engrave_tombstone()`。
 
 再接下来，需要重点看看`engrave_tombstone`和`dump_backtrace`这两个方法。
 
@@ -1047,8 +1039,9 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
     }
 
 
-- 获取线程名：/proc/<tid>/comm
-- 获取进程名：/proc/<pid>/cmdline
+
+- 获取进程名：`/proc/<pid>/cmdline`
+- 获取线程名：`/proc/<tid>/comm`
 
 例如：
 
@@ -1530,6 +1523,8 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
 
 **输出backtrace信息**
 
+#### 5.3.1 dump_backtrace_to_log
+
 [-> debuggerd/Backtrace.cpp]
 
     void dump_backtrace_to_log(Backtrace* backtrace, log_t* log, const char* prefix) {
@@ -1538,17 +1533,66 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
       }
     }
 
-例如：
+backtrace->NumFrames()是指该backtrace中栈帧数,通过循环遍历输出每一栈帧FormatFrameData的信息.
 
-    "Signal Catcher" sysTid=1794
-    "ActivityManager" sysTid=1827
-      #00 pc 00040984  /system/lib/libc.so (__epoll_pwait+20)
-      #01 pc 00019f5b  /system/lib/libc.so (epoll_pwait+26)
-      #02 pc 00019f69  /system/lib/libc.so (epoll_wait+6)
-      #03 pc 00012c57  /system/lib/libutils.so (_ZN7android6Looper9pollInnerEi+102)
-      #04 pc 00012ed3  /system/lib/libutils.so (_ZN7android6Looper8pollOnceEiPiS1_PPv+130)
-      #05 pc 00082ccd  /system/lib/libandroid_runtime.so (_ZN7android18NativeMessageQueue8pollOnceEP7_JNIEnvP8_jobjecti+22)
-      #06 pc 7385d55d  /data/dalvik-cache/arm/system@framework@boot.oat (offset 0x246d000)
+    std::string Backtrace::FormatFrameData(size_t frame_num) {
+      if (frame_num >= frames_.size()) {
+        return "";
+      }
+      return FormatFrameData(&frames_[frame_num]);
+    }
+
+
+    std::string Backtrace::FormatFrameData(const backtrace_frame_data_t* frame) {
+      const char* map_name;
+      if (BacktraceMap::IsValid(frame->map) && !frame->map.name.empty()) {
+        map_name = frame->map.name.c_str();
+      } else {
+        map_name = "<unknown>";
+      }
+
+      uintptr_t relative_pc = BacktraceMap::GetRelativePc(frame->map, frame->pc);
+      //这便是,平时大家看到的backtrace每一行的信息
+      std::string line(StringPrintf("#%02zu pc %" PRIPTR "  %s", frame->num, relative_pc, map_name));
+      // Special handling for non-zero offset maps, we need to print that
+      // information.
+      if (frame->map.offset != 0) {
+        line += " (offset " + StringPrintf("0x%" PRIxPTR, frame->map.offset) + ")";
+      }
+      if (!frame->func_name.empty()) {
+        line += " (" + frame->func_name;
+        if (frame->func_offset) {
+          line += StringPrintf("+%" PRIuPTR, frame->func_offset);
+        }
+        line += ')';
+      }
+
+      return line;
+    }
+
+//栈帧数 pc指针 map_name (函数名+offset)  
+ #01 pc 000000000001cca4  /system/lib64/libc.so (epoll_pwait+32)
+
+这些map信息是由/proc/%d/maps解析出来的
+
+#### 5.3.2 实例
+
+    ----- pid 9613 at 2016-08-31 09:36:58 -----
+    Cmd line: com.android.camera
+    ABI: 'arm64'
+
+    ".android.camera" sysTid=9613
+      #00 pc 0000000000069be4  /system/lib64/libc.so (__epoll_pwait+8)
+      #01 pc 000000000001cca4  /system/lib64/libc.so (epoll_pwait+32)
+      #02 pc 000000000001ad74  /system/lib64/libutils.so (_ZN7android6Looper9pollInnerEi+144)
+      #03 pc 000000000001b154  /system/lib64/libutils.so (_ZN7android6Looper8pollOnceEiPiS1_PPv+80)
+      #04 pc 00000000000d29a0  /system/lib64/libandroid_runtime.so (_ZN7android18NativeMessageQueue8pollOnceEP7_JNIEnvP8_jobjecti+48)
+      #05 pc 00000000742a282c  /data/dalvik-cache/arm64/system@framework@boot.oat (offset 0x2499000)
+
+      ...
+
+debuggerd -b命令,参数虽然指定tid,但输出结果会把整个线程组的backtrace都打印出来(上面只是省略).
+
 
 ### 5.4 dump_process_footer
 [-> debuggerd/backtrace.cpp]
@@ -1634,9 +1678,13 @@ backtrace输出信息：
 
 所有兄弟线程是以一系列`---`作为开头的分割符。
 
-### 总结
+## 总结
 
 这里主要以源码角度来分析debuggerd的原理，整个过程中最重要的产物便是tombstone文件，先留坑，后续再进一步讲述如何分析tombstone文件。
+
+- 对于`debuggerd -b`,则只输出backtrace,核心方法是`debuggerd/tombstone.cpp` 中的dump_thread();
+- 对于`debuggerd`或者`native crash`, 输出信息量比较大,核心方法是`debuggerd/backtrace.cpp` 中的 dump_thread();
+
 
 ## 相关源码
 
@@ -1648,7 +1696,8 @@ backtrace输出信息：
 
     /system/core/libcutils/debugger.c
     /system/core/include/BacktraceMap.h
-    /system/core/libbacktrace/UnwindMap.cpp
+    /system/core/libbacktrace/BacktraceMap.cpp
+    /system/core/libbacktrace/Backtrace.cpp
 
     /bionic/linker/arch/arm/begin.S
     /bionic/linker/linker.cpp

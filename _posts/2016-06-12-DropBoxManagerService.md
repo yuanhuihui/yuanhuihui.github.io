@@ -328,16 +328,16 @@ dropbox文件名为`dropboxTag@xxx.txt`
 - xxx代表的是时间戳;
 - 后缀除了`.txt`，还可以是`.txt.gz`压缩格式。
 
-     private static String processClass(ProcessRecord process) {
-         //MY_PID代表的是当前进程pid，正是system_server进程
-         if (process == null || process.pid == MY_PID) {
-             return "system_server";
-         } else if ((process.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
-             return "system_app";
-         } else {
-             return "data_app";
+         private static String processClass(ProcessRecord process) {
+             //MY_PID代表的是当前进程pid，正是system_server进程
+             if (process == null || process.pid == MY_PID) {
+                 return "system_server";
+             } else if ((process.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
+                 return "system_app";
+             } else {
+                 return "data_app";
+             }
          }
-     }
 
 例如`system_server_crash@1465650845355.txt`，代表的是system_server进程出现crash，记录该文件时间戳为1465650845355。
 

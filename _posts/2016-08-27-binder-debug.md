@@ -187,11 +187,11 @@ binder: `277`:`2771` BC_FREE_BUFFER u`b6c58028` found buffer `1183806` for `acti
 
 **申请和释放异步buffer:**
 
-//proc->pid, size, proc->free_async_space
-binder: `1788`: binder_alloc_buf size `148` async free `520004`
-binder: `1788`: binder_free_buf size `148` async free `520192`
+//proc->pid, size, proc->free_async_space  
+binder: `1788`: binder_alloc_buf size `148` async free `520004`  
+binder: `1788`: binder_free_buf size `148` async free `520192`  
 
-**解析：**
+**解析：**  
 
 - binder_alloc_buf：进程1788，申请148 Bytes，则该进程的可用异步空间大小520004 Bytes；
 - binder_free_buf： 进程1788，释放148 Bytes，则该进程的可用异步空间大小520192 Bytes；
@@ -210,12 +210,12 @@ proc->free_async_space = proc->buffer_size / 2 = (1M-8K)/2 = 520192 Bytes。当�
 
 ### 4.4 BINDER_DEBUG_BUFFER_ALLOC(同步)
 
-// 参数：proc->pid, size, buffer, buffer_size  
-binder: `1788`: binder_alloc_buf size `76` got buffer `c7800128` size `208`  
-binder: `1788`: `allocate` pages `c7801000-c7800000`  
-// 参数：proc->pid, new_buffer_size, new_buffer  
-binder: `1788`: add free buffer, size `92`, at `c780019c`  
-binder: `1788`: `free` pages `c7801000-c7800000`   
+// 参数：proc->pid, size, buffer, buffer_size    
+binder: `1788`: binder_alloc_buf size `76` got buffer `c7800128` size `208`    
+binder: `1788`: `allocate` pages `c7801000-c7800000`    
+// 参数：proc->pid, new_buffer_size, new_buffer    
+binder: `1788`: add free buffer, size `92`, at `c780019c`    
+binder: `1788`: `free` pages `c7801000-c7800000`    
 //参数：proc->pid, buffer, prev
 binder: `1788`: merge free, buffer `c780019c` share page with `c7800128`
 
