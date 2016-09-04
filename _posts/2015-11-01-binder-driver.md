@@ -13,6 +13,9 @@ tags:
 
     /kernel/drivers/android/binder.c
     /kernel/include/uapi/linux/android/binder.h
+    或者
+    /kernel/drivers/staging/android/binder.c
+    /kernel/drivers/staging/android/uapi/binder.h
 
 ## 一、Binder驱动概述
 
@@ -607,7 +610,7 @@ looper的状态如下：
 
 |类型|成员变量|解释|
 |---|---|---|
-|binder_size_t|rite_size|write_buffer的字节数
+|binder_size_t|write_size|write_buffer的字节数
 |binder_size_t|write_consumed|已处理的write字节数
 |binder_uintptr_t|write_buffer|指向write数据区
 |binder_size_t|read_size|read_buffer的字节数
@@ -729,7 +732,7 @@ flat_binder_object结构体代表Binder对象在两个进程间传递的扁平�
 |__u32|    flags|记录优先级、文件描述符许可
 |binder_uintptr_t|binder |（union）当传递的是binder_node时使用，指向binder_node在应用程序的地址|
 |__u32|handle |（union）当传递的是binder_ref时使用，存放Binder在进程中的引用号|
-|binder_uintptr_t|cookie|该域支队binder_node有效，存放binder_nod的额外数据|
+|binder_uintptr_t|cookie|只对binder_node有效，存放binder_node的额外数据|
 
 此处的类型type的可能取值来自于`enum`，成员如下：
 
