@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Binder后传之调试分析(二)"
+title:  "Binder外传之调试分析(二)"
 date:   2016-08-28 23:30:00
 catalog:  true
 tags:
