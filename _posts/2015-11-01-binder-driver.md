@@ -494,13 +494,16 @@ binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构
 |int| max_threads|最大线程数
 |int| requested_threads|请求的线程数
 |int| requested_threads_started|已启动的请求线程数
-|int| ready_threads|
+|int| ready_threads|准备就绪的线程个数|
 |long| default_priority|默认优先级
 |struct dentry *|debugfs_entry|
 
 - free_buffers：记录所有空闲的buffer，记录以buffer_size为key的binder_buffer的红黑树结构
 - allocated_buffers:记录所有已分配的buffer，记录以buffer_size为key的binder_buffer的红黑树结构
 - buffers: 所有buffer（包含空闲的和已分配的buffer）的按地址由从低到高都连入到buffers链表中
+- ready_threads: 准备就绪的线程个数，往往是指进入binder_thread_read()，处于休眠等待状态的线程个数；ready_threads线程个数越多，代表系统越空闲。
+- requested_threads_started：是指系统已经启动的线程个数，在方法binder_thread_write()中，执行一次`BC_REGISTER_LOOPER`，则requested_threads_started++，requested_threads--；上限为`max_threads`.`BC_REGISTER_LOOPER`次数与`requested_threads_started`个数应该相等；
+- requested_threads:请求的线程个数，在方法binder_thread_read()中，当同时满足requested_threads_started小于最大线程数，没有ready_threads线程，且requested_threads=0，则执行requested_threads++。可见requested_threads取值要么为0，要么为1.
 
 ### 3.2 binder_thread
 
