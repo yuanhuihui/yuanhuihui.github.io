@@ -1045,9 +1045,9 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
 
 例如：
 
-    //代表主线程system_server
+    //代表system_server进程的主线程system_server
     pid: 1789, tid: 1789, name: system_server  >>> system_server <<<
-    //代表子线程ActivityManager
+    //代表system_server进程的子线程ActivityManager
     pid: 1789, tid: 1827, name: ActivityManager  >>> system_server <<<
 
 #### 4.4.2 dump_signal_info
@@ -1073,14 +1073,15 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
            signal, get_signame(signal), si.si_code, get_sigcode(signal, si.si_code), addr_desc);
     }
 
-对于SIGBUS，SIGFPE，SIGILL，SIGSEGV，SIGTRAP时触发的dump则会输出fault addr的具体地址，对于SIGSTOP则输出fault addr为"--------"
+- 对于`SIGBUS`，`SIGFPE`，`SIGILL`，`SIGSEGV`，`SIGTRAP`时触发的dump,则会输出fault addr的具体地址，
+- 对于`SIGSTOP`时,则输出fault addr为"--------"
 
 例如：
 
     signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0xd140109c
     signal 19 (SIGSTOP), code 0 (SI_USER), fault addr --------
 
-此处get_sigcode函数功能负责根据signal以及si_code来获取相应信息，比如SEGV_MAPERR下面来列举每种signal所包含的信息种类：
+此处`get_sigcode`函数功能负责根据signal以及si_code来获取相应信息，下面来列举每种signal所包含的信息种类：
 
 |signal|get_sigcode|
 |---|---|
@@ -1092,11 +1093,17 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
 |SIGILL|ILL_PRVREG|
 |SIGILL|ILL_COPROC|
 |SIGILL|ILL_BADSTK|
+
+|signal|get_sigcode|
+|---|---|
 |SIGBUS|BUS_ADRALN|
 |SIGBUS|BUS_ADRERR|
 |SIGBUS|BUS_OBJERR|
 |SIGBUS|BUS_MCEERR_AR|
 |SIGBUS|BUS_MCEERR_AO|
+
+|signal|get_sigcode|
+|---|---|
 |SIGFPE|FPE_INTDIV|
 |SIGFPE|FPE_INTOVF|
 |SIGFPE|FPE_FLTDIV|
@@ -1105,10 +1112,16 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
 |SIGFPE|FPE_FLTRES|
 |SIGFPE|FPE_FLTINV|
 |SIGFPE|FPE_FLTSUB|
+
+|signal|get_sigcode|
+|---|---|
 |SIGSEGV|SEGV_MAPERR|
 |SIGSEGV|SEGV_ACCERR|
 |SIGSEGV|SEGV_BNDERR|
 |SIGSEGV|SEGV_MAPERR|
+
+|signal|get_sigcode|
+|---|---|
 |SIGTRAP|TRAP_BRKPT|
 |SIGTRAP|TRAP_TRACE|
 |SIGTRAP|TRAP_BRANCH|

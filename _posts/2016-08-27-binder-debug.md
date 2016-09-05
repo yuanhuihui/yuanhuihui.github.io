@@ -201,7 +201,7 @@ binder: `1788`: binder_free_buf size `148` async free `520192`
 free_async_space = 520004 Bytes，再释放148 Bytes后，则可用大小应该是 520152 Bytes，这里却为520192 Bytes，这里多出来的40 Bytes是哪来得呢？这是因为`binder_free_buf`还会同时释放struct binder_buffer，该结构体大小则为40 Bytes.
 
 
-另外：buffer申请内存`binder_alloc_buf`和释放内存`binder_free_buf`，除了本身内存申请和释放，会同时伴随着binder_buffer结构体的创建和释放，这便是每次操作40 Bytes差距所在。
+另外：buffer申请内存`binder_alloc_buf`和释放内存`binder_free_buf`，除了本身内存申请和释放，会同时伴随着binder_buffer结构体的创建和释放，这便是每次操作40 Bytes差距所在。另外, 对于64位系统,binder_buffer大小为80 Bytes.
 
 **初始化值**
 
