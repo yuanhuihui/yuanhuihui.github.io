@@ -13,6 +13,9 @@ tags:
 
     /kernel/drivers/android/binder.c
     /kernel/include/uapi/linux/android/binder.h
+    或者
+    /kernel/drivers/staging/android/binder.c
+    /kernel/drivers/staging/android/uapi/binder.h
 
 ## 一、Binder驱动概述
 
@@ -491,13 +494,16 @@ binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构
 |int| max_threads|最大线程数
 |int| requested_threads|请求的线程数
 |int| requested_threads_started|已启动的请求线程数
-|int| ready_threads|
+|int| ready_threads|准备就绪的线程个数|
 |long| default_priority|默认优先级
 |struct dentry *|debugfs_entry|
 
 - free_buffers：记录所有空闲的buffer，记录以buffer_size为key的binder_buffer的红黑树结构
 - allocated_buffers:记录所有已分配的buffer，记录以buffer_size为key的binder_buffer的红黑树结构
 - buffers: 所有buffer（包含空闲的和已分配的buffer）的按地址由从低到高都连入到buffers链表中
+- ready_threads: 准备就绪的线程个数，往往是指进入binder_thread_read()，处于休眠等待状态的线程个数；ready_threads线程个数越多，代表系统越空闲。
+- requested_threads_started：是指系统已经启动的线程个数，在方法binder_thread_write()中，执行一次`BC_REGISTER_LOOPER`，则requested_threads_started++，requested_threads--；上限为`max_threads`.`BC_REGISTER_LOOPER`次数与`requested_threads_started`个数应该相等；
+- requested_threads:请求的线程个数，在方法binder_thread_read()中，当同时满足requested_threads_started小于最大线程数，没有ready_threads线程，且requested_threads=0，则执行requested_threads++。可见requested_threads取值要么为0，要么为1.
 
 ### 3.2 binder_thread
 
@@ -607,7 +613,7 @@ looper的状态如下：
 
 |类型|成员变量|解释|
 |---|---|---|
-|binder_size_t|rite_size|write_buffer的字节数
+|binder_size_t|write_size|write_buffer的字节数
 |binder_size_t|write_consumed|已处理的write字节数
 |binder_uintptr_t|write_buffer|指向write数据区
 |binder_size_t|read_size|read_buffer的字节数
@@ -729,7 +735,7 @@ flat_binder_object结构体代表Binder对象在两个进程间传递的扁平�
 |__u32|    flags|记录优先级、文件描述符许可
 |binder_uintptr_t|binder |（union）当传递的是binder_node时使用，指向binder_node在应用程序的地址|
 |__u32|handle |（union）当传递的是binder_ref时使用，存放Binder在进程中的引用号|
-|binder_uintptr_t|cookie|该域支队binder_node有效，存放binder_nod的额外数据|
+|binder_uintptr_t|cookie|只对binder_node有效，存放binder_node的额外数据|
 
 此处的类型type的可能取值来自于`enum`，成员如下：
 

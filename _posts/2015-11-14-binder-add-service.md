@@ -404,14 +404,11 @@ IPCThreadState进行transact事务处理分3部分：
         bwr.read_consumed = 0;
         status_t err;
         do {
-    #if defined(HAVE_ANDROID_OS)
-            if (ioctl(mProcess->mDriverFD, BINDER_WRITE_READ, &bwr) >= 0) //ioctl不停的读写操作
+            //通过ioctl不停的读写操作，跟Binder Driver进行通信
+            if (ioctl(mProcess->mDriverFD, BINDER_WRITE_READ, &bwr) >= 0)
                 err = NO_ERROR;
             else
                 err = -errno;
-    #else
-            err = INVALID_OPERATION;
-    #endif
             if (mProcess->mDriverFD <= 0) {
                 err = -EBADF;
             }
@@ -435,7 +432,7 @@ IPCThreadState进行transact事务处理分3部分：
     }
 
 
-[binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。
+[binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。 主要是操作mOut和mIn变量。
 
 ### 11. IPC.executeCommand
 ==> `/framework/native/libs/binder/IPCThreadState.cpp`
@@ -734,7 +731,7 @@ IPCThreadState进行transact事务处理分3部分：
 
 
 ### 16 IPC.joinThreadPool()
-==> `/framework/native/libs/binder/ProcessState.cpp`
+==> `/framework/native/libs/binder/IPCThreadState.cpp`
 
     void IPCThreadState::joinThreadPool(bool isMain)
     {

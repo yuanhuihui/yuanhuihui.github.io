@@ -41,7 +41,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 ![activity_manager_classes](/images/android-service/am/activity_manager_classes.png)
 
 
-单单就一个ActivityManagerService.java文件就代码超过20000万行，我们需要需要一个线，再结合binder的知识，来把我们想要了解的东西串起来，那么本文将从App启动的视角来分析ActivityManagerService。
+单单就一个ActivityManagerService.java文件就代码超过2万行，我们需要需要一个线，再结合binder的知识，来把我们想要了解的东西串起来，那么本文将从App启动的视角来分析ActivityManagerService。
 
 
 ### 1.2 流程图
@@ -136,7 +136,22 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
         return gDefault.get();
     }
 
-    //获取IActivityManager的代理类
+gDefault为Singleton类型对象，此次采用单例模式，mInstance为IActivityManager类的代理对象，即ActivityManagerProxy。
+
+    public abstract class Singleton<T> {
+        public final T get() {
+            synchronized (this) {
+                if (mInstance == null) {
+                    //首次调用create()来获取AMP对象
+                    mInstance = create();
+                }
+                return mInstance;
+            }
+        }
+    }
+
+再来看看create()的过程：
+
     private static final Singleton<IActivityManager> gDefault = new Singleton<IActivityManager>() {
         protected IActivityManager create() {
             //获取名为"activity"的服务，服务都注册到ServiceManager来统一管理
@@ -146,17 +161,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
         }
     };
 
-    //单例模式，此处的mInstance为IActivityManager类的代理对象，即ActivityManagerProxy。
-    public abstract class Singleton<T> {
-        public final T get() {
-            synchronized (this) {
-                if (mInstance == null) {
-                    mInstance = create();
-                }
-                return mInstance;
-            }
-        }
-    }
+
 
 该方法返回的是ActivityManagerProxy对象，那么下一步调用ActivityManagerProxy.startService()方法。
 

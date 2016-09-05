@@ -703,7 +703,7 @@ javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象�
 
 ### 4.4 小结
 
-getServicee的核心过程：
+getService的核心过程：
 
     public static IBinder getService(String name) {
         ...
