@@ -32,6 +32,11 @@ tags:
 - **CommandListener**：接收来自VolumeManager的事件，通过`socket`通信方式发送给MountService；
 - **MountService**：接收来自CommandListener的事件。
 
+涉及主要的问题:
+
+- Framework层主要看`MountService.java`和`NativeDaemonConnector.java`;
+- Native层主要看`NetlinkManager.cpp`, `NetlinkHandler.cpp`, `VolumeManager.cpp`, `CommandListener.cpp`
+
 ### 1.2 进程架构
 
 (1)先看看Java framework层的线程：
@@ -352,7 +357,18 @@ MountService线程通过socket发送cmd事件给vold，对于vold守护进程在
 
 ![mountservice_socket](/images/io/mountservice_socket.jpg)
 
-MountService向vold发送消息后，便阻塞在图中的MountService线程的NDC.execute()方法，那么何时才会退出呢？图的后半段MonutService接收消息的过程会有答案，那便是在收到消息，并且消息的响应吗不属于区间[600,700)则添加事件到ResponseQueue，从而唤醒阻塞的MountService继续执行。关于上图的后半段介绍的便是MountService接收消息的流程。
+简称表:
+
+- MS: MountService.java
+- NDC: NativeDaemonConnector.java
+- SL: SocketListener.cpp
+- FL: FrameworkListener.cpp
+- CL: CommandListener.cpp
+- SC: SocketClient.cpp
+
+MountService向vold发送消息后，便阻塞在图中的MountService线程的NDC.execute()方法，那么何时才会退出呢？
+
+那就是在MonutService接收到消息，且消息响应吗不属于区间[600,700)则添加事件到ResponseQueue，从而唤醒阻塞的MountService继续执行。接下来再来说说MS接收消息的流程.
 
 ### 2.2 MountService接收消息
 
@@ -371,44 +387,12 @@ MountService向vold发送消息后，便阻塞在图中的MountService线程的N
         }
     }
 
-- 当执行成功，则发送响应码为500的成功应答消息；
+- 当执行成功，则发送响应码为200的成功应答消息；
 - 当执行失败，则发送响应码为400的失败应答消息。
 
-不同的响应码(VoldResponseCode)，代表着系统不同的处理结果，主要分为下面几大类：
+不同的响应码(VoldResponseCode)，代表着系统不同的处理结果，例如当操作执行成功，VoldConnector线程能收到类似`RCV <- {200 3 Command succeeded}的响应事件。
+再比如[600,700)响应码是由Vold进程"不请自来"的事件，主要是针对disk，volume的一系列操作，比如设备创建，状态、路径改变，以及文件类型、uid、标签改变等事件都是底层直接触发。更多响应码含义见本文最后的附录.
 
-|响应码|事件类别|对应方法
-|---|---|---|
-|[100, 200)|部分响应，随后继续产生事件|isClassContinue
-|[200, 300)|成功响应|isClassOk
-|[400, 500)|远程服务端错误|isClassServerError
-|[500, 600)|本地客户端错误|isClassClientError
-|[600, 700)|远程Vold进程自触发的事件|isClassUnsolicited
-
-例如当操作执行成功，VoldConnector线程能收到类似`RCV <- {200 3 Command succeeded}的响应事件。
-
-其中对于[600,700)响应码是由Vold进程"不请自来"的事件，主要是针对disk，volume的一系列操作，比如设备创建，状态、路径改变，以及文件类型、uid、标签改变等事件都是底层直接触发。
-
-|命令|响应吗|
-|---|---|---|
-|DISK_CREATED|640|
-|DISK_SIZE_CHANGED|641|
-|DISK_LABEL_CHANGED|642|
-|DISK_SCANNED|643|
-|DISK_SYS_PATH_CHANGED|644|
-|DISK_DESTROYED|649|
-|VOLUME_CREATED|650|
-|VOLUME_STATE_CHANGED|651|
-|VOLUME_FS_TYPE_CHANGED|652|
-|VOLUME_FS_UUID_CHANGED|653|
-|VOLUME_FS_LABEL_CHANGED|654|
-|VOLUME_PATH_CHANGED|655|
-|VOLUME_INTERNAL_PATH_CHANGED|656|
-|VOLUME_DESTROYED|659|
-|MOVE_STATUS|660|
-|BENCHMARK_RESULT|661|
-|TRIM_RESULT|662|
-
-介绍完响应码，接着继续来说说发送应答消息的过程：
 
 #### 2.2.2 SC.sendMsg
 [-> SocketClient.cpp]
@@ -830,7 +814,7 @@ NetlinkManager启动的过程中，会创建并启动NetlinkHandler，在该过�
 onEventLocked增加同步锁，用于多线程并发访问的控制。根据vold发送过来的不同响应码将采取不同的处理流程。
 
 #### 2.4.4 MS.onEventLocked
-这里以收到vold发送过来的`RCV <- {650 public ...}`为例，即挂载外置sdcard/otg外置存储的流程：
+这里以收到vold发送过来的`RCV <- {650 public ...}`为例，即挂载外置存储(比如sdcard或者otg)的流程：
 
 [-> MountService.java]
 
@@ -935,3 +919,101 @@ onEventLocked增加同步锁，用于多线程并发访问的控制。根据vold
 目前外置存储设备比如sdcard或者otg的硬件质量参差不齐，且随使用时间碎片化程度也越来越严重，对于存储设备挂载的过程中往往会有磁盘检测fsck_msdos或者整理fstrim的动作，那么势必会阻塞多线程并发访问，影响系统稳定性，从而造成系统ANR。
 
 例如系统刚启动过程中reset操作需要重新挂载外置存储设备，而紧接着system_server主线程需要执行的volume user_started操作便会被阻塞，阻塞超过20s则系统会抛出Service Timeout的ANR。
+
+## 四. 响应码附录
+
+
+关于响应吗, Java层定义在`MountService.java`中的内部类`VoldResponseCode`,与Native层定义在文件`/system/vold/ResponseCode.h`中的响应码是相互对应.
+
+
+不同的响应码(VoldResponseCode)，代表着系统不同的处理结果，主要分为下面几大类：
+
+|响应码|事件类别|对应方法
+|---|---|---|
+|[100, 200)|部分响应，随后继续产生事件|isClassContinue|
+|[200, 300)|成功响应|isClassOk|
+|[400, 500)|远程服务端错误|isClassServerError|
+|[500, 600)|本地客户端错误|isClassClientError|
+|[600, 700)|远程Vold进程自触发的事件|isClassUnsolicited|
+
+### 100系列
+
+请求操作已初始化, 收到部分响应. 在处理下一个新命令前,期待收到另一个响应消息
+
+|命令|响应码|
+|---|---|---|
+|VolumeListResult | 110|
+|AsecListResult   | 111|
+|StorageUsersListResult |112|
+|CryptfsGetfieldResult  |113|
+
+
+
+### 200系列
+
+请求操作成功完成
+
+|命令|响应码|
+|---|---|---|
+|ShareStatusResult|210|
+|AsecPathResult|211|
+|ShareEnabledResult|212|
+|PasswordTypeResult|213|
+
+
+
+### 400系列
+
+命令已接收,但请求操作并没有执行
+
+|命令|响应码|
+|---|---|---|
+|OpFailedNoMedia|401|
+|OpFailedMediaBlank|402|
+|OpFailedMediaCorrupt|403|
+|OpFailedVolNotMounted|404|
+|OpFailedStorageBusy|405|
+|OpFailedStorageNotFound|406|
+
+
+### 500系列
+
+命令没有接收,请求操作也没有执行
+
+|命令|响应码|
+|---|---|---|
+|CommandSyntaxError|500|
+|CommandParameterError|501|
+|CommandNoPermission|502|
+
+
+
+### 600系列
+
+不请自来的广播, 是指由底层触发的事件, 主要是针对disk，volume的一系列操作，比如设备创建，状态、路径改变，以及文件类型、uid、标签改变等事件都是底层直接触发。
+
+|命令|响应吗|
+|---|---|---|
+|DISK_CREATED|640|
+|DISK_SIZE_CHANGED|641|
+|DISK_LABEL_CHANGED|642|
+|DISK_SCANNED|643|
+|DISK_SYS_PATH_CHANGED|644|
+|DISK_DESTROYED|649|
+
+|命令|响应吗|
+|---|---|---|
+|VOLUME_CREATED|650|
+|VOLUME_STATE_CHANGED|651|
+|VOLUME_FS_TYPE_CHANGED|652|
+|VOLUME_FS_UUID_CHANGED|653|
+|VOLUME_FS_LABEL_CHANGED|654|
+|VOLUME_PATH_CHANGED|655|
+|VOLUME_INTERNAL_PATH_CHANGED|656|
+|VOLUME_DESTROYED|659|
+
+|命令|响应吗|
+|---|---|---|
+|MOVE_STATUS|660|
+|BENCHMARK_RESULT|661|
+|TRIM_RESULT|662|

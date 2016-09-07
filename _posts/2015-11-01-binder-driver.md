@@ -525,14 +525,28 @@ binder_thread结构体代表当前binder操作所在的线程
 looper的状态如下：
 
     enum {
-        BINDER_LOOPER_STATE_REGISTERED  = 0x01, // 已注册
-        BINDER_LOOPER_STATE_ENTERED     = 0x02, // 已进入
+        BINDER_LOOPER_STATE_REGISTERED  = 0x01, // 创建注册线程BC_REGISTER_LOOPER
+        BINDER_LOOPER_STATE_ENTERED     = 0x02, // 创建主线程BC_ENTER_LOOPER
         BINDER_LOOPER_STATE_EXITED      = 0x04, // 已退出
         BINDER_LOOPER_STATE_INVALID     = 0x08, // 非法
         BINDER_LOOPER_STATE_WAITING     = 0x10, // 等待中
         BINDER_LOOPER_STATE_NEED_RETURN = 0x20, // 需要返回
     };
 
+binder_thread_write()过程:
+
+- 收到 BC_REGISTER_LOOPER,则线程状态为BINDER_LOOPER_STATE_REGISTERED;
+- 收到 BC_ENTER_LOOPER,则线程状态为 BINDER_LOOPER_STATE_ENTERED;
+- 收到 BC_EXIT_LOOPER, 则线程状态为BINDER_LOOPER_STATE_EXITED;
+
+BINDER_LOOPER_STATE_WAITING: 进入binder_thread_read()过程,便设置该状态;
+
+BINDER_LOOPER_STATE_NEED_RETURN:有两种情况会设置:
+
+    - binder_get_thread()过程, 根据binder_proc查询不到当前线程所对应的binder_thread,会新建binder_thread对象,
+    - binder_deferred_flush()过程
+
+BINDER_LOOPER_STATE_INVALID: 当binder_thread创建过程状态不正确时会设置.
 
 ### 3.3 binder_buffer
 

@@ -61,9 +61,9 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 2. BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码的作用是对binder的强/弱引用的计数操作，用于实现[强/弱指针的功能](http://gityuan.com/2015/11/02/binder-driver-2/#bindertransactionbufferrelease)。
 3. 对于参数类型`binder_ptr_cookie`是由binder指针和cookie组成。
 4. Binder线程创建与退出：
-    - BC_ENTER_LOOPER：binder主线程(由应用层发起)的创建会向驱动发送该消息；
-    - BC_REGISTER_LOOPER：Binder用于驱动层决策而创建新的binder线程；
-    - BC_EXIT_LOOPER：退出Binder线程，对于binder主线程是不能退出。
+    - BC_ENTER_LOOPER：binder主线程(由应用层发起)的创建会向驱动发送该消息；joinThreadPool()过程创建binder主线程;
+    - BC_REGISTER_LOOPER：Binder用于驱动层决策而创建新的binder线程；joinThreadPool()过程,创建非binder主线程;
+    - BC_EXIT_LOOPER：退出Binder线程，对于binder主线程是不能退出;joinThreadPool()的过程出现timeout,并且非binder主线程,则会退出该binder线程;
 
 
 ### 2.2 请求过程

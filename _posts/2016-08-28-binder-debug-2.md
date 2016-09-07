@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Binder外传之调试分析(二)"
+title:  "Binder子系统之调试分析(二)"
 date:   2016-08-28 23:30:00
 catalog:  true
 tags:
@@ -9,6 +9,8 @@ tags:
 ---
 
 ## 一. 概述
+
+上一篇文章已经介绍了binder子系统调试的一些手段,这篇文章再来挑选系统几个核心服务进程来进行分析.
 
 ### 1.1 创建debugfs
 
@@ -32,6 +34,22 @@ tags:
 	debugfs_create_file("state",S_IRUGO, binder_debugfs_dir_entry_root, NULL, &binder_state_fops);
 
 另外，`/d`其实是指向`/sys/kernel/debug`的链接，也可以通过节点`/d/binder`来访问。
+
+
+    BINDER_DEBUG_ENTRY(proc);
+    BINDER_DEBUG_ENTRY(state);
+    BINDER_DEBUG_ENTRY(stats);
+    BINDER_DEBUG_ENTRY(transactions);
+    BINDER_DEBUG_ENTRY(transaction_log);
+
+
+    #define BINDER_DEBUG_ENTRY(name) \
+    static int binder_##name##_open(struct inode *inode, struct file *file) \
+    { \
+    	return single_open(file, binder_##name##_show, inode->i_private); \
+    } \
+    \
+
 
 ### 1.2 内核编译选项
 
@@ -103,31 +121,32 @@ tags:
 #### 2.2.1 整体统计信息
 
     binder stats:
-    BC_TRANSACTION: 109938
-    BC_REPLY: 85975
-    BC_FREE_BUFFER: 195698
-    BC_INCREFS: 13349
-    BC_ACQUIRE: 13605
-    BC_RELEASE: 5037
-    BC_DECREFS: 4914
-    BC_INCREFS_DONE: 8132
-    BC_ACQUIRE_DONE: 8132
-    BC_REGISTER_LOOPER: 494
-    BC_ENTER_LOOPER: 394
-    BC_REQUEST_DEATH_NOTIFICATION: 3991
-    BC_CLEAR_DEATH_NOTIFICATION: 2716
-    BC_DEAD_BINDER_DONE: 601
-    BR_TRANSACTION: 109928
-    BR_REPLY: 85974
-    BR_DEAD_REPLY: 10
-    BR_TRANSACTION_COMPLETE: 195904
-    BR_INCREFS: 8133
-    BR_ACQUIRE: 8133
-    BR_RELEASE: 4397
-    BR_DECREFS: 4397
-    BR_SPAWN_LOOPER: 498
-    BR_DEAD_BINDER: 717
-    BR_CLEAR_DEATH_NOTIFICATION_DONE: 2716
+    BC_TRANSACTION: 235258
+    BC_REPLY: 163048
+    BC_FREE_BUFFER: 397853
+    BC_INCREFS: 22573
+    BC_ACQUIRE: 22735
+    BC_RELEASE: 15840
+    BC_DECREFS: 15810
+    BC_INCREFS_DONE: 9517
+    BC_ACQUIRE_DONE: 9518
+    BC_REGISTER_LOOPER: 421
+    BC_ENTER_LOOPER: 284
+    BC_REQUEST_DEATH_NOTIFICATION: 4696
+    BC_CLEAR_DEATH_NOTIFICATION: 3707
+    BC_DEAD_BINDER_DONE: 400
+    BR_TRANSACTION: 235245
+    BR_REPLY: 163045
+    BR_DEAD_REPLY: 3
+    BR_TRANSACTION_COMPLETE: 398300
+    BR_INCREFS: 9517
+    BR_ACQUIRE: 9518
+    BR_RELEASE: 5448
+    BR_DECREFS: 5447
+    BR_SPAWN_LOOPER: 462
+    BR_DEAD_BINDER: 400
+    BR_CLEAR_DEATH_NOTIFICATION_DONE: 3707
+    BR_FAILED_REPLY: 3
 
     proc: active 78 total 382
     thread: active 530 total 3196
@@ -138,6 +157,8 @@ tags:
     transaction_complete: active 0 total 195903
 
 可知：
+
+规律: BC_TRANSACTION +  BC_REPLY =  BR_TRANSACTION_COMPLETE +  BR_DEAD_REPLY +  BR_FAILED_REPLY
 
 - 当前系统binder_proc个数为78，binder_thread个数为530，binder_node为1753等信息；
 - 从开机到现在共创建过382个binder_proc，3196个binder_thread等；
@@ -230,7 +251,9 @@ tags:
 
 `debug_id`: `call_type` from `from_proc`:`from_thread` to `to_proc`:`to_thread` node `to_node` handle `target_handle` size `data_size`:`offsets_size`
 
-call_type：有3种，分别为async, call, reply
+call_type：有3种，分别为async, call, reply.
+
+`transaction_log`以及还有`binder_transaction_log_failed`会只会记录最近的32次的transaction过程.
 
 #### 2.3.3 state
 
