@@ -1,0 +1,118 @@
+pid 1646 at 2016-08-16 20:10:22 -
+
+"Binder_3" prio=5 tid=29 Native
+  | group="main" sCount=1 dsCount=0 obj=0x12c07220 self=0x7f78ec1060
+  | sysTid=1891 nice=0 cgrp=default sched=0/0 handle=0x7f78a5b450
+  | state=S schedstat=( 1914742918 1354719578 7008 ) utm=116 stm=75 core=5 HZ=100
+  | stack=0x7f7895f000-0x7f78961000 stackSize=1013KB
+  | held mutexes=
+  kernel: __switch_to+0x7c/0x88
+  kernel: binder_thread_read+0x454/0xf50
+  kernel: binder_ioctl_write_read+0x1b4/0x2d0
+  kernel: binder_ioctl+0x29c/0x624
+  kernel: do_vfs_ioctl+0x4d0/0x5c8
+  kernel: SyS_ioctl+0x5c/0x88
+  kernel: el0_svc_naked+0x20/0x28
+  native: #00 pc 0000000000069cd0  /system/lib64/libc.so (__ioctl+4)
+  native: #01 pc 0000000000073cf4  /system/lib64/libc.so (ioctl+100)
+  native: #02 pc 000000000002d584  /system/lib64/libbinder.so (_ZN7android14IPCThreadState14talkWithDriverEb+164)
+  native: #03 pc 000000000002e050  /system/lib64/libbinder.so (_ZN7android14IPCThreadState15waitForResponseEPNS_6ParcelEPi+104)
+  native: #04 pc 000000000002e2ec  /system/lib64/libbinder.so (_ZN7android14IPCThreadState8transactEijRKNS_6ParcelEPS1_j+216)
+  native: #05 pc 0000000000025654  /system/lib64/libbinder.so (_ZN7android8BpBinder8transactEjRKNS_6ParcelEPS1_j+64)
+  native: #06 pc 00000000000dfffc  /system/lib64/libandroid_runtime.so (???)
+  native: #07 pc 0000000000500224  /data/dalvik-cache/arm64/system@framework@boot.oat (Java_android_os_BinderProxy_transactNative__ILandroid_os_Parcel_2Landroid_os_Parcel_2I+200)
+  at android.os.BinderProxy.transactNative(Native method)
+  at android.os.BinderProxy.transact(Binder.java:503)
+  at com.android.internal.app.IOpsCallback$Stub$Proxy.onAppApplyOperation(IOpsCallback.java:185)
+  at com.android.server.AppOpsServiceState.onAppApplyOperation(AppOpsServiceState.java:205)
+  at com.android.server.AppOpsService.noteOperationUnchecked(AppOpsService.java:1112)
+  at com.android.server.AppOpsService.noteOperation(AppOpsService.java:1042)
+  at android.app.AppOpsManager.noteOpNoThrow(AppOpsManager.java:1749)
+  at com.android.server.LocationManagerService.checkLocationAccess(LocationManagerService.java:1210)
+  at com.android.server.LocationManagerServiceFacade.checkLocationAccess(LocationManagerServiceFacade.java:9)
+  at com.android.server.LocationManagerServiceInjector.takeOverLP(LocationManagerServiceInjector.java:388)
+  at com.android.server.LocationManagerService.applyRequirementsLocked(LocationManagerService.java:1415)
+  at com.android.server.LocationManagerService.requestLocationUpdatesLocked(LocationManagerService.java:1713)
+  at com.android.server.LocationManagerService.requestLocationUpdates(LocationManagerService.java:1677)
+  - locked <0x01dc5d07> (a java.lang.Object)
+  at android.location.ILocationManager$Stub.onTransact(ILocationManager.java:71)
+  at android.os.Binder.execTransact(Binder.java:453)
+
+
+pid 1646 at 2016-08-17 09:46:19
+
+  "Binder_3" prio=5 tid=29 Native
+  | group="main" sCount=1 dsCount=0 obj=0x12c07220 self=0x7f78ec1060
+  | sysTid=1891 nice=0 cgrp=default sched=0/0 handle=0x7f78a5b450
+  | state=S schedstat=( 1916678126 1354719578 7014 ) utm=116 stm=75 core=5 HZ=100
+  | stack=0x7f7895f000-0x7f78961000 stackSize=1013KB
+  | held mutexes=
+  kernel: __switch_to+0x7c/0x88
+  kernel: binder_thread_read+0x454/0xf50
+  kernel: binder_ioctl_write_read+0x1b4/0x2d0
+  kernel: binder_ioctl+0x29c/0x624
+  kernel: do_vfs_ioctl+0x4d0/0x5c8
+  kernel: SyS_ioctl+0x5c/0x88
+  kernel: el0_svc_naked+0x20/0x28
+  native: #00 pc 0000000000069cd0  /system/lib64/libc.so (__ioctl+4)
+  native: #01 pc 0000000000073cf4  /system/lib64/libc.so (ioctl+100)
+  native: #02 pc 000000000002d584  /system/lib64/libbinder.so (_ZN7android14IPCThreadState14talkWithDriverEb+164)
+  native: #03 pc 000000000002e050  /system/lib64/libbinder.so (_ZN7android14IPCThreadState15waitForResponseEPNS_6ParcelEPi+104)
+  native: #04 pc 000000000002e2ec  /system/lib64/libbinder.so (_ZN7android14IPCThreadState8transactEijRKNS_6ParcelEPS1_j+216)
+  native: #05 pc 0000000000025654  /system/lib64/libbinder.so (_ZN7android8BpBinder8transactEjRKNS_6ParcelEPS1_j+64)
+  native: #06 pc 00000000000dfffc  /system/lib64/libandroid_runtime.so (???)
+  native: #07 pc 0000000000500224  /data/dalvik-cache/arm64/system@framework@boot.oat (Java_android_os_BinderProxy_transactNative__ILandroid_os_Parcel_2Landroid_os_Parcel_2I+200)
+  at android.os.BinderProxy.transactNative(Native method)
+  at android.os.BinderProxy.transact(Binder.java:503)
+  at com.android.internal.app.IOpsCallback$Stub$Proxy.onAppApplyOperation(IOpsCallback.java:185)
+  at com.android.server.AppOpsServiceState.onAppApplyOperation(AppOpsServiceState.java:205)
+  at com.android.server.AppOpsService.noteOperationUnchecked(AppOpsService.java:1112)
+  at com.android.server.AppOpsService.noteOperation(AppOpsService.java:1042)
+  at android.app.AppOpsManager.noteOpNoThrow(AppOpsManager.java:1749)
+  at com.android.server.LocationManagerService.checkLocationAccess(LocationManagerService.java:1210)
+  at com.android.server.LocationManagerServiceFacade.checkLocationAccess(LocationManagerServiceFacade.java:9)
+  at com.android.server.LocationManagerServiceInjector.takeOverLP(LocationManagerServiceInjector.java:388)
+  at com.android.server.LocationManagerService.applyRequirementsLocked(LocationManagerService.java:1415)
+  at com.android.server.LocationManagerService.requestLocationUpdatesLocked(LocationManagerService.java:1713)
+  at com.android.server.LocationManagerService.requestLocationUpdates(LocationManagerService.java:1677)
+  - locked <0x01dc5d07> (a java.lang.Object)
+  at android.location.ILocationManager$Stub.onTransact(ILocationManager.java:71)
+  at android.os.Binder.execTransact(Binder.java:453)
+
+
+
+
+binder_deferred_flush
+binder_send_failed_reply
+binder_transaction ，一次transaction能触发操作。wake_up
+
+这3个地方可以wake_up
+
+
+static int binder_has_thread_work(struct binder_thread *thread)
+{
+	return !list_empty(&thread->todo) || thread->return_error != BR_OK ||
+		(thread->looper & BINDER_LOOPER_STATE_NEED_RETURN);
+}
+
+list_empty(&thread->todo) =true ，没有todo工作
+thread->return_error == BR_OK， 返回操作完成
+thread->looper  != BINDER_LOOPER_STATE_NEED_RETURN， 不需要返回
+
+
+thread->transaction_stack != NULL 或者  !list_empty(&thread->todo);
+
+//等待，由于采用的是block方式
+ret = wait_event_interruptible(thread->wait, binder_has_thread_work(thread));
+
+thread->transaction_stack != NULL  ：代表的是BR_TRANSACTION，且非oneway的方式，等待reply都会添加transaction_stack
+
+
+err_invalid_target_handle
+err_dead_binder
+err_invalid_target_handle
+err_alloc_t_failed
+err_alloc_tcomplete_failed
+err_binder_alloc_buf_failed
+err_copy_data_failed
+err_bad_offset

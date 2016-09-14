@@ -1,0 +1,173 @@
+MountService
+-> NativeDaemonConnector
+-> CommandListener
+-> volumeManager （同步锁，串行模式）
+
+
+### VolumeManager.cpp
+
+vm->reset()
+
+### 1. mount primary
+
+CommandListener.cpp
+
+    CommandListener::VolumeCmd::runCommand(){
+        int res = vol->mount();
+        if (mountFlags & android::vold::VolumeBase::MountFlags::kPrimary) {
+            vm->setPrimary(vol);
+        }
+    }
+
+1.1 EmulatedVolume.cpp
+
+    status_t EmulatedVolume::doMount() {
+        std::string label = mLabel;
+        if (getMountFlags() & MountFlags::kPrimary) {
+            label = "emulated";
+        }
+
+        mFuseDefault = StringPrintf("/mnt/runtime/default/%s", label.c_str());
+        mFuseRead = StringPrintf("/mnt/runtime/read/%s", label.c_str());
+        mFuseWrite = StringPrintf("/mnt/runtime/write/%s", label.c_str());
+
+        //目录 /data/media
+        setInternalPath(mRawPath);
+        //目录/storage/emulated
+        setPath(StringPrintf("/storage/%s", label.c_str()));
+
+        if (fs_prepare_dir(mFuseDefault.c_str(), 0700, AID_ROOT, AID_ROOT) ||
+                fs_prepare_dir(mFuseRead.c_str(), 0700, AID_ROOT, AID_ROOT) ||
+                fs_prepare_dir(mFuseWrite.c_str(), 0700, AID_ROOT, AID_ROOT)) {
+            PLOG(ERROR) << getId() << " failed to create mount points";
+            //MIUI MOD:START
+            //return -errno;
+            if (errno != ENOTCONN) {
+                return -errno;
+            }
+            // END
+        }
+
+        dev_t before = GetDevice(mFuseWrite);
+
+        if (!(mFusePid = fork())) {
+            if (execl(kFusePath, kFusePath,
+                    "-u", "1023", // AID_MEDIA_RW
+                    "-g", "1023", // AID_MEDIA_RW
+                    "-m",
+                    "-w",
+                    mRawPath.c_str(),
+                    label.c_str(),
+                    NULL)) {
+                PLOG(ERROR) << "Failed to exec";
+            }
+
+            LOG(ERROR) << "FUSE exiting";
+            _exit(1);
+        }
+
+        if (mFusePid == -1) {
+            PLOG(ERROR) << getId() << " failed to fork";
+            return -errno;
+        }
+
+        while (before == GetDevice(mFuseWrite)) {
+            LOG(VERBOSE) << "Waiting for FUSE to spin up... , emulated";
+            usleep(50000); // 50ms
+        }
+
+        return OK;
+    }
+
+链接关系：/mnt/sdcard -> /sdcard -> /storage/self/primary
+
+/data/sdcard
+
+### 2. onUserStarted
+
+    int VolumeManager::onUserStarted(userid_t userId) {
+        std::string path(StringPrintf("%s/%d", kUserMountPath, userId));
+        // 创建目录/mnt/user/0
+        fs_prepare_dir(path.c_str(), 0755, AID_ROOT, AID_ROOT);
+        //添加已启动用户
+        mStartedUsers.insert(userId);
+        if (mPrimary) {
+            linkPrimary(userId);
+        }
+        return 0;
+    }
+
+    int VolumeManager::linkPrimary(userid_t userId) {
+        std::string source(mPrimary->getPath());
+        if (mPrimary->getType() == android::vold::VolumeBase::Type::kEmulated) {
+            source = StringPrintf("%s/%d", source.c_str(), userId);
+            fs_prepare_dir(source.c_str(), 0755, AID_ROOT, AID_ROOT);
+        }
+
+        std::string target(StringPrintf("/mnt/user/%d/primary", userId));
+        if (TEMP_FAILURE_RETRY(unlink(target.c_str()))) {
+            if (errno != ENOENT) {
+                SLOGW("Failed to unlink %s: %s", target.c_str(), strerror(errno));
+            }
+        }
+
+        // 将/storage/emulated/0 链接到 /mnt/user/0/primary
+        if (TEMP_FAILURE_RETRY(symlink(source.c_str(), target.c_str()))) {
+            return -errno;
+        }
+        return 0;
+    }
+
+- source = /storage/emulated/0;
+- target = /mnt/user/0/primary;
+
+
+### 新策略：
+CommandListener::VolumeCmd::runCommand
+
+mount时添加：
+
+// MIUI ADD: START
+if(vol->getType() == android::vold::VolumeBase::Type::kPublic){
+    pthread_t pt;
+    void* mountArgs[2] = {&vol, &cli};
+    pthread_create(&pt, NULL, CommandListener::VolumeCmd::threadStart, mountArgs);
+    return 0;
+}
+//END
+
+最外面再加一个方法：
+
+//MIUI ADD:START
+void *CommandListener::VolumeCmd::threadStart(void *args) {
+    android::vold::VolumeBase vol = ((void**)args)[0];
+	SocketClient cli = ((void**)args)[1];
+
+	int res = vol->mount();
+	sendGenericOkFail(cli, res);
+    return NULL;
+}
+//END
+
+### 同步锁
+
+AMS.stopUserLocked 最终会调用删除用户的操作。
+
+AMS.systemReady()以及AMS.startUser，最终会调用增加用户。
+
+
+
+    一、概述
+    - 1.1 模块架构
+    - 1.2 进程架构
+    - 1.3 类关系图
+
+    二、 通信架构
+    - 2.1 MountService发送消息
+    - 2.2 MountService接收消息
+    - 2.3 Kernel上报事件
+    - 2.4 不请自来的广播
+
+    三、总结
+    - 3.1 概括
+    - 3.2 架构的思考

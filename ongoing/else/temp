@@ -1,0 +1,92 @@
+MIUI
+
+05-30 17:50:50.063 1631 1667 I am_anr : [0,1631,system,952679945,executing service android/com.android.internal.backup.LocalTransportService]
+
+
+
+
+ 161.656933] PM: suspend exit 2016-06-02 10:53:46.959943662
+
+
+
+ suspend all histogram:	Sum: 13.807ms 99% C.I. 3us-861.120us Avg: 103.037us Max: 1417us
+DALVIK THREADS (97):
+"Binder_2" prio=5 tid=9 Runnable
+  | group="main" sCount=0 dsCount=0 obj=0x12c5c0a0 self=0xabe8fc00
+  | sysTid=1798 nice=-1 cgrp=default sched=0/0 handle=0xb3505930
+  | state=R schedstat=( 59717403708 8015396895 36481 ) utm=5602 stm=369 core=3 HZ=100
+  | stack=0xb3409000-0xb340b000 stackSize=1014KB
+  | held mutexes= "mutator lock"(shared held)
+  at java.lang.AbstractStringBuilder.<init>(AbstractStringBuilder.java:84)
+  at java.lang.StringBuilder.<init>(StringBuilder.java:67)
+  at java.lang.StackTraceElement.toString(StackTraceElement.java:206)
+  at java.lang.Throwable.printStackTrace(Throwable.java:324)
+  at java.lang.Throwable.printStackTrace(Throwable.java:300)
+  at android.util.Log.getStackTraceString(Log.java:347)
+  at android.util.Log.w(Log.java:192)
+  at android.util.ArrayMap.append(ArrayMap.java:498)
+  at android.os.Parcel.readArrayMapInternal(Parcel.java:2618)
+  at android.os.BaseBundle.unparcel(BaseBundle.java:221)
+  - locked <0x06db134b> (a android.os.Bundle)
+  at android.os.Bundle.getParcelable(Bundle.java:786)
+  at android.content.Intent.getParcelableExtra(Intent.java:5381)
+  at com.android.server.am.ActivityStackInjector.moveTaskIfNeed(ActivityStackInjector.java:205)
+  at com.android.server.am.ActivityStack.insertTaskAtTop(ActivityStack.java:2149)
+  at com.android.server.am.ActivityStack.moveTaskToFrontLocked(ActivityStack.java:3783)
+  at com.android.server.am.ActivityStackSupervisor.startActivityUncheckedLocked(ActivityStackSupervisor.java:2193)
+  at com.android.server.am.ActivityStackSupervisor.startActivityLocked(ActivityStackSupervisor.java:1763)
+  at com.android.server.am.ActivityStackSupervisor.startActivityMayWait(ActivityStackSupervisor.java:1104)
+  - locked <0x022a4128> (a com.android.server.am.ActivityManagerService)
+  at com.android.server.am.ActivityManagerService.startActivityAsUser(ActivityManagerService.java:3938)
+  at com.android.server.am.ActivityManagerService.startActivity(ActivityManagerService.java:3925)
+  at android.app.ActivityManagerNative.onTransact(ActivityManagerNative.java:162)
+  at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2516)
+  at android.os.Binder.execTransact(Binder.java:453)
+
+
+
+  "main" prio=5 tid=1 Blocked
+  | group="main" sCount=1 dsCount=0 obj=0x7528a3c0 self=0xb4d36500
+  | sysTid=1784 nice=-2 cgrp=default sched=0/0 handle=0xb6f96b34
+  | state=S schedstat=( 18183776800 10790345797 52983 ) utm=1164 stm=654 core=3 HZ=100
+  | stack=0xbe7bf000-0xbe7c1000 stackSize=8MB
+  | held mutexes=
+  at com.android.server.am.ActivityManagerService.onWakefulnessChanged(ActivityManagerService.java:10479)
+  - waiting to lock <0x022a4128> (a com.android.server.am.ActivityManagerService) held by thread 9
+  at com.android.server.am.ActivityManagerService$LocalService.onWakefulnessChanged(ActivityManagerService.java:20920)
+  at com.android.server.power.Notifier$1.run(Notifier.java:306)
+  at android.os.Handler.handleCallback(Handler.java:739)
+  at android.os.Handler.dispatchMessage(Handler.java:95)
+  at android.os.Looper.loop(Looper.java:148)
+  at com.android.server.SystemServer.run(SystemServer.java:287)
+  at com.android.server.SystemServer.main(SystemServer.java:172)
+  at java.lang.reflect.Method.invoke!(Native method)
+  at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:736)
+  at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:626)
+
+
+LocalTransport主要功能是创建 /cache/backup/1/_delta，  /cache/backup/1/_full，并没有干多少事。
+
+LocalTransport是由BackupManagerService服务初始化过程中启动。并且找到一个transports。
+
+  05-30 17:50:29.834 1631 1631 V BackupManagerService: Starting with transport android/com.android.internal.backup.LocalTransport
+  05-30 17:50:29.834 1631 1631 V BackupManagerService: Found transports: 1
+  05-30 17:50:29.837 1631 1631 I BackupManagerService: Found stale backup journal, scheduling
+
+
+
+    public BackupManagerService(Context context, Trampoline parent) {
+        mCurrentTransport = Settings.Secure.getString(context.getContentResolver(),
+              Settings.Secure.BACKUP_TRANSPORT);
+        if ("".equals(mCurrentTransport)) {
+          mCurrentTransport = null;
+        }
+        if (DEBUG) Slog.v(TAG, "Starting with transport " + mCurrentTransport);
+
+        // Find all transport hosts and bind to their services
+        List<ResolveInfo> hosts = mPackageManager.queryIntentServicesAsUser(
+              mTransportServiceIntent, 0, UserHandle.USER_OWNER);
+        if (DEBUG) {
+          Slog.v(TAG, "Found transports: " + ((hosts == null) ? "null" : hosts.size()));
+        }
+    }

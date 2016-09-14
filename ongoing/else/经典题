@@ -1,0 +1,116 @@
+先自我介绍；
+你在公司的角色是什么？主要工程师，leader?
+自己解决过比较复杂或者经典的案例；
+最后，觉得自己比较擅长的地方；
+业余爱好，性格方面。
+对小米有什么想了解的吗？
+
+### java
+
+1. 面向对象的3大特征
+2. 封装，继承，多态
+3. 重载与覆写的区别
+    返回值能作为特征值吗，Java与C++覆写
+3. 多线程并发： synchronized， wait, notify
+    线程安全类，线程池
+
+3. 线程的几种实现方式
+4. init与clinit的区别
+5. static, final的含义
+6. 内部类
+    普通内部类：某个类的内部定义的类，持有外部类的类名.this引用，对于内存泄露需要注意
+    静态内部类：static
+    匿名内部类: 直接new创建
+7. try,catch,finally执行流程
+
+8. 设计模式
+
+9. 排序算法
+
+10. 反射机制
+
+11. 进程与线程的区别
+
+12 java与c++区别
+
+13. 强弱引用
+
+Java中的TreeSet和TreeMap的实现采用了什么算法？ 红黑树 ，时间复杂度 lgn
+
+### app
+
+1. 四大组件
+    - 广播类型与区别
+    - Task的启动模式
+2. 常见开源框架， 读过源码否
+
+3. activity与service交互方式： 广播，handler，
+
+4. dp, sp，pix区别
+
+5. anr与crash理解
+
+6. mvc思想
+
+7. Android数据存储方式： SharedPreferences， SQLite, 文件， contentProvider, 网络
+
+8. intent：显式与隐式
+
+9. Android中常用的五种布局
+
+10. Android动画
+
+11. task， affinity
+launchmode,
+onNewIntent
+flag
+context, contextimpl
+
+### framework
+
+1. app启动过程
+2. 系统启动过程
+
+3. IPC机制
+    1. Binder
+    2. handler（Looper, messagequeue, message, handler之间的关系）
+    3. socket
+
+4. 进程优先级别
+4. 进程创建过程
+4. 杀进程的方式
+5. 内存优化，内存泄露的分析，常见的内存泄露常见
+
+6. 系统卡顿分析，systrace
+
+4. AMS/ PMS
+### native
+
+1. JNI的理解, NDK含义
+2. signal信号
+3. 管道，信号量等
+
+
+### linux
+
+1. cpu调度算法
+2. 内存模型
+3. syscall
+
+### 虚拟机
+
+1. gc
+2. 内存模型
+    堆与栈的理解
+
+
+### 开发工具
+
+1. as, eclipse, git
+
+### 学习方式
+1. 博客，网站，github
+
+### 性格，潜力
+
+### 项目经验
