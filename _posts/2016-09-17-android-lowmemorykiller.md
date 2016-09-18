@@ -518,8 +518,8 @@ ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
 
 另外，lowmem_minfree[]和lowmem_adj[]数组大小个数为6，通过如下两条命令：
 
-module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);    
-module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size, S_IRUGO | S_IWUSR);
+    module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);    
+    module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size, S_IRUGO | S_IWUSR);
 
 当如下节点数据发送变化时，会通过修改lowmem_minfree[]和lowmem_adj[]数组：
 
@@ -533,7 +533,7 @@ module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size, S_IRUGO | S_I
 
 最后讲到了lowmemorykiller驱动，通过注册shrinker，借助linux标准的内存回收机制，根据当前系统可用内存以及parameters配置参数(adj,minfree)来选取合适的selected_oom_score_adj，再从所有进程中选择adj大于该目标值的并且占用rss内存最大的进程，将其杀掉，从而释放出内存。
 
-### 5.1 lmkd相关参数：
+### 5.1 lmkd参数：
 
 - `oom_adj`:代表进程的优先级, 数值越大,优先级越低,越容易被杀. 取值范围[-16, 15]
 - `oom_score_adj`: 取值范围[-1000, 1000]
@@ -551,14 +551,9 @@ module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size, S_IRUGO | S_I
 - 当oom_adj < 15, 则oom_score_adj= oom_adj * 1000/17;
 
 
-### 5.2 lowmemorykiller driver相关参数
+### 5.2 driver参数
 
     /sys/module/lowmemorykiller/parameters/minfree (代表page个数)
     /sys/module/lowmemorykiller/parameters/adj (代表oom_score_adj)
 
-例如：   
-
-将"1,6" 写入节点/sys/module/lowmemorykiller/parameters/adj，
-将"1024,8192" 写入节点/sys/module/lowmemorykiller/parameters/minfree。
-
-含义：当系统可用内存低于`8192`个pages时，则会杀掉oom_score_adj>=`6`的进程；当系统可用内存低于`1024`个pages时，则会杀掉oom_score_adj>=`1`的进程。
+例如：将`1,6`写入节点/sys/module/lowmemorykiller/parameters/adj，将`1024,8192`写入节点/sys/module/lowmemorykiller/parameters/minfree。策略：当系统可用内存低于`8192`个pages时，则会杀掉oom_score_adj>=`6`的进程；当系统可用内存低于`1024`个pages时，则会杀掉oom_score_adj>=`1`的进程。
