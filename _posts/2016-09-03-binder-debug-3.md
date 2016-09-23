@@ -15,25 +15,23 @@ tags:
 
 调用方法:print_binder_thread
 
-    thread `tid`: l `looper`
-    thread 8980: l 12
+    thread 8980: l 12 //tid=8980，looper=12
 
 关于looper状态值:
 
-    enum {
-        BINDER_LOOPER_STATE_REGISTERED  = 0x01, // 创建注册线程BC_REGISTER_LOOPER
-        BINDER_LOOPER_STATE_ENTERED     = 0x02, // 创建主线程BC_ENTER_LOOPER
-        BINDER_LOOPER_STATE_EXITED      = 0x04, // 已退出
-        BINDER_LOOPER_STATE_INVALID     = 0x08, // 非法
-        BINDER_LOOPER_STATE_WAITING     = 0x10, // 等待中
-        BINDER_LOOPER_STATE_NEED_RETURN = 0x20, // 需要返回
-    };
+    BINDER_LOOPER_STATE_REGISTERED  = 0x01, // 创建注册线程BC_REGISTER_LOOPER
+    BINDER_LOOPER_STATE_ENTERED     = 0x02, // 创建主线程BC_ENTER_LOOPER
+    BINDER_LOOPER_STATE_EXITED      = 0x04, // 已退出
+    BINDER_LOOPER_STATE_INVALID     = 0x08, // 非法
+    BINDER_LOOPER_STATE_WAITING     = 0x10, // 等待中
+    BINDER_LOOPER_STATE_NEED_RETURN = 0x20, // 需要返回
 
-故0x12 = BINDER_LOOPER_STATE_ENTERED | BINDER_LOOPER_STATE_WAITING,代表的是等待就绪状态,且由为binder主线程.
+所以`0x12` = `BINDER_LOOPER_STATE_ENTERED | BINDER_LOOPER_STATE_WAITING`，代表的是等待就绪状态且由为binder主线程.
+简单说,looper值, 十位为1代表处于binder_thread_read()状态, 个位为1代表已注册的binder线程,个位为2代表binder主线程.
 
 ####  1.2 binder_node
 
-关于binder_node的输出信息:通过 print_binder_node()
+关于binder_node的输出信息:print_binder_node()
 
 例如:
 
@@ -41,22 +39,22 @@ tags:
 
 含义:
 
-- debug_id
-- ptr
-- cookiehs
-- has_strong_ref
-- has_weak_ref
-- local_strong_refs
-- local_weak_refs
-- internal_strong_refs
-- count: (node->refs总引用次数)
-- proc: (node->refs->proc->pid)
+- debug_id = 3079465
+- ptr = u0000005593cc3540
+- cookies = c0000005593f37030
+- has_strong_ref(hs) = 1
+- has_weak_ref(hw) = 1
+- local_strong_refs(ls) = 0
+- local_weak_refs(lw) = 0
+- internal_strong_refs(is) = 1
+- count: (node->refs总引用次数) = 1
+- proc: (node->refs->proc->pid) = 8963
 
 #### 1.3 binder_ref
 
 调用方法: print_binder_ref()
 
-    ref `debug_id`:`desc` `node` `node->debug_id` `strong` `weak` `death`
+    //含义：ref `debug_id`:`desc` `node` `node->debug_id` `strong` `weak` `death`
     ref 340122: desc 1 node 340121 s 1 w 1 d ffffffc04f90a340
 
 输出binder_ref结构体成员变量:
@@ -68,7 +66,7 @@ tags:
 
 调用方法: print_binder_buffer()
 
-    buffer `debug_id`:`data` `data_size`:`offsets_size` `transaction`
+    //含义：buffer `debug_id`:`data` `data_size`:`offsets_size` `transaction`
     buffer 3473176: ffffff8007700218 size 0:0 delivered
 
 输出的便是binder_buffer结构体的成员变量,其中`transaction`不为空,则为active,否则为delivered.
@@ -205,6 +203,7 @@ print_binder_transaction
       pending transactions: 0
 
 进程system_server:
+
     - 处于ready状态的binder线程个数为16:
     - BC_ENTER_LOOPER创建1个binder线程
     - BC_REGISTER_LOOPER创建15个binder线程
@@ -278,16 +277,16 @@ print_binder_transaction
 
 已知该进程有8个binder_thread,其中
 
-- 4个线程处于0x11 = BINDER_LOOPER_STATE_REGISTERED | BINDER_LOOPER_STATE_WAITING,代表的是等待就绪状态
-- 1个线程处于0x12 = BINDER_LOOPER_STATE_ENTERED | BINDER_LOOPER_STATE_WAITING,代表的是等待就绪状态
-
-简单说,looper值, 十位为1代表处于binder_thread_read()状态, 个位为1代表已注册的binder线程,个位为2代表binder主线程.
+- 4个线程处于0x11 = `BINDER_LOOPER_STATE_REGISTERED | BINDER_LOOPER_STATE_WAITING`,代表的是等待就绪状态
+- 1个线程处于0x12 = `BINDER_LOOPER_STATE_ENTERED | BINDER_LOOPER_STATE_WAITING`,代表的是等待就绪状态
 
 ### 六. 小结
 
-- mediaserver和servicemanager的主线程都是binder线程; surfaceflinger和system_server的主线程并非binder线程
+- `mediaserver`和`servicemanager`的主线程都是binder线程; `surfaceflinger`和`system_server`的主线程并非binder线程
 - binder线程分为binder主线程和binder普通线程, binder主线程一般是`binder_1`或者进程的主线程.
-- `cat /d/binder/stats`和`cat /d/binder/proc/<pid>`是分析系统binder状态的绝佳信息.
+- `cat /d/binder/stats`和`cat /d/binder/proc/<pid>`是分析系统binder状态的重要信息.
+
+本文举例的这几个重要进程情况：
 
 |进程|max|BC_REGISTER_LOOPER|BC_REGISTER_LOOPER|
 |---|---|

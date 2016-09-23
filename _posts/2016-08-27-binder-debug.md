@@ -160,13 +160,13 @@ binder_debug宏定义，如下：
 
 ### 4.1 BINDER_DEBUG_DEAD_BINDER
 
-//debug_id, node的引用次数，死亡通知个数
+//debug_id, node的引用次数，死亡通知个数    
 binder: node `1078337` now dead, refs `1`, death `0`
 
-//ref->proc->pid, ref->debug_id, ref->desc(handle)
+//ref->proc->pid, ref->debug_id, ref->desc(handle)   
 binder: `13839` delete ref `1078335` desc `1` has death notification
 
-//proc->pid, thread->pid, (u64)cookie,  death
+//proc->pid, thread->pid, (u64)cookie,  death   
 binder: `1788`:`1805` BC_DEAD_BINDER_DONE `9ce308c0` found `f10a5400`
 
 
@@ -174,9 +174,9 @@ binder: `1788`:`1805` BC_DEAD_BINDER_DONE `9ce308c0` found `f10a5400`
 
 **查询可用buffer：**
 
-//proc->pid, thread->pid, (u64)data_ptr,  buffer->debug_id,  buffer->transaction
-binder: `463`:`5919` BC_FREE_BUFFER u`b4641028` found buffer `1183795` for `finished` transaction
-binder: `277`:`2771` BC_FREE_BUFFER u`b6c58028` found buffer `1183806` for `active` transaction
+//proc->pid, thread->pid, (u64)data_ptr,  buffer->debug_id,  buffer->transaction    
+binder: `463`:`5919` BC_FREE_BUFFER u`b4641028` found buffer `1183795` for `finished` transaction    
+binder: `277`:`2771` BC_FREE_BUFFER u`b6c58028` found buffer `1183806` for `active` transaction    
 
 另外，buffer->transaction ? "active" : "finished"
 
@@ -215,7 +215,7 @@ binder: `1788`: `allocate` pages `c7801000-c7800000`
 // 参数：proc->pid, new_buffer_size, new_buffer    
 binder: `1788`: add free buffer, size `92`, at `c780019c`    
 binder: `1788`: `free` pages `c7801000-c7800000`    
-//参数：proc->pid, buffer, prev
+//参数：proc->pid, buffer, prev    
 binder: `1788`: merge free, buffer `c780019c` share page with `c7800128`
 
 **解析：**

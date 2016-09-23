@@ -14,7 +14,7 @@ tags:
 
 ### 1.1 创建debugfs
 
-首先debugfs文件系统默认挂载在节点`/sys/kernel/debug`，binder驱动初始化的过程会在该节点下先创建`/binder/`目录，然后在该目录下创建下面文件和目录：
+首先debugfs文件系统默认挂载在节点`/sys/kernel/debug`，binder驱动初始化的过程会在该节点下先创建`/binder`目录，然后在该目录下创建下面文件和目录：
 
 - proc/
 - stats
@@ -24,6 +24,7 @@ tags:
 - failed_transaction_log
 
 比如：
+
 	//创建目录 /sys/kernel/debug/binder
 	binder_debugfs_dir_entry_root = debugfs_create_dir("binder", NULL);
 
@@ -33,22 +34,7 @@ tags:
 	//创建文件/sys/kernel/debug/binder/state
 	debugfs_create_file("state",S_IRUGO, binder_debugfs_dir_entry_root, NULL, &binder_state_fops);
 
-另外，`/d`其实是指向`/sys/kernel/debug`的链接，也可以通过节点`/d/binder`来访问。
-
-
-    BINDER_DEBUG_ENTRY(proc);
-    BINDER_DEBUG_ENTRY(state);
-    BINDER_DEBUG_ENTRY(stats);
-    BINDER_DEBUG_ENTRY(transactions);
-    BINDER_DEBUG_ENTRY(transaction_log);
-
-
-    #define BINDER_DEBUG_ENTRY(name) \
-    static int binder_##name##_open(struct inode *inode, struct file *file) \
-    { \
-    	return single_open(file, binder_##name##_show, inode->i_private); \
-    } \
-    \
+另外，`/d`其实是指向`/sys/kernel/debug`的链接，也可以通过节点`/d/binder`来访问.
 
 
 ### 1.2 内核编译选项
@@ -158,11 +144,11 @@ tags:
 
 可知：
 
-规律: BC_TRANSACTION +  BC_REPLY =  BR_TRANSACTION_COMPLETE +  BR_DEAD_REPLY +  BR_FAILED_REPLY
-
 - 当前系统binder_proc个数为78，binder_thread个数为530，binder_node为1753等信息；
 - 从开机到现在共创建过382个binder_proc，3196个binder_thread等；
 - transaction active等于零，目前没有活动的transaction事务
+
+`规律:` BC_TRANSACTION +  BC_REPLY =  BR_TRANSACTION_COMPLETE +  BR_DEAD_REPLY +  BR_FAILED_REPLY
 
 #### 2.2.2 进程统计信息
 
@@ -264,7 +250,7 @@ call_type：有3种，分别为async, call, reply.
 
 #### 2.3.4 proc
 
-  cat /d/binder/proc/<pid>
+    cat /d/binder/proc/<pid>
 
 可查看单独每个进程更为详细的信息，锁对应的函数`binder_proc_show`
 
@@ -286,10 +272,12 @@ call_type：有3种，分别为async, call, reply.
     echo 0 > /d/tracing/events/binder/binder_transaction_alloc_buf/enable
 
 当然也可以直接输出到文件：
-|
+
     adb shell cat /d/tracing/trace_pipe > trace_binder
 
 
 这里可以开启的信息有很多，再比如：
 
     echo 1 > /d/tracing/events/binder/enable
+
+更多开关与功能，可自行探索。
