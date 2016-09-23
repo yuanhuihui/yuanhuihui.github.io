@@ -1,49 +1,63 @@
-## 意义
-
-Android的设计理念, 应用程序退出,但进程还会继续存在系统中,以便再次启动时提高响应时间.
-但这就会遇到一个问题, 随着应用打开数量的增多,系统中越来越多的进程, 就很有可能导致系统内存不足, 这时需要一个能否整理进程,释放内存空间的机制.
-Android的lmkd便是干这件事, 由lmkd来决定什么时间, 杀掉什么进程.
-
-### 参数
-
-在OOM的参数oom_adj，oom_score_adj，oom_score
-
-- oom_adj:代表进程的优先级, 数值越大,优先级越低,越容易被杀. 取值范围[-16, 15]
-- oom_score_adj: 取值范围[-1000, 1000]
-- oom_score
-
-相应节点:
-
-    /proc/<pid>/oom_adj
-    /proc/<pid>/oom_score_adj
-    /proc/<pid>/oom_score
-
-- 当oom_adj= 15, 则oom_score_adj=1000;
-- 否则, oom_score_adj= oom_adj * 1000/17;
-
-### 阈值
-
-    /sys/module/lowmemorykiller/parameters/minfree
-    /sys/module/lowmemorykiller/parameters/adj
-
-### 策略
-
-触发oom时,会触发kernel panic 或者 杀掉一个目标进程.
-
-当触发lmkd,则先杀oom_adj最大的进程, 当oom_adj相等时,则选择oom_score_adj最大的进程.
+lmkd续篇
 
 
-### lmk 与 oom 对比
+###　用户态lmk
+
+ZONEINFO_PATH "/proc/zoneinfo"
 
 
+struct sysmeminfo {
+    int nr_free_pages; //系统可用内存的pages
+    int nr_file_pages; //page cache,用户空间进程读写的缓存pages,本质上是free
+    int nr_shmem; //进程间的共享内存机制, 不属于可用内存
+    int totalreserve_pages; //系统正常运行所需预留的pages
+};
 
 
+#### init_mp
 
-151static int lowmem_oom_adj_to_oom_score_adj(int oom_adj)
-152{
-153    if (oom_adj == OOM_ADJUST_MAX)
-154        return OOM_SCORE_ADJ_MAX;
-155    else
-156        return (oom_adj * OOM_SCORE_ADJ_MAX) / -OOM_DISABLE;
-157}
-158
+
+ret = init_mp(MEMPRESSURE_WATCH_LEVEL, (void *)&mp_event);
+
+init_mp的过程. 注册epoll监听.
+
+#### mp_event
+
+    static void mp_event(uint32_t events __unused) {
+        int ret;
+        unsigned long long evcount;
+        struct sysmeminfo mi;
+        int other_free;
+        int other_file;
+        int killed_size;
+        bool first = true;
+        ret = read(mpevfd, &evcount, sizeof(evcount));
+        if (ret < 0)
+            ALOGE("Error reading memory pressure event fd; errno=%d",
+                  errno);
+        if (time(NULL) - kill_lasttime < KILL_TIMEOUT)
+            return;
+        while (zoneinfo_parse(&mi) < 0) {
+            // Failed to read /proc/zoneinfo, assume ENOMEM and kill something
+            find_and_kill_process(0, 0, true);
+        }
+        //是指系统可以用来分配的空闲内存
+        other_free = mi.nr_free_pages - mi.totalreserve_pages;
+        //是指系统可用的缓存pages
+        other_file = mi.nr_file_pages - mi.nr_shmem;
+        do {
+            killed_size = find_and_kill_process(other_free, other_file, first);
+            if (killed_size > 0) {
+                first = false;
+                other_free += killed_size;
+                other_file += killed_size;
+            }
+        } while (killed_size > 0);
+    }
+
+
+find_and_kill_process -->
+    kill_one_process --->
+        kill(pid, SIGKILL);    
+        killProcessGroup(uid, pid, SIGKILL);
+        pid_remove(pid);

@@ -59,6 +59,7 @@ tags:
 |同时选中所有被引用点（光标处） |Ctrl + Alt +Shift + J　|
 |显示所有被引用点（光标处）|  Ctrl + Alt +　F7     |
 
+
 >小技巧： 所有搜索都支持基本的正则表达式和无序匹配关键字
 
 ## 三、编辑代码
@@ -164,6 +165,8 @@ tags:
 |Git Push |Ctrl + Shift + K|
 |Git Revert |Ctrl + Alt + Z|
 |同步 |Ctrl + Alt +Ｙ|
+|调用层级|Ctrl + Alt + H|
+|查看类的继承关系|Ctrl + H|
 
 ## 九、补充
 

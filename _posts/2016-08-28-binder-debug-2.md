@@ -204,7 +204,7 @@ tags:
 **Debug Tips：**
 
 - 当binder内存紧张时，可查看`free async space`和`buffers:`字段；
-- 当系统空闲时，一般来说`ready_threads` = `requested_threads_started` + `BC_ENTER_LOOPER`；
+- 当系统空闲时，一般来说`ready_threads` = `requested_threads_started` + `BC_ENTER_LOOPER`； 当系统繁忙时`ready_threads`可能为0.
 - 例如system_server进程的`ready_threads`线程个数越少，系统可能处于越繁忙的状态；
 - 绝大多数的进程`max_threads` = 15，而surfaceflinger最大线程个数为4，servicemanager最大线程个数为0(只有主线程)；
 

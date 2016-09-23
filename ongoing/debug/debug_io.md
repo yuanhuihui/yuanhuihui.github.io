@@ -14,7 +14,7 @@ stat <file>
 /data/
     /media/0  (sdcard数据)
     /sdcard
-    /data/pkgName  (app内部存储?)
+    /data/pkgName  (app内部存储)
 
 /sdcard
 
@@ -40,8 +40,10 @@ obb的作用:针对大app而涉及的
 /mnt/runtime/read/emulated/0
 /mnt/sdcard
 /mnt/user/0/primary/
+
 /storage/self/primary
 /storage/emulated/0  
+
 /data/media/0
 
 

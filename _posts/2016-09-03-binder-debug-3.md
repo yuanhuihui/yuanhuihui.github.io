@@ -289,12 +289,11 @@ print_binder_transaction
 - binder线程分为binder主线程和binder普通线程, binder主线程一般是`binder_1`或者进程的主线程.
 - `cat /d/binder/stats`和`cat /d/binder/proc/<pid>`是分析系统binder状态的绝佳信息.
 
-|进程|max|BC_ENTER_LOOPER|BC_REGISTER_LOOPER|
+|进程|max|BC_REGISTER_LOOPER|BC_REGISTER_LOOPER|
 |---|---|
 |surfaceflinger|4|4|1|
 |mediaserver|15|2|2|
 |servicemanager|0|1|0|
 |system_server|15|15|1|
 
-
-可见, mediaserver具有继续创建新线程的能力,而其他几个进程都以达到可创建的binder线程上限.
+BC_REGISTER_LOOPER + BC_ENTER_LOOPER = max + 1，则代表该进程中的binder线程已达上限。 可见, mediaserver具有继续创建新线程的能力,而其他几个进程都以达到可创建的binder线程上限.
