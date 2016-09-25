@@ -1,8 +1,7 @@
-- ActivityInfo 从xml解析出来的信息
-
-- ActivityRecord
+- ActivityInfo: 从xml解析出来的信息
+- ActivityRecord: 记录着Activity信息
 - TaskRecord: 记录着task信息
-- ActivityStack:
+- ActivityStack: 栈信息
 
 
 ### 一 基本对象
@@ -38,9 +37,21 @@ ArrayList<TaskRecord> mTaskHistory  //保存所有的Task列表
 ArrayList<ActivityStack> mStacks; //所有stack列表
 final int mStackId;
 int mDisplayId;
+ActivityRecord mPausingActivity
+ActivityRecord mResumedActivity
+ActivityContainer mActivityContainer
+boolean mConfigWillChange
 
 #### 4. ActivityStackSupervisor
 
+int mLastStackId
+int mCurTaskId
+int mCurrentUser
+ActivityStack mHomeStack //桌面的stack
+ActivityStack mFocusedStack //当前聚焦stack
+ActivityStack mLastFocusedStack 
+SparseArray<ActivityDisplay> mActivityDisplays  //displayId为key
+SparseArray<ActivityContainer> mActivityContainers // mStackId为key
 
 
 #### 关系链表

@@ -225,7 +225,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 ![application_thread_classes](/images/android-service/am/application_thread_classes.png)
 
-与IActivityManager的binder通信原理一样，ApplicationThreadProxy作为binder通信的客户端，ApplicationThreadNative作为Binder通信的服务端,ApplicationThread继承ApplicationThreadProxy类，覆写其中的部分方法。
+与IActivityManager的binder通信原理一样，`ApplicationThreadProxy`作为binder通信的客户端，`ApplicationThreadNative`作为Binder通信的服务端，其中`ApplicationThread`继承ApplicationThreadNative类，覆写其中的部分方法。
 
 ### 6. AMS.startService
 

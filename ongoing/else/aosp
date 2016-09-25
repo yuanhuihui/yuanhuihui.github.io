@@ -1,0 +1,35 @@
+1, https://android.googlesource.com/platform/frameworks/base/+/cc64dfcf66a19084a58372ea7f9f5139ccc93221
+
+2.https://android.googlesource.com/platform/frameworks/base/+/1de22da763576cd54b2d3d51bc47ce99cf89f1ab
+
+3. ContentProvider
+
+https://android-review.googlesource.com/#/c/144191/ 这个patch被revert掉，但还是存在隐患，考虑下如何优化。
+https://android-review.googlesource.com/#/c/38610/
+
+本身的patch增加评论
+
+a.RemoteException本身概率很低，出现这种情况下，再次请求unstable， 返回null给用户，比如fc更友善，但是在用户量很大的情况下，还是会出现不少情况的
+b.query操作用得非常频繁， 比如打电话查询位置；
+c.如果provider进程自身发生crash，app也是不希望被牵连的。
+
+4. info.uid 改为uid的问题
+https://android.googlesource.com/platform/frameworks/base/+/4c5c6f43dd81031c2501e35b355fad5ebbf0ab87%5E%21/#F0
+procstats的问题
+
+https://android-review.googlesource.com/#/c/220908/
+
+5. patch 2:
+final void appDiedLocked(ProcessRecord app, int pid, IApplicationThread thread,
+            boolean fromBinderDied) {
+						if(app.killed){
+						   Slog.i(TAG, "Process " + app.processName + " (pid " + pid
+                        + ") has already died, killed=" + app.killed + ", killedByAm=" + app.killedByAm);
+							return;
+						}
+						
+6. procstat问题，可能需要revert掉。暂时不管；
+
+7. 功耗的patch，再回复 could you please review this change?
+				
+8. setPackageStoppedState 是否存在优化的地方 ？		

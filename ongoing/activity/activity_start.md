@@ -33,7 +33,7 @@ ActivityThread.handleLaunchActivity
 ## 继承相关
 
 ### 继承关系
-
+  
 PackageItemInfo
     ApplicationInfo
     InstrumentationInfo
@@ -44,16 +44,24 @@ PackageItemInfo
     PermissionInfo
     PermissionGroupInfo
 
-### 对象
-
-- ActivityInfo 从xml解析出来的信息
-- ActivityRecord
-- TaskRecord: 记录着task信息
-
 in ActivityRecord.java
 
 Token 继承于 IApplicationToken.Stub
 
+### 一. startActivity
+
+Context.startActivity
+  ...
+  AMS.startActivityAsUser
+      ASS.startActivityMayWait  (使用ASS.mFocusedStack)
+        ASS.startActivityUncheckedLocked
+          AS.startActivityLocked
+            ASS.resumeTopActivitiesLocked
+              AS.resumeTopActivitiesLocked
+                AS.resumeTopActivityInnerLocked （scheduleNewIntent, scheduleResumeActivity）
+                
+                
+                
 ### 1. AT.performConfigurationChanged
 
 ### 2. AT.performLaunchActivity
