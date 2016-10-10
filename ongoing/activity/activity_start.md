@@ -45,9 +45,7 @@ Context.startActivity
             ASS.resumeTopActivitiesLocked
               AS.resumeTopActivitiesLocked
                 AS.resumeTopActivityInnerLocked （scheduleNewIntent, scheduleResumeActivity）
-
-
-
+                
 
 ### 1. AT.performConfigurationChanged
 

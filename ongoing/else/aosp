@@ -50,3 +50,13 @@ r.appInfo.uid ==> r.app.uid?
 
 
 if (app == null)  ==>  if (app == null || app.thread == null)
+
+
+8. setPackageStoppedState 是否存在优化的地方 ？
+
+9. https://android-review.googlesource.com/#/c/247410/
+
+10.https://android-review.googlesource.com/#/c/281287/1/core/jni/android_os_Debug.cpp
+
+11. procstats
+https://android-review.googlesource.com/#/c/143843/3/services/core/java/com/android/server/am/ProcessRecord.java
