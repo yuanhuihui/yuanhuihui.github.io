@@ -59,8 +59,7 @@ Context.startActivity
             ASS.resumeTopActivitiesLocked
               AS.resumeTopActivitiesLocked
                 AS.resumeTopActivityInnerLocked （scheduleNewIntent, scheduleResumeActivity）
-                
-                
+                ASS.startSpecificActivityLocked  (需要创建进程的情况）
                 
 ### 1. AT.performConfigurationChanged
 

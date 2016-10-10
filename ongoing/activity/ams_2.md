@@ -25,6 +25,7 @@ LAUNCH_TIMEOUT = 10 * 1000;
 
 ### 主要成员变量
 
+AMS.java
 BroadcastQueue mFgBroadcastQueue;
 BroadcastQueue mBgBroadcastQueue;
 ProcessMap<ProcessRecord> mProcessNames
