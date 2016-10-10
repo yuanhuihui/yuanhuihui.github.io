@@ -911,7 +911,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 #### 3.5 小结
 
-- 注册广播的小节[2.4]阶段, 会处理Sticky广播;
+- 注册广播的小节[2.5]阶段, 会处理Sticky广播;
 - 发送广播的[step 6]阶段, 会处理并行广播;
 - 发送广播的[step 8]阶段, 会处理串行广播;
 
@@ -1197,7 +1197,7 @@ mTimeoutPeriod，对于前台广播则为10s，对于后台广播则为60s。广
         }
     }
 
-#### 4.4 deliverToRegisteredReceiverLocked
+#### 4.4 performReceiveLocked
 
 [-> BroadcastQueue.java]
 

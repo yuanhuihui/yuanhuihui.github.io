@@ -819,7 +819,8 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
         throw new ZygoteInit.MethodAndArgsCaller(m, argv);
     }
 
-invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，根据前面的【流程4】中可知，下一步进入caller.run()方法。
+invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller`，该方法的参数`m`是指main()方法, `argv`是指ActivityThread.
+根据前面的【流程4】中可知，下一步进入caller.run()方法。
 
 ### 13. MethodAndArgsCaller
 

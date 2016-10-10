@@ -34,7 +34,7 @@ tags:
 |关闭当前Tabs|Ctrl + F4|
 | 跳转至某个Class |  Ctrl + N     |
 | 跳转至某个文件 |  Ctrl + + Shift + N     |
-| 跳转至某一行 |  Ctrl + G     |
+| 跳转至某一行 |  Ctrl + G     |h
 |跳转导航栏|Alt + Home|
 |跳转至声明|Ctrl + B|Ctrl +鼠标左键
 |跳转至实现|Ctrl + Alt + B|Ctrl + Alt +鼠标左键

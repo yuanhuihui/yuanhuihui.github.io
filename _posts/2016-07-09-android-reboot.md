@@ -535,13 +535,13 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
 
 [-> MountService.java]
 
-public void shutdown(final IMountShutdownObserver observer) {
-    enforcePermission(android.Manifest.permission.SHUTDOWN);
-    //向名为“MountService”的线程发送H_SHUTDOWN消息
-    mHandler.obtainMessage(H_SHUTDOWN, observer).sendToTarget();
-}
+    public void shutdown(final IMountShutdownObserver observer) {
+        enforcePermission(android.Manifest.permission.SHUTDOWN);
+        //向名为“MountService”的线程发送H_SHUTDOWN消息
+        mHandler.obtainMessage(H_SHUTDOWN, observer).sendToTarget();
+    }
 
-“MountService”线程收到消息后进入handleMessage出来相应消息
+`MountService`线程收到消息后进入handleMessage出来相应消息
 
     class MountServiceHandler extends Handler {
         public void handleMessage(Message msg) {
@@ -631,4 +631,4 @@ observer的回调方法onShutDownComplete()，会调用actionDone()，该方法�
 
     adb shell setprop sys.powerctl reboot
 
-本文还未结束，还需要进一步上面命令的执行流程，如何进入native，如何进入kernel来完成重启的，以及PM.reboot如何触发的。。。
+后续,还会进一步上面命令的执行流程，如何进入native，如何进入kernel来完成重启的，以及PM.reboot如何触发的。 

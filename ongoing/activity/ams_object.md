@@ -49,16 +49,34 @@ int mCurTaskId
 int mCurrentUser
 ActivityStack mHomeStack //桌面的stack
 ActivityStack mFocusedStack //当前聚焦stack
-ActivityStack mLastFocusedStack 
+ActivityStack mLastFocusedStack
 SparseArray<ActivityDisplay> mActivityDisplays  //displayId为key
 SparseArray<ActivityContainer> mActivityContainers // mStackId为key
 
 
 #### 关系链表
 
-ActivityStack.mTaskHistory -> TaskRecord.mActivities -> ActivityRecord
+正向: ActivityStack.mTaskHistory -> TaskRecord.mActivities -> ActivityRecord
+反向: ActivityRecord.task -> TaskRecord.stack -> ActivityStack
 
-ActivityRecord.task -> TaskRecord.stack -> ActivityStack
+
+ActivityRecord -> Task -> ActivityStack -> ActivityDisplay -> mActivityDisplays
+
+### 继承关系
+
+PackageItemInfo
+    ApplicationInfo
+    InstrumentationInfo
+    ComponentInfo
+        ActivityInfo
+        ServiceInfo
+        ProviderInfo
+    PermissionInfo
+    PermissionGroupInfo
+
+in ActivityRecord.java
+
+Token 继承于 IApplicationToken.Stub
 
 ### 二. 常见逻辑
 

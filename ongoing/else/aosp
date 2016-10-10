@@ -7,12 +7,6 @@
 https://android-review.googlesource.com/#/c/144191/ 这个patch被revert掉，但还是存在隐患，考虑下如何优化。
 https://android-review.googlesource.com/#/c/38610/
 
-本身的patch增加评论
-
-a.RemoteException本身概率很低，出现这种情况下，再次请求unstable， 返回null给用户，比如fc更友善，但是在用户量很大的情况下，还是会出现不少情况的
-b.query操作用得非常频繁， 比如打电话查询位置；
-c.如果provider进程自身发生crash，app也是不希望被牵连的。
-
 4. info.uid 改为uid的问题
 https://android.googlesource.com/platform/frameworks/base/+/4c5c6f43dd81031c2501e35b355fad5ebbf0ab87%5E%21/#F0
 procstats的问题
@@ -27,9 +21,32 @@ final void appDiedLocked(ProcessRecord app, int pid, IApplicationThread thread,
                         + ") has already died, killed=" + app.killed + ", killedByAm=" + app.killedByAm);
 							return;
 						}
-						
-6. procstat问题，可能需要revert掉。暂时不管；
 
-7. 功耗的patch，再回复 could you please review this change?
-				
-8. setPackageStoppedState 是否存在优化的地方 ？		
+
+8. setPackageStoppedState 是否存在优化的地方 ？
+
+9
+
+ActiveServices.java中的`bringUpServiceLocked`;
+app = mAm.getProcessRecordLocked(procName, r.appInfo.uid, false);
+
+r.appInfo.uid ==> r.app.uid?
+
+10.
+
+[-> ActiveServices.java]
+
+    private final String bringUpServiceLocked(...){
+        ...
+        ProcessRecord app = mAm.getProcessRecordLocked(procName, r.appInfo.uid, false);
+        if (app == null) {
+            if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
+                    "service", r.name, false, isolated, false)) == null) {
+                ...
+            }
+        }
+        ...
+    }
+
+
+if (app == null)  ==>  if (app == null || app.thread == null)

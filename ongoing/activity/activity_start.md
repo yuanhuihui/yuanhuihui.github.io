@@ -1,3 +1,5 @@
+这个是指主线程接收到handler消息的过程
+
 ActivityThread.handleLaunchActivity
     ActivityThread.handleConfigurationChanged
         ActivityThread.performConfigurationChanged
@@ -30,23 +32,7 @@ ActivityThread.handleLaunchActivity
                 Instrumentation.callActivityOnResume
                     Activity.onResume
 
-## 继承相关
 
-### 继承关系
-  
-PackageItemInfo
-    ApplicationInfo
-    InstrumentationInfo
-    ComponentInfo
-        ActivityInfo
-        ServiceInfo
-        ProviderInfo
-    PermissionInfo
-    PermissionGroupInfo
-
-in ActivityRecord.java
-
-Token 继承于 IApplicationToken.Stub
 
 ### 一. startActivity
 
@@ -59,9 +45,10 @@ Context.startActivity
             ASS.resumeTopActivitiesLocked
               AS.resumeTopActivitiesLocked
                 AS.resumeTopActivityInnerLocked （scheduleNewIntent, scheduleResumeActivity）
-                
-                
-                
+
+
+
+
 ### 1. AT.performConfigurationChanged
 
 ### 2. AT.performLaunchActivity
