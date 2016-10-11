@@ -107,10 +107,12 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 - [Binder系列2—Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)
 
 **Framework层面:**
+
 - [Binder系列7—framework层分析](http://gityuan.com/2015/11/21/binder-framework/)
 - [Binder系列8—如何使用Binder](http://gityuan.com/2015/11/22/binder-use/)
 
 **App层面**
+
 - [Binder系列9—如何使用AIDL](http://gityuan.com/2015/11/23/binder-aidl/)
 - [Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)
 
@@ -151,9 +153,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 **说明：**不少文章还没来得及进一步加工，大篇章的源码，有读者跟我反馈，看着看着就睡着。那说明看我的文章能解决失眠问题,也不失为功德一件.计划前期会先理一遍，后期有时间还会回过来把所有文章再修整修整，增加可视化图表与结论分析。
 
-或许有人看到前面Android整个系统架构是如此庞大的,有点蒙了, 尤其是非科班出身的朋友该问如何学习Android系统，我想说的是其实科班也基本靠自学。有句话叫“师傅领进门修行靠个人”，再厉害的老师能教你的东西都是很有限的，真正的修行还是要靠自己.
-
-关于学习和研究Android的经验之谈:
+看到前面Android整个系统架构是如此庞大的, 该问如何学习Android系统，有句话叫“师傅领进门修行靠个人”，真正的修行还是要靠自己, 下面我说说Android的学习和研究论:
 
 - [如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)
 
@@ -172,12 +172,13 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 	- [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
 	- [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
 - Android服务篇-PackageManagerService
-- Android服务篇-PowerManagerService
+- Android服务篇-WindowManagerService
 - Android服务篇-BatteryService
 	- [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
-- Android服务篇-WindowManagerService
+- Android服务篇-PowerManagerService
+- 等等
 
-当然graphic也是一大块难啃的模块，也是需要整理的，先留个空位吧。
+当然graphic也是一大块难啃的模块，也是需要研究的，先留个空位吧。
 
 **（3）**对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：
 
@@ -238,6 +239,6 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 博主水平、精力有限，目前没有时间反复校验博文，如果您发现文章存在逻辑、文字或者表述存在错误，还望海涵，可与我直接沟通：
 
-- 微博私信：<a target="_blank" href="http://weibo.com/gityuan">Gityuan</a>
-- 邮箱联系：gityuan@gmail.com
-- 或者博客直接留言
+- 新浪：<a target="_blank" href="http://weibo.com/gityuan">@Gityuan</a>
+- 邮箱：`gityuan@gmail.com`
+- 博客留言
