@@ -60,3 +60,22 @@ if (app == null)  ==>  if (app == null || app.thread == null)
 
 11. procstats
 https://android-review.googlesource.com/#/c/143843/3/services/core/java/com/android/server/am/ProcessRecord.java
+
+
+12. 需要添加的patch
+https://android-review.googlesource.com/#/c/286121/
+
+13. 同步问题
+https://android-review.googlesource.com/#/c/187880/
+
+14. ASS.startActivityLocked
+
+callingPid = callerApp.pid;
+               callingUid = callerApp.info.uid;
+
+方案:
+callingUid = callerApp.info.uid; ==> callingUid = callerApp.uid;
+
+14. onPause优化方案
+
+FLAG_RESUME_WHILE_PAUSING

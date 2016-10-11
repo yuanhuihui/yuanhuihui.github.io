@@ -178,12 +178,25 @@ Activity, Service, ContentProvider, BroadcastReceiver这四大组件在启动时
 - AMP: ActivityManagerProxy
 - AMS: ActivityManagerService (继承于ActivityManagerNative)
 
+
+图解:
+
 1. system_server进程中调用`startProcessLocked`方法,该方法最终通过socket方式,将需要创建新进程的消息告知Zygote进程,并阻塞等待Socket返回新创建进程的pid;
 2. Zygote进程接收到system_server发送过来的消息, 则通过fork的方法，将zygote自身进程复制生成新的进程，并将ActivityThread相关的资源加载到新进程app process,这个进程可能是用于承载activity等组件;
 3. 创建完新进程后fork返回两次, 在新进程app process向servicemanager查询system_server进程中binder服务端AMS,获取相对应的Client端,也就是AMP. 有了这一对binder c/s对, 那么app process便可以通过binder向跨进程system_server发送请求,即attachApplication()
 4. system_server进程接收到相应binder操作后,经过多次调用,利用ATP向app process发送binder请求, 即bindApplication.
 
 system_server拥有ATP/AMS, 每一个新创建的进程都会有一个相应的AT/AMS,从而可以跨进程 进行相互通信. 这便是进程创建过程的完整生态链.
+
+
+**四大组件的进程创建时机:**
+
+|组件|创建方法|
+|---|---|
+|Activity| ASS.startSpecificActivityLocked()|
+|Service|ActiveServices.bringUpServiceLocked()|
+|ContentProvider|AMS.getContentProviderImpl()|
+|Broadcast|BroadcastQueue.processNextBroadcast()|
 
 ## 三. 进程启动全过程
 
@@ -270,6 +283,7 @@ system_server拥有ATP/AMS, 每一个新创建的进程都会有一个相应的A
     - hostingType可取值为"activity","service","broadcast","content provider";
     - hostingNameStr数据类型为ComponentName,代表的是具体相对应的组件名.
 
+另外, 进程的uid是在进程真正创建之前调用`newProcessRecordLocked`方法来获取的uid, 这里会考虑是否为isolated的情况.
 
 ### 3.2 AMS.startProcessLocked
 
@@ -672,7 +686,8 @@ system_server拥有ATP/AMS, 每一个新创建的进程都会有一个相应的A
                 badApp = true;
             }
         }
-        //广播:检查是否在这个进程中有下一个广播接收者
+
+        //Broadcast: 检查是否在这个进程中有下一个广播接收者
         if (!badApp && isPendingBroadcastProcessLocked(pid)) {
             try {
                 didSomething |= sendPendingBroadcastsLocked(app);
@@ -903,7 +918,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
 
         ...
 
-        //设置进程名
+        //设置进程名, 也就是说进程名是在进程真正创建以后的BIND_APPLICATION过程中才取名
         Process.setArgV0(data.processName);
         android.ddm.DdmHandleAppName.setAppName(data.processName, UserHandle.myUserId());
 
@@ -946,7 +961,6 @@ ATP经过binder ipc传递到ATN的onTransact过程.
         DateFormat.set24HourTimePref(is24Hr);
 
         View.mDebugViewAttributes =  mCoreSettings.getInt(Settings.Global.DEBUG_VIEW_ATTRIBUTES, 0) != 0;
-
         ...
 
         //当处于调试模式,则运行应用生成systrace信息
@@ -985,11 +999,8 @@ ATP经过binder ipc传递到ATN的onTransact过程.
                     appContext.getClassLoader(), false, true, false);
             ContextImpl instrContext = ContextImpl.createAppContext(this, pi);
 
-            //通过反射,创建目标类
             java.lang.ClassLoader cl = instrContext.getClassLoader();
-            mInstrumentation = (Instrumentation)
-                cl.loadClass(data.instrumentationName.getClassName()).newInstance();
-
+            mInstrumentation = (Instrumentation)cl.loadClass(data.instrumentationName.getClassName()).newInstance();
 
             mInstrumentation.init(this, instrContext, appContext,
                    new ComponentName(ii.packageName, ii.name), data.instrumentationWatcher,
@@ -1007,6 +1018,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
         }
 
         try {
+            // 通过反射,创建目标应用Application对象,即在AndroidManifest.xml文件定义的应用名
             Application app = data.info.makeApplication(data.restrictedBackupMode, null);
             mInitialApplication = app;
 
@@ -1019,13 +1031,16 @@ ATP经过binder ipc传递到ATN的onTransact过程.
             }
 
             mInstrumentation.onCreate(data.instrumentationArgs);
-            //调用app.onCreate()方法.
+            //调用Application.onCreate()回调方法.
             mInstrumentation.callApplicationOnCreate(app);
 
         } finally {
             StrictMode.setThreadPolicy(savedPolicy);
         }
     }
+
+
+**小节:** 到此进程启动的全过程基本介绍完, 那接下来程序该往哪执行呢, 那就是要继续看[见流程3.8] AMS.attachApplicationLocked.从[3.9 ~ 3.13] 只是介绍了bindApplication过程, 该方法之后便是组件启动相关的内容,本文主要将进程相关内容, 组件的内容后续还会再进一步介绍.
 
 ## 四. 总结
 
