@@ -1,3 +1,13 @@
+主要贡献者:
+
+owner:"Riddle Hsu"
+    riddle_hsu <riddle_hsu@htc.com>
+
+owner:"Zoran Jovanovic"
+    Alexander Toresson <alexander.toresson@sonymobile.com>
+
+
+
 1, https://android.googlesource.com/platform/frameworks/base/+/cc64dfcf66a19084a58372ea7f9f5139ccc93221
 
 2.https://android.googlesource.com/platform/frameworks/base/+/1de22da763576cd54b2d3d51bc47ce99cf89f1ab
@@ -79,3 +89,9 @@ callingUid = callerApp.info.uid; ==> callingUid = callerApp.uid;
 14. onPause优化方案
 
 FLAG_RESUME_WHILE_PAUSING
+
+15. set EXTRA_REPLACING correctly in ACTION_PACKAGE_ADDED
+https://android-review.googlesource.com/#/c/235091/
+
+16. Fix black or empty screen on non-focused stack
+https://android-review.googlesource.com/#/c/271694/
