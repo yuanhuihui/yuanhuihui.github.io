@@ -30,3 +30,6 @@ header-img: "img/nav-resource.jpg"
 - [codeKK.com](http://a.codekk.com/)：从源码的角度分析Android优秀开源框架；
 - [codota.com](http://www.codota.com/)：收集各种API优秀示例Java代码并提供搜索功能。
 - [androidxref](http://androidxref.com/)：查看Android系统源码。
+#### 经典博客
+- [老罗的Android之旅](http://blog.csdn.net/luoshengyang/article/details/8923485)
+- [Innost的专栏](http://blog.csdn.net/innost?viewmode=contents)

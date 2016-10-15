@@ -644,6 +644,7 @@ ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并
 
         if (r.resultTo != null && (launchFlags & Intent.FLAG_ACTIVITY_NEW_TASK) != 0
                 && r.resultTo.task.stack != null) {
+            // 
             r.resultTo.task.stack.sendActivityResultLocked(-1,
                     r.resultTo, r.resultWho, r.requestCode,
                     Activity.RESULT_CANCELED, null);

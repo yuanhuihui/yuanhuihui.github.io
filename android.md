@@ -10,10 +10,10 @@ tags:
 
 ---
 
-> **版权声明：**本站所有博文内容均为原创，欢迎交流与转载，转载请务必注明作者与原文链接，且不得轻易篡改原文内容。另外，未经授权不得用于任何商业目的。
+> **版权声明：**本站所有博文内容均为原创，转载请务必注明作者与原文链接，且不得篡改原文内容。另外，未经授权文章不得用于任何商业目的。
 
 
-## 一、简述
+## 一、引言
 
 Android系统非常庞大、错中复杂，其底层是采用Linux作为基底，上层采用包含虚拟机的Java层以及Native层，通过系统调用(Syscall)连通系统的内核空间与用户空间。用户空间主要采用C++和Java代码，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而融为一体。
 
@@ -157,6 +157,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 - [如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)
 
+**博客定位：**基于Android 6.0的源码，专注于分享Android系统原理、架构分析的原创文章。建议阅读群体：适合于正从事或者有兴趣研究Android系统的工程师或者爱好者，适合Android app高级工程师； 对于尚未入门或者刚入门的app程序员阅读可能会困难些，可能不是很适合。
 
 **（1）**Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote`、`system_server`进程:
 
@@ -237,8 +238,4 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 ---
 
-博主水平、精力有限，目前没有时间反复校验博文，如果您发现文章存在逻辑、文字或者表述存在错误，还望海涵，可与我直接沟通：
-
-- 新浪：<a target="_blank" href="http://weibo.com/gityuan">@Gityuan</a>
-- 邮箱：`gityuan@gmail.com`
-- 博客留言
+博主水平、精力有限，目前没有时间反复校验博文，如果您发现文章存在逻辑、文字或者表述存在错误，还望海涵，可邮件`gityuan@gmail.com`，微博<a target="_blank" href="http://weibo.com/gityuan">@Gityuan</a>或博客留言。
