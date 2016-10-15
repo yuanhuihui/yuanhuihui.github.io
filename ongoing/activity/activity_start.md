@@ -66,18 +66,16 @@ Context.startActivity
             if (requestCode >= 0) {
                 mStartedActivity = true;
             }
-
             cancelInputsAndStartExitTransition(options);
         } else {
-            if (options != null) {
-                mParent.startActivityFromChild(this, intent, requestCode, options);
-            } else {
-                mParent.startActivityFromChild(this, intent, requestCode);
-            }
+            ...
         }
     }
 
-execStartActivity()方法的参数中,mMainThread.getApplicationThread()返回的是数据类型为ApplicationThread `mAppThread`, 另外`IBinder`数据类型为IBinder.
+execStartActivity()方法的参数:
+
+- `mAppThread`: 数据类型为ApplicationThread，通过mMainThread.getApplicationThread()方法获取。
+- `mToken`: 数据类型为IBinder.
 
 ### 2.3 execStartActivity
 [-> Instrumentation.java]
@@ -179,7 +177,7 @@ execStartActivity()方法的参数中,mMainThread.getApplicationThread()返回�
         ...
     }
 
-AMP经过binder IPC,进入AMN
+AMP经过binder IPC,进入ActivityManagerNative(简称AMN)。接下来程序进入了system_servr进程，开始继续执行。
 
 ### 2.5  AMN.onTransact
 [-> ActivityManagerNative.java]
@@ -342,7 +340,82 @@ AMP经过binder IPC,进入AMN
         }
     }
 
-该过程主要是通过resolveActivity来获取ActivityInfo信息, 然后再进入ASS.startActivityLocked().
+该过程主要功能：通过resolveActivity来获取ActivityInfo信息, 然后再进入ASS.startActivityLocked().先来看看
+
+#### 2.7.1 ASS.resolveActivity
+    
+    // startFlags = 0; profilerInfo = null; userId代表caller UserId
+    ActivityInfo resolveActivity(Intent intent, String resolvedType, int startFlags,
+            ProfilerInfo profilerInfo, int userId) {
+        ActivityInfo aInfo;
+        ResolveInfo rInfo =
+            AppGlobals.getPackageManager().resolveIntent(
+                    intent, resolvedType,
+                    PackageManager.MATCH_DEFAULT_ONLY
+                                | ActivityManagerService.STOCK_PM_FLAGS, userId);
+        aInfo = rInfo != null ? rInfo.activityInfo : null;
+        if (aInfo != null) {
+            intent.setComponent(new ComponentName(
+                    aInfo.applicationInfo.packageName, aInfo.name));
+
+            if (!aInfo.processName.equals("system")) {
+                ... //对于非system进程，根据flags来设置相应的debug信息
+            }
+        }
+        return aInfo;
+    }
+
+ActivityManager类有如下4个flags用于调试：
+
+- START_FLAG_DEBUG：用于调试debug app
+- START_FLAG_OPENGL_TRACES：用于调试OpenGL tracing
+- START_FLAG_NATIVE_DEBUGGING：用于调试native
+- START_FLAG_TRACK_ALLOCATION: 用于调试allocation tracking
+
+
+#### 2.7.2 PKMS.resolveIntent
+AppGlobals.getPackageManager()经过函数层层调用，获取的是ApplicationPackageManager对象。经过binder IPC调用，最终会调用PackageManagerService对象。故此时调用方法为PMS.resolveIntent().
+
+[-> PackageManagerService.java]
+
+  public ResolveInfo resolveIntent(Intent intent, String resolvedType,
+           int flags, int userId) {
+       if (!sUserManager.exists(userId)) return null;
+       enforceCrossUserPermission(Binder.getCallingUid(), userId, false, false, "resolve intent");
+       //[见流程2.7.3]
+       List<ResolveInfo> query = queryIntentActivities(intent, resolvedType, flags, userId);
+       //根据priority，preferred选择最佳的Activity
+       return chooseBestActivity(intent, resolvedType, flags, query, userId);
+   }
+
+#### 2.7.3 PMS.queryIntentActivities
+
+    public List<ResolveInfo> queryIntentActivities(Intent intent,
+            String resolvedType, int flags, int userId) {
+        ...
+        ComponentName comp = intent.getComponent();
+        if (comp == null) {
+            if (intent.getSelector() != null) {
+                intent = intent.getSelector();
+                comp = intent.getComponent();
+            }
+        }
+
+        if (comp != null) {
+            final List<ResolveInfo> list = new ArrayList<ResolveInfo>(1);
+            //获取Activity信息
+            final ActivityInfo ai = getActivityInfo(comp, flags, userId);
+            if (ai != null) {
+                final ResolveInfo ri = new ResolveInfo();
+                ri.activityInfo = ai;
+                list.add(ri);
+            }
+            return list;
+        }
+        ...
+    }
+
+ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并保存到intent对象。
 
 ### 2.8 ASS.startActivityLocked
 [-> ActivityStackSupervisor.java]
@@ -369,7 +442,7 @@ AMP经过binder IPC,进入AMN
             }
         }
 
-        final int userId = aInfo != null ? UserHandle.getUserId(aInfo.applicationInfo.uid) : 0;
+        final int userId = aInfo != null ?  UserHandle.getUserId(aInfo.applicationInfo.uid) : 0;
 
         ActivityRecord sourceRecord = null;
         ActivityRecord resultRecord = null;
@@ -377,9 +450,8 @@ AMP经过binder IPC,进入AMN
             //获取调用者所在的Activity
             sourceRecord = isInAnyStackLocked(resultTo);
             if (sourceRecord != null) {
-                //requestCode = -1, 不进入
                 if (requestCode >= 0 && !sourceRecord.finishing) {
-                    resultRecord = sourceRecord;
+                    ... //requestCode = -1 则不进入
                 }
             }
         }
@@ -391,75 +463,42 @@ AMP经过binder IPC,进入AMN
         }
 
         if (err == ActivityManager.START_SUCCESS && intent.getComponent() == null) {
-            //从Intent中无法找到相应的组件
+            //从Intent中无法找到相应的Component
             err = ActivityManager.START_INTENT_NOT_RESOLVED;
         }
 
         if (err == ActivityManager.START_SUCCESS && aInfo == null) {
             //从Intent中无法找到相应的ActivityInfo
-            err = ActivityManager.START_CLASS_NOT_FOUND;
+            err = ActivityManager.START_INTENT_NOT_RESOLVED;
         }
 
         if (err == ActivityManager.START_SUCCESS
                 && !isCurrentProfileLocked(userId)
                 && (aInfo.flags & FLAG_SHOW_FOR_ALL_USERS) == 0) {
-            //尝试启动一个后台Activity, 但该Activity并不是允许对所有用户可见
+            //尝试启动一个后台Activity, 但该Activity对当前用户不可见
             err = ActivityManager.START_NOT_CURRENT_USER_ACTIVITY;
         }
-
-        if (err == ActivityManager.START_SUCCESS && sourceRecord != null
-                && sourceRecord.task.voiceSession != null) {
-            ... //voiceSession为空, 不进入该分支
-        }
-
-        if (err == ActivityManager.START_SUCCESS && voiceSession != null) {
-            ... //voiceSession为空, 不进入该分支
-        }
+        ...
 
         //执行后resultStack = null
         final ActivityStack resultStack = resultRecord == null ? null : resultRecord.task.stack;
 
-        //前面步骤存在err,执行到这里将会直接返回
         if (err != ActivityManager.START_SUCCESS) {
-            if (resultRecord != null) {
-                resultStack.sendActivityResultLocked(-1,
-                    resultRecord, resultWho, requestCode,
-                    Activity.RESULT_CANCELED, null);
-            }
-            ActivityOptions.abort(options);
+            ... //前面步骤存在err,执行到这里将会直接返回
             return err;
         }
 
-        boolean abort = false;
-
-        final int startAnyPerm = mService.checkPermission(
-                START_ANY_ACTIVITY, callingPid, callingUid);
-
-        if (startAnyPerm != PERMISSION_GRANTED) {
-            ... //权限检查
-        }
-
-        abort |= !mService.mIntentFirewall.checkStartActivity(intent, callingUid,
-                callingPid, resolvedType, aInfo.applicationInfo);
+        ... //权限检查
 
         // ActivityController不为空的情况
         if (mService.mController != null) {
-            try {
-                Intent watchIntent = intent.cloneFilter();
-                abort |= !mService.mController.activityStarting(watchIntent,
-                        aInfo.applicationInfo.packageName);
-            } catch (RemoteException e) {
-                mService.mController = null;
-            }
+            Intent watchIntent = intent.cloneFilter();
+            abort |= !mService.mController.activityStarting(watchIntent,
+                    aInfo.applicationInfo.packageName);
         }
 
-        // 只有条件不满足,才进入该分支
         if (abort) {
-            if (resultRecord != null) {
-                resultStack.sendActivityResultLocked(-1, resultRecord, resultWho, requestCode,
-                        Activity.RESULT_CANCELED, null);
-            }
-            ActivityOptions.abort(options);
+            ... //权限检查不满足,才进入该分支则直接返回；
             return ActivityManager.START_SUCCESS;
         }
 
@@ -474,9 +513,8 @@ AMP经过binder IPC,进入AMN
         if (r.appTimeTracker == null && sourceRecord != null) {
             r.appTimeTracker = sourceRecord.appTimeTracker;
         }
-
+        // 将mFocusedStack赋予当前stack
         final ActivityStack stack = mFocusedStack;
-
 
         if (voiceSession == null && (stack.mResumedActivity == null
                 || stack.mResumedActivity.info.applicationInfo.uid != callingUid)) {
@@ -512,6 +550,11 @@ AMP经过binder IPC,进入AMN
         return err;
     }
 
+其中有两个返回值代表启动Activity失败：
+
+- START_INTENT_NOT_RESOLVED: 从Intent中无法找到相应的Component或者ActivityInfo
+- START_NOT_CURRENT_USER_ACTIVITY：该Activity对当前用户不可见
+    
 #### 2.8.1 AMS.checkAppSwitchAllowedLocked
 
     boolean checkAppSwitchAllowedLocked(int sourcePid, int sourceUid,
@@ -578,7 +621,6 @@ AMP经过binder IPC,进入AMN
         final int callingUid = r.launchedFromUid;
 
         if (inTask != null && !inTask.inRecents) {
-            Slog.w(TAG, "Starting activity in task not in recents: " + inTask);
             inTask = null;
         }
 
@@ -587,27 +629,13 @@ AMP经过binder IPC,进入AMN
         final boolean launchSingleTask = r.launchMode == ActivityInfo.LAUNCH_SINGLE_TASK;
 
         int launchFlags = intent.getFlags();
+        // 当intent和activity manifest存在冲突，则manifest优先
         if ((launchFlags & Intent.FLAG_ACTIVITY_NEW_DOCUMENT) != 0 &&
                 (launchSingleInstance || launchSingleTask)) {
-            // We have a conflict between the Intent and the Activity manifest, manifest wins.
-            Slog.i(TAG, "Ignoring FLAG_ACTIVITY_NEW_DOCUMENT, launchMode is " +
-                    "\"singleInstance\" or \"singleTask\"");
             launchFlags &=
                     ~(Intent.FLAG_ACTIVITY_NEW_DOCUMENT | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
         } else {
-            switch (r.info.documentLaunchMode) {
-                case ActivityInfo.DOCUMENT_LAUNCH_NONE:
-                    break;
-                case ActivityInfo.DOCUMENT_LAUNCH_INTO_EXISTING:
-                    launchFlags |= Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
-                    break;
-                case ActivityInfo.DOCUMENT_LAUNCH_ALWAYS:
-                    launchFlags |= Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
-                    break;
-                case ActivityInfo.DOCUMENT_LAUNCH_NEVER:
-                    launchFlags &= ~Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
-                    break;
-            }
+            ...
         }
 
         final boolean launchTaskBehind = r.mLaunchTaskBehind
@@ -616,12 +644,6 @@ AMP经过binder IPC,进入AMN
 
         if (r.resultTo != null && (launchFlags & Intent.FLAG_ACTIVITY_NEW_TASK) != 0
                 && r.resultTo.task.stack != null) {
-            // For whatever reason this activity is being launched into a new
-            // task...  yet the caller has requested a result back.  Well, that
-            // is pretty messed up, so instead immediately send back a cancel
-            // and let the new task continue launched as normal without a
-            // dependency on its originator.
-            Slog.w(TAG, "Activity is launching as a new task, so cancelling activity result.");
             r.resultTo.task.stack.sendActivityResultLocked(-1,
                     r.resultTo, r.resultWho, r.requestCode,
                     Activity.RESULT_CANCELED, null);

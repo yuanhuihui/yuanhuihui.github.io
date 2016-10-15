@@ -95,3 +95,12 @@ https://android-review.googlesource.com/#/c/235091/
 
 16. Fix black or empty screen on non-focused stack
 https://android-review.googlesource.com/#/c/271694/
+
+17. cleanUpApplicationRecordLocked
+
+// always remove...
+if ((inLaunching || always) && cpr.hasConnectionOrHandle()) {
+    restart = true;
+}
+
+always ==> !always
