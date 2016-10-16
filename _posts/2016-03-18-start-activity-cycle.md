@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "简述Activity生命周期"
-date:   2016-10-02 21:09:12
+date:   2016-3-18 21:09:12
 catalog:  true
 tags:
     - android
