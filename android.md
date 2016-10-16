@@ -184,9 +184,9 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 **（3）**对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：
 
 - Android组件-Activity
-	- [startActivity流程分析(一)](http://gityuan.com/2016/03/12/start-activity/)
+	- [startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
 - Android组件-Service
-	- [startService流程分析](http://gityuan.com/2016/03/06/start-service/)
+	- [startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
     - [以Binder视角来看Service启动](http://gityuan.com/2016/09/04/binder-start-service/)
 - Android组件-Broadcast Receiver
     - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)

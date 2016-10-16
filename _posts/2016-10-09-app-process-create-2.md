@@ -75,12 +75,11 @@ Android系统将进程做得很友好的封装,对于上层app开发者来说进
 
 ### 2.2 四大组件与进程
 
-Activity, Service, ContentProvider, BroadcastReceiver这四大组件,在启动的过程,当其所承载的进程不存在时需要先创建进程. 这个创建进程的过程是调用前面讲到的startProcessLocked方法1(a) .
-调用流程: 1(a) => 1(b) ==> 2(b). 下面再简单说说这4大组件与进程创建是在何时需要创建的.
+Activity, Service, ContentProvider, BroadcastReceiver这四大组件,在启动的过程,当其所承载的进程不存在时需要先创建进程. 这个创建进程的过程是调用前面讲到的startProcessLocked方法1(a)，之后再调用流程: 1(a) => 1(b) ==> 2(b). 
 
 #### 2.2.1 Activity
 
-启动Activity过程: 调用startActivity,该方法经过层层调用,最终会调用ActivityStackSupervisor.java中的`startSpecificActivityLocked`,当activity所属进程还没启动的情况下,则需要创建相应的进程.
+启动Activity过程: 调用startActivity,该方法经过层层调用,最终会调用ActivityStackSupervisor.java中的`startSpecificActivityLocked`,当activity所属进程还没启动的情况下,则需要创建相应的进程.更多关于Activity, 见[startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
 
 [-> ActivityStackSupervisor.java]
 
@@ -95,10 +94,9 @@ Activity, Service, ContentProvider, BroadcastReceiver这四大组件,在启动�
                     "activity", r.intent.getComponent(), false, false, true);
     }
 
-
 #### 2.2.2 Service
 
-启动服务过程: 调用startService,该方法经过层层调用,最终会调用ActiveServices.java中的`bringUpServiceLocked`,当Service进程没有启动的情况(app==null), 则需要创建相应的进程. 更多关于Service, 见[startService流程分析](http://gityuan.com/2016/03/06/start-service/)
+启动服务过程: 调用startService,该方法经过层层调用,最终会调用ActiveServices.java中的`bringUpServiceLocked`,当Service进程没有启动的情况(app==null), 则需要创建相应的进程. 更多关于Service, 见[startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
 
 [-> ActiveServices.java]
 
@@ -163,11 +161,95 @@ ContentProvider处理过程: 调用ContentResolver.query该方法经过层层调
         ...
     }
 
+#### 2.2.5 进程的创建时机
+刚解说了4大组件与进程创建的调用方法，那么接下来再来说说进程创建的触发时机有哪些？如下：
 
+- 单进程App：对于这种情况，那么app首次启动某个组件时，比如通过调用startActivity来启动某个app，则先会触发创建该app进程，然后再启动该Activity。此时该app进程已创建，那么后续再该app中内部启动同一个activity或者其他组件，则都不会再创建新进程（除非该app进程被系统所杀掉）。
+- 多进程App: 对于这种情况，那么每个配置过`android:process`属性的组件的首次启动，则都分别需要创建进程。再次启动同一个activity，其则都不会再创建新进程（除非该app进程被系统所杀掉），但如果启动的是其他组件，则还需要再次判断其所对应的进程是否存在。
+
+大多数情况下，app都是单进程架构，对于多进程架构的app一般是通过在AndroidManifest.xml中`android:process`属性来实现的。
+
+- 当android:process属性值以":"开头，则代表该进程是私有的，只有该app可以使用，其他应用无法访问；
+- 当android:process属性值不以”:“开头，则代表的是全局型进程，但这种情况需要注意的是进程名必须至少包含“.”字符。
+
+接下来，看看PackageParser.java来解析AndroidManiefst.xml过程就明白进程名的命名要求：
+
+    public class PackageParser { 
+        ...
+        private static String buildCompoundName(String pkg,
+           CharSequence procSeq, String type, String[] outError) {
+            String proc = procSeq.toString();
+            char c = proc.charAt(0);
+            if (pkg != null && c == ':') {
+               if (proc.length() < 2) {
+                   //进程名至少要有2个字符
+                   return null;
+               }
+               String subName = proc.substring(1);
+               //此时并不要求强求 字符'.'作为分割符号
+               String nameError = validateName(subName, false, false);
+               if (nameError != null) {
+                   return null;
+               }
+               return (pkg + proc).intern();
+            }
+            //此时必须字符'.'作为分割符号
+            String nameError = validateName(proc, true, false);
+            if (nameError != null && !"system".equals(proc)) {
+               return null;
+            }
+            return proc.intern();
+        }
+        
+        private static String validateName(String name, boolean requireSeparator,
+        boolean requireFilename) {
+            final int N = name.length();
+            boolean hasSep = false;
+            boolean front = true;
+            for (int i=0; i<N; i++) {
+                final char c = name.charAt(i);
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+                    front = false;
+                    continue;
+                }
+                if (!front) {
+                    if ((c >= '0' && c <= '9') || c == '_') {
+                        continue;
+                    }
+                }
+                //字符'.'作为分割符号
+                if (c == '.') {
+                    hasSep = true;
+                    front = true;
+                    continue;
+                }
+                return "bad character '" + c + "'";
+            }
+            if (requireFilename && !FileUtils.isValidExtFilename(name)) {
+                return "Invalid filename";
+            }
+            return hasSep || !requireSeparator
+                    ? null : "must have at least one '.' separator";
+        }
+    }
+
+看完上面的源码，一模了解，对于android:process属性值不以”:“开头的进程名必须至少包含“.”字符。
 
 ### 2.3 小节
 
-Activity, Service, ContentProvider, BroadcastReceiver这四大组件在启动时,当所承载的进程不存在时,都需要创建. 进程的创建过程交由系统进程system_server来完成的.
+Activity, Service, ContentProvider, BroadcastReceiver这四大组件在启动时,当所承载的进程不存在时，包括多进程的情况，则都需要创建。
+
+**四大组件的进程创建方法:**
+
+|组件|创建方法|
+|---|---|
+|Activity| ASS.startSpecificActivityLocked()|
+|Service|ActiveServices.bringUpServiceLocked()|
+|ContentProvider|AMS.getContentProviderImpl()|
+|Broadcast|BroadcastQueue.processNextBroadcast()|
+
+
+进程的创建过程交由系统进程system_server来完成的.
 
 ![app_process_ipc](/images/process/app_process_ipc.jpg)
 
@@ -188,15 +270,6 @@ Activity, Service, ContentProvider, BroadcastReceiver这四大组件在启动时
 
 system_server拥有ATP/AMS, 每一个新创建的进程都会有一个相应的AT/AMS,从而可以跨进程 进行相互通信. 这便是进程创建过程的完整生态链.
 
-
-**四大组件的进程创建时机:**
-
-|组件|创建方法|
-|---|---|
-|Activity| ASS.startSpecificActivityLocked()|
-|Service|ActiveServices.bringUpServiceLocked()|
-|ContentProvider|AMS.getContentProviderImpl()|
-|Broadcast|BroadcastQueue.processNextBroadcast()|
 
 ## 三. 进程启动全过程
 
