@@ -185,6 +185,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 - Android组件-Activity
 	- [startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
+  - [简述Activity生命周期](http://gityuan.com/2016/10/02/start-activity-cycle/)
 - Android组件-Service
 	- [startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
     - [以Binder视角来看Service启动](http://gityuan.com/2016/09/04/binder-start-service/)

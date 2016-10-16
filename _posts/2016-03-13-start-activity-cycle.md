@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Activity生命周期的简述"
+title:  "简述Activity生命周期"
 date:   2016-10-02 21:09:12
 catalog:  true
 tags:
