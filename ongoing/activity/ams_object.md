@@ -61,6 +61,31 @@ ActivityStack mLastFocusedStack //正在切换
 SparseArray<ActivityDisplay> mActivityDisplays  //displayId为key
 SparseArray<ActivityContainer> mActivityContainers // mStackId为key
 
+### 5. pendings
+
+#### Activity
+ASS.java
+- mPendingActivityLaunches
+
+#### Service
+ActiveServices.java
+- mPendingServices
+- mRestartingServices
+
+#### Broadcast
+BroadcastQueue.java
+- mFgBroadcastQueue.mPendingBroadcast 
+- mBgBroadcastQueue.mPendingBroadcast
+
+#### Provider
+AMS.java
+- mLaunchingProviders
+
+#### Process
+AMS.java
+- mProcessesOnHold
+- mPersistentStartingProcesses
+
 
 #### 5. AMS
 
@@ -98,6 +123,15 @@ PackageItemInfo
 in ActivityRecord.java
 
 Token 继承于 IApplicationToken.Stub
+
+
+ActivityRecord -> Task -> ActivityStack -> ActivityDisplay -> mActivityDisplays
+
+
+正向: ActivityStack.mTaskHistory -> TaskRecord.mActivities -> ActivityRecord
+反向: ActivityRecord.task -> TaskRecord.stack -> ActivityStack
+
+mActivityDisplays.valueAt(displayNdx).mStacks
 
 ### 二. 常见逻辑
 

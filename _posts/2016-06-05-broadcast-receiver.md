@@ -958,16 +958,16 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
     final void processNextBroadcast(boolean fromMsg) {
         synchronized(mService) {
-            //step1: 处理并行广播
-            //step2: 处理当前有序广播
-            //step3: 获取下条有序广播
-            //step4: 处理下条有序广播
+            //part1: 处理并行广播
+            //part2: 处理当前有序广播
+            //part3: 获取下条有序广播
+            //part4: 处理下条有序广播
         }
     }
 
 此处mService为AMS，整个流程还是比较长的，全程持有AMS锁，所以广播效率低的情况下，直接会严重影响这个手机的性能与流畅度，这里应该考虑细化同步锁的粒度。
 
-##### step1: 处理并行广播
+##### part1: 处理并行广播
 
     BroadcastRecord r;
     mService.updateCpuStats(); //更新CPU统计信息
@@ -986,7 +986,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
         addBroadcastToHistoryLocked(r);//将广播添加历史统计
     }
 
-##### step2: 处理当前有序广播
+##### part2: 处理当前有序广播
 
     if (mPendingBroadcast != null) {
         boolean isDead;
@@ -1057,7 +1057,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 mTimeoutPeriod，对于前台广播则为10s，对于后台广播则为60s。广播超时为`2*mTimeoutPeriod*numReceivers`，接收者个数numReceivers越多则广播超时总时长越大。
 
-##### step3: 获取下条有序广播
+##### part3: 获取下条有序广播
 
     //获取下一个receiver的index
     int recIdx = r.nextReceiver++;
@@ -1121,7 +1121,7 @@ mTimeoutPeriod，对于前台广播则为10s，对于后台广播则为60s。广
     AppGlobals.getPackageManager().setPackageStoppedState(
             r.curComponent.getPackageName(), false, UserHandle.getUserId(r.callingUid));
 
-##### step4: 处理下条有序广播
+##### part4: 处理下条有序广播
 
     //该receiver所对应的进程已经运行，则直接处理
     ProcessRecord app = mService.getProcessRecordLocked(targetProcess,

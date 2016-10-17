@@ -5,7 +5,6 @@ date:   2015-09-26 21:21:50
 catalog:  true
 tags:
     - android
-    - performance
     - app
 
 
@@ -158,8 +157,6 @@ ArrayList采用for循环+临时变量保存size，效率最高。 foreach方式�
 
 (3)采用new ArrayList()方式，初始大小为0，首次增加数组时，扩充大小到12，以后到数组需要增长时，会将大小增加50%，并将原来的成员全部复制到新的数组内。所以尽可能将ArrayList提前设置成目标大小，或者接近目标大小，以减少数组不断创建与复制的过程，提高效率。
 
-
-
 ## 4.  HashMap Vs SparseArray
 
 (1)同时需要key和value，采用如下遍历方法：
@@ -226,6 +223,6 @@ Enum比静态常量，至少需要多过于2倍以上的内存空间，应该在
 
 ## 相关资料
 
-- <http://www.trinea.cn/android/hashmap-loop-performance/>
 - <http://developer.android.com/training/displaying-bitmaps/index.html>
+- <http://www.trinea.cn/android/hashmap-loop-performance/>
 - <http://hukai.me/android-performance-oom/>

@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "startService流程分析"
+title:  "startService启动过程分析"
 date:   2016-03-06 20:12:50
 catalog:  true
 tags:
@@ -676,7 +676,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
     }
 
-### 17. AT.handleCreateService
+### 17. handleCreateService
 [-> ActivityThread.java]
 
     private void handleCreateService(CreateServiceData data) {
@@ -725,7 +725,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         public void onCreate(){    }
     }
 
-最终调用到抽象类Service.onCreate()方法，对于真正的Service都会通过覆写该方式，调用真正的onCreate()方法。拨云见日，到此总算是进入了Service的生命周期。
+最终调用到抽象类Service.onCreate()方法，对于真正的Service都会通过覆写该方式，调用真正Service子类的onCreate()方法。拨云见日，到此总算是进入了Service的生命周期。
 
 
 ## 三、总结
