@@ -95,3 +95,10 @@ https://android-review.googlesource.com/#/c/235091/
 
 16. Fix black or empty screen on non-focused stack
 https://android-review.googlesource.com/#/c/271694/
+
+17. AMS.mIntentSenderRecords
+HashMap<PendingIntentRecord.Key, WeakReference<PendingIntentRecord>> mIntentSenderRecords,这个也要清除才对
+
+
+18. 这个要好好研究, 有些地方可以借鉴
+http://guard.pt.miui.com/opengrok/xref/v7-m-omega-dev/frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java

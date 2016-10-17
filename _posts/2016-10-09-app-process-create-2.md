@@ -13,7 +13,9 @@ tags:
 
 Android系统将进程做得很友好的封装,对于上层app开发者来说进程几乎是透明的. 了解Android的朋友,一定知道Android四大组件,但对于进程可能会相对较陌生. 一个进程里面可以跑多个app(通过share uid的方式), 一个app也可以跑在多个进程里(通过配置Android:process属性).
 
-再进一步进程是如何创建的, 可能很多人不知道fork的存在. 在我的文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/) 集中一点详细介绍了`Process.start`的过程是如何一步步创建进程.本文则是从另个角度来全局性讲解android进程启动全过程所涉及的根脉, 先来看看AMS.startProcessLocked方法.
+再进一步进程是如何创建的, 可能很多人不知道fork的存在. 在我的文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/) 集中一点详细介绍了`Process.start`的过程是如何一步步创建进程.
+
+ 进程承载着整个系统,"进程之于Android犹如水之于鱼", 进程对于Android系统非常重要, 对于android来说承载着Android四大组件,承载着系统的正常运转. 本文则跟大家聊一聊进程的,是从另个角度来全局性讲解android进程启动全过程所涉及的根脉, 先来看看AMS.startProcessLocked方法.
 
 ## 二. 四大组件与进程
 
@@ -278,12 +280,16 @@ system_server拥有ATP/AMS, 每一个新创建的进程都会有一个相应的A
     - 当caller并不认为该进程已死亡或者没有thread对象attached到该进程.则不应该清理该进程,则直接返回;
     - 否则杀死并清理该进程;
 - 当ProcessRecord为空则新建一个,当创建失败则直接返回;
-- 当系统未准备完毕，则将当前进程加入到mProcessesOnHold, 并直接返回;
+- 当以下3个值都为false,则将当前进程加入到mProcessesOnHold, 并直接返回; 当进程真正创建则从mProcessesOnHold中移除.
+    - 当AMS.systemReady()执行完成,则`mProcessesReady`=true;
+    - 当进程为persistent, 则`isAllowedWhileBooting` =true;
+    - 一般地创建进程时参数`allowWhileBooting` = false, 只有AMS.startIsolatedProcess该值才为true;
+
 - 最后启动新进程,其中参数含义:
     - hostingType可取值为"activity","service","broadcast","content provider";
     - hostingNameStr数据类型为ComponentName,代表的是具体相对应的组件名.
 
-另外, 进程的uid是在进程真正创建之前调用`newProcessRecordLocked`方法来获取的uid, 这里会考虑是否为isolated的情况.
+另外, 进程uid是在进程真正创建之前调用`newProcessRecordLocked`方法来获取的uid, 这里会考虑是否为isolated的情况.
 
 ### 3.2 AMS.startProcessLocked
 

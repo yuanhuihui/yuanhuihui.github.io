@@ -357,15 +357,16 @@ lmkd启动后，接下里的操作都在`platform/system/core/lmkd/lmkd.c`文件
         }
     }
 
-向节点``/proc/<pid>/oom_score_adj`写入oomadj。由于use_inkernel_interface=1，那么再接下里需要看看kernel的情况
+向节点/proc/<pid>/oom_score_adj`写入oomadj。由于use_inkernel_interface=1，那么再接下里需要看看kernel的情况
 
 ### 3.8 小节
 
-use_inkernel_interface该值后续应该会逐渐采用用户空间策略。不过目前仍为 use_inkernel_interface=1则有：
+use_inkernel_interface该值后续应该会逐渐采用用户空间策略。不过目前仍为use_inkernel_interface=1则有：
 
-- LMK_PROCPRIO: 向`/proc/<pid>/oom_score_adj`写入oomadj，则直接返回；
-- LMK_PROCREMOVE：不做任何事，直接返回；
-- LMK_TARGET：分别向`/sys/module/lowmemorykiller/parameters`目录下的`minfree`和`adj`节点写入相应信息；
+
+- LMK_TARGET：AMS.updateConfiguration()的过程中调用updateOomLevels()方法, 分别向`/sys/module/lowmemorykiller/parameters`目录下的`minfree`和`adj`节点写入相应信息；
+- LMK_PROCPRIO: AMS.applyOomAdjLocked()的过程中调用setOomAdj(),向`/proc/<pid>/oom_score_adj`写入oomadj，则直接返回；
+- LMK_PROCREMOVE：AMS.handleAppDiedLocked或者 AMS.cleanUpApplicationRecordLocked()的过程,调用remove(),目前不做任何事,直接返回；
 
 ## 四. Kernel层
 
@@ -533,7 +534,7 @@ ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
 
 最后讲到了lowmemorykiller驱动，通过注册shrinker，借助linux标准的内存回收机制，根据当前系统可用内存以及parameters配置参数(adj,minfree)来选取合适的selected_oom_score_adj，再从所有进程中选择adj大于该目标值的并且占用rss内存最大的进程，将其杀掉，从而释放出内存。
 
-### 5.1 lmkd参数：
+### 5.1 lmkd参数
 
 - `oom_adj`:代表进程的优先级, 数值越大,优先级越低,越容易被杀. 取值范围[-16, 15]
 - `oom_score_adj`: 取值范围[-1000, 1000]

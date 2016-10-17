@@ -37,10 +37,17 @@ ArrayList<TaskRecord> mTaskHistory  //保存所有的Task列表
 ArrayList<ActivityStack> mStacks; //所有stack列表
 final int mStackId;
 int mDisplayId;
-ActivityRecord mPausingActivity
-ActivityRecord mResumedActivity
+
+ActivityRecord mPausingActivity //正在pause
+ActivityRecord mLastPausedActivity
+ActivityRecord mResumedActivity  //已经resumed
+ActivityRecord mLastStartedActivity
+
 ActivityContainer mActivityContainer
 boolean mConfigWillChange
+
+
+所有前台stack的mResumedActivity的state == RESUMED, 则表示allResumedActivitiesComplete, 此时 mLastFocusedStack = mFocusedStack;
 
 #### 4. ActivityStackSupervisor
 
@@ -49,10 +56,24 @@ int mCurTaskId
 int mCurrentUser
 ActivityStack mHomeStack //桌面的stack
 ActivityStack mFocusedStack //当前聚焦stack
-ActivityStack mLastFocusedStack
+ActivityStack mLastFocusedStack //正在切换
+
 SparseArray<ActivityDisplay> mActivityDisplays  //displayId为key
 SparseArray<ActivityContainer> mActivityContainers // mStackId为key
 
+
+#### 5. AMS
+
+HashMap<PendingIntentRecord.Key, WeakReference<PendingIntentRecord>> mIntentSenderRecords,这个也要清除才对
+ArrayList<ProcessChangeItem> mPendingProcessChanges
+
+
+#### 6. pending系列
+
+activity: ASS.mPendingActivityLaunches
+service:  ActiveServices.mPendingServices
+Broadcast:  BroadcastQueue.mPendingBroadcast
+provider: ??
 
 #### 关系链表
 
