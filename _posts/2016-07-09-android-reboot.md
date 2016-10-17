@@ -100,7 +100,7 @@ tags:
         }
     }
 
-### 2.4 ShutdownThread.reboot
+### 2.4 SDT.reboot
 
 [-> ShutdownThread.java]
 
@@ -115,7 +115,7 @@ tags:
 
 mReboot为true则代表重启操作，值为false则代表关机操作。
 
-### 2.5 shutdownInner
+### 2.5 SDT.shutdownInner
 
 [-> ShutdownThread.java]
 
@@ -146,7 +146,7 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
         }
     }
 
-#### 2.6 beginShutdownSequence
+### 2.6 SDT.beginShutdownSequence
 
 [-> ShutdownThread.java]
 
@@ -236,7 +236,7 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
     - Condition: Otherwise
     - UI: 仅显示spinning circle
 
-### 2.7 ShutdownThread.run
+### 2.7 SDT.run
 
 [-> ShutdownThread.java]
 
@@ -244,12 +244,13 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
         public void run() {
             BroadcastReceiver br = new BroadcastReceiver() {
                 public void onReceive(Context context, Intent intent) {
+                     //接收到该广播,则唤醒wait()操作
                     actionDone();
                 }
             };
 
+            //设置属性"sys.shutdown.requested"的值为reason
             String reason = (mReboot ? "1" : "0") + (mReason != null ? mReason : "");
-            //设置"sys.shutdown.requested"属性值
             SystemProperties.set(SHUTDOWN_ACTION_PROPERTY, reason);
 
             if (mRebootSafeMode) {
@@ -265,6 +266,8 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
                     UserHandle.ALL, null, br, mHandler, 0, null, null);
             //其中MAX_BROADCAST_TIME=10s
             final long endTime = SystemClock.elapsedRealtime() + MAX_BROADCAST_TIME;
+
+            //循环等待,超时或者mActionDone都会结束该循环
             synchronized (mActionDoneSync) {
                 while (!mActionDone) {
                     long delay = endTime - SystemClock.elapsedRealtime();
@@ -286,36 +289,32 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
                 sInstance.setRebootProgress(BROADCAST_STOP_PERCENT, null);
             }
 
-            //2. 关闭AMS
             final IActivityManager am =
                 ActivityManagerNative.asInterface(ServiceManager.checkService("activity"));
             if (am != null) {
-                try {
-                    am.shutdown(MAX_BROADCAST_TIME);
-                } catch (RemoteException e) {
-                }
+                //2. 关闭AMS [见流程2.7.1]
+                am.shutdown(MAX_BROADCAST_TIME);
             }
             if (mRebootUpdate) {
                 sInstance.setRebootProgress(ACTIVITY_MANAGER_STOP_PERCENT, null);
             }
 
-            //3. 关闭PMS
             final PackageManagerService pm = (PackageManagerService)
                 ServiceManager.getService("package");
             if (pm != null) {
+                //3. 关闭PMS [见流程2.7.2]
                 pm.shutdown();
             }
             if (mRebootUpdate) {
                 sInstance.setRebootProgress(PACKAGE_MANAGER_STOP_PERCENT, null);
             }
 
-            //4. 关闭radios.
+            //4. 关闭radios [见流程2.7.3]
             shutdownRadios(MAX_RADIO_WAIT_TIME);
             if (mRebootUpdate) {
                 sInstance.setRebootProgress(RADIO_STOP_PERCENT, null);
             }
 
-            //5. 关闭MountService
             IMountShutdownObserver observer = new IMountShutdownObserver.Stub() {
                 public void onShutDownComplete(int statusCode) throws RemoteException {
                     actionDone();
@@ -326,14 +325,11 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
             //其中MAX_SHUTDOWN_WAIT_TIME=20s
             final long endShutTime = SystemClock.elapsedRealtime() + MAX_SHUTDOWN_WAIT_TIME;
             synchronized (mActionDoneSync) {
-                try {
-                    final IMountService mount = IMountService.Stub.asInterface(
-                            ServiceManager.checkService("mount"));
-                    if (mount != null) {
-                        mount.shutdown(observer);
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Exception during MountService shutdown", e);
+                final IMountService mount = IMountService.Stub.asInterface(
+                        ServiceManager.checkService("mount"));
+                if (mount != null) {
+                    //5. 关闭MountService [见流程2.7.3]
+                    mount.shutdown(observer);
                 }
                 while (!mActionDone) {
                     long delay = endShutTime - SystemClock.elapsedRealtime();
@@ -354,7 +350,7 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
                 }
             }
             ...
-            //【2.8】
+            //【见流程2.8】
             rebootOrShutdown(mContext, mReboot, mReason);
         }
     }
@@ -371,8 +367,7 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
 
 之后就需要进入重启/关机流程。
 
-
-#### 2.7.1 AMS.shutdown
+### 2.7.1 AMS.shutdown
 
 通过AMP.shutdown，通过binder调用到AMS.shutdown.
 
@@ -390,6 +385,7 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
             mShuttingDown = true;
             //禁止WMS继续处理Event
             updateEventDispatchingLocked();
+            //调用ASS处理shutdown操作
             timedout = mStackSupervisor.shutdownLocked(timeout);
         }
 
@@ -579,7 +575,7 @@ observer的回调方法onShutDownComplete()，会调用actionDone()，该方法�
 
 调用mActionDoneSync.notifyAll()之后，那么便可以继续往下执行rebootOrShutdown方法。
 
-### 2.8 rebootOrShutdown
+### 2.8 SDT.rebootOrShutdown
 
 [-> ShutdownThread.java]
 
@@ -594,12 +590,15 @@ observer的回调方法onShutDownComplete()，会调用actionDone()，该方法�
             ...
         }
 
-        // Shutdown power
-        Log.i(TAG, "Performing low-level shutdown...");
+        //关闭电源 [见流程2.10]
         PowerManagerService.lowLevelShutdown(reason);
     }
 
-对于重启原因，logcat会直接输出"Rebooting, reason: "，如果重启失败，则会输出“Reboot failed”，如果无法重启，则会尝试直接关机。
+对于重启原因:
+
+- logcat会直接输出`Rebooting, reason: `;
+- 如果重启失败，则会输出`Reboot failed`;
+，- 果无法重启，则会尝试直接关机。
 
 ### 2.9 PMS.lowLevelReboot
 
@@ -631,4 +630,4 @@ observer的回调方法onShutDownComplete()，会调用actionDone()，该方法�
 
     adb shell setprop sys.powerctl reboot
 
-后续,还会进一步上面命令的执行流程，如何进入native，如何进入kernel来完成重启的，以及PM.reboot如何触发的。 
+后续,还会进一步上面命令的执行流程，如何进入native，如何进入kernel来完成重启的，以及PM.reboot如何触发的。

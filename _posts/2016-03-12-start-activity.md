@@ -355,7 +355,7 @@ AMP经过binder IPC,进入ActivityManagerNative(简称AMN)。接下来程序进�
 该过程主要功能：通过resolveActivity来获取ActivityInfo信息, 然后再进入ASS.startActivityLocked().先来看看
 
 #### 2.7.1 ASS.resolveActivity
-    
+
     // startFlags = 0; profilerInfo = null; userId代表caller UserId
     ActivityInfo resolveActivity(Intent intent, String resolvedType, int startFlags,
             ProfilerInfo profilerInfo, int userId) {
@@ -566,7 +566,7 @@ ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并
 
 - START_INTENT_NOT_RESOLVED: 从Intent中无法找到相应的Component或者ActivityInfo
 - START_NOT_CURRENT_USER_ACTIVITY：该Activity对当前用户不可见
-    
+
 #### 2.8.1 AMS.checkAppSwitchAllowedLocked
 
     boolean checkAppSwitchAllowedLocked(int sourcePid, int sourceUid,
@@ -765,7 +765,7 @@ ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并
                     }
                     targetStack = intentActivity.task.stack;
                     targetStack.mLastPausedActivity = null;
-                    
+
                     final ActivityStack focusStack = getFocusedStack();
                     ActivityRecord curTop = (focusStack == null)
                             ? null : focusStack.topRunningNonDelayedActivityLocked(notTop);
@@ -1246,10 +1246,10 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
                 !mActivityContainer.isAttachedLocked()) {
             return false;
         }
-
+        //top running之后的任意处于初始化状态且有显示StartingWindow, 则移除StartingWindow
         cancelInitializingActivities();
 
-        //站到第一个没有finishing的activity
+        //找到第一个没有finishing的栈顶activity
         final ActivityRecord next = topRunningActivityLocked(null);
 
         final boolean userLeaving = mStackSupervisor.mUserLeaving;
@@ -1327,7 +1327,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
         }
 
         mStackSupervisor.setLaunchSource(next.info.applicationInfo.uid);
-      
+
 
         //需要等待暂停当前activity完成，再resume top activity
         boolean dontWaitForPause = (next.info.flags&ActivityInfo.FLAG_RESUME_WHILE_PAUSING) != 0;
@@ -1431,7 +1431,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
             ActivityState lastState = next.state;
 
             mService.updateCpuStats();
-
+            //设置Activity状态为resumed
             next.state = ActivityState.RESUMED;
             mResumedActivity = next;
             next.task.touchActiveTime();
@@ -1585,7 +1585,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
         ////只有当系统启动完，或者app允许启动过程允许，则会true
         boolean normalMode = mProcessesReady || isAllowedWhileBooting(app.info);
         thread.bindApplication(...);
-        
+
         if (normalMode) {
             //【见流程2.16】
             if (mStackSupervisor.attachApplicationLocked(app)) {
@@ -1594,7 +1594,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
         }
         ...
     }
-        
+
 在执行完bindApplication()之后进入ASS.attachApplicationLocked()
 
 ### 2.16 ASS.attachApplicationLocked
@@ -1731,7 +1731,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
         r.launchFailed = false;
         //将该进程加入到mLRUActivities队列顶部
         stack.updateLRUListLocked(r)；
-        
+
 
         if (andResume) {
             //启动过程的一部分
@@ -1794,7 +1794,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
                  IBinder.FLAG_ONEWAY);
          data.recycle();
      }
- 
+
 ### 2.19 ATN.onTransact
 [-> ApplicationThreadNative.java]
 
@@ -1835,7 +1835,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
         ...
         }
     }
-    
+
 ### 2.20 AT.scheduleLaunchActivity
 [-> ApplicationThread.java]
 
@@ -1873,7 +1873,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
          //【见流程2.21】
          sendMessage(H.LAUNCH_ACTIVITY, r);
      }
-     
+
 ### 2.21 H.handleMessage
 [-> ActivityThread.java ::H]
 
@@ -1892,7 +1892,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
 
 ### 2.22 ActivityThread.handleLaunchActivity
 [-> ActivityThread.java]
-    
+
     private void handleLaunchActivity(ActivityClientRecord r, Intent customIntent) {
         unscheduleGcIdler();
         mSomeActivitiesChanged = true;

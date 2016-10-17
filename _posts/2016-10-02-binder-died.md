@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "进程系列之binderDied"
-date:   2016-03-06 20:12:50
+title:  "binderDied()过程分析"
+date:   2016-10-02 20:12:50
 catalog:  true
 tags:
     - android
@@ -11,7 +11,9 @@ tags:
 
 ## 一. 概述
 
-在[理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/)介绍了进程是如何从AMS.startProcessLocked一步步创建的; 当进程不再需要时便会有杀进程的过程, 在文章[理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/),又介绍了Process.killProcess()又是如何一步步地将进程杀死. 但进程真正的被杀死之后,通过binder死亡回调,那么framework又将是如何处理进程身后事, 本文将全程介绍这个过程.
+[理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/)介绍了进程是如何从AMS.startProcessLocked一步步创建的; 当进程不再需要时便会有杀进程的过程; [理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/)介绍了Process.killProcess()如何一步步地将进程杀死.
+
+当系统内存不足时,会触发[lmk](http://gityuan.com/2016/09/17/android-lowmemorykiller/)杀进程; 以及系统本身通过AMS也会控制系统中各个状态的进程个数上限. 当进程真正的被杀死之后,通过binder死亡回调后系统需要清理四大组件和进程信息.
 
 ### 1.1 死亡监听
 
@@ -75,9 +77,9 @@ tags:
             }
         }
         ...
-        //当进程被杀是由底层lmk触发,则进入该分支
+        //当进程还没有设置已被杀的标记,则进入该分支杀掉相应进程
         if (!app.killed) {
-            //当不是binder死亡回调,而是上层直接调用该方法,则进入该分支
+            //非binder死亡回调,而是上层直接调用该方法,则进入该分支
             if (!fromBinderDied) {
                 Process.killProcessQuiet(pid);
             }
@@ -130,7 +132,7 @@ tags:
     }
 
 
--`mPidsSelfLocked`: 数据类型为SparseArray<ProcessRecord>, 以pid为key, ProcessRecord为value的结构体.
+- `mPidsSelfLocked`: 数据类型为SparseArray<ProcessRecord>, 以pid为key, ProcessRecord为value的结构体.
 - app.killed: 当进程是由AMS杀掉的则killed=true, 当进程是由底层lmkd所杀或者是底层signal 9信号所杀则killed=false;
 - fromBinderDied: 当appDiedLocked()是由binderDied()回调的则fromBinderDied=true;否则是由启动activity/service/provider过程中遇到DeadObjectException或者RemoteException等情况下也会直接调用appDiedLocked(),那么此时fromBinderDied=false.
 - `mLruProcesses`是一个lru队列的进程信息, 队列中第一个成员便是最近最少使用的进程.
@@ -158,15 +160,21 @@ tags:
         boolean hasVisibleActivities = mStackSupervisor.handleAppDiedLocked(app);
         app.activities.clear();
         ...
-        //恢复栈顶第一个非finish的activity
+        //当死亡的app存在可见的Activity, 则恢复栈顶第一个非finish的activity
         if (!restarting && hasVisibleActivities && !mStackSupervisor.resumeTopActivitiesLocked()) {
-           //[见小节2.6]
+           //恢复top activity失败,则再次确保有可见的activity
            mStackSupervisor.ensureActivitiesVisibleLocked(null, 0);
        }
     }
 
+**主要功能:**
 
-handleAppDiedLocked()只有在AMS会直接调用:
+- AMS.cleanUpApplicationRecordLocked: 清理应用程序service, BroadcastReceiver, ContentProvider
+- ASS.handleAppDiedLocked: 清理activity相关信息, 当应用存在可见的activity则返回true
+- 当并没有处于正在启动,且死亡的app存在可见的Activity时, 则调用resumeTopActivitiesLocked恢复栈顶第一个非finish的activity,如果还失败,再调用ensureActivitiesVisibleLocked再次确保有可见的activity. 关于这里的方法,可查看文章[startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)的小节[2.11].
+
+
+另外,handleAppDiedLocked()只在AMS的如下方法调用:
 
 (1)allowRestart = true的调用情况
 
@@ -313,6 +321,7 @@ handleAppDiedLocked()只有在AMS会直接调用:
              } else if (!allowRestart || !mAm.isUserRunningLocked(sr.userId, false)) {
                  bringDownServiceLocked(sr);
              } else {
+                 //allowRestart则会触发重启启动service
                  boolean canceled = scheduleServiceRestartLocked(sr, true);
 
                  if (sr.startRequested && (sr.stopIfKilled || canceled)) {
@@ -323,7 +332,6 @@ handleAppDiedLocked()只有在AMS会直接调用:
                                      SystemClock.uptimeMillis());
                          }
                          if (!sr.hasAutoCreateConnections()) {
-                             // Whoops, no reason to restart!
                              bringDownServiceLocked(sr);
                          }
                      }
@@ -364,7 +372,6 @@ handleAppDiedLocked()只有在AMS会直接调用:
          app.executingServices.clear();
      }
 
-待续....
 
 #### part 2 清理ContentProvider
 
@@ -511,7 +518,13 @@ handleAppDiedLocked()只有在AMS会直接调用:
         return removeHistoryRecordsForAppLocked(app);
     }
 
-#### 2.6.1 AS.removeHistoryRecordsForAppLocked
+当以下Activity运行在app进程,则置空.
+
+- AS.mLastPausedActivity
+- AS.mLastNoHistoryActivity
+- AS.mPausingActivity
+
+### 2.7 AS.removeHistoryRecordsForAppLocked
 
     boolean removeHistoryRecordsForAppLocked(ProcessRecord app) {
       removeHistoryRecordsForAppLocked(mLRUActivities, app, "mLRUActivities");
@@ -534,16 +547,16 @@ handleAppDiedLocked()只有在AMS会直接调用:
               --i;
 
               if (r.app == app) {
+                  //当该activity可见,则设置该标识
                   if (r.visible) {
                       hasVisibleActivities = true;
                   }
                   final boolean remove;
                   if ((!r.haveState && !r.stateNotNeeded) || r.finishing) {
-
+                      //当r没有状态 或者正在结束,则需要rmove
                       remove = true;
                   } else if (r.launchCount > 2 &&
                           r.lastLaunchTime > (SystemClock.uptimeMillis()-60000)) {
-
                       remove = true;
                   } else {
                       remove = false;
@@ -555,20 +568,16 @@ handleAppDiedLocked()只有在AMS会直接调用:
                           }
                       }
                   } else {
-
-                      if (DEBUG_ALL) Slog.v(TAG, "Keeping entry, setting app to null");
-                      if (DEBUG_APP) Slog.v(TAG_APP,
-                              "Clearing app during removeHistory for activity " + r);
                       r.app = null;
                       r.nowVisible = false;
                       if (!r.haveState) {
-                          if (DEBUG_SAVED_STATE) Slog.i(TAG_SAVED_STATE,
-                                  "App died, clearing saved state of " + r);
                           r.icicle = null;
                       }
                   }
+                  //清理Activity信息[见流程2.7.1]
                   cleanUpActivityLocked(r, true, true);
                   if (remove) {
+                      //移除Activity [见流量2.7.2]
                       removeActivityFromHistoryLocked(r, "appDied");
                   }
               }
@@ -578,16 +587,108 @@ handleAppDiedLocked()只有在AMS会直接调用:
       return hasVisibleActivities;
     }
 
-### 2.7 ASS.ensureActivitiesVisibleLocked
 
-    void ensureActivitiesVisibleLocked(ActivityRecord starting, int configChanges) {
-        // First the front stacks. In case any are not fullscreen and are in front of home.
-        for (int displayNdx = mActivityDisplays.size() - 1; displayNdx >= 0; --displayNdx) {
-            final ArrayList<ActivityStack> stacks = mActivityDisplays.valueAt(displayNdx).mStacks;
-            final int topStackNdx = stacks.size() - 1;
-            for (int stackNdx = topStackNdx; stackNdx >= 0; --stackNdx) {
-                final ActivityStack stack = stacks.get(stackNdx);
-                stack.ensureActivitiesVisibleLocked(starting, configChanges);
+从以下5个队列中移除该activity的信息:
+
+- AS.mLRUActivities
+- ASS.mStoppingActivities
+- ASS.mGoingToSleepActivities
+- ASS.mWaitingVisibleActivities
+- ASS.mFinishingActivities
+
+#### 2.7.1 AS.cleanUpActivityLocked
+
+    final void cleanUpActivityLocked(ActivityRecord r, boolean cleanServices,
+            boolean setState) {
+        //重置resume和pause信息
+        if (mResumedActivity == r) {
+            mResumedActivity = null;
+        }
+        if (mPausingActivity == r) {
+            mPausingActivity = null;
+        }
+        //重置mFocusedActivity
+        mService.clearFocusedActivity(r);
+
+        r.configDestroy = false;
+        r.frozenBeforeDestroy = false;
+
+        if (setState) {
+            //设置r状态为destroyed
+            r.state = ActivityState.DESTROYED;
+            r.app = null;
+        }
+
+        mStackSupervisor.mFinishingActivities.remove(r);
+        mStackSupervisor.mWaitingVisibleActivities.remove(r);
+
+        if (r.finishing && r.pendingResults != null) {
+            for (WeakReference<PendingIntentRecord> apr : r.pendingResults) {
+                PendingIntentRecord rec = apr.get();
+                if (rec != null) {
+                    mService.cancelIntentSenderLocked(rec, false);
+                }
             }
+            r.pendingResults = null;
+        }
+
+        if (cleanServices) {
+            //清除跟该activity的service connections
+            cleanUpActivityServicesLocked(r);
+        }
+        //移除超时消息
+        removeTimeoutsForActivityLocked(r);
+        if (getVisibleBehindActivity() == r) {
+            mStackSupervisor.requestVisibleBehindLocked(r, false);
         }
     }
+
+主要功能:
+
+1. 当mResumedActivity,mPausingActivity,mFocusedActivity中与等待清理的Activity相同则置空.
+2. 移除跟该Acitivity相关的以下超时消息:IDLE_TIMEOUT_MSG, PAUSE_TIMEOUT_MSG, STOP_TIMEOUT_MSG, DESTROY_TIMEOUT_MSG, LAUNCH_TICK_MSG, 这些常量定义在ActivityStack文件.
+
+
+#### 2.7.2 AS.removeActivityFromHistoryLocked
+
+    private void removeActivityFromHistoryLocked(ActivityRecord r, String reason) {
+         mStackSupervisor.removeChildActivityContainers(r);
+         finishActivityResultsLocked(r, Activity.RESULT_CANCELED, null);
+         //设置activity状态为finishing
+         r.makeFinishingLocked();
+
+         r.takeFromHistory();
+         removeTimeoutsForActivityLocked(r);
+         //设置为destroyed状态
+         r.state = ActivityState.DESTROYED;
+
+         r.app = null;
+         mWindowManager.removeAppToken(r.appToken);
+
+         final TaskRecord task = r.task;
+         if (task != null && task.removeActivity(r)) {
+             if (mStackSupervisor.isFrontStack(this) && task == topTask() &&
+                     task.isOverHomeStack()) {
+                 mStackSupervisor.moveHomeStackTaskToTop(task.getTaskToReturnTo(), reason);
+             }
+             //从mTaskHistory中移除该task, 之后当mTaskHistory为空,则将home stack移至前台
+             removeTask(task, reason);
+         }
+         cleanUpActivityServicesLocked(r);
+         r.removeUriPermissionsLocked();
+     }
+
+- 设置Activity的finishing = true, 状态为destroyed, 并且从mTaskHistory中移除该task.
+- 此时当mTaskHistory为空,则将home所在栈移至前台.
+
+
+## 三. 总结
+
+当进程被AMS或者lmk所杀时, system_server则会收到死亡回调,并进入binderDied()方法. 整个过程主要是移除各种系统相关的信息. 整个过程图:
+
+![binder_died](/images/process/binder_died.jpg)
+
+
+这个过程中进入AMS.handleAppDiedLocked后: 左边分支`cleanUpApplicationRecordLocked`用于清理死亡进程中运行的四大组件service, BroadcastReceiver, ContentProvider相关信息; 右边分支`ASS.handleAppDiedLocked`清理死亡进程中运行的activity相关信息.
+
+另外,就是维护framework的各个进程队列mProcessesToGc, mPendingPssProcesses, mPidsSelfLocked, mLruProcesses以及ProcessList.remove()方法.
