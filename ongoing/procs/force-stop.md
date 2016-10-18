@@ -981,6 +981,7 @@ tags:
             String packageName, Set<String> filterByClasses, int userId, boolean doit) {
         boolean didSomething = false;
         for (int i = mParallelBroadcasts.size() - 1; i >= 0; i--) {
+            // 【见流程7.2】
             didSomething |= mParallelBroadcasts.get(i).cleanupDisabledPackageReceiversLocked(
                     packageName, filterByClasses, userId, doit);
             if (!doit && didSomething) {
@@ -998,3 +999,43 @@ tags:
 
         return didSomething;
     }
+
+该方法主要功能：
+
+- 清理并行广播队列mParallelBroadcasts；
+- 清理有序广播队列mOrderedBroadcasts
+
+### 7.2 BR.cleanupDisabledPackageReceiversLocked
+[-> BroadcastRecord.java]
+
+  boolean cleanupDisabledPackageReceiversLocked(
+           String packageName, Set<String> filterByClasses, int userId, boolean doit) {
+       if ((userId != UserHandle.USER_ALL && this.userId != userId) || receivers == null) {
+           return false;
+       }
+
+       boolean didSomething = false;
+       Object o;
+       for (int i = receivers.size() - 1; i >= 0; i--) {
+           o = receivers.get(i);
+           if (!(o instanceof ResolveInfo)) {
+               continue;
+           }
+           ActivityInfo info = ((ResolveInfo)o).activityInfo;
+
+           final boolean sameComponent = packageName == null
+                   || (info.applicationInfo.packageName.equals(packageName)
+                   && (filterByClasses == null || filterByClasses.contains(info.name)));
+           if (sameComponent) {
+               ...
+               didSomething = true;
+               //移除该广播receiver
+               receivers.remove(i);
+               if (i < nextReceiver) {
+                   nextReceiver--;
+               }
+           }
+       }
+       nextReceiver = Math.min(nextReceiver, receivers.size());
+       return didSomething;
+   }
