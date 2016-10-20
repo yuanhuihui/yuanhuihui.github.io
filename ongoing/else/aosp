@@ -10,18 +10,15 @@ owner:"Zoran Jovanovic"
 
 1, https://android.googlesource.com/platform/frameworks/base/+/cc64dfcf66a19084a58372ea7f9f5139ccc93221
 
-2.https://android.googlesource.com/platform/frameworks/base/+/1de22da763576cd54b2d3d51bc47ce99cf89f1ab
 
 3. ContentProvider
 
 https://android-review.googlesource.com/#/c/144191/ 这个patch被revert掉，但还是存在隐患，考虑下如何优化。
-https://android-review.googlesource.com/#/c/38610/
 
 4. info.uid 改为uid的问题
 https://android.googlesource.com/platform/frameworks/base/+/4c5c6f43dd81031c2501e35b355fad5ebbf0ab87%5E%21/#F0
 procstats的问题
 
-https://android-review.googlesource.com/#/c/220908/
 
 5. patch 2:
 final void appDiedLocked(ProcessRecord app, int pid, IApplicationThread thread,
@@ -35,45 +32,10 @@ final void appDiedLocked(ProcessRecord app, int pid, IApplicationThread thread,
 
 8. setPackageStoppedState 是否存在优化的地方 ？
 
-9
 
-ActiveServices.java中的`bringUpServiceLocked`;
-app = mAm.getProcessRecordLocked(procName, r.appInfo.uid, false);
-
-r.appInfo.uid ==> r.app.uid?
-
-10.
-
-[-> ActiveServices.java]
-
-    private final String bringUpServiceLocked(...){
-        ...
-        ProcessRecord app = mAm.getProcessRecordLocked(procName, r.appInfo.uid, false);
-        if (app == null) {
-            if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
-                    "service", r.name, false, isolated, false)) == null) {
-                ...
-            }
-        }
-        ...
-    }
-
-
-if (app == null)  ==>  if (app == null || app.thread == null)
-
-
-8. setPackageStoppedState 是否存在优化的地方 ？
-
-9. https://android-review.googlesource.com/#/c/247410/
-
+可借鉴:
 10.https://android-review.googlesource.com/#/c/281287/1/core/jni/android_os_Debug.cpp
 
-11. procstats
-https://android-review.googlesource.com/#/c/143843/3/services/core/java/com/android/server/am/ProcessRecord.java
-
-
-12. 需要添加的patch
-https://android-review.googlesource.com/#/c/286121/
 
 13. 同步问题
 https://android-review.googlesource.com/#/c/187880/
@@ -114,3 +76,7 @@ if ((inLaunching || always) && cpr.hasConnectionOrHandle()) {
 
 always ==> !always
 
+20  wms
+https://android-review.googlesource.com/#/c/281542/
+https://android-review.googlesource.com/#/c/247410/
+https://android-review.googlesource.com/#/c/286281/
