@@ -63,7 +63,9 @@ SparseArray<ActivityContainer> mActivityContainers // mStackId为key
 
 ### 5. pendings
 
-#### Activity ok
+
+#### Activity  当binderDied 需要提交
+
 ASS.java
 - mPendingActivityLaunches
 
@@ -72,7 +74,7 @@ ActiveServices.java
 - mPendingServices
 - mRestartingServices
 
-#### Broadcast
+#### Broadcast  force-stop需要提交 skipCurrentReceiverLocked
 BroadcastQueue.java
 - mFgBroadcastQueue.mPendingBroadcast
 - mBgBroadcastQueue.mPendingBroadcast
@@ -81,7 +83,8 @@ BroadcastQueue.java
 AMS.java
 - mLaunchingProviders
 
-#### Process ok
+
+#### Process force-stop需要提交
 AMS.java
 - mProcessesOnHold
 - mPersistentStartingProcesses
