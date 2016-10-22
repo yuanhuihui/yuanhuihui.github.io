@@ -96,7 +96,7 @@ Process.killProcessGroup，解决Native fork进程的策略；
 2.
 3. 用户手动杀进程；
 
-### 2.1 进程/
+### 2.1 进程
 
 
 
