@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "进程绝杀技--forceStop"
+title:  "Android进程绝杀技--forceStop"
 date:   2016-10-22 10:30:00
 catalog:  true
 tags:
@@ -8,6 +8,8 @@ tags:
     - process
 
 ---
+
+> 基于Android 6.0源码剖析，force-stop的全过程
 
 ## 一.概述
 
