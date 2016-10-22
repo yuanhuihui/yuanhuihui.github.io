@@ -1,20 +1,124 @@
 ---
 layout: post
-title:  "force-stop内部机理"
-date:   2016-05-31 20:30:00
+title:  "进程绝杀技--forceStop"
+date:   2016-10-22 10:30:00
 catalog:  true
 tags:
     - android
+    - process
 
 ---
 
 ## 一.概述
 
-    am force-stop pkgName  杀掉各个用户空间的app进程
-    am force-stop --user 999 pkgName 杀掉指定用户空间的app进程
+### 1.1 引言
+话说Android开源系统拥有着App不计其数，百家争鸣，都想在这“大争之世”寻得系统存活的一席之地。然则系统资源有限，如若都割据为王，再强劲的CPU也会忙不过来，再庞大的内存终会消耗殆尽，再大容量的电池续航终会昙花一现。
 
+面对芸芸众生，无尽变数，系统以不变应万变，一招绝杀神技forceStop腾空出世，需要具有FORCE_STOP_PACKAGES权限，当然这个并非第3方app可以直接调用的, 否则App间可以相互停止对方，则岂非天下大乱。该方法往往是供系统差遣，这里就以adb指令的方式为例来说说其内部机理：
 
-## 二. force-stop原理
+    am force-stop pkgName 
+    am force-stop --user 2 pkgName //只杀用户userId=2的相关信息
+
+force-stop命令杀掉所有用户空间下的包名pkgName相关的信息，也可以通过`--user`来指定用户Id。 当执行上述am指令时，则会触发调用Am.java的main()方法，接下来从main方法开始说起。
+
+### 1.2 Am.main
+[-> Am.java]
+
+    public static void main(String[] args) {
+         (new Am()).run(args); //【见小节1.3】
+    }
+ 
+### 1.3 Am.run
+[-> Am.java]
+
+    public void run(String[] args) {
+        ...
+        mArgs = args;
+        mNextArg = 0;
+        mCurArgData = null;
+        onRun(); //【见小节1.4】
+        ...
+    }
+    
+### 1.4 Am.onRun
+[-> Am.java]
+
+    public void onRun() throws Exception {
+        //获取的是Binder proxy对象AMP
+        mAm = ActivityManagerNative.getDefault();
+        String op = nextArgRequired();
+
+        if (op.equals("start")) {
+            ...
+        } else if (op.equals("force-stop")) {
+            runForceStop(); //【见小节1.5】
+        }
+        ...
+    }
+
+### 1.5 Am.runForceStop
+[-> Am.java]
+
+    private void runForceStop() throws Exception {
+        int userId = UserHandle.USER_ALL;
+
+        String opt;
+        // 当指定用户时，则解析相应userId
+        while ((opt=nextOption()) != null) {
+            if (opt.equals("--user")) {
+                userId = parseUserArg(nextArgRequired());
+            }
+        }
+        //【见小节1.6】
+        mAm.forceStopPackage(nextArgRequired(), userId);
+    }
+
+当不指定userId时，则默认为UserHandle.USER_ALL。
+
+### 1.6 AMP.forceStopPackage
+[-> ActivityManagerNative.java ::AMP]
+
+    public void forceStopPackage(String packageName, int userId) throws RemoteException {
+         Parcel data = Parcel.obtain();
+         Parcel reply = Parcel.obtain();
+         data.writeInterfaceToken(IActivityManager.descriptor);
+         data.writeString(packageName);
+         data.writeInt(userId);
+         //【见小节1.7】
+         mRemote.transact(FORCE_STOP_PACKAGE_TRANSACTION, data, reply, 0);
+         reply.readException();
+         data.recycle();
+         reply.recycle();
+     }
+     
+### 1.7 AMN.onTransact
+[-> ActivityManagerNative.java]
+
+    public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+            throws RemoteException {
+        switch (code) {
+          case FORCE_STOP_PACKAGE_TRANSACTION: {
+               data.enforceInterface(IActivityManager.descriptor);
+               String packageName = data.readString();
+               int userId = data.readInt();
+               //【见小节2.1】
+               forceStopPackage(packageName, userId);
+               reply.writeNoException();
+               return true;
+          }
+          ...
+        }
+    }
+    
+AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Driver后，进入system_server进程的一个binder线程来执行AMN.forceStopPackage，从这开始的操作(包括当前操作)便都运行在system_server系统进程。
+
+### 1.8 小节
+
+![am_force_stop](/images/process/am_force_stop.jpg)
+
+除了adb的方式，还可以通过获取ActivityManager，再调用forceStopPackage，不过这是@hide隐藏方法，且需要系统权限执行，这方法主要用于系统，而非第3方app。接下来，进入AMS对象开始深入探查force-stop的内部机理。
+
+## 二. force-stop内部机理
 
 ### 2.1 AMS.forceStopPackage
 [-> ActivityManagerService.java]
@@ -36,8 +140,9 @@ tags:
                                 ? getUsersLocked() : new int[] { userId };
                 for (int user : users) {
                         int pkgUid = -1;
+                        //根据包名和userId来查询相应的uid
                         pkgUid = pm.getPackageUid(packageName, user);
-                        //设置应用包的状态
+                        //设置包的状态为stopped
                         pm.setPackageStoppedState(packageName, true, user);
 
                         if (isUserRunningLocked(user, false)) {
@@ -50,6 +155,8 @@ tags:
                 Binder.restoreCallingIdentity(callingId);
         }
     }
+
+这里有一个过程非常重要，那就是setPackageStoppedState()将包的状态设置为stopped，那么所有广播都无法接收，除非带有标记`FLAG_INCLUDE_STOPPED_PACKAGES`的广播，系统默认的广播几乎都是不带有该标志，也就意味着被force-stop的应用是无法通过建立手机网络状态或者亮灭的广播来拉起进程。
 
 当使用force stop方式来结束进程时, reason一般都是"from pid " + callingPid. 当然也有另外,那就是AMS.clearApplicationUserData方法调用forceStopPackageLocked的reason为"clear data".
 
@@ -69,11 +176,13 @@ tags:
         }
         intent.putExtra(Intent.EXTRA_UID, uid);
         intent.putExtra(Intent.EXTRA_USER_HANDLE, UserHandle.getUserId(uid));
-        //发送广播ACTION_PACKAGE_RESTARTED
+        //发送广播用于停止alarm以及通知 【见小节8.1】
         broadcastIntentLocked(null, null, intent,
                         null, null, 0, null, null, null, AppOpsManager.OP_NONE,
                         null, false, false, MY_PID, Process.SYSTEM_UID, UserHandle.getUserId(uid));
     }
+
+清理跟该包名相关的进程和四大组件之外，还会发送广播ACTION_PACKAGE_RESTARTED，用于清理已注册的alarm,notification信息。
 
 ### 2.3 AMS.forceStopPackageLocked
 
@@ -194,7 +303,7 @@ tags:
 4. Provider: 调用AMS.removeDyingProviderLocked()清理该package所涉及的Provider;
 5. BroadcastRecevier: 调用BQ.cleanupDisabledPackageReceiversLocked()清理该package所涉及的广播
 
-接下来,从这5个角度来一一结束force-stop的执行过程.
+接下来,从这5个角度来分别说说force-stop的执行过程.
 
 ## 三. Process
 
@@ -227,15 +336,10 @@ tags:
                 }
 
                 if (packageName == null) {
-                    if (userId != UserHandle.USER_ALL && app.userId != userId) {
-                        continue;
-                    }
-                    if (appId >= 0 && UserHandle.getAppId(app.uid) != appId) {
-                        continue;
-                    }
+                    ...
                 //已指定包名的情况
                 } else {
-                    //pkgDeps: 该进程所依赖的包名;
+                    //pkgDeps: 该进程所依赖的包名
                     final boolean isDep = app.pkgDeps != null
                             && app.pkgDeps.contains(packageName);
                     if (!isDep && UserHandle.getAppId(app.uid) != appId) {
@@ -265,15 +369,25 @@ tags:
         return N > 0;
     }
 
-该方法会遍历当前所有运行中的进程`mProcessNames`, 这里只说说最常见的指定了packageName情况:
+一般地force-stop会指定包名，该方法会遍历当前所有运行中的进程`mProcessNames`，以下条件同时都不满足的进程，则会成为被杀的目标进程：(也就是说满足以下任一条件都可以免死)
 
-1. persistent进程
-2. 进程setAdj < minOomAdj(默认为-100)
-3. 进程没有依赖该packageName, 且进程的AppId不相等;
-4. 非UserHandle.USER_ALL同时, 且进程的userId不相等;
+1. persistent进程：
+2. 进程setAdj < minOomAdj(默认为-100)：
+3. 非UserHandle.USER_ALL同时, 且进程的userId不相等：多用户模型下，不同用户下不能相互杀；
+4. 进程没有依赖该packageName, 且进程的AppId不相等;
 5. 进程没有依赖该packageName, 且该packageName没有运行在该进程.
 
-对于以上条件同时都不满足的进程会成为即将被杀的进程, 换个角度来说,也就是非persistent进程,且为同一个用户的情况下: 当packageName存在于进程的`pkgList`或`pkgDeps`的情况下都会被杀.
+通俗地来说就是：
+
+- forceStop不杀系统persistent进程；
+- 当指定用户userId时，不杀其他用户空间的进程；
+
+除此之外，以下情况则必然会成为被杀进程：
+
+- 进程的`pkgDeps`中包含该`packageName`，则会被杀；
+- 进程的`pkgList`中包含该`packageName`，且该进程与包名所指定的AppId相等则会被杀；
+
+进程的`pkgList`是在启动组件或者创建进程的过程向该队列添加的，代表的是该应用下有组件运行在该进程。那么`pkgDeps`是指该进程所依赖的包名，调用ClassLoader的过程添加。
 
 
 ### 3.2 AMS.removeProcessLocked
@@ -327,7 +441,7 @@ tags:
 
 - 从mProcessNames, mPidsSelfLocked队列移除该进程;
 - 移除进程启动超时的消息PROC_START_TIMEOUT_MSG;
-- 调用app.kill)来杀进程, 该过程详见[理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/)
+- 调用app.kill()来杀进程会同时调用Process.kill和Process.killProcessGroup, 该过程详见[理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/)
 - 调用handleAppDiedLocked()来清理进程相关的信息, 该过程详见[binderDied()过程分析](http://gityuan.com/2016/10/02/binder-died/)
 
 ## 四. Activity
@@ -1008,7 +1122,7 @@ tags:
 ### 7.2 BR.cleanupDisabledPackageReceiversLocked
 [-> BroadcastRecord.java]
 
-  boolean cleanupDisabledPackageReceiversLocked(
+    boolean cleanupDisabledPackageReceiversLocked(
            String packageName, Set<String> filterByClasses, int userId, boolean doit) {
        if ((userId != UserHandle.USER_ALL && this.userId != userId) || receivers == null) {
            return false;
@@ -1038,4 +1152,213 @@ tags:
        }
        nextReceiver = Math.min(nextReceiver, receivers.size());
        return didSomething;
+    }
+
+## 八. 广播的处理
+
+在前面[小节2.2]介绍到处理完forceStopPackageLocked()，紧接着便是发送广播`ACTION_PACKAGE_RESTARTED`，经过[Broadcast广播分发](http://gityuan.com/2016/06/04/broadcast-receiver/)，最终调用到注册过该广播的接收者。
+
+### 8.1 Alarm清理
+[-> AlarmManagerService.java]
+
+    class UninstallReceiver extends BroadcastReceiver {
+       public UninstallReceiver() {
+           IntentFilter filter = new IntentFilter();
+           filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+           //监听ACTION_PACKAGE_RESTARTED
+           filter.addAction(Intent.ACTION_PACKAGE_RESTARTED);
+           filter.addAction(Intent.ACTION_QUERY_PACKAGE_RESTART);
+           filter.addDataScheme("package");
+           getContext().registerReceiver(this, filter);
+           ...
+       }
+       
+       @Override
+       public void onReceive(Context context, Intent intent) {
+           synchronized (mLock) {
+               String action = intent.getAction();
+               String pkgList[] = null;
+               if (Intent.ACTION_QUERY_PACKAGE_RESTART.equals(action)) {
+                   ...
+               } else {
+                   ...
+                   Uri data = intent.getData();
+                   if (data != null) {
+                       String pkg = data.getSchemeSpecificPart();
+                       if (pkg != null) {
+                           pkgList = new String[]{pkg};
+                       }
+                   }
+               }
+               if (pkgList != null && (pkgList.length > 0)) {
+                   for (String pkg : pkgList) {
+                       //移除alarm
+                       removeLocked(pkg);
+                       mPriorities.remove(pkg);
+                       for (int i=mBroadcastStats.size()-1; i>=0; i--) {
+                           ArrayMap<String, BroadcastStats> uidStats = mBroadcastStats.valueAt(i);
+                           if (uidStats.remove(pkg) != null) {
+                               if (uidStats.size() <= 0) {
+                                   mBroadcastStats.removeAt(i);
+                               }
+                           }
+                       }
+                   }
+               }
+           }
+       }
    }
+
+调用AlarmManagerService中的removeLocked()方法，从`mAlarmBatches`和`mPendingWhileIdleAlarms`队列中移除包所相关的alarm.
+
+### 8.2 Notification清理
+[-> NotificationManagerService.java]
+
+    private final BroadcastReceiver mPackageIntentReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            ...
+
+            if (action.equals(Intent.ACTION_PACKAGE_ADDED)
+                    || (queryRemove=action.equals(Intent.ACTION_PACKAGE_REMOVED))
+                    || action.equals(Intent.ACTION_PACKAGE_RESTARTED)
+                    || (packageChanged=action.equals(Intent.ACTION_PACKAGE_CHANGED))
+                    || (queryRestart=action.equals(Intent.ACTION_QUERY_PACKAGE_RESTART))
+                    || action.equals(Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE)) {
+                int changeUserId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE,
+                        UserHandle.USER_ALL);
+                String pkgList[] = null;
+                boolean queryReplace = queryRemove &&
+                        intent.getBooleanExtra(Intent.EXTRA_REPLACING, false);
+                if (action.equals(Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE)) {
+                    ...
+                } else {
+                    Uri uri = intent.getData();
+                    ...
+                    String pkgName = uri.getSchemeSpecificPart();
+                    if (packageChanged) {
+                        ...
+                    }
+                    pkgList = new String[]{pkgName};
+                }
+
+                if (pkgList != null && (pkgList.length > 0)) {
+                    for (String pkgName : pkgList) {
+                        if (cancelNotifications) {
+                            //移除Notification
+                            cancelAllNotificationsInt(MY_UID, MY_PID, pkgName, 0, 0, !queryRestart,
+                                    changeUserId, REASON_PACKAGE_CHANGED, null);
+                        }
+                    }
+                }
+                mListeners.onPackagesChanged(queryReplace, pkgList);
+                mConditionProviders.onPackagesChanged(queryReplace, pkgList);
+                mRankingHelper.onPackagesChanged(queryReplace, pkgList);
+            }
+        }
+    };
+
+调用NotificationManagerService.java
+中的cancelAllNotificationsInt()方法，从`mNotificationList`队列中移除包所相关的Notification.
+    
+## 九. 级联诛杀
+
+这里就跟大家分享一段经历吧，记得之前有BAT的某浏览器大厂(具体名称就匿了)，浏览器会因为另一个app被杀而导致自己无辜被牵连所杀，并怀疑是ROM定制化导致的bug，于是发邮件向我厂请教缘由。
+
+遇到这个问题，首先将两个app安装到Google原生系统，结果是依然会被级联诛杀，很显然可以排除厂商ROM定制的缘故，按常理说bug应该可以让app自行解决。出于好奇，帮他们进一步调查了下这个问题，发现并非无辜被杀，而是force-stop的级联诛杀所导致的。
+
+简单来说就是App1调用了getClassLoader()来加载App2，那么App1所运行的进程便会在其`pkgDeps`队列中增加App2的包名，在前面[小节3.2]已经提到`pkgDeps`，杀进程的过程中会遍历该队列，当App2被forceStop所杀时，便是级联诛杀App1。App1既然会调用App2的ClassLoader来加载其方法，那么就建立了一定的联系，这是Google有意赋予forceStop这个强力杀的功能。
+
+这个故事是想告诉大家在插件化或者反射的过程中要注意这种情况，防止不必要的误伤。接下来具体说说这个过程是如何建立依赖的。
+
+### 9.1 CI.getClassLoader
+[-> ContextImpl.java]
+
+    public ClassLoader getClassLoader() {
+        //【见小节9.2】
+       return mPackageInfo != null ?
+                 mPackageInfo.getClassLoader() : ClassLoader.getSystemClassLoader();
+     }
+ 
+### 9.2 LA.getClassLoader
+[-> LoadedApk.java]
+
+    public ClassLoader getClassLoader() {
+        synchronized (this) {
+            if (mClassLoader != null) {
+                return mClassLoader;
+            }
+
+            if (mPackageName.equals("android")) {
+                if (mBaseClassLoader == null) {
+                    mClassLoader = ClassLoader.getSystemClassLoader();
+                } else {
+                    mClassLoader = mBaseClassLoader;
+                }
+                return mClassLoader;
+            }
+            
+            if (mRegisterPackage) {
+                //经过Binder，最终调用到AMS.addPackageDependency 【见小节9.3】
+                ActivityManagerNative.getDefault().addPackageDependency(mPackageName);
+            }
+            
+            ...
+            mClassLoader = ApplicationLoaders.getDefault().getClassLoader(zip,
+                    mApplicationInfo.targetSdkVersion, isBundledApp, librarySearchPath,
+                    libraryPermittedPath, mBaseClassLoader);
+
+            return mClassLoader;
+        }
+    }
+
+### 9.3 AMS.addPackageDependency
+
+    public void addPackageDependency(String packageName) {
+        synchronized (this) {
+            int callingPid = Binder.getCallingPid();
+            if (callingPid == Process.myPid()) {
+                return;
+            }
+            ProcessRecord proc;
+            synchronized (mPidsSelfLocked) {
+                proc = mPidsSelfLocked.get(Binder.getCallingPid());
+            }
+            if (proc != null) {
+                if (proc.pkgDeps == null) {
+                    proc.pkgDeps = new ArraySet<String>(1);
+                }
+                //将该包名添加到pkgDeps
+                proc.pkgDeps.add(packageName);
+            }
+        }
+    }
+  
+调用ClassLoader来加载启动包名时，则会将该包名加入到进程的pkgDeps。
+   
+## 十. 总结
+
+forceStop的功能如下：
+
+![force_stop](/images/process/force_stop.jpg)
+
+1. Process: 调用AMS.killPackageProcessesLocked()清理该package所涉及的进程;
+2. Activity: 调用ASS.finishDisabledPackageActivitiesLocked()清理该package所涉及的Activity;
+3. Service: 调用AS.bringDownDisabledPackageServicesLocked()清理该package所涉及的Service;
+4. Provider: 调用AMS.removeDyingProviderLocked()清理该package所涉及的Provider;
+5. BroadcastRecevier: 调用BQ.cleanupDisabledPackageReceiversLocked()清理该package所涉及的广播
+6. 发送广播ACTION_PACKAGE_RESTARTED，用于停止已注册的alarm,notification.
+
+
+**功能点归纳：**
+
+1. force-stop并不会杀persistent进程；
+2. 当app被force-stop后，无法接收到正常广播，那么也就无法通过监听手机网络状态的变化或者亮灭屏来拉起进程；
+3. 当app被force-stop后，那么alarm闹钟一并被清理，无法实现定时响起的功能；
+4. app被force-stop后，四大组件以及相关进程都被一一剪除清理，即便多进程架构的app也无法拉起自己；
+5. 级联诛杀：当app通过ClassLoader加载另一个app，则会在force-stop的过程中会被级联诛杀；
+6. 生死与共：当app与另个app使用了share uid，则会在force-stop的过程，任意一方被杀则另一方也被杀，建立起生死与共的强关系。
+
+
+最后简单说两句关于保活，作为App开发来说，都希望进程能保活，一招force-stop足以干掉90%以上的保活策略，当然还有一些其他手段及漏洞来保活，系统层面往往还会采取一些特别的方法来禁止保活。博主曾经干过手机底层的性能与功耗优化工作，知道不少app的流氓行径，严重系统的流畅度与手机续航能力。系统ams以及底层的lmk会管理好进程是否该存活，不要逆势而为，保活往往得不偿失。为了android有更好的用户体验，为了不影响手机系统性能，为了不降低手机续航能力，应化更多时间精力在如何优化app性能和体验，共同Android的良好生态圈。

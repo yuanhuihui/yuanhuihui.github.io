@@ -111,7 +111,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
             //检验service，当service为空则throw异常
             validateServiceIntent(service);
             service.prepareToLeaveProcess();
-            // 调用ActivityManagerNative类 【见流程3.1 以及流程4】
+            // 调用ActivityManagerNative类 【见流程3.1以及流程4】
             ComponentName cn = ActivityManagerNative.getDefault().startService(
                 mMainThread.getApplicationThread(), service, service.resolveTypeIfNeeded(getContentResolver()), getOpPackageName(), user.getIdentifier());
             if (cn != null) {
