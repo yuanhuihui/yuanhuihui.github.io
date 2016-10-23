@@ -105,11 +105,3 @@ TIMED_WAITING可以是wait、sleep或join函数
 如果找不到会发出一个MPF信息，请求将数据加载到内存。文件第一次加载时算在major
 - Minor是指Minor Page Fault（次要页错误，简称MnPF），
 磁盘数据被加载到内存后，内核再次读取时，会发出一个MnPF信息。文件从内存加载算在minor.
-
-
-## 查看anr的trace方法
-
-找到主线程，
-
-Cmd line: system_server
-sysTid=<pid>的问题
