@@ -16,7 +16,7 @@ tags:
 ### 1.1 引言
 话说Android开源系统拥有着App不计其数，百家争鸣，都想在这“大争之世”寻得系统存活的一席之地。然则系统资源有限，如若都割据为王，再强劲的CPU也会忙不过来，再庞大的内存终会消耗殆尽，再大容量的电池续航终会昙花一现。
 
-面对芸芸众生，无尽变数，系统以不变应万变，一招绝杀神技forceStop腾空出世，需要具有FORCE_STOP_PACKAGES权限，当然这个并非第3方app可以直接调用的, 否则App间可以相互停止对方，则岂非天下大乱。该方法往往是供系统差遣，这里就以adb指令的方式为例来说说其内部机理：
+面对芸芸众生，无尽变数，系统以不变应万变，一招绝杀神技forceStop腾空出世，此处以adb指令的方式为例来说说其内部机理：
 
     am force-stop pkgName 
     am force-stop --user 2 pkgName //只杀用户userId=2的相关信息
@@ -118,7 +118,9 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
 
 ![am_force_stop](/images/process/am_force_stop.jpg)
 
-除了adb的方式，还可以通过获取ActivityManager，再调用forceStopPackage，不过这是@hide隐藏方法，且需要系统权限执行，这方法主要用于系统，而非第3方app。接下来，进入AMS对象开始深入探查force-stop的内部机理。
+进程绝杀技force-stop，并非任意app可直接调用, 否则App间可以相互停止对方，则岂非天下大乱。该方法的存在便是供系统差遣。一般地，点击home弹出的清理用户最近使用app采取的策略便是force-stop.
+
+至于force-stop的触发方式，除了adb的方式，还可通过获取ActivityManager再调用其方法forceStopPackage()，不过这是@hide隐藏方法，同样是需要具有FORCE_STOP_PACKAGES权限。虽然第三方普通app不能直接调用，但对于深入理解Android，还是很有必要知道系统是如何彻底清理进程的过程。接下来，进入AMS来深入探查force-stop的内部机理。
 
 ## 二. force-stop内部机理
 
@@ -188,6 +190,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
 
 ### 2.3 AMS.forceStopPackageLocked
 
+    //callerWillRestart = false, doit = true;
     private final boolean forceStopPackageLocked(String packageName, int appId,
              boolean callerWillRestart, boolean purgeCache, boolean doit,
              boolean evenPersistent, boolean uninstalling, int userId, String reason) {
@@ -311,6 +314,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
 
 ### 3.1 AMS.killPackageProcessesLocked
 
+    //callerWillRestart = false, allowRestart = true, doit = true;
     private final boolean killPackageProcessesLocked(String packageName, int appId,
             int userId, int minOomAdj, boolean callerWillRestart, boolean allowRestart,
             boolean doit, boolean evenPersistent, String reason) {
@@ -327,10 +331,11 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
                     continue; //不杀persistent进程
                 }
                 if (app.removed) {
+                    //已标记removed的进程，便是需要被杀的进程，加入procs队列
                     if (doit) {
-                        procs.add(app);
+                        procs.add(app); 
                     }
-                    continue; //不杀已标记的进程
+                    continue; 
                 }
 
                 if (app.setAdj < minOomAdj) {
@@ -386,6 +391,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
 
 除此之外，以下情况则必然会成为被杀进程：
 
+- 进程已标记`remove`=true的进程，则会被杀；
 - 进程的`pkgDeps`中包含该`packageName`，则会被杀；
 - 进程的`pkgList`中包含该`packageName`，且该进程与包名所指定的AppId相等则会被杀；
 
@@ -394,6 +400,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
 
 ### 3.2 AMS.removeProcessLocked
 
+    //callerWillRestart = false, allowRestart = true
     private final boolean removeProcessLocked(ProcessRecord app,
              boolean callerWillRestart, boolean allowRestart, String reason) {
          final String name = app.processName;
@@ -417,9 +424,9 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
              boolean willRestart = false;
              if (app.persistent && !app.isolated) {
                  if (!callerWillRestart) {
-                     willRestart = true;
+                     willRestart = true; //用于标记persistent进程则需重启进程
                  } else {
-                     needRestart = true;
+                     needRestart = true; //用于返回值，作用不大
                  }
              }
              //杀掉该进程
@@ -1156,7 +1163,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
        return didSomething;
     }
 
-## 八. 广播的处理
+## 八. Alarm和Notification
 
 在前面[小节2.2]介绍到处理完forceStopPackageLocked()，紧接着便是发送广播`ACTION_PACKAGE_RESTARTED`，经过[Broadcast广播分发](http://gityuan.com/2016/06/04/broadcast-receiver/)，最终调用到注册过该广播的接收者。
 
@@ -1363,4 +1370,10 @@ forceStop的功能如下：
 6. 生死与共：当app与另个app使用了share uid，则会在force-stop的过程，任意一方被杀则另一方也被杀，建立起生死与共的强关系。
 
 
-最后简单说两句关于保活，作为App开发来说，都希望进程能保活，一招force-stop足以干掉90%以上的保活策略，当然还有一些其他手段及漏洞来保活，系统层面往往还会采取一些特别的方法来禁止保活。博主曾经干过手机底层的性能与功耗优化工作，知道不少app的流氓行径，严重系统的流畅度与手机续航能力。系统ams以及底层的lmk会管理好进程是否该存活，不要逆势而为，保活往往得不偿失。为了android有更好的用户体验，为了不影响手机系统性能，为了不降低手机续航能力，应化更多时间精力在如何优化app性能和体验，共同Android的良好生态圈。
+既然force-stop多次提到杀进程，那最后简单说两句关于保活：**正确的保活姿态：用户需要的时保证候千万别被杀，用户不需要的时候别强保活。**
+
+- 进程是否需要存活，上层系统有AMS来管理缓存进程和空进程，底层有LowMemoryKiller来根据系统可用内存的情况来管理进程是否存活，这样的策略都是为了给用户提供更好更流畅的用户体验。
+- 用户需要的时候千万别被杀：谨慎使用插件化和共享uid，除非愿意接受级联诛杀和生死与共的场景；还有就是提高自身app的稳定性，减少crash和anr的发生频率。
+- 用户不需要的时候别强保活：为了保活，多进程架构，利用各种小技巧来提升优先级等都是不可取的，一招force-stop足以干掉90%以上的保活策略，当然还有一些其他手段及漏洞来保活，系统层面往往还会采取一些特别的方法来禁止保活。博主曾经干过手机底层的性能与功耗优化工作，深知不少app的流氓行径，严重系统的流畅度与手机续航能力。
+
+为了android有更好的用户体验，为了不影响手机系统性能，为了不降低手机续航能力，建议大家花更多时间精力在如何优化app性能，如何提高app的稳健性，共同打造Android的良好生态圈。

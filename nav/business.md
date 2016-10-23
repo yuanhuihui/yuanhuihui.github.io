@@ -26,7 +26,7 @@ header-img: "img/nav-resource.jpg"
 		
 		<h5>打赏我</h5>
 		<ul>
-	    <li>请点击
+	    <li>如果，请点击
 			<a target="_blank" href="http://gityuan.com/images/about-me/gityuan_pay.jpg">
 				<font color="#f57e42"><strong>¥打赏支持</strong></font>
 			</a>，支付宝或者微信来给予更多物质的支持与鼓励，谢谢。
