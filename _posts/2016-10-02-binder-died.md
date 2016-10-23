@@ -321,7 +321,7 @@ tags:
              } else if (!allowRestart || !mAm.isUserRunningLocked(sr.userId, false)) {
                  bringDownServiceLocked(sr);
              } else {
-                 //allowRestart则会触发重启启动service
+                 //allowRestart=true 则会触发重启启动service
                  boolean canceled = scheduleServiceRestartLocked(sr, true);
 
                  if (sr.startRequested && (sr.stopIfKilled || canceled)) {
@@ -380,6 +380,7 @@ tags:
         for (int i = app.pubProviders.size() - 1; i >= 0; i--) {
             //获取该进程已发表的ContentProvider
             ContentProviderRecord cpr = app.pubProviders.valueAt(i);
+            // allowRestart=true，一般地always=false
             final boolean always = app.bad || !allowRestart;
             //ContentProvider服务端被杀，则client端进程也会被杀
             boolean inLaunching = removeDyingProviderLocked(app, cpr, always);
@@ -441,7 +442,11 @@ tags:
             }
         }
         mUiHandler.obtainMessage(DISPATCH_PROCESS_DIED, app.pid, app.info.uid, null).sendToTarget();
-
+        //此时为false，不进入该分支
+        if (restarting) {
+            return false;
+        }
+        
         if (!app.persistent || app.isolated) {
             removeProcessNameLocked(app.processName, app.uid);
             if (mHeavyWeightProcess == app) {
