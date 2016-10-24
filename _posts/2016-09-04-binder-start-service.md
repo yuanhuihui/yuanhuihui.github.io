@@ -675,8 +675,7 @@ transact主要过程:
             case BC_TRANSACTION:{
                 struct binder_transaction_data tr;
                 //拷贝用户空间的binder_transaction_data
-                if (copy_from_user(&tr, ptr, sizeof(tr)))
-                  return -EFAULT;
+                if (copy_from_user(&tr, ptr, sizeof(tr)))   return -EFAULT;
                 ptr += sizeof(tr);
                 //【见小节3.4】
                 binder_transaction(proc, thread, &tr, cmd == BC_REPLY);
@@ -712,14 +711,15 @@ transact主要过程:
         if (reply) {
             ...
         }else {
-            //查询目标进程的过程： handle -> binder_ref -> binder_node -> binder_proc
             if (tr->target.handle) {
                 struct binder_ref *ref;
+                // 由handle 找到相应 binder_ref
                 ref = binder_get_ref(proc, tr->target.handle);
+                // 由binder_ref 找到相应 binder_node
                 target_node = ref->node;
             }
+            // 由binder_node 找到相应 binder_proc
             target_proc = target_node->proc;
-            ...
         }
 
         if (target_thread) {
@@ -821,7 +821,7 @@ transact主要过程:
     }
 
 
-
+查询目标进程的过程： handle -> binder_ref -> binder_node -> binder_proc
 
 ### 其他
 
