@@ -10,24 +10,23 @@ tags:
 
 ## 一. 概述
 
-在前面的文章[startService流程分析](http://gityuan.com/2016/03/06/start-service/)，从系统framework层详细介绍Service启动流程，见下图：
+在前面的文章[startService流程分析](http://gityuan.com/2016/03/06/start-service/)，从系统framework层详细介绍Service启动流程，首先在发起方进程调用startService，经过binder驱动，最终进入system_server进程的binder线程来执行ActivityManagerService模块的代码。见下图：
 
 ![Activity_Manager_Service](/images/android-service/am/Activity_Manager_Service.png)
 
-Service启动过程中，首先在发起方进程调用startService，经过binder驱动，最终进入system_server进程的binder线程来执行ActivityManagerService模块的代码。本文将以Binder视角来深入讲解其中地这一个过程：如何由AMP.startService 调用到 AMS.startService。
+本文将进一步展开**AMP.startService是如何调用到AMS.startService, 在这个过程中Binder是如何发挥其进程间通信的功能.**
 
 ### 继承关系
 
-这里涉及AMP(ActivityManagerProxy)和AMS(ActivityManagerService)，先来看看这两者之间的关系。
+先来看看AMP(ActivityManagerProxy)和AMS(ActivityManagerService)两者之间的关系。
 
 ![activity_manager_classes](/images/android-service/am/activity_manager_classes.png)
 
-从上图，可知：
+从上图可知：
 
-- AMS继承于AMN(抽象类);
-- AMN实现了IActivityManager接口，继承于Binder对象(Binder服务端)；
 - AMP也实现IActivityManager接口；
-- Binder对象实现了IBinder接口，IActivityManager继承于IInterface。
+- AMN实现了IActivityManager接口，继承于Binder对象(Binder服务端)；
+- AMS继承于AMN(抽象类);
 
 ## 二. 分析
 
@@ -36,34 +35,37 @@ Service启动过程中，首先在发起方进程调用startService，经过bind
     public ComponentName startService(IApplicationThread caller, Intent service,
                 String resolvedType, String callingPackage, int userId) throws RemoteException
     {
-        //【见小节2.1.1】
+        //获取或创建Parcel对象【见小节2.2】
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
         data.writeInterfaceToken(IActivityManager.descriptor);
         data.writeStrongBinder(caller != null ? caller.asBinder() : null);
         service.writeToParcel(data, 0);
+        //写入Parcel数据 【见小节2.3】
         data.writeString(resolvedType);
         data.writeString(callingPackage);
         data.writeInt(userId);
 
-        //通过Binder 传递数据　【见小节2.2】
+        //通过Binder传递数据【见小节2.5】
         mRemote.transact(START_SERVICE_TRANSACTION, data, reply, 0);
         //读取应答消息的异常情况
         reply.readException();
         //根据reply数据来创建ComponentName对象
         ComponentName res = ComponentName.readFromParcel(reply);
-        //【见小节2.1.2】
+        //【见小节2.x】
         data.recycle();
         reply.recycle();
         return res;
     }
 
-创建两个Parcel对象，data用于发送数据，reply用于接收应答数据。其中descriptor = "android.app.IActivityManager";
+主要功能:
 
-- 将startService相关数据都封装到Parcel对象data；通过mRemote发送到Binder驱动；
-- Binder应答消息都封装到reply对象，从reply解析出ComponentName.
+- 获取或创建两个Parcel对象,data用于发送数据，reply用于接收应答数据.
+- 将startService相关数据都封装到Parcel对象data, 其中descriptor = "android.app.IActivityManager";
+- 通过Binder传递数据,并将应答消息写入reply;
+- 读取reply应答消息的异常情况和组件对象;
 
-#### 2.1.1 Parcel.obtain
+### 2.2 Parcel.obtain
 
 [-> Parcel.java]
 
@@ -80,76 +82,135 @@ Service启动过程中，首先在发起方进程调用startService，经过bind
                 }
             }
         }
-        //当缓存池没有现成的Parcel对象，则直接创建
+        //当缓存池没有现成的Parcel对象，则直接创建[见流程2.2.1]
         return new Parcel(0);
     }
 
-`sOwnedPool`是一个大小为6，存放着parcel对象的缓存池. obtain()方法的作用：
+`sOwnedPool`是一个大小为6，存放着parcel对象的缓存池,这样设计的目标是用于节省每次都创建Parcel对象的开销。obtain()方法的作用：
 
-1. 先尝试从缓存池`sOwnedPool`中查询是否存在缓存Parcel对象，当存在则直接返回该对象；否则执行下面操作；
-2. 当不存在Parcel对象，则直接创建Parcel对象。
+1. 先尝试从缓存池`sOwnedPool`中查询是否存在缓存Parcel对象，当存在则直接返回该对象;
+2. 如果没有可用的Parcel对象，则直接创建Parcel对象。
 
-这样设计的目标是用于节省每次都创建Parcel对象的开销。
 
-#### 2.1.2 Parcel.recycle
+#### 2.2.1 new Parcel
+[-> Parcel.java]
 
-    public final void recycle() {
-        //释放native parcel对象
-        freeBuffer();
-        final Parcel[] pool;
-        //根据情况来选择加入相应池
-        if (mOwnsNativeParcelObject) {
-            pool = sOwnedPool;
-        } else {
-            mNativePtr = 0;
-            pool = sHolderPool;
-        }
-        synchronized (pool) {
-            for (int i=0; i<POOL_SIZE; i++) {
-                if (pool[i] == null) {
-                    pool[i] = this;
-                    return;
-                }
-            }
-        }
+    private Parcel(long nativePtr) {
+        //初始化本地指针
+        init(nativePtr);
     }
-
-将不再使用的Parcel对象放入缓存池，可回收重复利用，当缓存池已满则不再加入缓存池。
-
-`mOwnsNativeParcelObject`变量来决定是将Parcel对象存放到`sOwnedPool`，还是`sHolderPool`池。该变量值取决于Parcel初始化`init()`过程是否存在native指针。
 
     private void init(long nativePtr) {
         if (nativePtr != 0) {
-            //native指针不为0，则采用sOwnedPool
             mNativePtr = nativePtr;
             mOwnsNativeParcelObject = false;
         } else {
-            //否则，采用sHolderPool
+            // 首次创建,进入该分支[见流程2.2.2]
             mNativePtr = nativeCreate();
             mOwnsNativeParcelObject = true;
         }
     }
 
-recycle()操作用于向池中添加parcel对象，obtain()则是从池中取对象的操作。
+nativeCreate这是native方法,经过JNI进入native层, 调用android_os_Parcel_create()方法.
+
+#### 2.2.2  android_os_Parcel_create
+[-> android_os_Parcel.cpp]
+
+    static jlong android_os_Parcel_create(JNIEnv* env, jclass clazz)
+    {
+        Parcel* parcel = new Parcel();
+        return reinterpret_cast<jlong>(parcel);
+    }
+
+创建C++层的Parcel对象, 该对象指针强制转换为long型, 并保存到Java层的`mNativePtr`对象. 创建完Parcel对象利用Parcel对象写数据. 接下来以writeString为例.
+
+### 2.3 writeString
+[-> Parcel.java]
+
+    public final void writeString(String val) {
+        //[见流程2.3.1]
+        nativeWriteString(mNativePtr, val);
+    }
+
+#### 2.3.1 nativeWriteString
+[-> android_os_Parcel.cpp]
+
+    static void android_os_Parcel_writeString(JNIEnv* env, jclass clazz, jlong nativePtr, jstring val)
+    {
+        Parcel* parcel = reinterpret_cast<Parcel*>(nativePtr);
+        if (parcel != NULL) {
+            status_t err = NO_MEMORY;
+            if (val) {
+                const jchar* str = env->GetStringCritical(val, 0);
+                if (str) {
+                    //[见流程2.3.2]
+                    err = parcel->writeString16(
+                        reinterpret_cast<const char16_t*>(str),
+                        env->GetStringLength(val));
+                    env->ReleaseStringCritical(val, str);
+                }
+            } else {
+                err = parcel->writeString16(NULL, 0);
+            }
+            if (err != NO_ERROR) {
+                signalExceptionForError(env, clazz, err);
+            }
+        }
+    }
+
+#### 2.3.2 writeString16
+[-> Parcel.cpp]
+
+    status_t Parcel::writeString16(const char16_t* str, size_t len)
+    {
+        if (str == NULL) return writeInt32(-1);
+
+        status_t err = writeInt32(len);
+        if (err == NO_ERROR) {
+            len *= sizeof(char16_t);
+            uint8_t* data = (uint8_t*)writeInplace(len+sizeof(char16_t));
+            if (data) {
+                //数据拷贝到data所指向的位置
+                memcpy(data, str, len);
+                *reinterpret_cast<char16_t*>(data+len) = 0;
+                return NO_ERROR;
+            }
+            err = mError;
+        }
+        return err;
+    }
 
 
-### 2.2 mRemote.transact
+**Tips:** 除了writeString(),在`Parcel.java`中大量的native方法, 这样一个调用流程: `Parcel.java`调用`android_os_Parcel.cpp`相对应的方法, 该方法再调用`Parcel.cpp`中对应的方法.
 
-#### 2.2.1 mRemote
+    /frameworks/base/core/java/android/os/Parcel.java
+    /frameworks/base/core/jni/android_os_Parcel.cpp
+    /frameworks/native/libs/binder/Parcel.cpp
 
-`mRemote`是在AMP对象创建的时候由构造函数赋值的，而AMP的创建是由ActivityManagerNative.getDefault()来获取的，核心实现是由如下代码：
+
+
+### 2.4 mRemote究竟为何物
+
+
+先说说AMP的创建是由ActivityManagerNative.getDefault()来获取的
+
+#### 2.4.1 AMN.getDefault
+[-> ActivityManagerNative.java]
 
     static public IActivityManager getDefault() {
+        // [见流程2.4.2]
         return gDefault.get();
     }
 
-`gDefault`为Singleton类型对象，此次采用单例模式.
+gDefault的数据类型为Singleton<IActivityManager>, 接下来看看Singleto.get()的过程
 
-    public abstract class Singleton<T> {
-        public final T get() {
+#### 2.4.2 gDefault.get
+
+    public abstract class Singleton<IActivityManager> {
+        public final IActivityManager get() {
             synchronized (this) {
                 if (mInstance == null) {
-                    //首次调用create()来获取AMP对象
+                    //首次调用create()来获取AMP对象[见流程2.4.3]
                     mInstance = create();
                 }
                 return mInstance;
@@ -157,20 +218,24 @@ recycle()操作用于向池中添加parcel对象，obtain()则是从池中取对
         }
     }
 
-get()方法获取的便是`mInstance`，再来看看create()的过程：
+首次调用时需要创建,创建完之后保持到mInstance对象,后面可以直接使用.
+
+#### 2.4.3 gDefault.create
 
     private static final Singleton<IActivityManager> gDefault = new Singleton<IActivityManager>() {
         protected IActivityManager create() {
             //获取名为"activity"的服务
             IBinder b = ServiceManager.getService("activity");
-            //创建AMP对象
+            //创建AMP对象[见流程2.4.4]
             IActivityManager am = asInterface(b);
             return am;
         }
     };
 
+文章[Binder系列7—framework层分析](http://gityuan.com/2015/11/21/binder-framework/#section-4)，可知ServiceManager.getService("activity")返回的是指向目标服务AMS的代理对象`BinderProxy`对象，由该代理对象可以找到目标服务AMS所在进程
 
-看过文章[Binder系列7—framework层分析](http://gityuan.com/2015/11/21/binder-framework/#section-4)，可知ServiceManager.getService("activity")返回的是指向目标服务AMS的代理对象`BinderProxy`对象，由该代理对象可以找到目标服务AMS所在进程，这个过程就不再重复了。接下来，再来看看`asInterface`的功能：
+#### 2.4.4 AMN.asInterface
+[-> ActivityManagerNative.java]
 
     public abstract class ActivityManagerNative extends Binder implements IActivityManager
     {
@@ -178,23 +243,21 @@ get()方法获取的便是`mInstance`，再来看看create()的过程：
             if (obj == null) {
                 return null;
             }
+            //此处obj = BinderProxy,  descriptor = "android.app.IActivityManager";
             IActivityManager in = (IActivityManager)obj.queryLocalInterface(descriptor);
             if (in != null) { //此处为null
                 return in;
             }
-            // 此处调用AMP的构造函数，obj为BinderProxy对象(记录远程AMS的handle)
+            //[见流程2.4.5]
             return new ActivityManagerProxy(obj);
         }
-
-        public ActivityManagerNative() {
-            //调用父类binder对象的方法，保存
-            attachInterface(this, descriptor);
-        }
-
         ...
     }
 
-接下来，进入AMP的构造方法：
+此时obj为BinderProxy对象, 记录着远程进程system_server中AMS服务的binder线程的handle.
+
+#### 2.4.5 创建AMP
+[-> ActivityManagerNative.java :: AMP]
 
     class ActivityManagerProxy implements IActivityManager
     {
@@ -204,61 +267,42 @@ get()方法获取的便是`mInstance`，再来看看create()的过程：
         }
     }
 
-到此，可知mRemote便是指向AMS服务的BinderProxy对象。
+可知mRemote便是指向AMS服务的BinderProxy对象。
 
-#### 2.2.2 mRemote.transact
-
-mRemote.transact(START_SERVICE_TRANSACTION, data, reply, 0);其中data保存了descriptor，caller, intent, resolvedType, callingPackage, userId这6项信息。
+### 2.5 mRemote.transact
+[-> Binder.java ::BinderProxy]
 
     final class BinderProxy implements IBinder {
         public boolean transact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
             //用于检测Parcel大小是否大于800k
             Binder.checkParcel(this, code, data, "Unreasonably large binder buffer");
-            //【见2.3】
+            //【见2.6】
             return transactNative(code, data, reply, flags);
         }
     }
 
+mRemote.transact(START_SERVICE_TRANSACTION, data, reply, 0);其中data保存了descriptor，caller, intent, resolvedType, callingPackage, userId这6项信息。
 transactNative这是native方法，经过jni调用android_os_BinderProxy_transact方法。
 
-### 2.3 android_os_BinderProxy_transact
+### 2.6 android_os_BinderProxy_transact
 [-> android_util_Binder.cpp]
 
     static jboolean android_os_BinderProxy_transact(JNIEnv* env, jobject obj,
         jint code, jobject dataObj, jobject replyObj, jint flags)
     {
-        if (dataObj == NULL) {
-            jniThrowNullPointerException(env, NULL);
-            return JNI_FALSE;
-        }
-
         ...
-        //将java Parcel转为native Parcel
+        //将java Parcel转为c++ Parcel
         Parcel* data = parcelForJavaObject(env, dataObj);
         Parcel* reply = parcelForJavaObject(env, replyObj);
 
         //gBinderProxyOffsets.mObject中保存的是new BpBinder(handle)对象
         IBinder* target = (IBinder*) env->GetLongField(obj, gBinderProxyOffsets.mObject);
-        if (target == NULL) {
-            jniThrowException(env, "java/lang/IllegalStateException", "Binder has been finalized!");
-            return JNI_FALSE;
-        }
-
         ...
-        if (kEnableBinderSample）{
-            time_binder_calls = should_time_binder_calls();
-            if (time_binder_calls) {
-                start_millis = uptimeMillis();
-            }
-        }
-        //此处便是BpBinder::transact()【见小节2.4】
-        status_t err = target->transact(code, *data, reply, flags);
 
-        if (kEnableBinderSample) {
-            if (time_binder_calls) {
-                conditionally_log_binder_call(start_millis, target, code);
-            }
-        }
+        //此处便是BpBinder::transact()【见小节2.7】
+        status_t err = target->transact(code, *data, reply, flags);
+        ...
+
         if (err == NO_ERROR) {
             return JNI_TRUE;
         } else if (err == UNKNOWN_TRANSACTION) {
@@ -269,23 +313,17 @@ transactNative这是native方法，经过jni调用android_os_BinderProxy_transac
         return JNI_FALSE;
     }
 
-kEnableBinderSample这是调试开关，用于打开调试主线程执行一次transact所花时长的统计。接下来进入native层BpBinder
+gBinderProxyOffsets.mObject中保存的是new BpBinder(handle)对象, 这个是在系统开机过程中,Zygote会调用AndroidRuntime::startReg方法来完成jni方法的注册,
+其中就有register_android_os_Binder()过程就有一个初始并注册BinderProxy的操作,就在此时完成了gBinderProxyOffsets的赋值过程. 即然mObject保持的是BpBinder,接下来就进入该方法.
 
-这里会有异常抛出：
-
-- `NullPointerException`：当dataObj对象为空，则抛该异常；
-- `IllegalStateException`：当BpBinder对象为空，则抛该异常
-- `signalExceptionForError()`: 根据transact执行具体情况，抛出相应的异常。
-
-
-### 2.4 BpBinder.transact
+### 2.7 BpBinder.transact
 [-> BpBinder.cpp]
 
     status_t BpBinder::transact(
         uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
     {
         if (mAlive) {
-            // 【见小节2.5】
+            // 【见小节2.8】
             status_t status = IPCThreadState::self()->transact(
                 mHandle, code, data, reply, flags);
             if (status == DEAD_OBJECT) mAlive = 0;
@@ -296,7 +334,7 @@ kEnableBinderSample这是调试开关，用于打开调试主线程执行一次t
 
 IPCThreadState::self()采用单例模式，保证每个线程只有一个实例对象。
 
-### 2.5 IPC.transact
+### 2.8 IPC.transact
 [-> IPCThreadState.cpp]
 
     status_t IPCThreadState::transact(int32_t handle,
@@ -307,7 +345,7 @@ IPCThreadState::self()采用单例模式，保证每个线程只有一个实例�
         flags |= TF_ACCEPT_FDS;
         ....
         if (err == NO_ERROR) {
-             // 传输数据 【见小节2.6】
+             // 传输数据 【见小节2.9】
             err = writeTransactionData(BC_TRANSACTION, flags, handle, code, data, NULL);
         }
 
@@ -316,27 +354,33 @@ IPCThreadState::self()采用单例模式，保证每个线程只有一个实例�
             return (mLastError = err);
         }
 
+        // 默认情况下,都是采用非oneway的方式, 也就是需要等待服务端的返回结果
         if ((flags & TF_ONE_WAY) == 0) {
             if (reply) {
-                //进入等待响应 【见小节2.7】
+                //reply对象不为空 【见小节2.10】
                 err = waitForResponse(reply);
+            }else {
+                Parcel fakeReply;
+                err = waitForResponse(&fakeReply);
             }
-            ...
+        } else {
+            err = waitForResponse(NULL, NULL);
         }
-        ...
         return err;
     }
 
 transact主要过程:
 
-- 先执行writeTransactionData()已向`mOut`写入数据，此时`mIn`还没有数据；
-- 然后执行waitForResponse()方法，循环执行，直到收到应答消息：
-  - talkWithDriver()跟驱动交互，收到应答消息，便会写入`mIn`；
-  - 当`mIn`存在数据，则根据不同的响应吗，执行相应的操作。
+- 先执行writeTransactionData()已向Parcel数据类型的`mOut`写入数据，此时`mIn`还没有数据；
+- 然后执行waitForResponse()方法，循环执行，直到收到应答消息. 调用talkWithDriver()跟驱动交互，收到应答消息，便会写入`mIn`, 则根据收到的不同响应吗，执行相应的操作。
 
-`mOut`和`mIn`都是parcel对象。
+此处调用waitForResponse根据是否有设置`TF_ONE_WAY`的标记:
 
-### 2.6 IPC.writeTransactionData
+- 当设置oneway时, 则调用waitForResponse(NULL, NULL);
+- 当没有设置oneway时, 则调用waitForResponse(reply)或waitForResponse(&fakeReply)
+
+
+### 2.9 IPC.writeTransactionData
 [-> IPCThreadState.cpp]
 
     status_t IPCThreadState::writeTransactionData(int32_t cmd, uint32_t binderFlags,
@@ -366,7 +410,7 @@ transact主要过程:
         return NO_ERROR;
     }
 
-### 2.7 IPC.waitForResponse
+### 2.10 IPC.waitForResponse
 
     status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
     {
@@ -374,24 +418,23 @@ transact主要过程:
         int32_t err;
 
         while (1) {
-            if ((err=talkWithDriver()) < NO_ERROR) break; // 【见小节2.8】
+            if ((err=talkWithDriver()) < NO_ERROR) break; // 【见小节2.11】
             err = mIn.errorCheck();
-            //当存在error则退出循环，最终将error返回给transact过程
-            if (err < NO_ERROR) break;
+            if (err < NO_ERROR) break; //当存在error则退出循环
 
-            //当mDataSize > mDataPos则代表有可用数据，往下执行
-            if (mIn.dataAvail() == 0) continue;
+            if (mIn.dataAvail() == 0) continue;  //mIn有数据则往下执行
 
             cmd = mIn.readInt32();
 
             switch (cmd) {
-            case BR_TRANSACTION_COMPLETE:
-                if (!reply && !acquireResult) goto finish;
-                break;
-            ...
+            case BR_TRANSACTION_COMPLETE: ...    goto finish;
+            case BR_DEAD_REPLY: ...     goto finish;
+            case BR_FAILED_REPLY:...    goto finish;
+            case BR_REPLY: ...    goto finish;
+
 
             default:
-                err = executeCommand(cmd);  //【见小节2.9】
+                err = executeCommand(cmd);  //【见小节2.10.1】
                 if (err != NO_ERROR) goto finish;
                 break;
             }
@@ -399,17 +442,44 @@ transact主要过程:
 
     finish:
         if (err != NO_ERROR) {
-            if (reply) reply->setError(err);
+            if (reply) reply->setError(err); //将发送的错误代码返回给最初的调用者
         }
         return err;
     }
 
-这里有了真正跟binder driver大交道的地方，那就是talkWithDriver.
+- BR_TRANSACTION_COMPLETE: binder驱动收到BC_TRANSACTION事件后的应答消息; 对于oneway transaction,当收到该消息,则完成了本次Binder通信;
+- BR_DEAD_REPLY: 回复失败，往往是线程或节点为空. 则结束本次通信Binder;
+- BR_FAILED_REPLY:回复失败，往往是transaction出错导致. 则结束本次通信Binder;
+- BR_REPLY: Binder驱动向Client端发送回应消息; 对于非oneway transaction时,当收到该消息,则完整地完成本次Binder通信;
 
-### 2.8  IPC.talkWithDriver
+**规律:** BC_TRANSACTION +  BC_REPLY =  BR_TRANSACTION_COMPLETE +  BR_DEAD_REPLY +  BR_FAILED_REPLY
 
-此时mOut有数据，mIn还没有数据。doReceive默认值为true
+#### 2.10.1  IPC.executeCommand
 
+status_t IPCThreadState::executeCommand(int32_t cmd)
+{
+    BBinder* obj;
+    RefBase::weakref_type* refs;
+    status_t result = NO_ERROR;
+
+    switch ((uint32_t)cmd) {
+    case BR_ERROR: ...
+    case BR_OK: ...
+    case BR_ACQUIRE: ...
+    case BR_RELEASE: ...
+    case BR_INCREFS: ...
+    case BR_TRANSACTION: ... //Binder驱动向Server端发送消息
+    case BR_DEAD_BINDER: ...
+    case BR_CLEAR_DEATH_NOTIFICATION_DONE: ...
+    case BR_NOOP: ...
+    case BR_SPAWN_LOOPER: ... //创建新binder线程
+    default: ...
+    }
+}
+### 2.11  IPC.talkWithDriver
+
+
+    //mOut有数据，mIn还没有数据。doReceive默认值为true
     status_t IPCThreadState::talkWithDriver(bool doReceive)
     {
         binder_write_read bwr;
@@ -461,62 +531,47 @@ transact主要过程:
     }
 
 
-[binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。
-
-### 2.9 IPC.executeCommand
-
-[add Service](http://gityuan.com/2015/11/14/binder-add-service/)
-
-...
+[binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。 ioctl()方法经过syscall最终调用到Binder_ioctl()方法.
 
 ## 三、Binder driver
 
 ### 3.1 Binder_ioctl
 
-由【小节2.8】传递过出来的参数cmd=BINDER_WRITE_READ
+由【小节2.11】传递过出来的参数 cmd=`BINDER_WRITE_READ`
 
     static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     {
-    	int ret;
-    	struct binder_proc *proc = filp->private_data;
-    	struct binder_thread *thread;
+        int ret;
+        struct binder_proc *proc = filp->private_data;
+        struct binder_thread *thread;
 
-      //当binder_stop_on_user_error>=2，则该线程加入等待队列，进入休眠状态
-    	ret = wait_event_interruptible(binder_user_error_wait, binder_stop_on_user_error < 2);
-      ...
-    	binder_lock(__func__);
-      // 从binder_proc中查找binder_thread,如果当前线程已经加入到proc的线程队列则直接返回，
-      // 如果不存在则创建binder_thread，并将当前线程添加到当前的proc
-    	thread = binder_get_thread(proc);
-    	if (thread == NULL) {
-    		ret = -ENOMEM;
-    		goto err;
-    	}
-    	switch (cmd) {
-    	case BINDER_WRITE_READ:
-        //【见小节3.2】
-    		ret = binder_ioctl_write_read(filp, cmd, arg, thread);
-    		if (ret)
-    			goto err;
-    		break;
-    	...
-    	}
-    	default:
-    		ret = -EINVAL;
-    		goto err;
-    	}
-    	ret = 0;
+        //当binder_stop_on_user_error>=2时，则该线程加入等待队列并进入休眠状态. 该值默认为0
+        ret = wait_event_interruptible(binder_user_error_wait, binder_stop_on_user_error < 2);
+        ...
+        binder_lock(__func__);
+        // 从binder_proc中查找binder_thread,如果当前线程已经加入到proc的线程队列则直接返回，
+        // 如果不存在则创建binder_thread，并将当前线程添加到当前的proc
+        thread = binder_get_thread(proc);
+        ...
+        switch (cmd) {
+            case BINDER_WRITE_READ:
+                //【见小节3.2】
+                ret = binder_ioctl_write_read(filp, cmd, arg, thread);
+                break;
+            ...
+        }
+        ret = 0;
+
     err:
-    	if (thread)
-    		thread->looper &= ~BINDER_LOOPER_STATE_NEED_RETURN;
-    	binder_unlock(__func__);
-      //当binder_stop_on_user_error>=2，则该线程加入等待队列，进入休眠状态
-    	wait_event_interruptible(binder_user_error_wait, binder_stop_on_user_error < 2);
-    	return ret;
+        if (thread)
+            thread->looper &= ~BINDER_LOOPER_STATE_NEED_RETURN;
+        binder_unlock(__func__);
+        wait_event_interruptible(binder_user_error_wait, binder_stop_on_user_error < 2);
+        return ret;
     }
 
 
-- 当返回值为-ENOMEM，则意味着内存不足，无法创建binder_thread对象。
+- 当返回值为-ENOMEM，则意味着内存不足，往往会出现创建binder_thread对象失败;
 - 当返回值为-EINVAL，则意味着CMD命令参数无效；
 
 ### 3.2  binder_ioctl_write_read
@@ -524,67 +579,67 @@ transact主要过程:
 此时arg是一个`binder_write_read`结构体，`mOut`数据保存在write_buffer，所以write_size>0，但此时read_size=0。
 
     static int binder_ioctl_write_read(struct file *filp,
-    				unsigned int cmd, unsigned long arg,
-    				struct binder_thread *thread)
+                    unsigned int cmd, unsigned long arg,
+                    struct binder_thread *thread)
     {
-    	int ret = 0;
-    	struct binder_proc *proc = filp->private_data;
-    	unsigned int size = _IOC_SIZE(cmd);
-    	void __user *ubuf = (void __user *)arg;
-    	struct binder_write_read bwr;
-    	if (size != sizeof(struct binder_write_read)) {
-    		ret = -EINVAL;
-    		goto out;
-    	}
-      //将用户空间bwr结构体拷贝到内核空间
-    	if (copy_from_user(&bwr, ubuf, sizeof(bwr))) {
-    		ret = -EFAULT;
-    		goto out;
-    	}
+        int ret = 0;
+        struct binder_proc *proc = filp->private_data;
+        unsigned int size = _IOC_SIZE(cmd);
+        void __user *ubuf = (void __user *)arg;
+        struct binder_write_read bwr;
+        if (size != sizeof(struct binder_write_read)) {
+            ret = -EINVAL;
+            goto out;
+        }
+        //将用户空间bwr结构体拷贝到内核空间
+        if (copy_from_user(&bwr, ubuf, sizeof(bwr))) {
+            ret = -EFAULT;
+            goto out;
+        }
 
-    	if (bwr.write_size > 0) {
-        //【见小节3.3】
-    		ret = binder_thread_write(proc, thread,
-    					  bwr.write_buffer,
-    					  bwr.write_size,
-    					  &bwr.write_consumed);
-        //当执行失败，则直接将内核bwr结构体写回用户空间，并跳出该方法
-    		if (ret < 0) {
-    			bwr.read_consumed = 0;
-    			if (copy_to_user(ubuf, &bwr, sizeof(bwr)))
-    				ret = -EFAULT;
-    			goto out;
-    		}
-    	}
-    	if (bwr.read_size > 0) {
+        if (bwr.write_size > 0) {
+            //【见小节3.3】
+            ret = binder_thread_write(proc, thread,
+                          bwr.write_buffer,
+                          bwr.write_size,
+                          &bwr.write_consumed);
+            //当执行失败，则直接将内核bwr结构体写回用户空间，并跳出该方法
+            if (ret < 0) {
+                bwr.read_consumed = 0;
+                if (copy_to_user(ubuf, &bwr, sizeof(bwr)))
+                    ret = -EFAULT;
+                goto out;
+            }
+        }
+        if (bwr.read_size > 0) {
         ...
-    	}
+        }
 
-    	if (copy_to_user(ubuf, &bwr, sizeof(bwr))) {
-    		ret = -EFAULT;
-    		goto out;
-    	}
+        if (copy_to_user(ubuf, &bwr, sizeof(bwr))) {
+            ret = -EFAULT;
+            goto out;
+        }
     out:
-    	return ret;
+        return ret;
     }   
 
 ### 3.3 binder_thread_write
 
     static int binder_thread_write(struct binder_proc *proc,
-    			struct binder_thread *thread,
-    			binder_uintptr_t binder_buffer, size_t size,
-    			binder_size_t *consumed)
+                struct binder_thread *thread,
+                binder_uintptr_t binder_buffer, size_t size,
+                binder_size_t *consumed)
     {
-    	uint32_t cmd;
-    	void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
-    	void __user *ptr = buffer + *consumed;
-    	void __user *end = buffer + size;
-    	while (ptr < end && thread->return_error == BR_OK) {
+        uint32_t cmd;
+        void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
+        void __user *ptr = buffer + *consumed;
+        void __user *end = buffer + size;
+        while (ptr < end && thread->return_error == BR_OK) {
         //拷贝用户空间的cmd命令，此时为BC_TRANSACTION
-    		if (get_user(cmd, (uint32_t __user *)ptr))
-    			return -EFAULT;
-    		ptr += sizeof(uint32_t);
-    		switch (cmd) {
+            if (get_user(cmd, (uint32_t __user *)ptr))
+                return -EFAULT;
+            ptr += sizeof(uint32_t);
+            switch (cmd) {
           case BC_TRANSACTION:{
             struct binder_transaction_data tr;
             //拷贝用户空间的binder_transaction_data
@@ -734,4 +789,44 @@ transact主要过程:
     }
 
 
-未完待续。。。
+
+
+### 其他
+
+AMP.startService
+    BinderProxy.transact
+        android_util_Binder.android_os_BinderProxy_transact
+            BpBinder.transact
+                IPC.transact
+                    IPC.writeTransactionData
+                    IPC.waitForResponse
+
+#### Parcel.recycle
+
+    public final void recycle() {
+        //释放native parcel对象
+        freeBuffer();
+        final Parcel[] pool;
+        //根据情况来选择加入相应池
+        if (mOwnsNativeParcelObject) {
+            pool = sOwnedPool;
+        } else {
+            mNativePtr = 0;
+            pool = sHolderPool;
+        }
+        synchronized (pool) {
+            for (int i=0; i<POOL_SIZE; i++) {
+                if (pool[i] == null) {
+                    pool[i] = this;
+                    return;
+                }
+            }
+        }
+    }
+
+将不再使用的Parcel对象放入缓存池，可回收重复利用，当缓存池已满则不再加入缓存池。这里有两个Parcel线程池,`mOwnsNativeParcelObject`变量来决定, 首次创建Parcel对象`mOwnsNativeParcelObject`=true, 直接从线程池获取的Parcel对象则为false.
+
+- `mOwnsNativeParcelObject`=true, 即首次创建对的Parcel对象不再使用时, 会放入`sOwnedPool`对象池;
+- `mOwnsNativeParcelObject`=false, 即首直接从线程池获取的Parcel对象时, 会放入`sHolderPool`对象池;
+
+未完待续。。。 未成品!!!

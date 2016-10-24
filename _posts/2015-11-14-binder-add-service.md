@@ -572,7 +572,7 @@ IPCThreadState进行transact事务处理分3部分：
             break;
 
         case BR_SPAWN_LOOPER:
-            //收到来自驱动的指示以创建一个新线程，用于和Binder通信 【见流程17】
+            //收到来自驱动的指示以创建一个新线程，用于和Binder通信 【见流程15】
             mProcess->spawnPooledThread(false);
             break;
 
