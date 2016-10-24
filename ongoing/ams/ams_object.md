@@ -105,6 +105,14 @@ mProcessNames
 
 ActivityRecord -> Task -> ActivityStack -> ActivityDisplay -> mActivityDisplays
 
+mActivityDisplays.valueAt(displayNdx).mStacks
+
+
+LAUNCH_MULTIPLE
+LAUNCH_SINGLE_TOP
+LAUNCH_SINGLE_TASK
+LAUNCH_SINGLE_INSTANCE
+
 ### 继承关系
 
 PackageItemInfo

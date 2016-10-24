@@ -189,3 +189,8 @@ android_util_Binder.cpp
 android_os_Parcel.cpp
 
     signalExceptionForError
+		
+###
+
+setprop ctl.start bootanim //启动开机动画
+setprop ctl.stop bootanim  //关闭开机动画
