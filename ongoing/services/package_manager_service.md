@@ -28,7 +28,7 @@ IPackageManager.aidl由工具转换后自动生成binder的服务端IPackageMana
 
 	PackageManagerService extends IPackageManager.Stub
 	ApplicationPackageManager extends PackageManager
-	abstract PackageManager
+	PackageManager
 	
 ## 二. 源码
 
@@ -49,5 +49,5 @@ IPackageManager.aidl由工具转换后自动生成binder的服务端IPackageMana
 
 				return null;
 		}
-		
+
 mSettings.addSharedUserLPw

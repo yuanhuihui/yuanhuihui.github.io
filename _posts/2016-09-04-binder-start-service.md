@@ -181,18 +181,19 @@ nativeCreate这是native方法,经过JNI进入native层, 调用android_os_Parcel
     }
 
 
-**Tips:** 除了writeString(),在`Parcel.java`中大量的native方法, 这样一个调用流程: `Parcel.java`调用`android_os_Parcel.cpp`相对应的方法, 该方法再调用`Parcel.cpp`中对应的方法.
+**Tips:** 除了writeString(),在`Parcel.java`中大量的native方法, 都是调用`android_os_Parcel.cpp`相对应的方法, 该方法再调用`Parcel.cpp`中对应的方法.    
+调用流程:    Parcel.java -->  android_os_Parcel.cpp  --> Parcel.cpp.
 
     /frameworks/base/core/java/android/os/Parcel.java
     /frameworks/base/core/jni/android_os_Parcel.cpp
     /frameworks/native/libs/binder/Parcel.cpp
 
 
+简单说,就是
 
 ### 2.4 mRemote究竟为何物
 
-
-先说说AMP的创建是由ActivityManagerNative.getDefault()来获取的
+mRemote的出生,要出先说说ActivityManagerProxy对象(简称AMP)创建说起, AMP是通过ActivityManagerNative.getDefault()来获取的.
 
 #### 2.4.1 AMN.getDefault
 [-> ActivityManagerNative.java]
@@ -202,7 +203,7 @@ nativeCreate这是native方法,经过JNI进入native层, 调用android_os_Parcel
         return gDefault.get();
     }
 
-gDefault的数据类型为Singleton<IActivityManager>, 接下来看看Singleto.get()的过程
+gDefault的数据类型为`Singleton<IActivityManager>`, 这是一个单例模式, 接下来看看Singleto.get()的过程
 
 #### 2.4.2 gDefault.get
 
@@ -218,7 +219,7 @@ gDefault的数据类型为Singleton<IActivityManager>, 接下来看看Singleto.g
         }
     }
 
-首次调用时需要创建,创建完之后保持到mInstance对象,后面可以直接使用.
+首次调用时需要创建,创建完之后保持到mInstance对象,之后可直接使用.
 
 #### 2.4.3 gDefault.create
 
@@ -243,12 +244,12 @@ gDefault的数据类型为Singleton<IActivityManager>, 接下来看看Singleto.g
             if (obj == null) {
                 return null;
             }
-            //此处obj = BinderProxy,  descriptor = "android.app.IActivityManager";
+            //此处obj = BinderProxy,  descriptor = "android.app.IActivityManager"; [见流程2.4.5]
             IActivityManager in = (IActivityManager)obj.queryLocalInterface(descriptor);
             if (in != null) { //此处为null
                 return in;
             }
-            //[见流程2.4.5]
+            //[见流程2.4.6]
             return new ActivityManagerProxy(obj);
         }
         ...
@@ -256,7 +257,32 @@ gDefault的数据类型为Singleton<IActivityManager>, 接下来看看Singleto.g
 
 此时obj为BinderProxy对象, 记录着远程进程system_server中AMS服务的binder线程的handle.
 
-#### 2.4.5 创建AMP
+#### 2.4.5  queryLocalInterface
+[Binder.java]
+
+    public class Binder implements IBinder {
+        //对于Binder对象的调用,则返回值不为空
+        public IInterface queryLocalInterface(String descriptor) {
+            //mDescriptor的初始化在attachInterface()过程中赋值
+            if (mDescriptor.equals(descriptor)) {
+                return mOwner;
+            }
+            return null;
+        }
+    }
+
+    //由上一小节[2.4.4]调用的流程便是此处,返回Null
+    final class BinderProxy implements IBinder {
+        //BinderProxy对象的调用, 则返回值为空
+        public IInterface queryLocalInterface(String descriptor) {
+            return null;
+        }
+    }
+
+对于Binder IPC的过程中, 同一个进程的调用则会是asInterface()方法返回的便是本地的Binder对象;对于不同进程的调用则会是远程代理对象BinderProxy.
+
+
+#### 2.4.6 创建AMP
 [-> ActivityManagerNative.java :: AMP]
 
     class ActivityManagerProxy implements IActivityManager
@@ -267,7 +293,7 @@ gDefault的数据类型为Singleton<IActivityManager>, 接下来看看Singleto.g
         }
     }
 
-可知mRemote便是指向AMS服务的BinderProxy对象。
+可知`mRemote`便是指向AMS服务的`BinderProxy`对象。
 
 ### 2.5 mRemote.transact
 [-> Binder.java ::BinderProxy]
@@ -281,8 +307,9 @@ gDefault的数据类型为Singleton<IActivityManager>, 接下来看看Singleto.g
         }
     }
 
-mRemote.transact(START_SERVICE_TRANSACTION, data, reply, 0);其中data保存了descriptor，caller, intent, resolvedType, callingPackage, userId这6项信息。
-transactNative这是native方法，经过jni调用android_os_BinderProxy_transact方法。
+mRemote.transact()方法中的code=START_SERVICE_TRANSACTION, data保存了`descriptor`，`caller`, `intent`, `resolvedType`, `callingPackage`, `userId`这6项信息。
+
+transactNative是native方法，经过jni调用android_os_BinderProxy_transact方法。
 
 ### 2.6 android_os_BinderProxy_transact
 [-> android_util_Binder.cpp]
@@ -303,18 +330,14 @@ transactNative这是native方法，经过jni调用android_os_BinderProxy_transac
         status_t err = target->transact(code, *data, reply, flags);
         ...
 
-        if (err == NO_ERROR) {
-            return JNI_TRUE;
-        } else if (err == UNKNOWN_TRANSACTION) {
-            return JNI_FALSE;
-        }
         //最后根据transact执行具体情况，抛出相应的Exception
         signalExceptionForError(env, obj, err, true , data->dataSize());
         return JNI_FALSE;
     }
 
-gBinderProxyOffsets.mObject中保存的是new BpBinder(handle)对象, 这个是在系统开机过程中,Zygote会调用AndroidRuntime::startReg方法来完成jni方法的注册,
-其中就有register_android_os_Binder()过程就有一个初始并注册BinderProxy的操作,就在此时完成了gBinderProxyOffsets的赋值过程. 即然mObject保持的是BpBinder,接下来就进入该方法.
+gBinderProxyOffsets.mObject中保存的是`BpBinder`对象, 这是开机时Zygote调用`AndroidRuntime::startReg`方法来完成jni方法的注册.
+
+其中register_android_os_Binder()过程就有一个初始并注册BinderProxy的操作,完成gBinderProxyOffsets的赋值过程. 接下来就进入该方法.
 
 ### 2.7 BpBinder.transact
 [-> BpBinder.cpp]
@@ -376,8 +399,8 @@ transact主要过程:
 
 此处调用waitForResponse根据是否有设置`TF_ONE_WAY`的标记:
 
-- 当设置oneway时, 则调用waitForResponse(NULL, NULL);
-- 当没有设置oneway时, 则调用waitForResponse(reply)或waitForResponse(&fakeReply)
+- 当已设置oneway时, 则调用waitForResponse(NULL, NULL);
+- 当未设置oneway时, 则调用waitForResponse(reply) 或 waitForResponse(&fakeReply)
 
 
 ### 2.9 IPC.writeTransactionData
@@ -410,6 +433,8 @@ transact主要过程:
         return NO_ERROR;
     }
 
+将数据写入mOut
+
 ### 2.10 IPC.waitForResponse
 
     status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
@@ -427,10 +452,10 @@ transact主要过程:
             cmd = mIn.readInt32();
 
             switch (cmd) {
-            case BR_TRANSACTION_COMPLETE: ...    goto finish;
-            case BR_DEAD_REPLY: ...     goto finish;
-            case BR_FAILED_REPLY:...    goto finish;
-            case BR_REPLY: ...    goto finish;
+            case BR_TRANSACTION_COMPLETE: ... goto finish;
+            case BR_DEAD_REPLY: ...           goto finish;
+            case BR_FAILED_REPLY: ...         goto finish;
+            case BR_REPLY: ...                goto finish;
 
 
             default:
@@ -447,6 +472,8 @@ transact主要过程:
         return err;
     }
 
+在这个过程中, 常见的几个BR_命令:
+
 - BR_TRANSACTION_COMPLETE: binder驱动收到BC_TRANSACTION事件后的应答消息; 对于oneway transaction,当收到该消息,则完成了本次Binder通信;
 - BR_DEAD_REPLY: 回复失败，往往是线程或节点为空. 则结束本次通信Binder;
 - BR_FAILED_REPLY:回复失败，往往是transaction出错导致. 则结束本次通信Binder;
@@ -456,26 +483,29 @@ transact主要过程:
 
 #### 2.10.1  IPC.executeCommand
 
-status_t IPCThreadState::executeCommand(int32_t cmd)
-{
-    BBinder* obj;
-    RefBase::weakref_type* refs;
-    status_t result = NO_ERROR;
+    status_t IPCThreadState::executeCommand(int32_t cmd)
+    {
+        BBinder* obj;
+        RefBase::weakref_type* refs;
+        status_t result = NO_ERROR;
 
-    switch ((uint32_t)cmd) {
-    case BR_ERROR: ...
-    case BR_OK: ...
-    case BR_ACQUIRE: ...
-    case BR_RELEASE: ...
-    case BR_INCREFS: ...
-    case BR_TRANSACTION: ... //Binder驱动向Server端发送消息
-    case BR_DEAD_BINDER: ...
-    case BR_CLEAR_DEATH_NOTIFICATION_DONE: ...
-    case BR_NOOP: ...
-    case BR_SPAWN_LOOPER: ... //创建新binder线程
-    default: ...
+        switch ((uint32_t)cmd) {
+        case BR_ERROR: ...
+        case BR_OK: ...
+        case BR_ACQUIRE: ...
+        case BR_RELEASE: ...
+        case BR_INCREFS: ...
+        case BR_TRANSACTION: ... //Binder驱动向Server端发送消息
+        case BR_DEAD_BINDER: ...
+        case BR_CLEAR_DEATH_NOTIFICATION_DONE: ...
+        case BR_NOOP: ...
+        case BR_SPAWN_LOOPER: ... //创建新binder线程
+        default: ...
+        }
     }
-}
+
+处于剩余的BR_命令.
+
 ### 2.11  IPC.talkWithDriver
 
 
@@ -535,7 +565,8 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
 
 ## 三、Binder driver
 
-### 3.1 Binder_ioctl
+### 3.1 binder_ioctl
+[-> Binder.c]
 
 由【小节2.11】传递过出来的参数 cmd=`BINDER_WRITE_READ`
 
@@ -549,8 +580,7 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
         ret = wait_event_interruptible(binder_user_error_wait, binder_stop_on_user_error < 2);
         ...
         binder_lock(__func__);
-        // 从binder_proc中查找binder_thread,如果当前线程已经加入到proc的线程队列则直接返回，
-        // 如果不存在则创建binder_thread，并将当前线程添加到当前的proc
+        //查找或创建binder_thread结构体
         thread = binder_get_thread(proc);
         ...
         switch (cmd) {
@@ -570,13 +600,14 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
         return ret;
     }
 
+首先,根据传递过来的文件句柄指针获取相应的binder_proc结构体, 再从中查找binder_thread,如果当前线程已经加入到proc的线程队列则直接返回，
+如果不存在则创建binder_thread，并将当前线程添加到当前的proc.
+
 
 - 当返回值为-ENOMEM，则意味着内存不足，往往会出现创建binder_thread对象失败;
 - 当返回值为-EINVAL，则意味着CMD命令参数无效；
 
 ### 3.2  binder_ioctl_write_read
-
-此时arg是一个`binder_write_read`结构体，`mOut`数据保存在write_buffer，所以write_size>0，但此时read_size=0。
 
     static int binder_ioctl_write_read(struct file *filp,
                     unsigned int cmd, unsigned long arg,
@@ -623,6 +654,8 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
         return ret;
     }   
 
+此时arg是一个`binder_write_read`结构体，`mOut`数据保存在write_buffer，所以write_size>0，但此时read_size=0。首先,将用户空间bwr结构体拷贝到内核空间,然后执行binder_thread_write()操作.
+
 ### 3.3 binder_thread_write
 
     static int binder_thread_write(struct binder_proc *proc,
@@ -635,21 +668,20 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
         void __user *ptr = buffer + *consumed;
         void __user *end = buffer + size;
         while (ptr < end && thread->return_error == BR_OK) {
-        //拷贝用户空间的cmd命令，此时为BC_TRANSACTION
-            if (get_user(cmd, (uint32_t __user *)ptr))
-                return -EFAULT;
+            //拷贝用户空间的cmd命令，此时为BC_TRANSACTION
+            if (get_user(cmd, (uint32_t __user *)ptr)) -EFAULT;
             ptr += sizeof(uint32_t);
             switch (cmd) {
-          case BC_TRANSACTION:{
-            struct binder_transaction_data tr;
-            //拷贝用户空间的binder_transaction_data
-            if (copy_from_user(&tr, ptr, sizeof(tr)))
-              return -EFAULT;
-            ptr += sizeof(tr);
-            //【见小节3.4】
-            binder_transaction(proc, thread, &tr, cmd == BC_REPLY);
-            break;
-          }
+            case BC_TRANSACTION:{
+                struct binder_transaction_data tr;
+                //拷贝用户空间的binder_transaction_data
+                if (copy_from_user(&tr, ptr, sizeof(tr)))
+                  return -EFAULT;
+                ptr += sizeof(tr);
+                //【见小节3.4】
+                binder_transaction(proc, thread, &tr, cmd == BC_REPLY);
+                break;
+            }
           ...
         }
         *consumed = ptr - buffer;

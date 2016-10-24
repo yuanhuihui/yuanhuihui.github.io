@@ -86,7 +86,7 @@ fork -> clone()
 			exit_fs
 			exit_notify
 			schedule
-		
+
 到此该进程相关的所有资源都已释放，并处于EXIT_ZOMBIE状态。此时进程所占用的内存为内核栈、task_struct和hread_info结构体， 该进程存在的唯一目标就是向父进程提供信息。
 
 ### task
@@ -145,11 +145,11 @@ fork, vfork, __clone根据不同参数调用 clone， 再调用do_fork [kernel/f
 						设置TASK_UNINTERRUPTIBLE，保证不会运行
 						copy_flags
 						alloc_pid
-						
+
 - 线程: clone(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGCHLD, 0)
 - fork: clone(SIGCHLD)
 - vfork: clone(CLONE_VFORK | CLONE_VM | SIGCHLD, 0)
-		
+
 Linux 线程，也并非"轻量级进程"，在Linux看来线程一种进程间共享资源的方式，线程可看做是跟其他进程共享资源的进程。
 
 

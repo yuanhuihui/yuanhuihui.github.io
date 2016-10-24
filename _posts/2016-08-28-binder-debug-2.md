@@ -150,6 +150,8 @@ tags:
 
 `规律:` BC_TRANSACTION +  BC_REPLY =  BR_TRANSACTION_COMPLETE +  BR_DEAD_REPLY +  BR_FAILED_REPLY
 
+为什么是会是这样呢,因为每次BC_TRANSACTION或着BC_REPLY,都是有相应的BR_TRANSACTION_COMPLETE,在传输不出异常的情况下这个次数是相等,有时候并能transaction成功, 所以还需要加上BR_DEAD_REPLY和BR_FAILED_REPLY的情况.
+
 #### 2.2.2 进程统计信息
 
     proc 14328

@@ -18,7 +18,7 @@ tags:
 
 面对芸芸众生，无尽变数，系统以不变应万变，一招绝杀神技forceStop腾空出世，此处以adb指令的方式为例来说说其内部机理：
 
-    am force-stop pkgName 
+    am force-stop pkgName
     am force-stop --user 2 pkgName //只杀用户userId=2的相关信息
 
 force-stop命令杀掉所有用户空间下的包名pkgName相关的信息，也可以通过`--user`来指定用户Id。 当执行上述am指令时，则会触发调用Am.java的main()方法，接下来从main方法开始说起。
@@ -29,7 +29,7 @@ force-stop命令杀掉所有用户空间下的包名pkgName相关的信息，也
     public static void main(String[] args) {
          (new Am()).run(args); //【见小节1.3】
     }
- 
+
 ### 1.3 Am.run
 [-> Am.java]
 
@@ -41,7 +41,7 @@ force-stop命令杀掉所有用户空间下的包名pkgName相关的信息，也
         onRun(); //【见小节1.4】
         ...
     }
-    
+
 ### 1.4 Am.onRun
 [-> Am.java]
 
@@ -92,7 +92,7 @@ force-stop命令杀掉所有用户空间下的包名pkgName相关的信息，也
          data.recycle();
          reply.recycle();
      }
-     
+
 ### 1.7 AMN.onTransact
 [-> ActivityManagerNative.java]
 
@@ -111,7 +111,7 @@ force-stop命令杀掉所有用户空间下的包名pkgName相关的信息，也
           ...
         }
     }
-    
+
 AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Driver后，进入system_server进程的一个binder线程来执行AMN.forceStopPackage，从这开始的操作(包括当前操作)便都运行在system_server系统进程。
 
 ### 1.8 小节
@@ -333,9 +333,9 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
                 if (app.removed) {
                     //已标记removed的进程，便是需要被杀的进程，加入procs队列
                     if (doit) {
-                        procs.add(app); 
+                        procs.add(app);
                     }
-                    continue; 
+                    continue;
                 }
 
                 if (app.setAdj < minOomAdj) {
@@ -753,6 +753,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
                 || prevState == ActivityState.STOPPED
                 || prevState == ActivityState.INITIALIZING) {
             r.makeFinishingLocked();
+            //[见流程4.3.6]
             boolean activityRemoved = destroyActivityLocked(r, true, "finish-imm");
             if (activityRemoved) {
                 mStackSupervisor.resumeTopActivitiesLocked();
@@ -772,6 +773,69 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
 1. 模式为FINISH_IMMEDIATELY
 2. 模式为FINISH_AFTER_PAUSE, 且Activity状态已处于PAUSED;
 3. Activity的状态为STOPPED或INITIALIZING.
+
+#### 4.3.6 AS.destroyActivityLocked
+
+    final boolean destroyActivityLocked(ActivityRecord r, boolean removeFromApp, String reason) {
+
+         boolean removedFromHistory = false;
+
+         cleanUpActivityLocked(r, false, false);
+         final boolean hadApp = r.app != null;
+
+         if (hadApp) {
+             if (removeFromApp) {
+                 r.app.activities.remove(r);
+                 if (mService.mHeavyWeightProcess == r.app && r.app.activities.size() <= 0) {
+                     mService.mHeavyWeightProcess = null;
+                     mService.mHandler.sendEmptyMessage(ActivityManagerService.CANCEL_HEAVY_NOTIFICATION_MSG);
+                 }
+                 if (r.app.activities.isEmpty()) {
+                     mService.mServices.updateServiceConnectionActivitiesLocked(r.app);
+                     mService.updateLruProcessLocked(r.app, false, null);
+                     mService.updateOomAdjLocked();
+                 }
+             }
+
+             boolean skipDestroy = false;
+
+             try {
+                 r.app.thread.scheduleDestroyActivity(r.appToken, r.finishing,
+                         r.configChangeFlags);
+             } catch (Exception e) {
+                 if (r.finishing) {
+                     //当发生crash,则将该activity从history移除
+                     removeActivityFromHistoryLocked(r, reason + " exceptionInScheduleDestroy");
+                     removedFromHistory = true;
+                     skipDestroy = true;
+                 }
+             }
+
+             r.nowVisible = false;
+
+             if (r.finishing && !skipDestroy) {
+                 r.state = ActivityState.DESTROYING;
+                 Message msg = mHandler.obtainMessage(DESTROY_TIMEOUT_MSG, r);
+                 mHandler.sendMessageDelayed(msg, DESTROY_TIMEOUT);
+             } else {
+                 r.state = ActivityState.DESTROYED;
+                 r.app = null;
+             }
+         } else {
+             if (r.finishing) {
+                 removeActivityFromHistoryLocked(r, reason + " hadNoApp");
+                 removedFromHistory = true;
+             } else {
+                 r.state = ActivityState.DESTROYED;
+                 r.app = null;
+             }
+         }
+
+         r.configChangeFlags = 0;
+         return removedFromHistory;
+     }
+
+
 
 ## 五. Service
 
@@ -1181,7 +1245,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
            getContext().registerReceiver(this, filter);
            ...
        }
-       
+
        @Override
        public void onReceive(Context context, Intent intent) {
            synchronized (mLock) {
@@ -1270,7 +1334,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
 
 调用NotificationManagerService.java
 中的cancelAllNotificationsInt()方法，从`mNotificationList`队列中移除包所相关的Notification.
-    
+
 ## 九. 级联诛杀
 
 这里就跟大家分享一段经历吧，记得之前有BAT的某浏览器大厂(具体名称就匿了)，浏览器会因为另一个app被杀而导致自己无辜被牵连所杀，并怀疑是ROM定制化导致的bug，于是发邮件向我厂请教缘由。
@@ -1289,7 +1353,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
        return mPackageInfo != null ?
                  mPackageInfo.getClassLoader() : ClassLoader.getSystemClassLoader();
      }
- 
+
 ### 9.2 LA.getClassLoader
 [-> LoadedApk.java]
 
@@ -1307,12 +1371,12 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
                 }
                 return mClassLoader;
             }
-            
+
             if (mRegisterPackage) {
                 //经过Binder，最终调用到AMS.addPackageDependency 【见小节9.3】
                 ActivityManagerNative.getDefault().addPackageDependency(mPackageName);
             }
-            
+
             ...
             mClassLoader = ApplicationLoaders.getDefault().getClassLoader(zip,
                     mApplicationInfo.targetSdkVersion, isBundledApp, librarySearchPath,
@@ -1343,9 +1407,9 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
             }
         }
     }
-  
+
 调用ClassLoader来加载启动包名时，则会将该包名加入到进程的pkgDeps。
-   
+
 ## 十. 总结
 
 forceStop的功能如下：
