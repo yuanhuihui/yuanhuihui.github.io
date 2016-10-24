@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Am命令的用法"
+title:  "Thread"
 date:   2016-02-27 20:55:51
 categories: android tool
 excerpt:  Thread底层机制
@@ -80,7 +80,6 @@ excerpt:  Thread底层机制
 	{
 	    void** args = (void**) malloc(3 * sizeof(void*));   // javaThreadShell must free
 	    int result;
-	    assert(threadName != NULL);
 	    args[0] = (void*) entryFunction;
 	    args[1] = userData;
 	    args[2] = (void*) strdup(threadName);   

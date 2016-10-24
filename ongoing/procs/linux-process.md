@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Linux内核"
+title:  "从Linux视角看进程"
 date:   2016-10-02 20:12:50
 catalog:  true
 tags:
@@ -9,7 +9,10 @@ tags:
 
 ---
 
-		linux/sched.h
+    kernel/include/linux/sched.h
+    bionic/libc/bionic/pthread_create.cpp
+    kernel/arch/arm/include/asm/thread_info.h
+
 		linux/kthread.h
     kernel/fork.c
 		kernel/exit.c
@@ -25,6 +28,16 @@ Linux的几个比较重要特点：
 - Linux支持多对称处理器(SMP)机制
 - Linux内核支持可抢占；
 - Linux内核并不区分进程和线程，对于内核而言，进程与线程无非是共享资源的区别罢了，对于CPU来说没有任何的区别。
+
+
+面试时我经过问进程与线程的区别，听到最多的答案就是 进程是资源管理的最小单位，线程是程序执行的最小单位，这是典型的教科书式的答案。
+
+进程与线程的发展演化的目标，是为了更快的创建进程/线程，更小的上下文切换开销，更好的支持SMP,HMP架构的CPU。
+线程上下文的切换比进程开销要小得多。
+
+### 何为上下文切换
+
+各个寄存器状态，pc指针
 
 ## 二. Linux
 
@@ -44,6 +57,10 @@ CPU的三种运行状态：
 - 运行在Kernel Space，处于中断上下文，处理相应的中断。
 
 
+
+- Linux进程创建： fork
+- Linux用户级线程创建：pthread_create
+- Linux内核线程创建： kthread_create
 
 ## 整体
 
@@ -109,6 +126,11 @@ pid最大值默认为32768，一般来说pid数值越大的进程创建时间越
 - TASK_UNINTERRUPTIBLE: 不可中断的休眠，只有条件达成才会唤醒，不响应任何信号，比如SIGKILL；
 - __TASK_TRACED: 被跟踪的状态，比如ptrace调试跟踪
 - __TASK_STOPPED: 停止状态，往往是收到SIGSTOP，SIGTSTP等信号，或者调试期间收到任何信号，都进入该状态。
+- EXIT_ZOMBIE:
+- EXIT_DEAD:
+
+http://blog.csdn.net/u012927281/article/details/52016191
+http://www.ibm.com/developerworks/cn/linux/l-linux-process-management/index.html
 
 【内核设计与实现 P24】
 
@@ -146,7 +168,7 @@ fork, vfork, __clone根据不同参数调用 clone， 再调用do_fork [kernel/f
 						copy_flags
 						alloc_pid
 
-- 线程: clone(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGCHLD, 0)
+- 线程: clone(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND, 0)
 - fork: clone(SIGCHLD)
 - vfork: clone(CLONE_VFORK | CLONE_VM | SIGCHLD, 0)
 
@@ -162,8 +184,15 @@ Linux 线程，也并非"轻量级进程"，在Linux看来线程一种进程间�
 
 ## 二. 线程创建
 
+libc库中pthread_create方法，
+
+pthread_create -> __pthread_create_2_1 -> create_thread -> do_clone
+
+## 其他
 
 多进程浏览器： IE浏览器，chrome浏览器
 单进程多线程浏览器：firefox浏览器
 
 《Linux内核设计与实现》
+
+http://www.ibm.com/developerworks/cn/linux/kernel/l-thread/
