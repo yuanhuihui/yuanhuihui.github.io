@@ -80,3 +80,9 @@ always ==> !always
 https://android-review.googlesource.com/#/c/281542/
 https://android-review.googlesource.com/#/c/247410/
 https://android-review.googlesource.com/#/c/286281/
+
+21. ams 权限问题
+https://android.googlesource.com/platform/frameworks/base/+/4498aa6c58664d29779131751592d8dc5f53ce9c%5E%21/#F0
+
+22. ams && wms
+https://android.googlesource.com/platform/frameworks/base/+/d9d35bdfcf0e18ae16c0f59290b860700fb6e62f%5E%21/#F0

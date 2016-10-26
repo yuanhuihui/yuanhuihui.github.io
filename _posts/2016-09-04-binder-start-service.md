@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "以Binder视角来看Service启动"
+title:  "彻底理解Binder通信过程"
 date:   2016-09-04 11:30:00
 catalog:  true
 tags:
@@ -8,29 +8,30 @@ tags:
     - binder
 ---
 
-## 一. 概述
+> 基于Android 6.0的源码剖析， 本文深度剖析Binder IPC过程
 
-在前面的文章[startService流程分析](http://gityuan.com/2016/03/06/start-service/)，从系统framework层详细介绍Service启动流程，首先在发起方进程调用startService，经过binder驱动，最终进入system_server进程的binder线程来执行ActivityManagerService模块的代码。见下图：
+## 一. 引言
 
-![Activity_Manager_Service](/images/android-service/am/Activity_Manager_Service.png)
+前面通过一个[Binder系列-开篇](http://gityuan.com/2015/10/31/binder-prepare/)来从源码讲解了Binder的各个层面, 但是Binder牵涉颇为广泛, 几乎是整个Android架构的顶梁柱, 虽说用了十几篇文章来阐述Binder的各个过程.
+但依然还是没有将Binder IPC(进程间通信)的过程彻底说透, 那么本文将从全新的视角,以[startService流程分析](http://gityuan.com/2016/03/06/start-service/)为例子来说说Binder所其作用.
 
-本文将进一步展开**AMP.startService是如何调用到AMS.startService, 在这个过程中Binder是如何发挥其进程间通信的功能.**
+首先在发起方进程调用AMP.startService，经过binder驱动，最终调用系统进程AMS.startService,如下图:
 
-### 继承关系
+![start_server_binder](/images/binder/binder_start_service/start_server_binder.jpg)
 
-先来看看AMP(ActivityManagerProxy)和AMS(ActivityManagerService)两者之间的关系。
+AMP和AMN都是实现了IActivityManager接口,AMS继承于AMN.  其中AMP作为Binder的客户端,运行在各个app所在进程, AMN(或AMS)运行在系统进程system_server.
+本文将进一步展开`AMP.startService是如何调用到AMS.startService的过程`.
 
-![activity_manager_classes](/images/android-service/am/activity_manager_classes.png)
+### 1.1 通信流程
 
-从上图可知：
+先来看一张整个通信流程图, 接下来详细介绍这个过程:
 
-- AMP也实现IActivityManager接口；
-- AMN实现了IActivityManager接口，继承于Binder对象(Binder服务端)；
-- AMS继承于AMN(抽象类);
+![binder_ipc_process](/images/binder/binder_start_service/binder_ipc_process.jpg)
 
-## 二. 分析
+## 二. IPC剖析
 
 ### 2.1 AMP.startService
+[-> ActivityManagerNative.java  ::ActivityManagerProxy]
 
     public ComponentName startService(IApplicationThread caller, Intent service,
                 String resolvedType, String callingPackage, int userId) throws RemoteException
@@ -594,7 +595,7 @@ transact主要过程:
 
 ## 三、Binder driver
 
-### 3.1 binder_ioctl
+#### 3.1 binder_ioctl
 [-> Binder.c]
 
 由【小节2.11】传递过出来的参数 cmd=`BINDER_WRITE_READ`
@@ -636,7 +637,7 @@ transact主要过程:
 - 当返回值为-ENOMEM，则意味着内存不足，往往会出现创建binder_thread对象失败;
 - 当返回值为-EINVAL，则意味着CMD命令参数无效；
 
-### 3.2  binder_ioctl_write_read
+#### 3.2  binder_ioctl_write_read
 
     static int binder_ioctl_write_read(struct file *filp,
                     unsigned int cmd, unsigned long arg,
@@ -698,7 +699,7 @@ transact主要过程:
 
 此时arg是一个`binder_write_read`结构体，`mOut`数据保存在write_buffer，所以write_size>0，但此时read_size=0。首先,将用户空间bwr结构体拷贝到内核空间,然后执行binder_thread_write()操作.
 
-### 3.3 binder_thread_write
+#### 3.3 binder_thread_write
 
     static int binder_thread_write(struct binder_proc *proc,
                 struct binder_thread *thread,
@@ -714,12 +715,13 @@ transact主要过程:
             if (get_user(cmd, (uint32_t __user *)ptr)) -EFAULT;
             ptr += sizeof(uint32_t);
             switch (cmd) {
-            case BC_TRANSACTION:{
+            case BC_TRANSACTION:
+            case BC_REPLY: {
                 struct binder_transaction_data tr;
                 //拷贝用户空间的binder_transaction_data
                 if (copy_from_user(&tr, ptr, sizeof(tr)))   return -EFAULT;
                 ptr += sizeof(tr);
-                //【见小节3.4】
+                // 见小节3.4】
                 binder_transaction(proc, thread, &tr, cmd == BC_REPLY);
                 break;
             }
@@ -730,9 +732,9 @@ transact主要过程:
       return 0;
     }
 
-不断从binder_buffer所指向的地址，获取并处理相应的binder_transaction_data。
+不断从binder_buffer所指向的地址获取cmd, 当只有`BC_TRANSACTION`或者`BC_REPLY`时, 则调用binder_transaction()来处理事务.
 
-### 3.4 binder_transaction
+#### 3.4 binder_transaction
 
 发送的是BC_TRANSACTION时，此时reply=0。
 
@@ -875,12 +877,12 @@ transact主要过程:
 主要功能:
 
 1. 查询目标进程的过程： handle -> binder_ref -> binder_node -> binder_proc
-2. 将新事务添加到目标队列target_list, 首次发起事务则目标队列为`target_proc->todo`, reply事务时则为`target_thread->todo`;  oneway的非reply事务,则为target_node->async_todo.
-3. 将BINDER_WORK_TRANSACTION_COMPLETE添加到当前线程的todo队列
+2. 将`BINDER_WORK_TRANSACTION`添加到目标队列target_list, 首次发起事务则目标队列为`target_proc->todo`, reply事务时则为`target_thread->todo`;  oneway的非reply事务,则为`target_node->async_todo`.
+3. 将`BINDER_WORK_TRANSACTION_COMPLETE`添加到当前线程的todo队列
 
 此时当前线程的todo队列已经有事务, 接下来便会进入binder_thread_read（）来处理相关的事务.
 
-### 3.5 binder_thread_read
+#### 3.5 binder_thread_read
 
     binder_thread_read（）{
         //当已使用字节数为0时，将BR_NOOP响应码放入指针ptr
@@ -894,17 +896,14 @@ transact主要过程:
         wait_for_proc_work = thread->transaction_stack == NULL &&
                 list_empty(&thread->todo);
         if (wait_for_proc_work) {
-            binder_set_nice(proc->default_priority);
             if (non_block) {
-                if (!binder_has_proc_work(proc, thread))
-                    ret = -EAGAIN;
+                ...
             } else
                 //当todo队列没有数据,则线程便在此处等待数据的到来
                 ret = wait_event_freezable_exclusive(proc->wait, binder_has_proc_work(proc, thread));
         } else {
             if (non_block) {
-                if (!binder_has_thread_work(thread))
-                    ret = -EAGAIN;
+                ...
             } else
                 //进入此分支,  当线程没有todo队列没有数据, 则进入当前线程wait队列等待
                 ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
@@ -913,7 +912,6 @@ transact主要过程:
             return ret; //对于非阻塞的调用，直接返回
 
         while (1) {
-            当&thread->todo和&proc->todo都为空时，goto到retry标志处，否则往下执行：
 
             uint32_t cmd;
             struct binder_transaction_data tr;
@@ -941,7 +939,8 @@ transact主要过程:
 
                 case BINDER_WORK_TRANSACTION_COMPLETE:
                     cmd = BR_TRANSACTION_COMPLETE;
-                    put_user(cmd, (uint32_t __user *)ptr)； //将BR_TRANSACTION_COMPLETE写入*ptr.
+                    //将BR_TRANSACTION_COMPLETE写入*ptr.
+                    put_user(cmd, (uint32_t __user *)ptr)；
                     list_del(&w->entry);
                     kfree(w);
                     break;
@@ -962,11 +961,11 @@ transact主要过程:
                 tr.cookie =  target_node->cookie;
                 t->saved_priority = task_nice(current);
                 ...
-                cmd = BR_TRANSACTION;  //BR_TRANSACTION
+                cmd = BR_TRANSACTION;  //设置命令为BR_TRANSACTION
             } else {
                 tr.target.ptr = NULL;
                 tr.cookie = NULL;
-                cmd = BR_REPLY; //应答事务
+                cmd = BR_REPLY; //设置命令为BR_REPLY
             }
             tr.code = t->code;
             tr.flags = t->flags;
@@ -1023,18 +1022,268 @@ transact主要过程:
         return 0;
     }
 
+
+- 当收到的是BINDER_WORK_TRANSACTION_COMPLETE, 则将命令BR_TRANSACTION_COMPLETE写回用户空间.
+- 当收到的是BINDER_WORK_TRANSACTION命令, 则将命令BR_TRANSACTION或BR_TRANSACTION写回用户空间.
+
+
 ## 四. 回到用户空间
 
-### 4.1
+#### 4.1 何去何从
 
-### 其他
+1. 执行完binder_thread_write方法后, 通过binder_transaction()首先写入`BINDER_WORK_TRANSACTION_COMPLETE`写入当前线程.
+2. 这时bwr.read_size > 0, 回到binder_ioctl_write_read方法, 便开始执行binder_thread_read();
+3. 在binder_thread_read()方法, 将获取cmd=BR_TRANSACTION_COMPLETE, 再将cmd和数据写回用户空间;
+4. 一次Binder_ioctl完成,接着回调用户空间方法talkWithDriver(),并且刚才的数据写入`mIn`.
+5. 这时mIn有可读数据, 回到waitForResponse()方法,完成BR_TRANSACTION_COMPLETE过程.
+6. 再回退到transact()方法, 对于oneway的操作, 这次Binder通信便完成, 否则还是要等待Binder服务端的返回.
 
-    AMP.startService
-        BinderProxy.transact
-            android_os_BinderProxy_transact.android_os_BinderProxy_transact
-                BpBinder.transact
-                    IPC.transact
-                        IPC.writeTransactionData
-                        IPC.waitForResponse
-                            IPC.talkWithDriver
-                                Binder_ioctl
+对于startService过程, 显然没有指定oneway的方式,那么发起者进程还会继续停留在waitForResponse()方法,等待收到BR_REPLY消息. 由于在前面binder_transaction过程中,除了向自己所在线程写入了BINDER_WORK_TRANSACTION_COMPLETE`, 还向目标进程(此处为system_server)写入了`BINDER_WORK_TRANSACTION`命令. 而此时system_server进程的binder线程一旦空闲便是停留在binder_thread_read()方法来处理进程/线程新的事务, 收到的是BINDER_WORK_TRANSACTION`命令, 经过binder_thread_read()后生成命令BR_TRANSACTION.同样的流程.
+
+接下来,从system_server的binder线程中waitForResponse()方法,收到BR_TRANSACTION消息,调用executeCommand()来处理, 见下文:
+
+
+####  4.2 IPC.executeCommand
+
+    status_t IPCThreadState::executeCommand(int32_t cmd)
+    {
+        BBinder* obj;
+        RefBase::weakref_type* refs;
+        status_t result = NO_ERROR;
+
+        switch ((uint32_t)cmd) {
+            ...
+            case BR_TRANSACTION:
+            {
+                binder_transaction_data tr;
+                result = mIn.read(&tr, sizeof(tr)); //读取mIn数据
+                if (result != NO_ERROR) break;
+
+                Parcel buffer;
+                buffer.ipcSetDataReference(
+                    reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
+                    tr.data_size,
+                    reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
+                    tr.offsets_size/sizeof(binder_size_t), freeBuffer, this);
+
+                const pid_t origPid = mCallingPid;
+                const uid_t origUid = mCallingUid;
+                const int32_t origStrictModePolicy = mStrictModePolicy;
+                const int32_t origTransactionBinderFlags = mLastTransactionBinderFlags;
+
+                mCallingPid = tr.sender_pid;
+                mCallingUid = tr.sender_euid;
+                mLastTransactionBinderFlags = tr.flags;
+
+                int curPrio = getpriority(PRIO_PROCESS, mMyThreadId);
+                if (gDisableBackgroundScheduling) {
+                    ... //不进入此分支
+                } else {
+                    if (curPrio >= ANDROID_PRIORITY_BACKGROUND) {
+                        set_sched_policy(mMyThreadId, SP_BACKGROUND);
+                    }
+                }
+
+                Parcel reply;
+                status_t error;
+                if (tr.target.ptr) {
+                    //尝试通过弱引用获取强引用
+                    if (reinterpret_cast<RefBase::weakref_type*>(
+                            tr.target.ptr)->attemptIncStrong(this)) {
+                        // tr.cookie里存放的是BBinder子类JavaBBinder [见流程4.3]
+                        error = reinterpret_cast<BBinder*>(tr.cookie)->transact(tr.code, buffer,
+                                &reply, tr.flags);
+                        reinterpret_cast<BBinder*>(tr.cookie)->decStrong(this);
+                    } else {
+                        error = UNKNOWN_TRANSACTION;
+                    }
+
+                } else {
+                    error = the_context_object->transact(tr.code, buffer, &reply, tr.flags);
+                }
+
+                if ((tr.flags & TF_ONE_WAY) == 0) {
+                    if (error < NO_ERROR) reply.setError(error);
+                    sendReply(reply, 0);
+                }
+                ...
+            }
+            break;
+            ...
+        }
+        if (result != NO_ERROR) {
+            mLastError = result;
+        }
+        return result;
+    }
+
+#### 4.3   BBinder.transact
+[-> Binder.cpp ::BBinder ]
+
+    status_t BBinder::transact(
+        uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
+    {
+        data.setDataPosition(0);
+
+        status_t err = NO_ERROR;
+        switch (code) {
+            case PING_TRANSACTION:
+                reply->writeInt32(pingBinder());
+                break;
+            default:
+                err = onTransact(code, data, reply, flags); //【见流程4.4】
+                break;
+        }
+
+        if (reply != NULL) {
+            reply->setDataPosition(0);
+        }
+
+        return err;
+    }
+
+#### 4.4 JavaBBinder.onTransact
+[-> android_util_Binder.cpp]
+
+    virtual status_t onTransact(
+        uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags = 0)
+    {
+        JNIEnv* env = javavm_to_jnienv(mVM);
+
+        IPCThreadState* thread_state = IPCThreadState::self();
+
+        //调用Binder.execTransact [见流程4.5]
+        jboolean res = env->CallBooleanMethod(mObject, gBinderOffsets.mExecTransact,
+            code, reinterpret_cast<jlong>(&data), reinterpret_cast<jlong>(reply), flags);
+
+        jthrowable excep = env->ExceptionOccurred();
+        if (excep) {
+            res = JNI_FALSE;
+            //发生异常, 则清理JNI本地引用
+            env->DeleteLocalRef(excep);
+        }
+        ...
+
+        return res != JNI_FALSE ? NO_ERROR : UNKNOWN_TRANSACTION;
+    }
+
+还记得AndroidRuntime::startReg过程吗, 其中有一个过程便是register_android_os_Binder(),该过程会把gBinderOffsets.mExecTransact便是Binder.java中的execTransact()方法.详见见[Binder系列7—framework层分析](http://gityuan.com/2015/11/21/binder-framework/)文章中的第二节初始化的过程.
+
+另外,此处mObject是在服务注册addService过程,会调用writeStrongBinder方法, 将Binder对象传入了JavaBBinder构造函数的参数, 最终赋值给mObject. 在本次通信过程中Object为ActivityManagerNative对象.
+
+此处斗转星移, 从C++代码回到了Java代码. 进入AMN.execTransact, 由于AMN继续于Binder对象, 接下来进入Binder.execTransact
+
+#### 4.5 Binder.execTransact
+[Binder.java]
+
+    private boolean execTransact(int code, long dataObj, long replyObj,
+            int flags) {
+        Parcel data = Parcel.obtain(dataObj);
+        Parcel reply = Parcel.obtain(replyObj);
+
+        boolean res;
+        try {
+            // 调用子类AMN.onTransact方法 [见流程4.6]
+            res = onTransact(code, data, reply, flags);
+        } catch (RemoteException e) {
+            if ((flags & FLAG_ONEWAY) != 0) {
+                ...
+            } else {
+                //非oneway的方式,则会将异常写回reply
+                reply.setDataPosition(0);
+                reply.writeException(e);
+            }
+            res = true;
+        } catch (RuntimeException e) {
+            if ((flags & FLAG_ONEWAY) != 0) {
+                ...
+            } else {
+                reply.setDataPosition(0);
+                reply.writeException(e);
+            }
+            res = true;
+        } catch (OutOfMemoryError e) {
+            RuntimeException re = new RuntimeException("Out of memory", e);
+            reply.setDataPosition(0);
+            reply.writeException(re);
+            res = true;
+        }
+        reply.recycle();
+        data.recycle();
+        return res;
+    }
+
+当发生RemoteException, RuntimeException, OutOfMemoryError, 对于非oneway的情况下都会把异常传递给调用者.
+
+#### 4.6 AMN.onTransact
+[-> ActivityManagerNative.java]
+
+    public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+            throws RemoteException {
+        switch (code) {
+        ...
+         case START_SERVICE_TRANSACTION: {
+            data.enforceInterface(IActivityManager.descriptor);
+            IBinder b = data.readStrongBinder();
+            //生成ApplicationThreadNative的代理对象，即ApplicationThreadProxy对象
+            IApplicationThread app = ApplicationThreadNative.asInterface(b);
+            Intent service = Intent.CREATOR.createFromParcel(data);
+            String resolvedType = data.readString();
+            String callingPackage = data.readString();
+            int userId = data.readInt();
+            //调用ActivityManagerService的startService()方法【见流程4.7】
+            ComponentName cn = startService(app, service, resolvedType, callingPackage, userId);
+            reply.writeNoException();
+            ComponentName.writeToParcel(cn, reply);
+            return true;
+        }
+    }
+
+#### 4.7 AMS.startService
+
+    public ComponentName startService(IApplicationThread caller, Intent service,
+            String resolvedType, String callingPackage, int userId)
+            throws TransactionTooLargeException {
+
+        synchronized(this) {
+            ...
+            ComponentName res = mServices.startServiceLocked(caller, service,
+                    resolvedType, callingPid, callingUid, callingPackage, userId);
+            Binder.restoreCallingIdentity(origId);
+            return res;
+        }
+    }
+
+
+历经千山万水, 总算是进入了AMS.startService. 当system_server收到BR_TRANSACTION的过程后, 再经历一个类似的过程,将事件告知app所在进程service启动完成.过程基本一致,此处就不再展开.
+
+
+## 五. 总结
+
+本文详细地介绍如何从AMP.startService是如何通过Binder一步步调用进入到system_server进程的AMS.startService. 整个过程涉及Java framework, native, kernel driver各个层面知识. 仅仅一个Binder IPC调用, 就花费了如此大篇幅来讲解, 可见系统之庞大. 整个过程的调用流程:
+
+![binder_transaction](/images/binder/binder_start_service/binder_transaction.jpg)
+
+- Binder客户端或者服务端向Binder Driver发送的命令都是以BC_开头,例如本文的`BC_TRANSACTION`和`BC_REPLY`, 所有Binder Driver向Binder客户端或者服务端发送的命令则都是以BR_开头, 例如本文中的`BR_TRANSACTION`和`BR_REPLY`.
+- 只有当`BC_TRANSACTION`或者`BC_REPLY`时, 才调用binder_transaction()来处理事务. 并且都会回应调用者一个`BINDER_WORK_TRANSACTION_COMPLETE`事务, 经过binder_thread_read()会转变成`BR_TRANSACTION_COMPLETE`.
+- 本文从上至下,讲解了过程 BC_TRANSACTION --> BR_TRANSACTION_COMPLETE --> BR_TRANSACTION.
+有兴趣的同学可以再看看后面3个事务的处理:BC_REPLY --> BR_TRANSACTION_COMPLETE --> BR_REPLY,这两个流程基本是一致的.
+- oneway与非oneway的事务,都是需要等待Binder Driver的回应消息BR_TRANSACTION_COMPLETE. 主要的区别在于oneway的通信收到BR_TRANSACTION_COMPLETE便返回,而不会再等待BR_REPLY消息的到来.
+
+### oneway
+
+有人可能觉得好奇,为何oneway怎么还要等待回应消息? 我举个例子,你就明白了.
+
+你(app进程)要给远方的家人(system_server进程)邮寄一封信(transaction), 你需要通过邮寄员(Binder Driver)来完成.整个过程如下:
+
+1. 你把信交给邮寄员(`BC_TRANSACTION`);
+2. 邮寄员收到信后, 填一张单子给你作为一份回执(`BR_TRANSACTION_COMPLETE`). 这样你才放心知道邮递员已确定接收信, 否则就这样走了,信到底有没有交到邮递员手里都不知道,这样的通信实在太让人不省心, 长时间收不到远方家人的回信, 无法得知是在路的中途信件丢失呢,还是压根就没有交到邮递员的手里. 所以说oneway也得知道信是投递状态是否成功.
+3. 邮递员利用交通工具(Binder Driver),将信交给了你的家人(`BR_TRANSACTION`);
+
+当你收到回执(BR_TRANSACTION_COMPLETE)时心里也不期待家人回信, 那么这便是一次oneway的通信过程.  如果你希望家人回信, 那便是非oneway的过程,在上述步骤2后并不是直接返回,而是继续等待着收到家人的回信, 继续执行:
+
+4. 家人收到信后, 立马写了个回信交给邮递员`BC_REPLY`;
+5. 同样,邮递员要写一个回执(`BR_TRANSACTION_COMPLETE`)给你家人;
+6. 邮递员再次利用交通工具(Binder Driver), 将回信成功交到你的手上(`BR_REPLY`)
+
+这便是一次完成的非oneway通信过程.
