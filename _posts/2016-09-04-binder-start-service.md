@@ -52,7 +52,7 @@ tags:
         reply.readException();
         //根据reply数据来创建ComponentName对象
         ComponentName res = ComponentName.readFromParcel(reply);
-        //【见小节2.x】
+        //【见小节2.2.3】
         data.recycle();
         reply.recycle();
         return res;
@@ -123,6 +123,35 @@ nativeCreate这是native方法,经过JNI进入native层, 调用android_os_Parcel
     }
 
 创建C++层的Parcel对象, 该对象指针强制转换为long型, 并保存到Java层的`mNativePtr`对象. 创建完Parcel对象利用Parcel对象写数据. 接下来以writeString为例.
+
+
+#### 2.2.3 Parcel.recycle
+
+    public final void recycle() {
+        //释放native parcel对象
+        freeBuffer();
+        final Parcel[] pool;
+        //根据情况来选择加入相应池
+        if (mOwnsNativeParcelObject) {
+            pool = sOwnedPool;
+        } else {
+            mNativePtr = 0;
+            pool = sHolderPool;
+        }
+        synchronized (pool) {
+            for (int i=0; i<POOL_SIZE; i++) {
+                if (pool[i] == null) {
+                    pool[i] = this;
+                    return;
+                }
+            }
+        }
+    }
+
+将不再使用的Parcel对象放入缓存池，可回收重复利用，当缓存池已满则不再加入缓存池。这里有两个Parcel线程池,`mOwnsNativeParcelObject`变量来决定:
+
+- `mOwnsNativeParcelObject`=true,  即调用不带参数obtain()方法获取的对象, 回收时会放入`sOwnedPool`对象池;
+- `mOwnsNativeParcelObject`=false, 即调用带nativePtr参数的obtain(long)方法获取的对象, 回收时会放入`sHolderPool`对象池;
 
 ### 2.3 writeString
 [-> Parcel.java]
@@ -629,7 +658,7 @@ transact主要过程:
         }
 
         if (bwr.write_size > 0) {
-            //【见小节3.3】
+            //将数据放入目标进程【见小节3.3】
             ret = binder_thread_write(proc, thread,
                           bwr.write_buffer,
                           bwr.write_size,
@@ -637,13 +666,26 @@ transact主要过程:
             //当执行失败，则直接将内核bwr结构体写回用户空间，并跳出该方法
             if (ret < 0) {
                 bwr.read_consumed = 0;
-                if (copy_to_user(ubuf, &bwr, sizeof(bwr)))
+                if (copy_to_user_preempt_disabled(ubuf, &bwr, sizeof(bwr)))
                     ret = -EFAULT;
                 goto out;
             }
         }
         if (bwr.read_size > 0) {
-        ...
+            //读取自己队列的数据 【见小节3.5】
+            ret = binder_thread_read(proc, thread, bwr.read_buffer,
+                 bwr.read_size,
+                 &bwr.read_consumed,
+                 filp->f_flags & O_NONBLOCK);
+            //当进程的todo队列有数据,则唤醒在该队列等待的进程
+            if (!list_empty(&proc->todo))
+                wake_up_interruptible(&proc->wait);
+            //当执行失败，则直接将内核bwr结构体写回用户空间，并跳出该方法
+            if (ret < 0) {
+                if (copy_to_user_preempt_disabled(ubuf, &bwr, sizeof(bwr)))
+                    ret = -EFAULT;
+                goto out;
+            }
         }
 
         if (copy_to_user(ubuf, &bwr, sizeof(bwr))) {
@@ -681,7 +723,7 @@ transact主要过程:
                 binder_transaction(proc, thread, &tr, cmd == BC_REPLY);
                 break;
             }
-          ...
+            ...
         }
         *consumed = ptr - buffer;
       }
@@ -713,14 +755,16 @@ transact主要过程:
         }else {
             if (tr->target.handle) {
                 struct binder_ref *ref;
-                // 由handle 找到相应 binder_ref
+                // 由handle 找到相应 binder_ref, 由binder_ref 找到相应 binder_node
                 ref = binder_get_ref(proc, tr->target.handle);
-                // 由binder_ref 找到相应 binder_node
                 target_node = ref->node;
+            } else {
+                target_node = binder_context_mgr_node;
             }
             // 由binder_node 找到相应 binder_proc
             target_proc = target_node->proc;
         }
+
 
         if (target_thread) {
             e->to_thread = target_thread->pid;
@@ -740,11 +784,12 @@ transact主要过程:
             t->from = thread;
         else
             t->from = NULL;
+
         t->sender_euid = task_euid(proc->tsk);
-        t->to_proc = target_proc; //目标进程为system_server
+        t->to_proc = target_proc; //此次通信目标进程为system_server
         t->to_thread = target_thread;
-        t->code = tr->code;  //code = START_SERVICE_TRANSACTION
-        t->flags = tr->flags;  // flags = 0
+        t->code = tr->code;  //此次通信code = START_SERVICE_TRANSACTION
+        t->flags = tr->flags;  // 此次通信flags = 0
         t->priority = task_nice(current);
 
         //从目标进程中分配内存空间
@@ -756,7 +801,7 @@ transact主要过程:
         t->buffer->target_node = target_node;
 
         if (target_node)
-            binder_inc_node(target_node, 1, 0, NULL);
+            binder_inc_node(target_node, 1, 0, NULL); //引用计数加1
         offp = (binder_size_t *)(t->buffer->data + ALIGN(tr->data_size, sizeof(void *)));
 
         //分别拷贝用户空间的binder_transaction_data中ptr.buffer和ptr.offsets到内核
@@ -773,6 +818,7 @@ transact主要过程:
             ...
             case BINDER_TYPE_HANDLE:
             case BINDER_TYPE_WEAK_HANDLE: {
+                //处理引用计数情况
                 struct binder_ref *ref = binder_get_ref(proc, fp->handle);
                 if (ref->node->proc == target_proc) {
                     if (fp->type == BINDER_TYPE_HANDLE)
@@ -782,12 +828,11 @@ transact主要过程:
                     fp->binder = ref->node->ptr;
                     fp->cookie = ref->node->cookie;
                     binder_inc_node(ref->node, fp->type == BINDER_TYPE_BINDER, 0, NULL);
-                } else {
+                } else {    
                     struct binder_ref *new_ref;
                     new_ref = binder_get_ref_for_node(target_proc, ref->node);
                     fp->handle = new_ref->desc;
                     binder_inc_ref(new_ref, fp->type == BINDER_TYPE_HANDLE, NULL);
-                    trace_binder_transaction_ref_to_ref(t, ref, new_ref);
                 }
             } break;
             ...
@@ -801,64 +846,195 @@ transact主要过程:
         if (reply) {
             binder_pop_transaction(target_thread, in_reply_to);
         } else if (!(t->flags & TF_ONE_WAY)) {
+            //非reply 且 非oneway,则设置事务栈信息
             t->need_reply = 1;
             t->from_parent = thread->transaction_stack;
             thread->transaction_stack = t;
         } else {
+            //非reply 且 oneway,则加入异步todo队列
             if (target_node->has_async_transaction) {
                 target_list = &target_node->async_todo;
                 target_wait = NULL;
             } else
                 target_node->has_async_transaction = 1;
         }
+
+        //将新事务添加到目标队列
         t->work.type = BINDER_WORK_TRANSACTION;
         list_add_tail(&t->work.entry, target_list);
+
+        //将BINDER_WORK_TRANSACTION_COMPLETE添加到当前线程的todo队列
         tcomplete->type = BINDER_WORK_TRANSACTION_COMPLETE;
         list_add_tail(&tcomplete->entry, &thread->todo);
         if (target_wait)
-            wake_up_interruptible(target_wait);
+            wake_up_interruptible(target_wait); //唤醒等待队列
         return;
     }
 
 
-查询目标进程的过程： handle -> binder_ref -> binder_node -> binder_proc
+主要功能:
+
+1. 查询目标进程的过程： handle -> binder_ref -> binder_node -> binder_proc
+2. 将新事务添加到目标队列target_list, 首次发起事务则目标队列为`target_proc->todo`, reply事务时则为`target_thread->todo`;  oneway的非reply事务,则为target_node->async_todo.
+3. 将BINDER_WORK_TRANSACTION_COMPLETE添加到当前线程的todo队列
+
+此时当前线程的todo队列已经有事务, 接下来便会进入binder_thread_read（）来处理相关的事务.
+
+### 3.5 binder_thread_read
+
+    binder_thread_read（）{
+        //当已使用字节数为0时，将BR_NOOP响应码放入指针ptr
+        if (*consumed == 0) {
+                if (put_user(BR_NOOP, (uint32_t __user *)ptr))
+                    return -EFAULT;
+                ptr += sizeof(uint32_t);
+            }
+    retry:
+        //todo队列有数据,则为false
+        wait_for_proc_work = thread->transaction_stack == NULL &&
+                list_empty(&thread->todo);
+        if (wait_for_proc_work) {
+            binder_set_nice(proc->default_priority);
+            if (non_block) {
+                if (!binder_has_proc_work(proc, thread))
+                    ret = -EAGAIN;
+            } else
+                //当todo队列没有数据,则线程便在此处等待数据的到来
+                ret = wait_event_freezable_exclusive(proc->wait, binder_has_proc_work(proc, thread));
+        } else {
+            if (non_block) {
+                if (!binder_has_thread_work(thread))
+                    ret = -EAGAIN;
+            } else
+                //进入此分支,  当线程没有todo队列没有数据, 则进入当前线程wait队列等待
+                ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
+        }
+        if (ret)
+            return ret; //对于非阻塞的调用，直接返回
+
+        while (1) {
+            当&thread->todo和&proc->todo都为空时，goto到retry标志处，否则往下执行：
+
+            uint32_t cmd;
+            struct binder_transaction_data tr;
+            struct binder_work *w;
+            struct binder_transaction *t = NULL;
+            //先考虑从线程todo队列获取事务数据
+            if (!list_empty(&thread->todo)) {
+                w = list_first_entry(&thread->todo, struct binder_work, entry);
+            // 线程todo队列没有数据, 则从进程todo对获取事务数据
+            } else if (!list_empty(&proc->todo) && wait_for_proc_work) {
+                w = list_first_entry(&proc->todo, struct binder_work, entry);
+            } else {
+                //没有数据,则返回retry
+                if (ptr - buffer == 4 &&
+                    !(thread->looper & BINDER_LOOPER_STATE_NEED_RETURN))
+                    goto retry;
+                break;
+            }
+
+            switch (w->type) {
+                case BINDER_WORK_TRANSACTION:
+                    //获取transaction数据
+                    t = container_of(w, struct binder_transaction, work);
+                    break;
+
+                case BINDER_WORK_TRANSACTION_COMPLETE:
+                    cmd = BR_TRANSACTION_COMPLETE;
+                    put_user(cmd, (uint32_t __user *)ptr)； //将BR_TRANSACTION_COMPLETE写入*ptr.
+                    list_del(&w->entry);
+                    kfree(w);
+                    break;
+
+                case BINDER_WORK_NODE: ...    break;
+                case BINDER_WORK_DEAD_BINDER:
+                case BINDER_WORK_DEAD_BINDER_AND_CLEAR:
+                case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: ...   break;
+            }
+
+            if (!t)
+                continue; //只有BINDER_WORK_TRANSACTION命令才能继续往下执行
+
+            if (t->buffer->target_node) {
+                //获取目标node
+                struct binder_node *target_node = t->buffer->target_node;
+                tr.target.ptr = target_node->ptr;
+                tr.cookie =  target_node->cookie;
+                t->saved_priority = task_nice(current);
+                ...
+                cmd = BR_TRANSACTION;  //BR_TRANSACTION
+            } else {
+                tr.target.ptr = NULL;
+                tr.cookie = NULL;
+                cmd = BR_REPLY; //应答事务
+            }
+            tr.code = t->code;
+            tr.flags = t->flags;
+            tr.sender_euid = t->sender_euid;
+
+            if (t->from) {
+                struct task_struct *sender = t->from->proc->tsk;
+                tr.sender_pid = task_tgid_nr_ns(sender,
+                                current->nsproxy->pid_ns);
+            } else {
+                tr.sender_pid = 0;
+            }
+
+            tr.data_size = t->buffer->data_size;
+            tr.offsets_size = t->buffer->offsets_size;
+            tr.data.ptr.buffer = (void *)t->buffer->data +
+                        proc->user_buffer_offset;
+            tr.data.ptr.offsets = tr.data.ptr.buffer +
+                        ALIGN(t->buffer->data_size,
+                            sizeof(void *));
+
+            //将cmd和数据写回用户空间
+            if (put_user(cmd, (uint32_t __user *)ptr))
+                return -EFAULT;
+            ptr += sizeof(uint32_t);
+            if (copy_to_user(ptr, &tr, sizeof(tr)))
+                return -EFAULT;
+            ptr += sizeof(tr);
+
+            list_del(&t->work.entry);
+            t->buffer->allow_user_free = 1;
+            if (cmd == BR_TRANSACTION && !(t->flags & TF_ONE_WAY)) {
+                t->to_parent = thread->transaction_stack;
+                t->to_thread = thread;
+                thread->transaction_stack = t;
+            } else {
+                t->buffer->transaction = NULL;
+                kfree(t); //通信完成,则运行释放
+            }
+            break;
+        }
+    done:
+        *consumed = ptr - buffer;
+        //当满足请求线程加已准备线程数等于0，已启动线程数小于最大线程数(15)，
+        //且looper状态为已注册或已进入时创建新的线程。
+        if (proc->requested_threads + proc->ready_threads == 0 &&
+            proc->requested_threads_started < proc->max_threads &&
+            (thread->looper & (BINDER_LOOPER_STATE_REGISTERED |
+             BINDER_LOOPER_STATE_ENTERED))) {
+            proc->requested_threads++;
+            // 生成BR_SPAWN_LOOPER命令，用于创建新的线程
+            put_user(BR_SPAWN_LOOPER, (uint32_t __user *)buffer)；
+        }
+        return 0;
+    }
+
+## 四. 回到用户空间
+
+### 4.1
 
 ### 其他
 
-AMP.startService
-    BinderProxy.transact
-        android_util_Binder.android_os_BinderProxy_transact
-            BpBinder.transact
-                IPC.transact
-                    IPC.writeTransactionData
-                    IPC.waitForResponse
-
-#### Parcel.recycle
-
-    public final void recycle() {
-        //释放native parcel对象
-        freeBuffer();
-        final Parcel[] pool;
-        //根据情况来选择加入相应池
-        if (mOwnsNativeParcelObject) {
-            pool = sOwnedPool;
-        } else {
-            mNativePtr = 0;
-            pool = sHolderPool;
-        }
-        synchronized (pool) {
-            for (int i=0; i<POOL_SIZE; i++) {
-                if (pool[i] == null) {
-                    pool[i] = this;
-                    return;
-                }
-            }
-        }
-    }
-
-将不再使用的Parcel对象放入缓存池，可回收重复利用，当缓存池已满则不再加入缓存池。这里有两个Parcel线程池,`mOwnsNativeParcelObject`变量来决定, 首次创建Parcel对象`mOwnsNativeParcelObject`=true, 直接从线程池获取的Parcel对象则为false.
-
-- `mOwnsNativeParcelObject`=true, 即首次创建对的Parcel对象不再使用时, 会放入`sOwnedPool`对象池;
-- `mOwnsNativeParcelObject`=false, 即首直接从线程池获取的Parcel对象时, 会放入`sHolderPool`对象池;
-
-未完待续。。。 未成品!!!
+    AMP.startService
+        BinderProxy.transact
+            android_os_BinderProxy_transact.android_os_BinderProxy_transact
+                BpBinder.transact
+                    IPC.transact
+                        IPC.writeTransactionData
+                        IPC.waitForResponse
+                            IPC.talkWithDriver
+                                Binder_ioctl

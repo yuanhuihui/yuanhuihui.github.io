@@ -302,7 +302,8 @@ lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同a
                             //当前cacheadj不等于下一次cachedadj时
                             if (curCachedAdj != nextCachedAdj) {
                                 stepCached++;
-                                //当stepCached大于cachedFactor，则将nextCachedAdj赋值给curCachedAdj，并且nextCachedAdj加2，nextCachedAdj最大等于15；
+                                //当stepCached大于cachedFactor，则将nextCachedAdj赋值给curCachedAdj，
+                                // 并且nextCachedAdj加2，nextCachedAdj最大等于15；
                                 if (stepCached >= cachedFactor) {
                                     stepCached = 0;
                                     curCachedAdj = nextCachedAdj;
@@ -319,7 +320,8 @@ lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同a
                             //更新curCachedAdj值
                             if (curEmptyAdj != nextEmptyAdj) {
                                 stepEmpty++;
-                                //当stepEmpty大于emptyFactor，则将nextEmptyAdj赋值给curEmptyAdj，并且nextEmptyAdj加2，nextEmptyAdj最大等于15；
+                                //当stepEmpty大于emptyFactor，则将nextEmptyAdj赋值给curEmptyAdj，
+                                //并且nextEmptyAdj加2，nextEmptyAdj最大等于15；
                                 if (stepEmpty >= emptyFactor) {
                                     stepEmpty = 0;
                                     curEmptyAdj = nextEmptyAdj;
@@ -583,7 +585,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
     private final int computeOomAdjLocked(ProcessRecord app, int cachedAdj, ProcessRecord TOP_APP,
              boolean doingAll, long now)；
 
-该方法比较长，下面分几个部分来展开说明： (adj和procState的取值原则是以优先级高为主)
+该方法比较长，下面分几个部分来展开说明, 每一部分后主要功能便是设置adj和procState(进程状态)： (adj和procState的取值原则是以优先级高为主)
 
 
 #### 4.1 进程为空的情况
@@ -636,9 +638,9 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 该过程执行后将直接返回
 
  - curProcState = ActivityManager.PROCESS_STATE_PERSISTENT_UI;
- - curAdj = app.maxAdj
+ - curAdj = app.maxAdj (该Adj<=0)
 
-#### 4.3 计算adj和procState
+#### 4.3 前台的情况
 
      if (app == TOP_APP) {
          adj = ProcessList.FOREGROUND_APP_ADJ;
@@ -668,7 +670,8 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
          app.adjType = "exec-service";
          procState = ActivityManager.PROCESS_STATE_SERVICE;
      } else {
-         //top app; isReceivingBroadcast；executingServices；除此之外则为PROCESS_STATE_CACHED_EMPTY【】
+         //top app; isReceivingBroadcast；executingServices；
+         // 除此之外则为PROCESS_STATE_CACHED_EMPTY
          schedGroup = Process.THREAD_GROUP_BG_NONINTERACTIVE;
          adj = cachedAdj;
          procState = ActivityManager.PROCESS_STATE_CACHED_EMPTY;
@@ -691,9 +694,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
  |当instrumentation不为空时|adj=0|procState=4|
  |当进程存在正在接收的broadcastrecevier|adj=0|procState=11|
  |当进程存在正在执行的service|adj=0|procState=10|
- |以上条件都不符合|adj=cachedAdj|procState=16|
-
- 其中cachedAdj大于等于9，该值来源于computeOomAdjLocked输入参数
+ |以上条件都不符合|adj=cachedAd(>=0)j|procState=16|
 
 #### 4.4 非前台activity的情况
 
@@ -1413,4 +1414,4 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 - `applyOomAdjLocked`：应用adj，当需要杀掉目标进程则返回false；否则返回true。
 
 
-`updateOomAdjLocked`是更新adj中最为核心的方法, 其调用时机几乎涵盖的四大组件和进程的启动和结束的每一个步骤.
+`updateOomAdjLocked`是更新adj中最为核心的方法, computeOomAdjLocked和applyOomAdjLocked方法是供updateOomAdjLocked所调用的.
