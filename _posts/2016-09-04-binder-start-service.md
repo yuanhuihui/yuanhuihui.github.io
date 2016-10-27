@@ -16,7 +16,7 @@ tags:
 
 Android内核是基于Linux系统, 而Linux现存多种进程间IPC方式:管道, 消息队列, 共享内存, 套接字, 信号量, 信号. 为什么Android非要用Binder来进行进程间通信呢.
 从我个人的理解角度, 曾尝试着在知乎回答同样一个问题 [为什么Android要采用Binder作为IPC机制？](https://www.zhihu.com/question/39440766/answer/89210950).
-这是我第一次认认真真地在知乎上回答问题, 收到很多网友的点赞与回复, 让我很受鼓舞, 也决心分享更多优先地文章回报读者和粉丝, 为Android圈贡献自己的微薄之力.
+这是我第一次认认真真地在知乎上回答问题, 收到很多网友的点赞与回复, 让我很受鼓舞, 也决心分享更多优先地文章回报读者和粉丝, 为Android圈贡献自己的微薄之力. (当然,如果你愿意点击文章最后[打赏支持](http://gityuan.com/images/about-me/gityuan_pay.jpg)我,我会更高兴.^_^)
 
 在说到Binder架构之前, 先简单说说大家熟悉的TCP/IP的五层通信体系结构:
 
@@ -70,7 +70,7 @@ Binder通信采用C/S架构，从组件视角来说，包含Client、Server、Se
 图中Client/Server/ServiceManage之间的相互通信都是基于Binder机制。既然基于Binder机制通信，那么同样也是C/S架构，则图中的3大步骤都有相应的Client端与Server端。
 
 1. **注册服务**：首先AMS注册到ServiceManager。该过程：AMS所在进程(app 进程)是客户端，ServiceManager是服务端。
-2. **[取服务(getService**：Client进程使用AMS前，须先向ServiceManager中获取AMS的代理类AMP。该过程：AMP所在进程(system_server)是客户端，ServiceManager是服务端。
+2. **获取服务**：Client进程使用AMS前，须先向ServiceManager中获取AMS的代理类AMP。该过程：AMP所在进程(system_server)是客户端，ServiceManager是服务端。
 3. **使用服务**： app进程根据得到的代理类AMP,便可以直接与AMS所在进程交互。该过程：AMP所在进程(system_server)是客户端，AMS所在进程(app 进程)是服务端。
 
 图中的Client,Server,Service Manager之间交互都是虚线表示，是由于它们彼此之间不是直接交互的，而是都通过与Binder Driver进行交互的，从而实现IPC通信方式。其中Binder驱动位于内核空间，Client,Server,Service Manager位于用户空间。Binder驱动和Service Manager可以看做是Android平台的基础架构，而Client和Server是Android的应用层.
