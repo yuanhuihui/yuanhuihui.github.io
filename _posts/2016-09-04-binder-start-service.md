@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "彻底理解Binder通信过程"
+title:  "彻底理解Binder通信架构"
 date:   2016-09-04 11:30:00
 catalog:  true
 tags:
@@ -12,23 +12,74 @@ tags:
 
 ## 一. 引言
 
-前面通过一个[Binder系列-开篇](http://gityuan.com/2015/10/31/binder-prepare/)来从源码讲解了Binder的各个层面, 但是Binder牵涉颇为广泛, 几乎是整个Android架构的顶梁柱, 虽说用了十几篇文章来阐述Binder的各个过程.
-但依然还是没有将Binder IPC(进程间通信)的过程彻底说透, 那么本文将从全新的视角,以[startService流程分析](http://gityuan.com/2016/03/06/start-service/)为例子来说说Binder所其作用.
+### 1.1 Binder架构的思考
 
+Android内核是基于Linux系统, 而Linux现存多种进程间IPC方式:管道, 消息队列, 共享内存, 套接字, 信号量, 信号. 为什么Android非要用Binder来进行进程间通信呢.
+从我个人的理解角度, 曾尝试着在知乎回答同样一个问题 [为什么Android要采用Binder作为IPC机制？](https://www.zhihu.com/question/39440766/answer/89210950).
+这是我第一次认认真真地在知乎上回答问题, 收到很多网友的点赞与回复, 让我很受鼓舞, 也决心分享更多优先地文章回报读者和粉丝, 为Android圈贡献自己的微薄之力.
+
+在说到Binder架构之前, 先简单说说大家熟悉的TCP/IP的五层通信体系结构:
+
+![tcp_ip_arch](/images/binder/binder_start_service/tcp_ip_arch.jpg)
+
+- 应用层: 直接为用户提供服务;
+- 传输层: 传输的是报文(TCP数据)或者用户数据报(UDP数据)
+- 网络层: 传输的是包(Packet), 例如路由器
+- 数据链路层: 传输的是帧(Frame), 例如以太网交换机
+- 物理层: 相邻节点间传输bit, 例如集线器,双绞线等
+
+这是经典的五层TPC/IP协议体系, 这样分层设计的思想, 让每一个子问题都设计成一个独立的协议, 这协议的设计/分析/实现/测试都变得更加简单:
+
+- 层与层具有独立性, 例如应用层可以使用传输层提供的功能而无需知晓其实现原理;
+- 设计灵活, 层与层之间都定义好接口, 即便层内方法发生变化,只有接口不变, 对这个系统便毫无影响;
+- 结构的解耦合, 让每一层可以用更适合的技术方案, 更合适的语言;
+- 方便维护, 可分层调试和定位问题;
+
+
+Binder架构也是采用分层架构设计, 每一层都有其不同的功能:
+
+![binder_ipc_arch](/images/binder/binder_start_service/binder_ipc_arch.jpg)
+
+- **Java应用层:** 对于上层应用通过调用AMP.startService, 完全可以不用关心底层,经过层层调用,最终必然会调用到AMS.startService.
+- **Java IPC层:** Binder通信是采用C/S架构, Android系统的基础架构便已设计好Binder在Java framework层的Binder客户类BinderProxy和服务类Binder;
+- **Native IPC层:** 对于Native层,如果需要直接使用Binder(比如media相关), 则可以直接使用BpBinder和BBinder(当然这里还有JavaBBinder)即可, 对于上一层Java IPC的通信也是基于这个层面.
+- **Kernel物理层:** 这里是Binder Driver, 前面3层都跑在用户空间,对于用户空间的内存资源是不共享的,每个Android的进程只能运行在自己进程所拥有的虚拟地址空间, 而内核空间却是可共享的. 真正通信的核心环节还是在Binder Driver.
+
+
+### 1.2 分析起点
+
+前面通过一个[Binder系列-开篇](http://gityuan.com/2015/10/31/binder-prepare/)来从源码讲解了Binder的各个层面, 但是Binder牵涉颇为广泛, 几乎是整个Android架构的顶梁柱, 虽说用了十几篇文章来阐述Binder的各个过程.
+但依然还是没有将Binder IPC(进程间通信)的过程彻底说透.
+
+Binder系统如此庞大, 那么这里需要寻求一个出发点来穿针引线, 一窥视Binder全貌. 那么本文将从全新的视角,以[startService流程分析](http://gityuan.com/2016/03/06/start-service/)为例子来说说Binder所其作用.
 首先在发起方进程调用AMP.startService，经过binder驱动，最终调用系统进程AMS.startService,如下图:
 
 ![start_server_binder](/images/binder/binder_start_service/start_server_binder.jpg)
 
 AMP和AMN都是实现了IActivityManager接口,AMS继承于AMN.  其中AMP作为Binder的客户端,运行在各个app所在进程, AMN(或AMS)运行在系统进程system_server.
-本文将进一步展开`AMP.startService是如何调用到AMS.startService的过程`.
 
-### 1.1 通信流程
 
-先来看一张整个通信流程图, 接下来详细介绍这个过程:
+### 1.3 Binder IPC原理
 
-![binder_ipc_process](/images/binder/binder_start_service/binder_ipc_process.jpg)
+Binder通信采用C/S架构，从组件视角来说，包含Client、Server、ServiceManager以及binder驱动，其中ServiceManager用于管理系统中的各种服务。下面说说startService过程所涉及的Binder对象的架构图：
 
-## 二. IPC剖析
+![ams_ipc](/images/binder/binder_start_service/ams_ipc.jpg)
+
+可以看出无论是注册服务和获取服务的过程都需要ServiceManager，需要注意的是此处的Service Manager是指Native层的ServiceManager（C++），并非指framework层的ServiceManager(Java)。ServiceManager是整个Binder通信机制的大管家，是Android进程间通信机制Binder的守护进程，Client端和Server端通信时都需要先获取Service Manager接口，才能开始通信服务, 当然查找懂啊目标信息可以缓存起来则不需要每次都向ServiceManager请求。
+
+图中Client/Server/ServiceManage之间的相互通信都是基于Binder机制。既然基于Binder机制通信，那么同样也是C/S架构，则图中的3大步骤都有相应的Client端与Server端。
+
+1. **注册服务**：首先AMS注册到ServiceManager。该过程：AMS所在进程(app 进程)是客户端，ServiceManager是服务端。
+2. **[取服务(getService**：Client进程使用AMS前，须先向ServiceManager中获取AMS的代理类AMP。该过程：AMP所在进程(system_server)是客户端，ServiceManager是服务端。
+3. **使用服务**： app进程根据得到的代理类AMP,便可以直接与AMS所在进程交互。该过程：AMP所在进程(system_server)是客户端，AMS所在进程(app 进程)是服务端。
+
+图中的Client,Server,Service Manager之间交互都是虚线表示，是由于它们彼此之间不是直接交互的，而是都通过与Binder Driver进行交互的，从而实现IPC通信方式。其中Binder驱动位于内核空间，Client,Server,Service Manager位于用户空间。Binder驱动和Service Manager可以看做是Android平台的基础架构，而Client和Server是Android的应用层.
+
+这3大过程每一次都是一个完整的Binder IPC过程, 接下来从源码角度, 仅介绍**第3过程使用服务**, 即展开`AMP.startService是如何调用到AMS.startService的过程`.
+
+**Tips:** 如果你只想了解大致过程,并不打算细扣源码, 那么你可以略过通信过程源码分析, 仅看本文第一段落和最后段落也能对Binder所有理解.
+
+## 二. 通信过程
 
 ### 2.1 AMP.startService
 [-> ActivityManagerNative.java  ::ActivityManagerProxy]
@@ -482,7 +533,10 @@ transact主要过程:
             cmd = mIn.readInt32();
 
             switch (cmd) {
-            case BR_TRANSACTION_COMPLETE: ... goto finish;
+            case BR_TRANSACTION_COMPLETE:
+                //只有当不需要reply, 也就是oneway时 才会跳出循环,否则还需要等待.
+                if (!reply && !acquireResult) goto finish; break;
+
             case BR_DEAD_REPLY: ...           goto finish;
             case BR_FAILED_REPLY: ...         goto finish;
             case BR_REPLY: ...                goto finish;
@@ -1038,7 +1092,7 @@ transact主要过程:
 5. 这时mIn有可读数据, 回到waitForResponse()方法,完成BR_TRANSACTION_COMPLETE过程.
 6. 再回退到transact()方法, 对于oneway的操作, 这次Binder通信便完成, 否则还是要等待Binder服务端的返回.
 
-对于startService过程, 显然没有指定oneway的方式,那么发起者进程还会继续停留在waitForResponse()方法,等待收到BR_REPLY消息. 由于在前面binder_transaction过程中,除了向自己所在线程写入了BINDER_WORK_TRANSACTION_COMPLETE`, 还向目标进程(此处为system_server)写入了`BINDER_WORK_TRANSACTION`命令. 而此时system_server进程的binder线程一旦空闲便是停留在binder_thread_read()方法来处理进程/线程新的事务, 收到的是BINDER_WORK_TRANSACTION`命令, 经过binder_thread_read()后生成命令BR_TRANSACTION.同样的流程.
+对于startService过程, 显然没有指定oneway的方式,那么发起者进程还会继续停留在waitForResponse()方法,等待收到BR_REPLY消息. 由于在前面binder_transaction过程中,除了向自己所在线程写入了`BINDER_WORK_TRANSACTION_COMPLETE`, 还向目标进程(此处为system_server)写入了`BINDER_WORK_TRANSACTION`命令. 而此时system_server进程的binder线程一旦空闲便是停留在binder_thread_read()方法来处理进程/线程新的事务, 收到的是`BINDER_WORK_TRANSACTION`命令, 经过binder_thread_read()后生成命令`BR_TRANSACTION`.同样的流程.
 
 接下来,从system_server的binder线程中waitForResponse()方法,收到BR_TRANSACTION消息,调用executeCommand()来处理, 见下文:
 
@@ -1104,6 +1158,7 @@ transact主要过程:
 
                 if ((tr.flags & TF_ONE_WAY) == 0) {
                     if (error < NO_ERROR) reply.setError(error);
+                    //对于非oneway, 也就是需要reply的通信过程,则向Binder驱动发送BC_REPLY命令
                     sendReply(reply, 0);
                 }
                 ...
@@ -1116,6 +1171,9 @@ transact主要过程:
         }
         return result;
     }
+
+- 对于oneway的场景, 则到此全部结束.
+- 对于非oneway, 也就是需要reply的通信过程,则向Binder驱动发送BC_REPLY命令
 
 #### 4.3   BBinder.transact
 [-> Binder.cpp ::BBinder ]
@@ -1260,19 +1318,35 @@ transact主要过程:
 
 ## 五. 总结
 
+
 本文详细地介绍如何从AMP.startService是如何通过Binder一步步调用进入到system_server进程的AMS.startService. 整个过程涉及Java framework, native, kernel driver各个层面知识. 仅仅一个Binder IPC调用, 就花费了如此大篇幅来讲解, 可见系统之庞大. 整个过程的调用流程:
+
+### 5.1 通信流程
+
+从通信流程角度来看整个过程:
+![binder_ipc_process](/images/binder/binder_start_service/binder_ipc_process.jpg)
+
+前面第二至第四段落,主要讲解过程 BC_TRANSACTION --> BR_TRANSACTION_COMPLETE --> BR_TRANSACTION.
+有兴趣的同学可以再看看后面3个事务的处理:BC_REPLY --> BR_TRANSACTION_COMPLETE --> BR_REPLY,这两个流程基本是一致的.
+
+### 5.2 通信协议
+
+从通信协议的角度来看这个过程:
 
 ![binder_transaction](/images/binder/binder_start_service/binder_transaction.jpg)
 
 - Binder客户端或者服务端向Binder Driver发送的命令都是以BC_开头,例如本文的`BC_TRANSACTION`和`BC_REPLY`, 所有Binder Driver向Binder客户端或者服务端发送的命令则都是以BR_开头, 例如本文中的`BR_TRANSACTION`和`BR_REPLY`.
 - 只有当`BC_TRANSACTION`或者`BC_REPLY`时, 才调用binder_transaction()来处理事务. 并且都会回应调用者一个`BINDER_WORK_TRANSACTION_COMPLETE`事务, 经过binder_thread_read()会转变成`BR_TRANSACTION_COMPLETE`.
-- 本文从上至下,讲解了过程 BC_TRANSACTION --> BR_TRANSACTION_COMPLETE --> BR_TRANSACTION.
-有兴趣的同学可以再看看后面3个事务的处理:BC_REPLY --> BR_TRANSACTION_COMPLETE --> BR_REPLY,这两个流程基本是一致的.
-- oneway与非oneway的事务,都是需要等待Binder Driver的回应消息BR_TRANSACTION_COMPLETE. 主要的区别在于oneway的通信收到BR_TRANSACTION_COMPLETE便返回,而不会再等待BR_REPLY消息的到来.
+- startService过程便是一个非oneway的过程, 那么oneway的通信过程如下所述.
 
-### oneway
 
-有人可能觉得好奇,为何oneway怎么还要等待回应消息? 我举个例子,你就明白了.
+### 5.3 说一说oneway
+
+上图是非oneway通信过程的协议图, 下图则是对于oneway场景下的通信协议图:
+
+![binder_transaction_oneway](/images/binder/binder_start_service/binder_transaction_oneway.jpg)
+
+当收到BR_TRANSACTION_COMPLETE则程序返回,有人可能觉得好奇,为何oneway怎么还要等待回应消息? 我举个例子,你就明白了.
 
 你(app进程)要给远方的家人(system_server进程)邮寄一封信(transaction), 你需要通过邮寄员(Binder Driver)来完成.整个过程如下:
 
@@ -1280,10 +1354,14 @@ transact主要过程:
 2. 邮寄员收到信后, 填一张单子给你作为一份回执(`BR_TRANSACTION_COMPLETE`). 这样你才放心知道邮递员已确定接收信, 否则就这样走了,信到底有没有交到邮递员手里都不知道,这样的通信实在太让人不省心, 长时间收不到远方家人的回信, 无法得知是在路的中途信件丢失呢,还是压根就没有交到邮递员的手里. 所以说oneway也得知道信是投递状态是否成功.
 3. 邮递员利用交通工具(Binder Driver),将信交给了你的家人(`BR_TRANSACTION`);
 
-当你收到回执(BR_TRANSACTION_COMPLETE)时心里也不期待家人回信, 那么这便是一次oneway的通信过程.  如果你希望家人回信, 那便是非oneway的过程,在上述步骤2后并不是直接返回,而是继续等待着收到家人的回信, 继续执行:
+当你收到回执(BR_TRANSACTION_COMPLETE)时心里也不期待家人回信, 那么这便是一次oneway的通信过程.  
+
+如果你希望家人回信, 那便是非oneway的过程,在上述步骤2后并不是直接返回,而是继续等待着收到家人的回信, 经历前3个步骤之后继续执行:
 
 4. 家人收到信后, 立马写了个回信交给邮递员`BC_REPLY`;
 5. 同样,邮递员要写一个回执(`BR_TRANSACTION_COMPLETE`)给你家人;
 6. 邮递员再次利用交通工具(Binder Driver), 将回信成功交到你的手上(`BR_REPLY`)
 
 这便是一次完成的非oneway通信过程.
+
+oneway与非oneway: 都是需要等待Binder Driver的回应消息BR_TRANSACTION_COMPLETE. 主要区别在于oneway的通信收到BR_TRANSACTION_COMPLETE则返回,而不会再等待BR_REPLY消息的到来.
