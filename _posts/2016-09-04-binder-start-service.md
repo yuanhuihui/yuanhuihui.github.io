@@ -1094,8 +1094,7 @@ transact主要过程:
 
 对于startService过程, 显然没有指定oneway的方式,那么发起者进程还会继续停留在waitForResponse()方法,等待收到BR_REPLY消息. 由于在前面binder_transaction过程中,除了向自己所在线程写入了`BINDER_WORK_TRANSACTION_COMPLETE`, 还向目标进程(此处为system_server)写入了`BINDER_WORK_TRANSACTION`命令. 而此时system_server进程的binder线程一旦空闲便是停留在binder_thread_read()方法来处理进程/线程新的事务, 收到的是`BINDER_WORK_TRANSACTION`命令, 经过binder_thread_read()后生成命令`BR_TRANSACTION`.同样的流程.
 
-接下来,从system_server的binder线程中waitForResponse()方法,收到BR_TRANSACTION消息,调用executeCommand()来处理, 见下文:
-
+接下来,从`system_server`的binder线程一直的执行流: IPC.joinThreadPool -->  IPC.getAndExecuteCommand() ->  IPC.talkWithDriver() ,但talkWithDriver收到事务之后, 便进入IPC.executeCommand(), 接下来,从executeCommand说起.
 
 ####  4.2 IPC.executeCommand
 
