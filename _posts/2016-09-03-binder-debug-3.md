@@ -204,9 +204,9 @@ print_binder_transaction
 
 进程system_server:
 
-    - 处于ready状态的binder线程个数为16:
-    - BC_ENTER_LOOPER创建1个binder线程
-    - BC_REGISTER_LOOPER创建15个binder线程
+- 处于ready状态的binder线程个数为16:
+- BC_ENTER_LOOPER创建1个binder线程
+- BC_REGISTER_LOOPER创建15个binder线程
 
 #### 4.2 proc/8963
 
@@ -288,7 +288,7 @@ print_binder_transaction
 
 本文举例的这几个重要进程情况：
 
-|进程|max|BC_REGISTER_LOOPER|BC_REGISTER_LOOPER|
+|进程|max|BC_REGISTER_LOOPER|BC_ENTER_LOOPER|
 |---|---|
 |surfaceflinger|4|4|1|
 |mediaserver|15|2|2|

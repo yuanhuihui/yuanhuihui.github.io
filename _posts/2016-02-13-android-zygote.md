@@ -19,8 +19,7 @@ tags:
     /frameworks/base/core/java/android/net/LocalServerSocket.java
 
 
-## 一、启动调用栈
-
+## 一. 概述
 
 Zygote启动函数调用类的栈关系：
 
