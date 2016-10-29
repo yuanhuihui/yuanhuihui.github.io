@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解Binder线程管理"
+title:  "理解Binder线程池的管理"
 date:   2016-10-29 11:20:00
 catalog:  true
 tags:

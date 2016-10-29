@@ -160,7 +160,21 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 - [如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)
 
-#### 4.1 系统启动篇
+#### 4.1 进程篇
+进程对于系统非常之重要，系统运转，各种服务、组件的载体都依托于进程，对进程理解越深刻，越能掌握系统整体架构。那么先来看看进程相关：
+
+- [理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/)
+- [理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/)
+- [理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/)
+- [Android进程绝杀技--forceStop](http://gityuan.com/2016/10/22/force-stop/)
+- [理解Binder线程池的管理](http://gityuan.com/2016/10/29/binder-thread-pool/)
+- [彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)
+- [Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)
+- [Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)
+- [进程优先级](http://gityuan.com/2015/10/01/process-priority/)
+- [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
+
+#### 4.2 系统启动篇
 Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote`、`system_server`进程:
 
 - [Android系统启动—init篇](http://gityuan.com/2016/02/05/android-init/)
@@ -169,7 +183,7 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 	- [SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)
 	- [SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)
 
-#### 4.2 系统服务篇
+#### 4.3 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
 - Android服务篇-ActivityManagerService
@@ -182,7 +196,7 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Android服务篇-PowerManagerService
 - 更多服务介绍, 敬请期待...
 
-#### 4.3 四大组件篇
+#### 4.4 四大组件篇
 对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：
 
 - Android组件-Activity
@@ -196,19 +210,6 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Android组件-Content Provider
     - [理解ContentProvider原理(一)](http://gityuan.com/2016/07/30/content-provider/)
 
-
-#### 4.4 进程篇
-有了这些，中间还缺少关于虚拟机ART的介绍，会需要对ART分析，后续还需要开展对ART虚拟机的一系列文章。回顾整个架构，谈谈系统性能，需要先掌握进程、内存、IO这些层面知识，这里牵涉面较广，从底层Linux层直至上层App
-
-- [理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/)
-- [理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/)
-- [理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/)
-- [Android进程绝杀技--forceStop](http://gityuan.com/2016/10/22/force-stop/)
-- [Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)
-- [Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)
-- [进程优先级](http://gityuan.com/2015/10/01/process-priority/)
-- [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
-
 #### 4.5 内存&&存储篇
 
 - 内存篇
@@ -218,6 +219,8 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
     - [Android存储系统之源码篇](http://gityuan.com/2016/07/17/android-io/)
     - [Android存储系统之架构篇](http://gityuan.com/2016/07/23/android-io-arch)
 - Linux驱动篇
+    - 敬请期待
+- dalvik/art
     - 敬请期待
 
 #### 4.6 工具篇
@@ -245,6 +248,8 @@ Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理�
 - [WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)
 
 后续,还有系统分析的实战篇, 敬请期待.
+
+回顾整个架构，系统层面的性能/稳定性，需要掌握进程、内存、IO这些层面知识，这里牵涉面较广，博客会持续更新，各个击破。
 
 ---
 
