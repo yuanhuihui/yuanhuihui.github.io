@@ -1,3 +1,12 @@
 1. 监控system_server下每个binder线程的 使用情况，内存消耗情况。
 2. 监控其他进程的binder
 3. 建立更强大的binder在线分析功能；
+
+
+4.IPCThreadState::joinThreadPool(bool isMain) 通过打开如下来log开关，调试看看binder线程池的加入与退出情况。
+
+LOG_THREADPOOL("**** THREAD %p (PID %d) IS LEAVING THE THREAD POOL err=%p\n",
+508        (void*)pthread_self(), getpid(), (void*)result);
+
+
+ 设置system_server进程，ProcessState::self()->setThreadPoolMaxThreadCount(32);

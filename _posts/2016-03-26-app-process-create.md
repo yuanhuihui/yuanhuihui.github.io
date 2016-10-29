@@ -740,7 +740,7 @@ VM_HOOKS.postForkCommon的主要功能是在fork新进程后，启动Zygote的4�
 
 ### 11. nativeZygoteInit
 
-nativeZygoteInit()方法在AndroidRuntime.cpp中，进行了jni映射，对应下面的方法。
+【小节9】执行完commonInit()之后，开始执行RuntimeInit.java中的nativeZygoteInit()，该方法所对应的jni方法位于AndroidRuntime.cpp：
 
 [-->AndroidRuntime.cpp]
 

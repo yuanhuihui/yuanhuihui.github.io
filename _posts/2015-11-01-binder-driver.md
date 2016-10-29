@@ -47,15 +47,14 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
         int ret;
         //创建名为binder的工作队列
         binder_deferred_workqueue = create_singlethread_workqueue("binder");
-        if (!binder_deferred_workqueue)
-            return -ENOMEM;
+        ...
 
         binder_debugfs_dir_entry_root = debugfs_create_dir("binder", NULL);
         if (binder_debugfs_dir_entry_root)
             binder_debugfs_dir_entry_proc = debugfs_create_dir("proc",
                              binder_debugfs_dir_entry_root);
 
-         // 注册misc设备
+         // 注册misc设备【见小节2.1.1】
         ret = misc_register(&binder_miscdev);
         if (binder_debugfs_dir_entry_root) {
             ... //在debugfs文件系统中创建一系列的文件
@@ -66,7 +65,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
 
 `debugfs_create_dir`是指在debugfs文件系统中创建一个目录，返回值是指向dentry的指针。当kernel中禁用debugfs的话，返回值是-%ENODEV。默认是禁用的。如果需要打开，在目录`/kernel/arch/arm64/configs/`下找到目标defconfig文件中添加一行`CONFIG_DEBUG_FS=y`，再重新编译版本，即可打开debug_fs。
 
-**misc_register**
+#### 2.1.1 misc_register
 
 注册misc设备，`miscdevice`结构体，便是前面注册misc设备时传递进去的参数
 
@@ -131,7 +130,6 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
 
 主要功能：首先在内核虚拟地址空间，申请一块与用户虚拟内存相同大小的内存；然后再申请1个page大小的物理内存，再将同一块物理内存分别映射到内核虚拟地址空间和用户虚拟内存空间，从而实现了用户空间的Buffer和内核空间的Buffer同步操作的功能。
 
-
     static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
     {
         int ret;
@@ -172,7 +170,7 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
         vma->vm_ops = &binder_vm_ops;
         vma->vm_private_data = proc;
 
-        //分配物理页面，同时映射到内核空间和进程空间，目前只分配1个page的物理页 【见下文】
+        //分配物理页面，同时映射到内核空间和进程空间，目前只分配1个page的物理页 【见小节2.3.1】
         if (binder_update_page_range(proc, 1, proc->buffer, proc->buffer + PAGE_SIZE, vma)) {
             ret = -ENOMEM;
             failure_string = "alloc small buf";
@@ -198,13 +196,7 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
 
 binder_mmap通过加锁，保证一次只有一个进程分配内存，保证多进程间的并发访问。其中`user_buffer_offset`是虚拟进程地址与虚拟内核地址的差值，也就是说同一物理地址，当内核地址为kernel_addr，则进程地址为proc_addr = kernel_addr + user_buffer_offset。
 
-主要工作可用下面的图来表达：
-
-![binder_mmap](/images/binder/binder_dev/binder_mmap.png)
-
-`binder_update_page_range`主要完成工作：分配物理空间，将物理空间映射到内核空间，将物理空间映射到进程空间。  当然`binder_update_page_range`既可以分配物理页面，也可以释放物理页面。
-
-代码如下：
+#### 2.3.1 binder_update_page_range
 
     static int binder_update_page_range(struct binder_proc *proc, int allocate,
                         void *start, void *end,  struct vm_area_struct *vma)
@@ -234,7 +226,11 @@ binder_mmap通过加锁，保证一次只有一个进程分配内存，保证多
         ...
     }
 
+主要工作可用下面的图来表达：
 
+![binder_mmap](/images/binder/binder_dev/binder_mmap.png)
+
+`binder_update_page_range`主要完成工作：分配物理空间，将物理空间映射到内核空间，将物理空间映射到进程空间。  当然`binder_update_page_range`既可以分配物理页面，也可以释放物理页面。
 
 ### 2.4 binder_ioctl
 
@@ -258,7 +254,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
 这些命令中`BINDER_WRITE_READ`命令使用率最为频繁，也是ioctl最为核心的命令。
 
-**源码**
+**源码：**
 
     static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     {

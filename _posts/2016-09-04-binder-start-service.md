@@ -931,8 +931,11 @@ transact主要过程:
 主要功能:
 
 1. 查询目标进程的过程： handle -> binder_ref -> binder_node -> binder_proc
-2. 将`BINDER_WORK_TRANSACTION`添加到目标队列target_list, 首次发起事务则目标队列为`target_proc->todo`, reply事务时则为`target_thread->todo`;  oneway的非reply事务,则为`target_node->async_todo`.
-3. 将`BINDER_WORK_TRANSACTION_COMPLETE`添加到当前线程的todo队列
+2. 将`BINDER_WORK_TRANSACTION`添加到目标队列target_list:
+  - call事务， 则目标队列target_list=`target_proc->todo`;
+  - reply事务，则目标队列target_list=`target_thread->todo`;  
+  - async事务，则目标队列target_list=`target_node->async_todo`.
+3. 将`BINDER_WORK_TRANSACTION_COMPLETE`添加到当前线程的todo队列。
 
 此时当前线程的todo队列已经有事务, 接下来便会进入binder_thread_read（）来处理相关的事务.
 
@@ -953,15 +956,16 @@ transact主要过程:
             if (non_block) {
                 ...
             } else
-                //当todo队列没有数据,则线程便在此处等待数据的到来
+                //当进程todo队列没有数据,则进入休眠等待状态
                 ret = wait_event_freezable_exclusive(proc->wait, binder_has_proc_work(proc, thread));
         } else {
             if (non_block) {
                 ...
             } else
-                //进入此分支,  当线程没有todo队列没有数据, 则进入当前线程wait队列等待
+                //进入该分支，当线程todo队列没有数据，则进入休眠等待状态，显然不休眠，继续往下执行
                 ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
         }
+        
         if (ret)
             return ret; //对于非阻塞的调用，直接返回
 
