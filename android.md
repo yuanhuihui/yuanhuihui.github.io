@@ -156,7 +156,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 **博客定位：** 基于`Android 6.0的源码`，专注于分享Android系统原理、架构分析的原创文章。
 **建议阅读群体**： 适合于正从事或者有兴趣研究Android系统的工程师或者爱好者，也适合Android app高级工程师； 对于尚未入门或者刚入门的app程序员阅读可能会困难些，可能不是很适合。
 
-#### 4.0 学习开篇
+#### 4.0 学习篇
 看到Android整个系统架构是如此庞大的, 该问如何学习Android系统, 以下是我自己琢磨的Android的学习和研究论,仅供参考:
 
 - [如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)
