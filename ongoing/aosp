@@ -1,10 +1,7 @@
-主要贡献者:
+主要贡献者（owner）:
 
-owner:"Riddle Hsu"
-    riddle_hsu <riddle_hsu@htc.com>
-
-owner:"Zoran Jovanovic"
-    Alexander Toresson <alexander.toresson@sonymobile.com>
+- "Riddle Hsu"      <riddle_hsu@htc.com>
+- owner:"Zoran Jovanovic"   sonymobile.com
 
 
 
@@ -86,3 +83,6 @@ https://android.googlesource.com/platform/frameworks/base/+/4498aa6c58664d297791
 
 22. ams && wms
 https://android.googlesource.com/platform/frameworks/base/+/d9d35bdfcf0e18ae16c0f59290b860700fb6e62f%5E%21/#F0
+
+23. 广播的bug(可以考虑合入)
+https://android.googlesource.com/platform/frameworks/base/+/d86e14e45c15cd1a17925d9cb131471d496ab389%5E%21/#F1

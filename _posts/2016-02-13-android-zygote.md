@@ -17,7 +17,7 @@ tags:
     /frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
     /frameworks/base/core/java/com/android/internal/os/Zygote.java
     /frameworks/base/core/java/android/net/LocalServerSocket.java
-
+    /system/core/libutils/Threads.cpp
 
 ## 一. 概述
 
@@ -39,7 +39,7 @@ Zygote是由[init进程](http://gityuan.com/2016/01/16/android-init//#zygote)通
 
 传到main()的参数为 `-Xzygote /system/bin --zygote --start-system-server`
 
-[-->App_main.cpp]
+[-> App_main.cpp]
 
     int main(int argc, char* const argv[])
     {
@@ -71,7 +71,8 @@ Zygote是由[init进程](http://gityuan.com/2016/01/16/android-init//#zygote)通
             const char* arg = argv[i++];
             if (strcmp(arg, "--zygote") == 0) {
                 zygote = true;
-                niceName = ZYGOTE_NICE_NAME; //对于64位系统nice_name为zygote64,32位系统为zygote
+                //对于64位系统nice_name为zygote64; 32位系统为zygote
+                niceName = ZYGOTE_NICE_NAME; 
             } else if (strcmp(arg, "--start-system-server") == 0) {
                 startSystemServer = true;
             } else if (strcmp(arg, "--application") == 0) {
@@ -116,7 +117,7 @@ Zygote是由[init进程](http://gityuan.com/2016/01/16/android-init//#zygote)通
             set_process_name(niceName.string());
         }
         if (zygote) {
-            // 启动AppRuntime 【见小节3】
+            // 启动AppRuntime 【见小节3.1】
             runtime.start("com.android.internal.os.ZygoteInit", args, zygote);
         } else if (className) {
             runtime.start("com.android.internal.os.RuntimeInit", args, zygote);
@@ -126,13 +127,11 @@ Zygote是由[init进程](http://gityuan.com/2016/01/16/android-init//#zygote)通
         }
     }
 
-采用cmd命令，是通过fork进程来执行相应的类：
-
-     app_process [可选参数] 命令所在路径 启动的类名 [可选参数]
 
 ## 三、AndroidRuntime
 
-AndroidRuntime.cpp
+### 3.1  AR.start
+[-> AndroidRuntime.cpp]
 
     void AndroidRuntime::start(const char* className, const Vector<String8>& options, bool zygote)
     {
@@ -154,14 +153,13 @@ AndroidRuntime.cpp
         JniInvocation jni_invocation;
         jni_invocation.Init(NULL);
         JNIEnv* env;
-        // 虚拟机创建【见小节3.1】
+        // 虚拟机创建【见小节3.2】
         if (startVm(&mJavaVM, &env, zygote) != 0) {
             return;
         }
         onVmCreated(env);
-        // JNI方法注册【见小节3.2】
+        // JNI方法注册【见小节3.3】
         if (startReg(env) < 0) {
-            ALOGE("Unable to register all android natives\n");
             return;
         }
 
@@ -178,7 +176,8 @@ AndroidRuntime.cpp
         env->SetObjectArrayElement(strArray, 0, classNameStr);
 
         //等价 strArray[1] = "start-system-server"；
-        //   strArray[2] = "--abi-list=xxx"；其中xxx为系统响应的cpu架构类型，比如arm64-v8a.
+        //    strArray[2] = "--abi-list=xxx"；
+        //其中xxx为系统响应的cpu架构类型，比如arm64-v8a.
         for (size_t i = 0; i < options.size(); ++i) {
             jstring optionsStr = env->NewStringUTF(options.itemAt(i).string());
             env->SetObjectArrayElement(strArray, i + 1, optionsStr);
@@ -188,28 +187,23 @@ AndroidRuntime.cpp
         char* slashClassName = toSlashClassName(className);
         jclass startClass = env->FindClass(slashClassName);
         if (startClass == NULL) {
-            ALOGE("JavaVM unable to locate class '%s'\n", slashClassName);
+            ...
         } else {
             jmethodID startMeth = env->GetStaticMethodID(startClass, "main",
                 "([Ljava/lang/String;)V");
-            if (startMeth == NULL) {
-                ALOGE("JavaVM unable to find main() in '%s'\n", className);
-            } else {
-                // 调用ZygoteInit.main()方法【见小节4.0】
-                env->CallStaticVoidMethod(startClass, startMeth, strArray);
-            }
+            // 调用ZygoteInit.main()方法【见小节4.0】
+            env->CallStaticVoidMethod(startClass, startMeth, strArray);
         }
-        free(slashClassName); //释放相应对象的内存空间
-        if (mJavaVM->DetachCurrentThread() != JNI_OK)
-            ALOGW("Warning: unable to detach main thread\n");
-        if (mJavaVM->DestroyJavaVM() != 0)
-            ALOGW("Warning: VM did not shut down cleanly\n");
+        //释放相应对象的内存空间
+        free(slashClassName); 
+        mJavaVM->DetachCurrentThread();
+        mJavaVM->DestroyJavaVM();
     }
 
 
-### 3.1 虚拟机创建startVm
+### 3.2 AR.startVm
 
-[-->AndroidRuntime.cpp]
+[--> AndroidRuntime.cpp]
 
 创建Java虚拟机方法的主要篇幅是关于虚拟机参数的设置，下面只列举部分在调试优化过程中常用参数。
 
@@ -255,20 +249,16 @@ AndroidRuntime.cpp
     }
 
 
-
-
-### 3.2 JNI函数注册startReg
-
-
-[-->AndroidRuntime.cpp]
+### 3.3 AR.startReg
+[--> AndroidRuntime.cpp]
 
     int AndroidRuntime::startReg(JNIEnv* env)
     {
-        //设置线程创建方法为javaCreateThreadEtc
+        //设置线程创建方法为javaCreateThreadEtc 【见小节3.3.1】
         androidSetCreateThreadFunc((android_create_thread_fn) javaCreateThreadEtc);
 
         env->PushLocalFrame(200);
-        //进程NI方法的注册
+        //进程NI方法的注册【见小节3.3.2】
         if (register_jni_procs(gRegJNI, NELEM(gRegJNI), env) < 0) {
             env->PopLocalFrame(NULL);
             return -1;
@@ -277,21 +267,30 @@ AndroidRuntime.cpp
         return 0;
     }
 
-**register_jni_procs**
+#### 3.3.1 androidSetCreateThreadFunc
+[-> Threads.cpp]
+
+    void androidSetCreateThreadFunc(android_create_thread_fn func)
+    {
+        gCreateThreadFn = func;
+    }
+
+虚拟机启动后startReg()过程，会设置线程创建函数指针`gCreateThreadFn`指向`javaCreateThreadEtc`.
+
+#### 3.3.2 register_jni_procs
 
     static int register_jni_procs(const RegJNIRec array[], size_t count, JNIEnv* env)
     {
         for (size_t i = 0; i < count; i++) {
-            if (array[i].mProc(env) < 0) { 【见下文】
+            //【见小节3.3.3】
+            if (array[i].mProc(env) < 0) {
                 return -1;
             }
         }
         return 0;
     }
 
-**gRegJNI**
-
-gRegJNI是一个数组,有100多个成员
+#### 3.3.3 gRegJNI.mProc
 
     static const RegJNIRec gRegJNI[] = {
         REG_JNI(register_com_android_internal_os_RuntimeInit),
@@ -299,14 +298,15 @@ gRegJNI是一个数组,有100多个成员
         ...
     }；
 
-**REG_JNI**
+array[i]是指gRegJNI数组, 该数组有100多个成员。其中每一项成员都是通过**REG_JNI**宏定义的：
 
     #define REG_JNI(name)      { name }
     struct RegJNIRec {
         int (*mProc)(JNIEnv*);
     };
 
-调用mProc，那么gRegJNI数组的其中之一REG_JNI(register_com_android_internal_os_RuntimeInit)，等价于调用下面方法：
+可见，调用`mProc`，就等价于调用其参数名所指向的函数。 例如REG_JNI(register_com_android_internal_os_RuntimeInit).mProc也就是指进入register_com_android_internal_os_RuntimeInit方法，接下来就继续以此为例来说明：
+
 
     int register_com_android_internal_os_RuntimeInit(JNIEnv* env)
     {
@@ -546,3 +546,7 @@ Zygote启动过程的调用流程图：
 5. preload()预加载通用类、drawable和color资源、openGL以及共享库以及WebView，用于提高ap启动效率；
 6. zygote完毕大部分工作，接下来再通过startSystemServer()，fork得力帮手system_server进程，也是上层framework的运行载体。
 7. zygote功成身退，调用runSelectLoop()，随时待命，当接收到请求创建新进程请求时立即唤醒并执行相应工作。
+
+最后，介绍给通过cmd命令，来fork新进程来执行类中main方法的方式：
+
+     app_process [可选参数] 命令所在路径 启动的类名 [可选参数]

@@ -57,6 +57,7 @@ CPU的三种运行状态：
 - 运行在Kernel Space，处于中断上下文，处理相应的中断。
 
 
+进程/线程的创建
 
 - Linux进程创建： fork
 - Linux用户级线程创建：pthread_create

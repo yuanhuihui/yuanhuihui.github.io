@@ -168,6 +168,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - [理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/)
 - [理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/)
 - [Android进程绝杀技--forceStop](http://gityuan.com/2016/10/22/force-stop/)
+- [理解Android线程创建流程](http://gityuan.com/2016/09/24/android-thread/)
 - [理解Binder线程池的管理](http://gityuan.com/2016/10/29/binder-thread-pool/)
 - [彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)
 - [Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)
