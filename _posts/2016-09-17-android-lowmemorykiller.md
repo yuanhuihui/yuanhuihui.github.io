@@ -21,7 +21,9 @@ Android的设计理念之一，便是应用程序退出,但进程还会继续存
 
 Android基于Linux的系统，其实Linux有类似的内存管理策略——OOM killer，全称(Out Of Memory Killer), OOM的策略更多的是用于分配内存不足时触发，将得分最高的进程杀掉。而`lmk`则会每隔一段时间检查一次，当系统剩余可用内存较低时，便会触发杀进程的策略，根据不同的剩余内存档位来来选择杀不同优先级的进程，而不是等到OOM时再来杀进程，真正OOM时系统可能已经处于异常状态，系统更希望的是未雨绸缪，在内存很低时来杀掉一些优先级较低的进程来保障后续操作的顺利进行。
 
-## 二. framework层
+
+
+### 1.1 lmk核心方法
 
 位于`ProcessList.java`中定义了3种命令类型，这些文件的定义必须跟`lmkd.c`定义完全一致，格式分别如下：
 
@@ -29,16 +31,26 @@ Android基于Linux的系统，其实Linux有类似的内存管理策略——OOM
     LMK_PROCPRIO <pid> <prio>
     LMK_PROCREMOVE <pid>
 
-|功能|命令|对应方法|触发时机|
+上述3个命令的使用都通过`ProcessList.java`中的如下方法:
+
+|功能|命令|对应方法|
 |---|---|---|---|
-|更新oom_adj|LMK_TARGET|updateOomLevels|AMS.updateConfiguration|
-|设置进程adj|LMK_PROCPRIO|setOomAdj|AMS.applyOomAdjLocked|
-|移除进程|LMK_PROCREMOVE|remove|AMS.handleAppDiedLocked/cleanUpApplicationRecordLocked|
+|LMK_PROCPRIO|设置进程adj|PL.setOomAdj()|
+|LMK_TARGET|更新oom_adj|PL.updateOomLevels()|
+|LMK_PROCREMOVE|移除进程|PL.remove()|
+
+- 当AMS.applyOomAdjLocked()过程,则会设置某个进程的adj;
+- 当AMS.updateConfiguration()过程中便会更新整个各个级别的oom_adj信息.
+- 当AMS.cleanUpApplicationRecordLocked()或者handleAppDiedLocked()过程,则会将某个进程从lmkd策略中移除.
 
 
-在前面文章[Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)中有讲到`AMS.applyOomAdjLocked`，接下来以这个过程为主线开始分析。
+在前面文章[Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)中有讲到`AMS.applyOomAdjLocked`，接下来以这个过程为主线开始分析,说说设置某个进程adj的整个过程.
 
-### 2.1 AMS.applyOomAdjLocked
+
+## 二. framework层
+
+### 2.1 applyOomAdjLocked
+[-> ActivityManagerService.java]
 
     private final boolean applyOomAdjLocked(ProcessRecord app, boolean doingAll, long now,
             long nowElapsed) {
@@ -375,20 +387,20 @@ lowmemorykiller driver位于 drivers/staging/Android/lowmemorykiller.c
 ### 4.1 lowmemorykiller初始化
 
     static struct shrinker lowmem_shrinker = {
-    	.scan_objects = lowmem_scan,
-    	.count_objects = lowmem_count,
-    	.seeks = DEFAULT_SEEKS * 16
+        .scan_objects = lowmem_scan,
+        .count_objects = lowmem_count,
+        .seeks = DEFAULT_SEEKS * 16
     };
 
     static int __init lowmem_init(void)
     {
-    	register_shrinker(&lowmem_shrinker);
-    	return 0;
+        register_shrinker(&lowmem_shrinker);
+        return 0;
     }
 
     static void __exit lowmem_exit(void)
     {
-    	unregister_shrinker(&lowmem_shrinker);
+        unregister_shrinker(&lowmem_shrinker);
     }
 
     module_init(lowmem_init);
@@ -405,12 +417,12 @@ LMK驱动通过注册shrinker来实现的，shrinker是linux kernel标准的回�
 ### 4.3 lowmem_count
 
     static unsigned long lowmem_count(struct shrinker *s,
-    				  struct shrink_control *sc)
+                      struct shrink_control *sc)
     {
-    	return global_page_state(NR_ACTIVE_ANON) +
-    		global_page_state(NR_ACTIVE_FILE) +
-    		global_page_state(NR_INACTIVE_ANON) +
-    		global_page_state(NR_INACTIVE_FILE);
+        return global_page_state(NR_ACTIVE_ANON) +
+            global_page_state(NR_ACTIVE_FILE) +
+            global_page_state(NR_INACTIVE_ANON) +
+            global_page_state(NR_INACTIVE_FILE);
     }
 
 ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
@@ -422,96 +434,96 @@ ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
 
     static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
     {
-    	struct task_struct *tsk;
-    	struct task_struct *selected = NULL;
-    	unsigned long rem = 0;
-    	int tasksize;
-    	int i;
-    	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
-    	int minfree = 0;
-    	int selected_tasksize = 0;
-    	short selected_oom_score_adj;
-    	int array_size = ARRAY_SIZE(lowmem_adj);
-      //获取当前剩余内存大小
-    	int other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
-    	int other_file = global_page_state(NR_FILE_PAGES) -
-    						global_page_state(NR_SHMEM) -
-    						total_swapcache_pages();
-      //获取数组大小
-    	if (lowmem_adj_size < array_size)
-    		array_size = lowmem_adj_size;
-    	if (lowmem_minfree_size < array_size)
-    		array_size = lowmem_minfree_size;
+        struct task_struct *tsk;
+        struct task_struct *selected = NULL;
+        unsigned long rem = 0;
+        int tasksize;
+        int i;
+        short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
+        int minfree = 0;
+        int selected_tasksize = 0;
+        short selected_oom_score_adj;
+        int array_size = ARRAY_SIZE(lowmem_adj);
+        //获取当前剩余内存大小
+        int other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
+        int other_file = global_page_state(NR_FILE_PAGES) -
+                            global_page_state(NR_SHMEM) -
+                            total_swapcache_pages();
+        //获取数组大小
+        if (lowmem_adj_size < array_size)
+            array_size = lowmem_adj_size;
+        if (lowmem_minfree_size < array_size)
+            array_size = lowmem_minfree_size;
 
-      //遍历lowmem_minfree数组找出相应的最小adj值
-    	for (i = 0; i < array_size; i++) {
-    		minfree = lowmem_minfree[i];
-    		if (other_free < minfree && other_file < minfree) {
-    			min_score_adj = lowmem_adj[i];
-    			break;
-    		}
-    	}
+        //遍历lowmem_minfree数组找出相应的最小adj值
+        for (i = 0; i < array_size; i++) {
+            minfree = lowmem_minfree[i];
+            if (other_free < minfree && other_file < minfree) {
+                min_score_adj = lowmem_adj[i];
+                break;
+            }
+        }
 
-    	if (min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
-    		return 0;
-    	}
-    	selected_oom_score_adj = min_score_adj;
+        if (min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
+            return 0;
+        }
+        selected_oom_score_adj = min_score_adj;
 
-    	rcu_read_lock();
-    	for_each_process(tsk) {
-    		struct task_struct *p;
-    		short oom_score_adj;
-    		if (tsk->flags & PF_KTHREAD)
-    			continue;
-    		p = find_lock_task_mm(tsk);
-    		if (!p)
-    			continue;
-    		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
-    		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
-    			task_unlock(p);
-    			rcu_read_unlock();
-    			return 0;
-    		}
-    		oom_score_adj = p->signal->oom_score_adj;
-        //小于目标adj的进程，则忽略
-    		if (oom_score_adj < min_score_adj) {
-    			task_unlock(p);
-    			continue;
-    		}
-        //获取的是进程的Resident Set Size，也就是进程独占内存 + 共享库大小。
-    		tasksize = get_mm_rss(p->mm);
-    		task_unlock(p);
-    		if (tasksize <= 0)
-    			continue;
+        rcu_read_lock();
+        for_each_process(tsk) {
+            struct task_struct *p;
+            short oom_score_adj;
+            if (tsk->flags & PF_KTHREAD)
+                continue;
+            p = find_lock_task_mm(tsk);
+            if (!p)
+                continue;
+            if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
+                time_before_eq(jiffies, lowmem_deathpending_timeout)) {
+                task_unlock(p);
+                rcu_read_unlock();
+                return 0;
+            }
+            oom_score_adj = p->signal->oom_score_adj;
+            //小于目标adj的进程，则忽略
+            if (oom_score_adj < min_score_adj) {
+                task_unlock(p);
+                continue;
+            }
+            //获取的是进程的Resident Set Size，也就是进程独占内存 + 共享库大小。
+            tasksize = get_mm_rss(p->mm);
+            task_unlock(p);
+            if (tasksize <= 0)
+                continue;
 
-        //算法关键，选择oom_score_adj最大的进程中，并且rss内存最大的进程.
-    		if (selected) {
-    			if (oom_score_adj < selected_oom_score_adj)
-    				continue;
-    			if (oom_score_adj == selected_oom_score_adj &&
-    			    tasksize <= selected_tasksize)
-    				continue;
-    		}
-    		selected = p;
-    		selected_tasksize = tasksize;
-    		selected_oom_score_adj = oom_score_adj;
-    		lowmem_print(2, "select '%s' (%d), adj %hd, size %d, to kill\n",
-    			     p->comm, p->pid, oom_score_adj, tasksize);
-    	}
+            //算法关键，选择oom_score_adj最大的进程中，并且rss内存最大的进程.
+            if (selected) {
+                if (oom_score_adj < selected_oom_score_adj)
+                    continue;
+                if (oom_score_adj == selected_oom_score_adj &&
+                    tasksize <= selected_tasksize)
+                    continue;
+            }
+            selected = p;
+            selected_tasksize = tasksize;
+            selected_oom_score_adj = oom_score_adj;
+            lowmem_print(2, "select '%s' (%d), adj %hd, size %d, to kill\n",
+                     p->comm, p->pid, oom_score_adj, tasksize);
+        }
 
-    	if (selected) {
-    		long cache_size = other_file * (long)(PAGE_SIZE / 1024);
-    		long cache_limit = minfree * (long)(PAGE_SIZE / 1024);
-    		long free = other_free * (long)(PAGE_SIZE / 1024);
+        if (selected) {
+            long cache_size = other_file * (long)(PAGE_SIZE / 1024);
+            long cache_limit = minfree * (long)(PAGE_SIZE / 1024);
+            long free = other_free * (long)(PAGE_SIZE / 1024);
 
-    		lowmem_deathpending_timeout = jiffies + HZ;
-    		set_tsk_thread_flag(selected, TIF_MEMDIE);
-        //向选中的目标进程发送signal 9来杀掉目标进程
-    		send_sig(SIGKILL, selected, 0);
-    		rem += selected_tasksize;
-    	}
-    	rcu_read_unlock();
-    	return rem;
+            lowmem_deathpending_timeout = jiffies + HZ;
+            set_tsk_thread_flag(selected, TIF_MEMDIE);
+            //向选中的目标进程发送signal 9来杀掉目标进程
+            send_sig(SIGKILL, selected, 0);
+            rem += selected_tasksize;
+        }
+        rcu_read_unlock();
+        return rem;
     }
 
 - 选择oom_score_adj最大的进程中，并且rss内存最大的进程作为选中要杀的进程。
