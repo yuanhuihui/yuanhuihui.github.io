@@ -515,6 +515,8 @@ ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
             long cache_size = other_file * (long)(PAGE_SIZE / 1024);
             long cache_limit = minfree * (long)(PAGE_SIZE / 1024);
             long free = other_free * (long)(PAGE_SIZE / 1024);
+            //输出kill的log
+            lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \ ...);
 
             lowmem_deathpending_timeout = jiffies + HZ;
             set_tsk_thread_flag(selected, TIF_MEMDIE);

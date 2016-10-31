@@ -1270,7 +1270,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
             Bundle extras, boolean ordered, boolean sticky, int sendingUser) {
         LoadedApk.ReceiverDispatcher rd = mDispatcher.get();
         if (rd != null) {
-            //【4.8】
+            //【见小节4.8】
             rd.performReceive(intent, resultCode, data, extras, ordered, sticky, sendingUser);
         } else {
            ...
@@ -1333,7 +1333,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
                 }
 
                 if (receiver.getPendingResult() != null) {
-                    finish();
+                    finish(); //【见小节4.10】
                 }
             }
           }

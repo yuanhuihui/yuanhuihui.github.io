@@ -198,7 +198,7 @@ lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同a
 
 该方法是private方法，只提供给`一参`和`无参`的同名方法调用，系统中并没有其他地方调用。
 
-#### 3.4 无参方法
+#### 3.4 无参方法(核心)
 
     final void updateOomAdjLocked() {
         //获取栈顶的Activity
@@ -288,7 +288,7 @@ lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同a
 
             if (!app.killedByAm && app.thread != null) {
                 app.procStateChanged = false;
-                //计算app的adj值【见小节2.4】
+                //计算app的adj值【见小节4】
                 computeOomAdjLocked(app, ProcessList.UNKNOWN_ADJ, TOP_APP, true, now);
 
                 //当进程未分配adj的情况下，更新adj(cached和empty算法是相同的)
