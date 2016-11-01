@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "AMS杀进程场景之汇总"
-date:   2016-10-29 11:20:00
+date:   2016-04-23 11:20:00
 catalog:  true
 tags:
     - android
@@ -94,3 +94,5 @@ reason对于分析问题很重要, 比如
     am_kill : [0,26328,com.gityuan.app,0,stop com.gityuan.app]
 
 这是Eventlog,可知最后一个参数**stop com.gityuan.app**, 代表的是reason = stop `packageName`, 那么显然这个app是由于调用forceStopPackageLocked而被杀.
+
+未完....

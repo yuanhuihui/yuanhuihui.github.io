@@ -20,17 +20,17 @@ tags:
     /framework/av/media/libmediaplayerservice/MediaPlayerService.cpp
 
 
-###  入口
+##  一.概述
 
 在Native层的服务以media服务为例，注册服务media的入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
 
     int main(int argc __unused, char** argv)
     {
         ...
-        InitializeIcuOrDie();  //初始化ICU，国际通用编码方案。
+        InitializeIcuOrDie();
         //获得ProcessState实例对象
         sp<ProcessState> proc(ProcessState::self());
-        //获取ServiceManager实例对象 【见文章《获取ServiceManager》】
+        //获取ServiceManager实例对象
         sp<IServiceManager> sm = defaultServiceManager();
         AudioFlinger::instantiate();
         //多媒体服务  【见流程1~13】
@@ -47,15 +47,13 @@ tags:
         IPCThreadState::self()->joinThreadPool();
      }
 
-该过程的主要流程如下所示：
+### 1.1 流程图
 
 ![workflow](/images/binder/addService/workflow.jpg)
 
 其中ProcessState::self()和defaultServiceManager()过程在上一篇文章[获取ServiceManager](http://gityuan.com/2015/11/08/binder-get-sm/#defaultservicemanager)已讲过，下面说说后3个方法的具体工作内容。
 
-----------
-
-**类图：**
+### 1.2 类图
 
 在Native层的服务注册，我们选择以media为例来展开讲解，先来看看media的类关系图。
 
@@ -71,7 +69,7 @@ tags:
 
 
 
-**时序图**
+### 1.3 时序图
 
 点击查看[大图](http://gityuan.com/images/binder/addService/addService.jpg)
 
@@ -84,8 +82,10 @@ tags:
     PS:  ProcessState
     ISM: IServiceManager
 
+## 二. 流程分析
+
 ### 1. MPS:instantiate
-==> `/framework/av/media/libmediaplayerservice/MediaPlayerService.cpp`
+[-> MediaPlayerService.cpp]
 
     void MediaPlayerService::instantiate() {
         defaultServiceManager()->addService(
@@ -94,8 +94,8 @@ tags:
 
 注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。关于`MediaPlayerService`创建过程，此处就省略后面有时间会单独介绍，接下来进入流程[3]。
 
-### 3. ISM.addService
-==> `/framework/native/libs/binder/IServiceManager.cpp`
+### 3. BpServiceManager.addService
+[-> IServiceManager.cp BpServiceManager]
 
     virtual status_t addService(const String16& name, const sp<IBinder>& service,
             bool allowIsolated)
@@ -117,7 +117,7 @@ tags:
 - remote()就是BpBinder()；
 
 ### 4. BpBinder::transact
-==> `/framework/native/libs/binder/BpBinder.cpp`
+[-> BpBinder.cpp]
 
 由【流程3】传递过来的参数：transact(ADD_SERVICE_TRANSACTION, data, &reply, 0);
 
@@ -138,7 +138,7 @@ Binder代理类调用transact()方法，真正工作还是交给IPCThreadState�
 
 
 ### 5. IPCThreadState::self
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
     IPCThreadState* IPCThreadState::self()
     {
@@ -171,7 +171,7 @@ Binder代理类调用transact()方法，真正工作还是交给IPCThreadState�
 TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有自己的TLS，并且是私有空间，线程之间不会共享。通过pthread_getspecific/pthread_setspecific函数可以获取/设置这些空间中的内容。从线程本地存储空间中获得保存在其中的IPCThreadState对象。
 
 ### 6. new IPCThreadState
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
     IPCThreadState::IPCThreadState()
         : mProcess(ProcessState::self()),
@@ -191,7 +191,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
 - mOut用来存储发往Binder设备的数据，默认大小为256字节。
 
 ### 7. IPC::transact
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
 由【流程4】传递过来的参数：transact (0，ADD_SERVICE_TRANSACTION, data, &reply, 0);
 
@@ -237,7 +237,7 @@ IPCThreadState进行transact事务处理分3部分：
 - waitForResponse()      //f等待响应
 
 ### 8. IPC.writeTransactionData
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
 由【流程7】传递过来的参数：writeTransactionData(BC_TRANSACTION, 0, 0, ADD_SERVICE_TRANSACTION, data, NULL)
 
@@ -282,7 +282,7 @@ IPCThreadState进行transact事务处理分3部分：
 
 
 ### 9. IPC.waitForResponse
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
 【流程7】传递过来的参数：waitForResponse(&reply, NULL);
 
@@ -373,7 +373,7 @@ IPCThreadState进行transact事务处理分3部分：
 不断循环地与Binder驱动设备交互，获取响应信息
 
 ### 10. IPC.talkWithDriver
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
     status_t IPCThreadState::talkWithDriver(bool doReceive)
     {
@@ -435,7 +435,7 @@ IPCThreadState进行transact事务处理分3部分：
 [binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。 主要是操作mOut和mIn变量。
 
 ### 11. IPC.executeCommand
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
 根据收到的响应消息，执行相应的操作
 
@@ -589,7 +589,7 @@ IPCThreadState进行transact事务处理分3部分：
     }
 
 ### 12. BBinder::transact
-==> `/framework/native/libs/binder/Binder.cpp`
+[-> Binder.cpp]
 
 服务端transact事务处理
 
@@ -616,7 +616,7 @@ IPCThreadState进行transact事务处理分3部分：
     }
 
 ### 13. BBinder::onTransact
-==> `/framework/native/libs/binder/Binder.cpp`
+[-> Binder.cpp]
 
 服务端事务回调处理函数
 
@@ -648,7 +648,7 @@ IPCThreadState进行transact事务处理分3部分：
         }
     }
 
-对于MediaPlayerService的场景下，事实上BnMediaPlayerService继承了BBinder类，且重载了onTransact()方法，故实际调用的是BnMediaPlayerService::onTransact()方法。
+对于MediaPlayerService的场景下:  MediaPlayerService继承于BnMediaPlayerService, 而BnMediaPlayerService继承了BnInterface, 而BnInterface又继承BBinder于IediaPlayerService. 其中BnMediaPlayerService重载了onTransact()方法，故实际调用的是BnMediaPlayerService::onTransact()方法。
 
 
 ----------
@@ -678,7 +678,7 @@ IPCThreadState进行transact事务处理分3部分：
 到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://gityuan.com/2015/11/15/binder-get-service/)。
 
 ### 14 PS.startThreadPool
-==> `/framework/native/libs/binder/ProcessState.cpp`
+[-> ProcessState.cpp]
 
 先通过ProcessState::self()，来获取单例对象ProcessState，再进行启动线程池
 
@@ -694,7 +694,7 @@ IPCThreadState进行transact事务处理分3部分：
 通过变量mThreadPoolStarted来保证每个应用进程只允许主动创建一个binder线程，其余binder线程池中的线程都是由Binder驱动来控制创建的。
 
 ### 15. PS.spawnPooledThread
-==> `/framework/native/libs/binder/ProcessState.cpp`
+[-> ProcessState.cpp]
 
     void ProcessState::spawnPooledThread(bool isMain)
     {
@@ -731,7 +731,7 @@ IPCThreadState进行transact事务处理分3部分：
 
 
 ### 16 IPC.joinThreadPool()
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
     void IPCThreadState::joinThreadPool(bool isMain)
     {
@@ -767,7 +767,7 @@ IPCThreadState进行transact事务处理分3部分：
 
 
 ### 17 IPC.getAndExecuteCommand
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
 获取并处理指令
 

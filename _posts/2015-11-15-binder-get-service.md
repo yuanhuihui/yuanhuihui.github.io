@@ -29,19 +29,11 @@ tags:
 - 紫色: 代表[注册服务](http://gityuan.com/2015/11/14/binder-add-service/)和获取服务的公共接口/父类；
 
 
-下面开始讲解每一个流程，为了让每小节标题更加紧凑，下面流程采用如下简称：
-
-    MPS: MediaPlayerService
-    IPC: IPCThreadState
-    PS:  ProcessState
-    ISM: IServiceManager
+继续以Media为例，讲解如何获取服务。
 
 
 ### 1. getMediaPlayerService
-
-继续以Media为例，讲解如何获取服务。
-
-==> `/framework/av/media/libmedia/IMediaDeathNotifier.cpp`
+[-> IMediaDeathNotifier.cpp]
 
     sp<IMediaPlayerService>&
     IMediaDeathNotifier::getMediaPlayerService()
@@ -76,8 +68,8 @@ tags:
 在请求获取名为"media.player"的服务过程中，采用不断循环获取的方法。由于MediaPlayerService服务可能还没向ServiceManager注册完成或者尚未启动完成等情况，故则binder返回为NULL，休眠0.5s后继续请求，直到获取服务为止。
 
 
-### 2. ISM.getService
-==> `/framework/native/libs/binder/IServiceManager.cpp`
+### 2. BpServiceManager.getService
+[-> IServiceManager.cpp ::BpServiceManager]
 
     virtual sp<IBinder> getService(const String16& name) const
         {
@@ -94,9 +86,7 @@ tags:
 
 
 ### 3. ISM.checkService
-==> `/framework/native/libs/binder/IServiceManager.cpp`
-
-检索指定服务是否存在
+[-> IServiceManager.cpp ::BpServiceManager]
 
     virtual sp<IBinder> checkService( const String16& name) const
     {
@@ -109,10 +99,10 @@ tags:
         return reply.readStrongBinder();
     }
 
-其中remote()为BpBinder。
+检索指定服务是否存在, 其中remote()为BpBinder。
 
 ### 4. BpBinder::transact
-==> `/framework/native/libs/binder/BpBinder.cpp`
+[-> BpBinder.cpp]
 
 由【流程3】传递过来的参数：transact(CHECK_SERVICE_TRANSACTION, data, &reply, 0);
 
@@ -134,7 +124,7 @@ Binder代理类调用transact()方法，真正工作还是交给IPCThreadState�
 
 
 ### 5. IPCThreadState::self
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
     IPCThreadState* IPCThreadState::self()
     {
@@ -164,7 +154,7 @@ Binder代理类调用transact()方法，真正工作还是交给IPCThreadState�
 获取IPCThreadState对象，关于线程的TLS在上一篇文章[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/#ipcthreadstateself)中已解释过。
 
 ### 6. new IPCThreadState
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
     IPCThreadState::IPCThreadState()
         : mProcess(ProcessState::self()),
@@ -184,7 +174,7 @@ Binder代理类调用transact()方法，真正工作还是交给IPCThreadState�
 - mOut用来存储发往Binder设备的数据，默认大小为256字节。
 
 ### 7. IPC::transact
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
 由【流程4】传递过来的参数：transact (0，CHECK_SERVICE_TRANSACTION, data, &reply, 0);
 
@@ -229,7 +219,7 @@ IPCThreadState进行transact事务处理分3部分：
 - waitForResponse()      //f等待响应
 
 ### 8. IPC.writeTransactionData
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
 由【流程7】传递过来的参数：writeTransactionData(BC_TRANSACTION, 0, 0, CHECK_SERVICE_TRANSACTION, data, NULL)
 
@@ -274,7 +264,7 @@ IPCThreadState进行transact事务处理分3部分：
 
 
 ### 9. IPC.waitForResponse
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
 【流程7】传递过来的参数：waitForResponse(&reply, NULL);
 
@@ -365,7 +355,7 @@ IPCThreadState进行transact事务处理分3部分：
 不断循环地与Binder驱动设备交互，获取响应信息
 
 ### 10. IPC.talkWithDriver
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
     status_t IPCThreadState::talkWithDriver(bool doReceive)
     {
@@ -431,7 +421,7 @@ IPCThreadState进行transact事务处理分3部分：
 
 
 ### 11. IPC.executeCommand
-==> `/framework/native/libs/binder/IPCThreadState.cpp`
+[-> IPCThreadState.cpp]
 
 根据收到的响应消息，执行相应的操作
 
@@ -585,7 +575,7 @@ IPCThreadState进行transact事务处理分3部分：
     }
 
 ### 12. BBinder::transact
-==> `/framework/native/libs/binder/Binder.cpp`
+[-> Binder.cpp ::BBinder]
 
 服务端transact事务处理
 
@@ -612,7 +602,7 @@ IPCThreadState进行transact事务处理分3部分：
     }
 
 ### 13. BBinder::onTransact
-==> `/framework/native/libs/binder/Binder.cpp`
+[-> Binder.cpp ::BBinder]
 
 服务端事务回调处理函数
 
@@ -648,7 +638,6 @@ IPCThreadState进行transact事务处理分3部分：
 
 
 ### 二、 死亡通知
-
 
 死亡通知是为了让Bp端能知道Bn端的生死情况。
 
