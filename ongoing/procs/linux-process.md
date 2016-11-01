@@ -36,6 +36,8 @@ Linux的几个比较重要特点：
 
 同一进程的线程间共享虚拟内存，但都有各自独立的虚拟处理器；
 
+进程是程序的动态执行过程
+
 ## 二. 进程
 
 ### 2.1 task_struct
@@ -49,46 +51,46 @@ Linux内核中进程用`task_struct`结构体表示，称为进程描述符，�
        struct mm_struct *mm, *active_mm; //内存地址空间
        pid_t pid;
 	     pid_t tgid;
-       
+
        struct task_struct __rcu *real_parent; //真正的父进程，fork时记录的
        struct task_struct __rcu *parent; // ptrace后，设置为trace当前进程的进程
        struct list_head children;  //子进程
 	     struct list_head sibling;	//父进程的子进程，即兄弟进程
        struct task_struct *group_leader; //线程组的领头线程
-       
+
        char comm[TASK_COMM_LEN];  //进程名，长度上限为16字符
        struct fs_struct *fs;  //文件系统信息
        struct files_struct *files; // 打开的文件
-       
+
        struct signal_struct *signal;
        struct sighand_struct *sighand;
        struct sigpending pending;
        ...
     }    
-    
+
 ### 2.2 thread_info
 
 Linux通过slab动态生成task_struct，那么在栈顶或栈底创建新的结构体thread_info即可，其中task指向其真正的task_struct结构体。
 
     struct thread_info {
     	struct task_struct	*task;		//主要的进程描述符
-    	struct exec_domain	*exec_domain;	
+    	struct exec_domain	*exec_domain;
     	__u32			flags;		
     	__u32			status;		// 线程同步flags
     	__u32			cpu;		//当前cpu
-    	int			preempt_count; 
+    	int			preempt_count;
     	mm_segment_t		addr_limit;
     	struct restart_block    restart_block;
     	void __user		*sysenter_return;
     	unsigned int		sig_on_uaccess_error:1;
-    	unsigned int		uaccess_err:1;	
+    	unsigned int		uaccess_err:1;
     };
 
 ### 2.3 pid
 
 pid最大值默认为32768，一般来说pid数值越大的进程创建时间越晚，但进程再不断创建与结束，轮完一圈又会继续从小开始轮循，所以也就破坏了这个规则。
 可以通过修改/proc/sys/kernel/pid_max来提高上限。
-    
+
 ## 2.4 进程状态
 
 task_struct结构体有一个成员state，代表的是进程的状态：
@@ -115,9 +117,9 @@ task_struct结构体有一个成员state，代表的是进程的状态：
 
 【增加图】 【参考文章的页24】
 
-### 2.4 
+### 2.4
 
-【需要图片】 
+【需要图片】
 syscall <-> 内核 <-> 中断
 
 - 应用程序通过系统调用syscall与内核通信；
@@ -145,7 +147,6 @@ syscall <-> 内核 <-> 中断
 内核线程：没有独立的地址空间，即mm指向NULL。这样的线程只在内核运行，不会切换到用户空间。
 所有内核线程都是由kthreadd作为内核线程的祖师爷，衍生而来的。通过kthread_create()来创建新的内核线程。
 
-#
 
 
 ### 其他参数
