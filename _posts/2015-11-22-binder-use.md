@@ -13,7 +13,7 @@ tags:
 > 自定义binder架构的 client/ server组件
 
 
-## 一、自定义Native层Binder服务
+## 一、Native层Binder
 
 源码结构：
 
@@ -175,7 +175,7 @@ tags:
 
 ![native_client](/images/binder/binderSimple/native_client.png)
 
-## 二、自定义Framework层Binder服务
+## 二、Framework层Binder
 
 源码结构：
 

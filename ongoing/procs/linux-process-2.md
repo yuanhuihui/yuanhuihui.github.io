@@ -13,9 +13,9 @@ tags:
     bionic/libc/bionic/pthread_create.cpp
     kernel/arch/arm/include/asm/thread_info.h
 
-		linux/kthread.h
+        linux/kthread.h
     kernel/fork.c
-		kernel/exit.c
+        kernel/exit.c
 
 
 ## 一. 概述
@@ -39,9 +39,13 @@ Linux通过fork复制父进程的方式来创建新进程，其中fork调用者�
 
 fork -> clone()
 
+
+
+
+
 ### 2.2 pthread_create
 
-		pthread_create -> __pthread_create_2_1 -> create_thread -> do_clone
+        pthread_create -> __pthread_create_2_1 -> create_thread -> do_clone
 
 
 #### 写时拷贝
@@ -53,13 +57,13 @@ fork -> clone()
 fork, vfork, __clone根据不同参数调用 clone， 再调用do_fork [kernel/fork.c]
 
 
-		fork
-			clone
-				do_fork
-					copy_process
-						dup_task_struct
-						copy_flags
-						alloc_pid
+        fork
+            clone
+                do_fork
+                    copy_process
+                        dup_task_struct
+                        copy_flags
+                        alloc_pid
 
 ### 2.3 对比
 
@@ -81,14 +85,14 @@ Linux 线程，也并非"轻量级进程"，在Linux看来线程是一种进程�
 2. 父进程调用wait4()来查询子进程是否终结；
 3. 当父进程执行完wait或者waitpid操作后，该进程彻底退出。
 
-	exit
-		do_exit
-			exit_mm
-			sem_exit
-			exit_files
-			exit_fs
-			exit_notify
-			schedule
+    exit
+        do_exit
+            exit_mm
+            sem_exit
+            exit_files
+            exit_fs
+            exit_notify
+            schedule
 
 到此该进程相关的所有资源都已释放，并处于EXIT_ZOMBIE状态。此时进程所占用的内存为内核栈、task_struct和hread_info结构体， 该进程存在的唯一目标就是向父进程提供信息。
 
