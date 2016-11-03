@@ -61,6 +61,7 @@ fork, vfork, __clone根据不同参数调用 clone， 再调用do_fork [kernel/f
 
 ## 二. fork
 
+
 Linux通过fork复制父进程的方式来创建新进程，其中fork调用者所在进程便是父进程，新创建的进程便是子进程；在fork调用结束，从内核返回两次，一次继续执行父进程，一次进入执行子进程。
 
 执行流： fork -> exec -> exit

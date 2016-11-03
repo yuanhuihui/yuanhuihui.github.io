@@ -182,5 +182,6 @@ PPid: 当前进程的父进程
     ps
 
 
-
+http://blog.csdn.net/u012927281/article/details/52016191
+http://www.ibm.com/developerworks/cn/linux/l-linux-process-management/index.html
 http://kernel.meizu.com/linux-process-stop.html
