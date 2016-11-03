@@ -29,6 +29,36 @@ exec： 读取可执行文件并载入地址空间执行；
 
 fork: Linux通过fork复制父进程的方式来创建新进程，其中fork调用者所在进程便是父进程，新创建的进程便是子进程；在fork调用结束，从内核返回两次，一次继续执行父进程，一次进入执行子进程。
 
+
+
+### 调用过程
+
+
+调用流程:
+
+1. 用户空间调用fork()方法;
+2. 经过syscall陷入内核空间, 内核根据系统调用号找到相应的sys_fork系统调用;
+3. sys_fork()过程会在调用clone()方法;
+4. clone方法, 该方法参数有一个flags很重要, 代表的是父子进程之间需要共享的资源;对于进程的创建则flags=SIGCHLD,只是当子进程退出时向父进程发送SIGCHLD信号;
+5. clone方法会再调用do_fork(),会进行一些check过程,之后便是进入核心方法copy_process.
+
+
+fork, vfork, __clone根据不同参数调用 clone， 再调用do_fork [kernel/fork.c]
+
+
+        fork
+            clone
+                do_fork
+                    copy_process
+                        dup_task_struct
+                        copy_flags
+                        alloc_pid
+
+
+- pthread_create: clone(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND, 0)
+- fork: clone(SIGCHLD)
+- vfork: clone(CLONE_VFORK | CLONE_VM | SIGCHLD, 0)
+
 ## 二. fork
 
 Linux通过fork复制父进程的方式来创建新进程，其中fork调用者所在进程便是父进程，新创建的进程便是子进程；在fork调用结束，从内核返回两次，一次继续执行父进程，一次进入执行子进程。
@@ -36,6 +66,26 @@ Linux通过fork复制父进程的方式来创建新进程，其中fork调用者�
 执行流： fork -> exec -> exit
 
 fork -> clone()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -50,18 +100,7 @@ fork -> clone()
 
 所以fork后，有意希望子进程先执行（减少写时拷贝）， 但事实并非总是如此，为何？
 
-#### 调用过程
 
-fork, vfork, __clone根据不同参数调用 clone， 再调用do_fork [kernel/fork.c]
-
-
-        fork
-            clone
-                do_fork
-                    copy_process
-                        dup_task_struct
-                        copy_flags
-                        alloc_pid
 
 ### 2.3 对比
 
