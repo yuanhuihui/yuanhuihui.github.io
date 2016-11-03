@@ -43,7 +43,7 @@ Android系统启动过程由上图从下往上的一个过程：`Loader` -> `Ker
 
 Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 
-- 启动Kernel的0号进程：初始化进程管理、内存管理，加载Display,Camera Driver，Binder Driver等相关工作；
+- 启动Kernel的swapper进程(pid=0)：该进程又称为idle进程, 系统初始化过程Kernel由无到有开创的第一个进程, 用于初始化进程管理、内存管理，加载Display,Camera Driver，Binder Driver等相关工作；
 - 启动kthreadd进程（pid=2）：是Linux系统的内核进程，会创建内核工作线程kworkder，软中断线程ksoftirqd，thermal等内核守护进程。`kthreadd进程是所有内核进程的鼻祖`。
 
 #### 2.3 Native层
