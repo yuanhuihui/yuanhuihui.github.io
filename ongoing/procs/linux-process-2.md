@@ -43,21 +43,22 @@ fork: Linux通过fork复制父进程的方式来创建新进程，其中fork调�
 5. clone方法会再调用do_fork(),会进行一些check过程,之后便是进入核心方法copy_process.
 
 
-fork, vfork, __clone根据不同参数调用 clone， 再调用do_fork [kernel/fork.c]
+fork, vfork, clone根据不同参数调用 clone， 再调用do_fork [kernel/fork.c]
 
 
-        fork
-            clone
-                do_fork
-                    copy_process
-                        dup_task_struct
-                        copy_flags
-                        alloc_pid
+    do_fork
+        copy_process
+            dup_task_struct
+            copy_flags
+            alloc_pid
 
 
-- pthread_create: clone(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND, 0)
+- pthread_create: 调用clone(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND, 0)
+    pthread_create -> clone -> sys_clone -> do_fork
 - fork: clone(SIGCHLD)
+    fork -> sys_fork -> do_fork
 - vfork: clone(CLONE_VFORK | CLONE_VM | SIGCHLD, 0)
+    vfork -> sys_vfork -> do_fork
 
 ## 二. fork
 
@@ -66,9 +67,16 @@ Linux通过fork复制父进程的方式来创建新进程，其中fork调用者�
 
 执行流： fork -> exec -> exit
 
-fork -> clone()
+
+创建进程失败，可能原因：
+
+1. 进程达到系统上限；
+2. 系统内存不足；
 
 
+进程创建后，每个进程的资源是有上限， 可通过
+
+cat /proc/32261/limits来查看
 
 
 
