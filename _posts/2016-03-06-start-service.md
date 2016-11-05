@@ -80,7 +80,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 接下来，我们正式从代码角度来分析服务启动的过程。首先在我们应用程序的Activity类的调用startService()方法，该方法调用【流程1】的方法。
 
-## 二、源码分析
+## 二. 发起端
 
 ### 1. CW.startService
 [-> ContextWrapper.java]
@@ -194,6 +194,10 @@ gDefault为Singleton类型对象，此次采用单例模式，mInstance为IActiv
     }
 
 mRemote.transact()是binder通信的客户端发起方法，经过binder驱动，最后回到binder服务端ActivityManagerNative的onTransact()方法。
+
+## 三. system_server端
+
+借助于AMP/AMN这对Binder对象，便完成了从发起端所在进程到system_server的调用过程
 
 ### 5. AMN.onTransact
 
@@ -366,7 +370,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
     private final String bringUpServiceLocked(ServiceRecord r, int intentFlags, boolean execInFg,
             boolean whileRestarting) throws TransactionTooLargeException {
         if (r.app != null && r.app.thread != null) {
-            sendServiceArgsLocked(r, execInFg, false);
+            //调用service.onStartCommand()过程
+            sendServiceArgsLocked(r, execInFg, false); 
             return null;
         }
         if (!whileRestarting && r.restartDelay > 0) {
@@ -403,7 +408,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             if (app != null && app.thread != null) {
                 try {
                     app.addPackage(r.appInfo.packageName, r.appInfo.versionCode, mAm.mProcessStats);
-                    // 启动服务 【见流程12】
+                    // 启动服务 【见流程10】
                     realStartServiceLocked(r, app, execInFg);
                     return null;
                 } catch (TransactionTooLargeException e) {
@@ -418,7 +423,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
         //对于进程没有启动的情况
         if (app == null) {
-            //启动service所要运行的进程 【见流程10】
+            //启动service所要运行的进程 【见流程9.1】
             if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
                     "service", r.name, false, isolated, false)) == null) {
                 String msg = ""
@@ -441,12 +446,12 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return null;
     }
 
-- 当start service的过程中，目标进程已经存在，则直接执行流程13来调用realStartServiceLocked；
-- 当目标进程不存在，则需要先创建进程，进入流程8，之后再调用realStartServiceLocked。
+- 当启动的服务所属的目标进程已经存在，则直接执行realStartServiceLocked()；
+- 当目标进程不存在，则需要先创建进程，之后再执行realStartServiceLocked()。
 
 对于非前台进程调用而需要启动的服务，如果已经有其他的后台服务正在启动中，那么我们可能希望延迟其启动。这是用来避免启动同时启动过多的进程(非必须的)。
 
-### 10. AMS.attachApplicationLocked
+#### 9.1 AMS.attachApplicationLocked
 
 关于startProcessLocked的过程, 详见 [理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/),经过层层调用最后会调用到AMS.attachApplicationLocked过程.
 
@@ -466,7 +471,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         ...
         if (!badApp) {
             try {
-                //寻找所有需要在该进程中运行的服务 【见流程11】
+                //寻找所有需要在该进程中运行的服务 【见流程9.2】
                 didSomething |= mServices.attachApplicationLocked(app, processName);
             } catch (Exception e) {
                 badApp = true;
@@ -477,7 +482,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
     }
 
 
-### 11. AS.attachApplicationLocked
+#### 9.2 AS.attachApplicationLocked
 [-> ActiveServices.java]
 
     boolean attachApplicationLocked(ProcessRecord proc, String processName)
@@ -527,20 +532,18 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 - 当需要创建新进程,则创建后经历过attachApplicationLocked,则会再调用realStartServiceLocked();
 - 当不需要创建进程, 即在[流程9]中直接就进入了realStartServiceLocked();
 
-### 12 AS.realStartServiceLocked
+### 10. AS.realStartServiceLocked
 [-> ActiveServices.java]
 
     private final void realStartServiceLocked(ServiceRecord r,
             ProcessRecord app, boolean execInFg) throws RemoteException {
-        if (app.thread == null) {
-            throw new RemoteException();
-        }
+        ...
 
         r.app = app;
         r.restartTime = r.lastActivity = SystemClock.uptimeMillis();
         final boolean newService = app.services.add(r);
 
-        //发送delay消息(SERVICE_TIMEOUT_MSG)
+        //发送delay消息【见流程10.1】
         bumpServiceExecutingLocked(r, execInFg, "create");
         mAm.updateLruProcessLocked(app, false, null);
         mAm.updateOomAdjLocked();
@@ -551,7 +554,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             }
             mAm.ensurePackageDexOpt(r.serviceInfo.packageName);
             app.forceProcessStateUpTo(ActivityManager.PROCESS_STATE_SERVICE);
-            //服务进入 onCreate() 【见流程13】
+            //服务进入 onCreate() 【见流程11】
             app.thread.scheduleCreateService(r, r.serviceInfo,
                     mAm.compatibilityInfoForPackageLocked(r.serviceInfo.applicationInfo),
                     app.repProcState);
@@ -581,7 +584,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             r.pendingStarts.add(new ServiceRecord.StartItem(r, false, r.makeNextStartId(),
                     null, null));
         }
-        //服务 进入onStartCommand() 【见流程17】
+        //服务 进入onStartCommand() 【见流程16】
         sendServiceArgsLocked(r, execInFg, true);
         if (r.delayed) {
             getServiceMap(r.userId).mDelayedStartList.remove(r);
@@ -597,7 +600,53 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 在bumpServiceExecutingLocked会发送一个延迟处理的消息SERVICE_TIMEOUT_MSG。在方法scheduleCreateService执行完成，也就是onCreate回调执行完成之后，便会remove掉该消息。但是如果没能在延时时间之内remove该消息，则会进入执行service timeout流程。
 
-### 13. ATP.scheduleCreateService
+#### 10.1 AS.bumpServiceExecutingLocked
+[-> ActiveServices.java]
+
+    private final void bumpServiceExecutingLocked(ServiceRecord r, boolean fg, String why) {
+        long now = SystemClock.uptimeMillis();
+        if (r.executeNesting == 0) {
+            r.executeFg = fg;
+            ...
+            if (r.app != null) {
+                r.app.executingServices.add(r);
+                r.app.execServicesFg |= fg;
+                if (r.app.executingServices.size() == 1) {
+                    scheduleServiceTimeoutLocked(r.app);
+                }
+            }
+        } else if (r.app != null && fg && !r.app.execServicesFg) {
+            r.app.execServicesFg = true;
+            //[见流程10.2]
+            scheduleServiceTimeoutLocked(r.app);
+        }
+        r.executeFg |= fg;
+        r.executeNesting++;
+        r.executingStart = now;
+    }
+
+#### 10.2 scheduleServiceTimeoutLocked
+
+    void scheduleServiceTimeoutLocked(ProcessRecord proc) {
+        if (proc.executingServices.size() == 0 || proc.thread == null) {
+            return;
+        }
+        long now = SystemClock.uptimeMillis();
+        Message msg = mAm.mHandler.obtainMessage(
+                ActivityManagerService.SERVICE_TIMEOUT_MSG);
+        msg.obj = proc;
+        //当超时后仍没有remove该SERVICE_TIMEOUT_MSG消息，则执行service Timeout流程
+        mAm.mHandler.sendMessageAtTime(msg,
+                proc.execServicesFg ? (now+SERVICE_TIMEOUT) : (now+ SERVICE_BACKGROUND_TIMEOUT));
+    }
+    
+发送延时消息SERVICE_TIMEOUT_MSG,延时时长：
+    
+- 对于前台服务，则超时为SERVICE_TIMEOUT，即timeout=20s；
+- 对于后台服务，则超时为SERVICE_BACKGROUND_TIMEOUT，即timeout=200s；
+
+
+### 11. ATP.scheduleCreateService
 [-> ApplicationThreadProxy.java]
 
     public final void scheduleCreateService(IBinder token, ServiceInfo info,
@@ -609,7 +658,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         compatInfo.writeToParcel(data, 0);
         data.writeInt(processState);
         try {
-            //【见流程14】
+            //【见流程12】
             mRemote.transact(SCHEDULE_CREATE_SERVICE_TRANSACTION, data, null, IBinder.FLAG_ONEWAY);
         } catch (TransactionTooLargeException e) {
             throw e;
@@ -617,7 +666,11 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         data.recycle();
     }
 
-### 14 ATN.onTransact
+## 三. Service所在进程端
+
+借助于ATP/ATN这对Binder对象，便完成了从system_server所在进程到Service所在进程调用过程
+    
+### 12. ATN.onTransact
 [-> ApplicationThreadNative.java]
 
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
@@ -629,13 +682,14 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             ServiceInfo info = ServiceInfo.CREATOR.createFromParcel(data);
             CompatibilityInfo compatInfo = CompatibilityInfo.CREATOR.createFromParcel(data);
             int processState = data.readInt();
-            // 【见流程15】
+            // 【见流程13】
             scheduleCreateService(token, info, compatInfo, processState);
             return true;
         }
+        ...
     }
 
-### 15 AT.scheduleCreateService
+### 13. AT.scheduleCreateService
 [-> ApplicationThread.java]
 
     public final void scheduleCreateService(IBinder token,
@@ -645,20 +699,20 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         s.token = token;
         s.info = info;
         s.compatInfo = compatInfo;
-        //发送消息 【见流程16】
+        //发送消息 【见流程14】
         sendMessage(H.CREATE_SERVICE, s);
     }
 
 该方法的执行在ActivityThread线程
 
-### 16. H.handleMessage
+### 14. H.handleMessage
 [-> ActivityThread.java]
 
     public void handleMessage(Message msg) {
         switch (msg.what) {
             ...
             case CREATE_SERVICE:
-                handleCreateService((CreateServiceData)msg.obj); //【见流程17】
+                handleCreateService((CreateServiceData)msg.obj); //【见流程15】
                 break;
             case BIND_SERVICE:
                 handleBindService((BindServiceData)msg.obj);
@@ -673,28 +727,23 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
                 handleStopService((IBinder)msg.obj);
                 maybeSnapshot();
                 break;
+            ...
         }
     }
 
-### 17. handleCreateService
+### 15. handleCreateService
 [-> ActivityThread.java]
 
     private void handleCreateService(CreateServiceData data) {
         //当应用处于后台即将进行GC，而此时被调回到活动状态，则跳过本次gc。
         unscheduleGcIdler();
-        //生成服务对象
         LoadedApk packageInfo = getPackageInfoNoCheck(data.info.applicationInfo, data.compatInfo);
-        Service service = null;
-        try {
-            java.lang.ClassLoader cl = packageInfo.getClassLoader();
-            //
-            service = (Service) cl.loadClass(data.info.name).newInstance();
-        } catch (Exception e) {
-            if (!mInstrumentation.onException(service, e)) {
-                throw new RuntimeException(
-                    "Unable to instantiate service " + data.info.name + ": " + e.toString(), e);
-            }
-        }
+        
+        java.lang.ClassLoader cl = packageInfo.getClassLoader();
+        //通过反射创建目标服务对象
+        Service service = (Service) cl.loadClass(data.info.name).newInstance();
+        ...
+        
         try {
             //创建ContextImpl对象
             ContextImpl context = ContextImpl.createAppContext(this, packageInfo);
@@ -702,33 +751,151 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             Application app = packageInfo.makeApplication(false, mInstrumentation);
             service.attach(context, this, data.info.name, data.token, app,
                     ActivityManagerNative.getDefault());
-            service.onCreate(); //调用服务的 onCreate()方法 【见流程18】
+            //调用服务onCreate()方法 【见流程15.1】
+            service.onCreate(); 
             mServices.put(data.token, service);
-            try {
-                ActivityManagerNative.getDefault().serviceDoneExecuting(
-                        data.token, SERVICE_DONE_EXECUTING_ANON, 0, 0);
-            } catch (RemoteException e) {
-                // nothing to do.
-            }
+            //调用服务创建完成【见流程16】
+            ActivityManagerNative.getDefault().serviceDoneExecuting(
+                    data.token, SERVICE_DONE_EXECUTING_ANON, 0, 0);
         } catch (Exception e) {
-            if (!mInstrumentation.onException(service, e)) {
-                throw new RuntimeException(
-                    "Unable to create service " + data.info.name
-                    + ": " + e.toString(), e);
-            }
+            ...
         }
     }
 
-### 18. Service.onCreate
+#### 15.1 Service.onCreate
 
     public abstract class Service extends ContextWrapper implements ComponentCallbacks2 {
         public void onCreate(){    }
     }
 
-最终调用到抽象类Service.onCreate()方法，对于真正的Service都会通过覆写该方式，调用真正Service子类的onCreate()方法。拨云见日，到此总算是进入了Service的生命周期。
+最终调用Service.onCreate()方法，对于目标服务都是继承于Service，并覆写该方式，调用目标服务的onCreate()方法。拨云见日，到此总算是进入了Service的生命周期。
 
+### 16 AMS.serviceDoneExecuting
 
-## 三、总结
+    public void serviceDoneExecuting(IBinder token, int type, int startId, int res) {
+        synchronized(this) {
+            ...
+            // [见流程16.1]
+            mServices.serviceDoneExecutingLocked((ServiceRecord)token, type, startId, res);
+        }
+    }
+    
+由[流程10.1]的bumpServiceExecutingLocked()发送一个延时消息SERVICE_TIMEOUT_MSG
+
+#### 16.1 AS.serviceDoneExecutingLocked
+[-> ActiveServices.java]
+
+    void serviceDoneExecutingLocked(ServiceRecord r, int type, int startId, int res) {
+        boolean inDestroying = mDestroyingServices.contains(r);
+        if (r != null) {
+            ...
+            final long origId = Binder.clearCallingIdentity();
+            // [见流程16.2]
+            serviceDoneExecutingLocked(r, inDestroying, inDestroying);
+            Binder.restoreCallingIdentity(origId);
+        }
+        ...
+    }
+    
+#### 16.2 serviceDoneExecutingLocked
+[-> ActiveServices.java]
+
+    private void serviceDoneExecutingLocked(ServiceRecord r, boolean inDestroying,
+            boolean finishing) {
+        r.executeNesting--;
+        if (r.executeNesting <= 0) {
+            if (r.app != null) {
+                r.app.execServicesFg = false;
+                r.app.executingServices.remove(r);
+                if (r.app.executingServices.size() == 0) {
+                    //移除服务启动超时的消息
+                    mAm.mHandler.removeMessages(ActivityManagerService.SERVICE_TIMEOUT_MSG, r.app);
+                } else if (r.executeFg) {
+                    ...
+                }
+                if (inDestroying) {
+                    mDestroyingServices.remove(r);
+                    r.bindings.clear();
+                }
+                mAm.updateOomAdjLocked(r.app);
+            }
+            r.executeFg = false;
+            ...
+            if (finishing) {
+                if (r.app != null && !r.app.persistent) {
+                    r.app.services.remove(r);
+                }
+                r.app = null;
+            }
+        }
+    }
+    
+handleCreateService()执行后便会移除服务启动超时的消息SERVICE_TIMEOUT_MSG。
+Service启动过程出现ANR，”executing service [发送超时serviceRecord信息]”，
+这往往是service的onCreate()回调方法执行时间过长。
+
+### 17. AS.sendServiceArgsLocked
+[-> ActiveServices.java]
+
+    private final void sendServiceArgsLocked(ServiceRecord r, boolean execInFg,
+            boolean oomAdjusted) throws TransactionTooLargeException {
+        final int N = r.pendingStarts.size();
+        if (N == 0) {
+            return;
+        }
+
+        while (r.pendingStarts.size() > 0) {
+            Exception caughtException = null;
+            ServiceRecord.StartItem si;
+            try {
+                si = r.pendingStarts.remove(0);
+                if (si.intent == null && N > 1) {
+                    continue;
+                }
+                si.deliveredTime = SystemClock.uptimeMillis();
+                r.deliveredStarts.add(si);
+                si.deliveryCount++;
+                if (si.neededGrants != null) {
+                    mAm.grantUriPermissionUncheckedFromIntentLocked(si.neededGrants,
+                            si.getUriPermissionsLocked());
+                }
+                //标记启动开始【见10.1】
+                bumpServiceExecutingLocked(r, execInFg, "start");
+                if (!oomAdjusted) {
+                    oomAdjusted = true;
+                    mAm.updateOomAdjLocked(r.app);
+                }
+                int flags = 0;
+                if (si.deliveryCount > 1) {
+                    flags |= Service.START_FLAG_RETRY;
+                }
+                if (si.doneExecutingCount > 0) {
+                    flags |= Service.START_FLAG_REDELIVERY;
+                }
+                //该过程类似[流程11~16]，最终会调用onStartCommand
+                r.app.thread.scheduleServiceArgs(r, si.taskRemoved, si.id, flags, si.intent);
+            } catch (Exception e) {
+                ...
+                caughtException = e;
+            }
+
+            if (caughtException != null) {
+                final boolean inDestroying = mDestroyingServices.contains(r);
+                serviceDoneExecutingLocked(r, inDestroying, inDestroying);
+                if (caughtException instanceof TransactionTooLargeException) {
+                    throw (TransactionTooLargeException)caughtException;
+                }
+                break;
+            }
+        }
+    }
+    
+[流程10]中的AS.realStartServiceLocked的过程先后依次执行如下方法：
+
+- 执行scheduleCreateService()方法，层层调用最终回调Service.onCreate(); [见流程11~16]
+- 执行scheduleServiceArgs()方法，层层调用最终回调Service.onStartCommand(); [见流程17]，这两个过程类似，此处省略。
+
+## 五、总结
 
 在整个startService过程，从进程角度看服务启动过程
 
@@ -752,4 +919,4 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 6. Remote Service进程的binder线程在收到请求后，通过handler向主线程发送CREATE_SERVICE消息；
 7. 主线程在收到Message后，通过发射机制创建目标Service，并回调Service.onCreate()方法。
 
-到此，服务便正式启动完成。当创建的是本地服务时，无需经过上述步骤2、3，直接创建服务即可。
+到此，服务便正式启动完成。当创建的是本地服务或者服务所属进程已创建时，则无需经过上述步骤2、3，直接创建服务即可。

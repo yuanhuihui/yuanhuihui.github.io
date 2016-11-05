@@ -10,3 +10,9 @@ LOG_THREADPOOL("**** THREAD %p (PID %d) IS LEAVING THE THREAD POOL err=%p\n",
 
 
  设置system_server进程，ProcessState::self()->setThreadPoolMaxThreadCount(32);
+ 
+ 5. 比如service启动过程， 增加调控功能， 在生命周期的前后， 用于确保问题是处在app本身呢，还是系统服务。
+ 
+ if(DEBUG_SERVICE_TIMEOUT && isWhitList(app)){
+ 
+ }
