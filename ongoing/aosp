@@ -86,3 +86,18 @@ https://android.googlesource.com/platform/frameworks/base/+/d9d35bdfcf0e18ae16c0
 
 23. 广播的bug(可以考虑合入)
 https://android.googlesource.com/platform/frameworks/base/+/d86e14e45c15cd1a17925d9cb131471d496ab389%5E%21/#F1
+
+24. 自己的patch需要更新：
+
+- provider问题，仅仅保留query方法的修改，以及修改this is exciting的注释
+- 关机的patch问题，增加commit说明
+
+25. 考虑下binder优化 （比如system_server增加线程上限，虚拟内存大小增加些）
+
+26. fork问题
+
+https://android-review.googlesource.com/#/c/299430/
+
+27. Servicemanager, uid的问题
+
+https://android-review.googlesource.com/#/c/272587/

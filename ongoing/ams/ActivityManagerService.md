@@ -40,7 +40,7 @@ ActivityManagerService中有如下超时参数
 |MONITOR_CPU_MIN_TIME |5min|CPU监控
 
 另外，还有一些重要的超时参数
-ActiveServices.SERVICE_TIMEOUT = 20s
+ActiveServices.SERVICE_TIMEOUT = 20*1000
 
 ### CPU
 
