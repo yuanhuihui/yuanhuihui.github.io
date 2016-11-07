@@ -10,3 +10,14 @@ LOG_THREADPOOL("**** THREAD %p (PID %d) IS LEAVING THE THREAD POOL err=%p\n",
 
 
  设置system_server进程，ProcessState::self()->setThreadPoolMaxThreadCount(32);
+
+
+ 5. 通过dumpsys 动态打开ams的log
+
+ 通过判定IS_USER_BUILD来决定打开的开关
+
+调试looper, 调试4大组件.
+
+评估动态log的性能影响
+
+学习这个项目
