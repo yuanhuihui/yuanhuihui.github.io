@@ -560,7 +560,7 @@ ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
     /proc/<pid>/oom_score_adj
     /proc/<pid>/oom_score
 
-对于oom_adj与oom_score_adj有一定的映射关系：
+对于oom_adj与oom_score_adj通过方法lowmem_oom_adj_to_oom_score_adj()建立有一定的映射关系：
 
 - 当oom_adj = 15, 则oom_score_adj=1000;
 - 当oom_adj < 15, 则oom_score_adj= oom_adj * 1000/17;
