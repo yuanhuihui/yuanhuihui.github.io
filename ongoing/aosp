@@ -3,7 +3,7 @@
 - "Riddle Hsu"      <riddle_hsu@htc.com>
 - owner:"Zoran Jovanovic"   sonymobile.com
 
-
+hwbinder 作者： owner:maco@google.com 
 
 1, https://android.googlesource.com/platform/frameworks/base/+/cc64dfcf66a19084a58372ea7f9f5139ccc93221
 
@@ -101,3 +101,6 @@ https://android-review.googlesource.com/#/c/299430/
 27. Servicemanager, uid的问题
 
 https://android-review.googlesource.com/#/c/272587/
+
+28. binder 错误信息问题
+https://android-review.googlesource.com/#/c/253948/
