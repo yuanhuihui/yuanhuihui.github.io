@@ -1,7 +1,7 @@
 ## 路径问题
 
 Internal storage:  getFilesDir(),getCacheDir()   或者直接new File(“/data/data/packagename”,fileName)
-External storage: getExternalFilesDir(),getExternalPublicFilesDir(),getExternalStorageDirectory()
+External storage: getExternalFilesDir(),  getExternalPublicFilesDir(),  getExternalStorageDirectory()
     - cache放在/storage/emulated/0/Android/data/package/cache
 
 
@@ -43,19 +43,15 @@ Environment.buildExternalStorageAppFilesDirs(getPackageName());
                 if (!dir.mkdirs()) {
                     //再次check
                     if (!dir.exists()) {
-                        // Failing to mkdir() may be okay, since we might not have
-                        // enough permissions; ask vold to create on our behalf.
                         final IMountService mount = IMountService.Stub.asInterface(
                                 ServiceManager.getService("mount"));
                         try {
                             // 向vold发送mkdir命令, mConnector.execute("volume", "mkdirs", appPath);
                             final int res = mount.mkdirs(getPackageName(), dir.getAbsolutePath());
                             if (res != 0) {
-                                Log.w(TAG, "Failed to ensure " + dir + ": " + res);
                                 dir = null;
                             }
                         } catch (Exception e) {
-                            Log.w(TAG, "Failed to ensure " + dir + ": " + e);
                             dir = null;
                         }
                     }

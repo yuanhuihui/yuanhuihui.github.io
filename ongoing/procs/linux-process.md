@@ -113,7 +113,7 @@ pid最大值默认为32768，一般来说pid数值越大的进程创建时间越
 
 ## 2.4 进程状态
 
-task_struct结构体有一个成员state，代表的是进程的状态： 
+task_struct结构体有一个成员state，代表的是进程的状态：
 
 |状态|缩写|含义|
 |---|---|---|
@@ -183,5 +183,3 @@ PPid: 当前进程的父进程
 
 
 http://blog.csdn.net/u012927281/article/details/52016191
-http://www.ibm.com/developerworks/cn/linux/l-linux-process-management/index.html
-http://kernel.meizu.com/linux-process-stop.html

@@ -189,3 +189,46 @@
 incProviderRefLocked
 AMS.incProviderCountLocked
 ams.decProviderCountLocked
+
+
+### 4.2 releaseProvider
+
+CASE 1: releaseProvider
+
+    ContextImpl.ApplicationContentResolver.releaseProvider
+        AT.releaseProvider (true)
+            AMP.refContentProvider
+                AMS.refContentProvider
+            AT.completeRemoveProvider
+                AMP.removeContentProvider
+                    AMS.removeContentProvider
+                        AMS.decProviderCountLocked
+
+CASE 2: releaseUnstableProvider
+
+    ContextImpl.ApplicationContentResolver.releaseUnstableProvider
+        AT.releaseProvider (false)
+            AMP.refContentProvider
+                AMS.refContentProvider
+            AT.completeRemoveProvider
+                AMP.removeContentProvider
+                    AMS.removeContentProvider
+                        AMS.decProviderCountLocked
+
+
+###  4.3 unstableProviderDied
+
+    CR.unstableProviderDied
+        ACR.unstableProviderDied
+            AT.handleUnstableProviderDied
+                AT.handleUnstableProviderDiedLocked
+                    AMP.unstableProviderDied
+                        AMS.unstableProviderDied
+                            AMS.appDiedLocked
+
+### 4.4 close流程
+...
+
+### 未成品
+
+整个文章其实还刚刚介绍的整个流程调用链4.1，后续还需要再进一步解释 4.2，4.3， 4.4，以及增加流程与架构图。。。
