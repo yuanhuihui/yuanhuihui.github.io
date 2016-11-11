@@ -183,3 +183,14 @@ PPid: 当前进程的父进程
 
 
 http://blog.csdn.net/u012927281/article/details/52016191
+
+http://www.ibm.com/developerworks/cn/linux/l-linux-process-management/index.html
+
+http://blog.csdn.net/gatieme/article/details/51569932
+
+dup_task_struct
+copy_files()、copy_fs()
+copy_sighand()、copy_signal()
+copy_mm
+copy_thread
+

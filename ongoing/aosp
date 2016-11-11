@@ -3,7 +3,12 @@
 - "Riddle Hsu"      <riddle_hsu@htc.com>
 - owner:"Zoran Jovanovic"   sonymobile.com
 
-
+hwbinder 作者： owner:maco@google.com 
+  
+  - platform/system/libhwbinder (process, ipc这些类都在这里)
+  - platform/system/hwservicemanager
+  - platform/system/libhidl
+  - platform/system/tools/hidl
 
 1, https://android.googlesource.com/platform/frameworks/base/+/cc64dfcf66a19084a58372ea7f9f5139ccc93221
 
@@ -101,3 +106,14 @@ https://android-review.googlesource.com/#/c/299430/
 27. Servicemanager, uid的问题
 
 https://android-review.googlesource.com/#/c/272587/
+
+28. binder 错误信息问题
+https://android-review.googlesource.com/#/c/253948/
+
+29. remove unused binder impl
+
+https://android.googlesource.com/platform/system/libhwbinder/+/775608abdd12100e4b8e0f394996adeb1b43270c
+
+MIUI 需要打的patch:
+
+- https://android.googlesource.com/platform/frameworks/base/+/6a742a38509693f8b39ee9a5ad2803fca12688bf
