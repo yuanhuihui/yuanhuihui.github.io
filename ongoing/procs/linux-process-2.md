@@ -53,12 +53,17 @@ fork, vfork, clone根据不同参数调用 clone， 再调用do_fork [kernel/for
             alloc_pid
 
 
-- pthread_create: 调用clone(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND, 0)
+- pthread_create: 调用clone(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND, 0)   
     pthread_create -> clone -> sys_clone -> do_fork
-- fork: clone(SIGCHLD)
+- fork: clone(SIGCHLD)     
     fork -> sys_fork -> do_fork
 - vfork: clone(CLONE_VFORK | CLONE_VM | SIGCHLD, 0)
     vfork -> sys_vfork -> do_fork
+
+线程: int flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM |
+  CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID;
+
+进程: FORK_FLAGS (CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID | SIGCHLD)
 
 ## 二. fork
 
