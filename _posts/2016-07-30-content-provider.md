@@ -81,9 +81,8 @@ ContentProvider作为Android四大组件之一，并没有Activity那样复杂�
 |AT|mProviderRefCountMap|记录所有对其他进程中的ContentProvider的引用计数|
 
 
-说明:
-
-- `CONTENT_PROVIDER_PUBLISH_TIMEOUT`(10s): 对于attached进程，用于publish该进程中的ContentProvider的超时时长为10s，超过10s则会被hung住。
+- PR:ProcessRecord, AT: ActivityThread
+- `CONTENT_PROVIDER_PUBLISH_TIMEOUT`(10s): provider所在进程发布其ContentProvider的超时时长为10s，超过10s则会系统所杀。
 - `mLaunchingProviders`：记录的每一项是一个ContentProviderRecord对象, 所有的存在client等待其发布完成的contentProvider列表，一旦发布完成则相应的contentProvider便会从该列表移除；
 - `mProviderMap`： AMS和AT都有一个同名的成员变量, AMS的数据类型为ProviderMap,而AT则是以ProviderKey为key的ArrayMap类型.
 - `mLocalProviders`和`mLocalProvidersByName`：都是用于记录所有本地的ContentProvider,不同的只是key.
