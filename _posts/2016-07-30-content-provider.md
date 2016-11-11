@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解ContentProvider原理(一)"
+title:  "理解ContentProvider原理"
 date:   2016-07-30 20:30:00
 catalog:  true
 tags:
@@ -1191,3 +1191,5 @@ provider未发布:有时在请求provider的时,provider进程存在,但provide�
 - provider进程安装完provider信息,则notifyAll()处于等待状态的进程/线程;
 
 如果provider在publish完成之后, 这时再次请求该provider,那就便没有的最右侧的这个过程,直接在AMS.getContentProviderImpl之后便进入AT.installProvider的过程,而不会再次进入wait()过程.
+
+最后,关于provider分为stable provider和 unstable provider, 一句话来说就是stable provider建立的是强连接, 客户端进程的与provider进程是存在依赖关系, 即provider进程死亡则会导致客户端进程被杀.
