@@ -29,7 +29,7 @@ stat <file>
 /storage
     /emulated/0/  (内置存储)
     /sdcard1/Android/data/com.tencent.mobileqq/cache/ (外置sdcard) M之前的机型
-    /uuid/android/data (外置sdcard) M
+    /uuid/android/data                                (外置sdcard) M
 
 obb的作用:针对大app而涉及的
 

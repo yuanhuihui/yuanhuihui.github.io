@@ -77,7 +77,7 @@ Android系统将进程做得很友好的封装,对于上层app开发者来说进
 
 ### 2.2 四大组件与进程
 
-Activity, Service, ContentProvider, BroadcastReceiver这四大组件,在启动的过程,当其所承载的进程不存在时需要先创建进程. 这个创建进程的过程是调用前面讲到的startProcessLocked方法1(a)，之后再调用流程: 1(a) => 1(b) ==> 2(b). 
+Activity, Service, ContentProvider, BroadcastReceiver这四大组件,在启动的过程,当其所承载的进程不存在时需要先创建进程. 这个创建进程的过程是调用前面讲到的startProcessLocked方法1(a)，之后再调用流程: 1(a) => 1(b) ==> 2(b).
 
 #### 2.2.1 Activity
 
@@ -176,7 +176,7 @@ ContentProvider处理过程: 调用ContentResolver.query该方法经过层层调
 
 接下来，看看PackageParser.java来解析AndroidManiefst.xml过程就明白进程名的命名要求：
 
-    public class PackageParser { 
+    public class PackageParser {
         ...
         private static String buildCompoundName(String pkg,
            CharSequence procSeq, String type, String[] outError) {
@@ -202,7 +202,7 @@ ContentProvider处理过程: 调用ContentResolver.query该方法经过层层调
             }
             return proc.intern();
         }
-        
+
         private static String validateName(String name, boolean requireSeparator,
         boolean requireFilename) {
             final int N = name.length();
@@ -960,7 +960,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
 
 其中setCoreSettings()过程就是调用sendMessage(H.SET_CORE_SETTINGS, coreSettings) 来向主线程发送SET_CORE_SETTINGS消息.bindApplication方法的主要功能是依次向主线程发送消息`H.SET_CORE_SETTINGS`和`H.BIND_APPLICATION`. 接下来再来说说这两个消息的处理过程
 
-### 3.12 H.SET_CORE_SETTINGS
+### 3.12 AT.handleSetCoreSettings
 [-> ActivityThread.java  ::H]
 
 当主线程收到H.SET_CORE_SETTINGS,则调用handleSetCoreSettings
@@ -984,7 +984,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
         }
     }
 
-### 3.13 H.BIND_APPLICATION
+### 3.13 AT.handleBindApplication
 [-> ActivityThread.java  ::H]
 
 当主线程收到H.BIND_APPLICATION,则调用handleBindApplication

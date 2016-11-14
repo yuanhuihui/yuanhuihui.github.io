@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解ContentProvider原理(一)"
+title:  "理解ContentProvider原理"
 date:   2016-07-30 20:30:00
 catalog:  true
 tags:
@@ -27,21 +27,23 @@ ContentProvider(内容提供者)用于提供数据的统一访问格式，封装
 
 ContentProvider作为Android四大组件之一，并没有Activity那样复杂的生命周期，只有简单地onCreate过程。ContentProvider是一个抽象类，当实现自己的ContentProvider类，只需继承于ContentProvider，并且实现以下六个abstract方法即可：
 
-- onCreate()：执行初始化工作；
 - insert(Uri, ContentValues)：插入新数据；
 - delete(Uri, String, String[])：删除已有数据；
 - update(Uri, ContentValues, String, String[])：更新数据；
 - query(Uri, String[], String, String[], String)：查询数据；
+- onCreate()：执行初始化工作；
 - getType(Uri)：获取数据MIME类型。
 
-### 1.2 Uri
-从ContentProvider的数据操作方法可以看出都依赖于Uri，对于Uri有其固定的数据格式，例如：`content://com.gityuan.articles/android/3`
 
-- 前缀：默认开头`content://`;
-- 授权：唯一标识`com.gityuan.articles`;
-- 路径：指定数据类别以及数据项`/android/3`;
+**Uri:** 从ContentProvider的数据操作方法可以看出都依赖于Uri，对于Uri有其固定的数据格式，例如：`content://com.gityuan.articles/android/3`
 
-### 1.3 ContentResolver
+|字段|含义|对应项|
+|---|---|---|
+|前缀|默认的固定开头格式|content://|
+|授权|唯一标识provider|com.gityuan.articles|
+|路径|数据类别以及数据项|/android/3|
+
+### 1.2 ContentResolver
 
 其他app或者进程想要操作`ContentProvider`，则需要先获取其相应的`ContentResolver`，再利用ContentResolver类来完成对数据的增删改查操作，下面列举一个查询操作，查询得到的是一个`Cursor`结果集，再通过操作该Cursor便可获取想要查询的结果。
 
@@ -51,62 +53,48 @@ ContentProvider作为Android四大组件之一，并没有Activity那样复杂�
     ...
     cursor.close(); //关闭
 
-### 1.4 类图
+
+
+### 1.3 继承关系图
+
 
 ![content_provider](/images/contentprovider/content_provider.jpg)
 
-## 二、流程分析
+- CPP与CPN是一对Binder通信的C/S两端;
+- ACR(ApplicationContentResolver)继承于ContentResolver, 位于ContextImpl的内部类. ACR的实现往往是通过调用其成员变量mMainThread(数据类型为ActivityThread)来完成;
 
-接下来，从源码角度来说说，以数据查询`query`的为例来说说ContentProvider的整个完整流程。
 
-### 2.1 相关成员变量
+### 1.4 重要成员变量
 
 在开始源码分析之前，先说说涉及到的几个关于contentProvider的重要的成员变量。
 
-#### 2.1.1 AMS
+|类名|成员变量|含义|
+|---|---|---|
+|AMS|CONTENT_PROVIDER_PUBLISH_TIMEOUT|默认值为10s|
+|AMS|mProviderMap|记录所有contentProvider|
+|AMS|mLaunchingProviders|记录存在客户端等待publish的ContentProviderRecord|
+|PR|pubProviders|该进程创建的ContentProviderRecord|
+|PR|conProviders|该进程使用的ContentProviderConnection|
+|AT|mLocalProviders|记录所有本地的ContentProvider，以IBinder以key|
+|AT|mLocalProvidersByName|记录所有本地的ContentProvider，以组件名为key|
+|AT|mProviderMap|记录该进程的contentProvider|
+|AT|mProviderRefCountMap|记录所有对其他进程中的ContentProvider的引用计数|
 
-    //位于ActivityManagerService.java
-    static final int CONTENT_PROVIDER_PUBLISH_TIMEOUT = 10*1000;
-    static final int CONTENT_PROVIDER_RETAIN_TIME = 20*1000;
-    final ProviderMap mProviderMap;
-    final ArrayList<ContentProviderRecord> mLaunchingProviders
-            = new ArrayList<ContentProviderRecord>();
 
-- `CONTENT_PROVIDER_PUBLISH_TIMEOUT`: 对于attached进程，用于publish该进程中的ContentProvider的超时时长为10s，超过10s则会被hung住。
-- `CONTENT_PROVIDER_RETAIN_TIME`: 保持ContentProvider所在进程的上次活动状态的持续时长为20s，当超过20s则运行其下降到正常的 cached LRU列表，
-这样做的目的是为了避免在低内存情况下，ContentProvider所在进程发生波动。
-- `mProviderMap`：记录所有的contentProvider
-- `mLaunchingProviders`：记录所有的存在client等待其发布完成的contentProvider列表，一旦发布完成则相应的contentProvider便会从该列表移除；
+- PR:ProcessRecord, AT: ActivityThread
+- `CONTENT_PROVIDER_PUBLISH_TIMEOUT`(10s): provider所在进程发布其ContentProvider的超时时长为10s，超过10s则会系统所杀。
+- `mLaunchingProviders`：记录的每一项是一个ContentProviderRecord对象, 所有的存在client等待其发布完成的contentProvider列表，一旦发布完成则相应的contentProvider便会从该列表移除；
+- `mProviderMap`： AMS和AT都有一个同名的成员变量, AMS的数据类型为ProviderMap,而AT则是以ProviderKey为key的ArrayMap类型.
+- `mLocalProviders`和`mLocalProvidersByName`：都是用于记录所有本地的ContentProvider,不同的只是key.
 
-#### 2.1.2 ProcessRecord
+## 二、查询ContentProvider
 
-    //位于ProcessRecord.java
-    final ArrayMap<String, ContentProviderRecord> pubProviders = new ArrayMap<>();
-    final ArrayList<ContentProviderConnection> conProviders = new ArrayList<>();
+接下来，从源码角度来说说，以`query`的为例来说说ContentProvider的整个完整流程,首先获取ContentResolver再执行相应query方法.
 
-- `pubProviders`：记录进程中所有创建的ContentProvider；
-- `conProviders`：记录进程中所有使用的ContentProvider；
+    ContentResolver cr = getContentResolver();  //获取ContentResolver
+    Cursor cursor = cr.query(uri, null, null, null, null);  //执行查询操作
 
-#### 2.1.3 ActivityThread
-
-    //位于 ActivityThread.java
-    final ArrayMap<ProviderKey, ProviderClientRecord> mProviderMap
-        = new ArrayMap<ProviderKey, ProviderClientRecord>();
-    final ArrayMap<IBinder, ProviderRefCount> mProviderRefCountMap
-        = new ArrayMap<IBinder, ProviderRefCount>();
-    final ArrayMap<IBinder, ProviderClientRecord> mLocalProviders
-        = new ArrayMap<IBinder, ProviderClientRecord>();
-    final ArrayMap<ComponentName, ProviderClientRecord> mLocalProvidersByName
-            = new ArrayMap<ComponentName, ProviderClientRecord>();
-
-- `mProviderMap`：记录所有本地和引用对象；
-- `mProviderRefCountMap`：记录所有对其他进程中的ContentProvider的引用计数；
-- `mLocalProviders`：记录所有本地的ContentProvider，以IBinder以key；
-- `mLocalProvidersByName`：记录所有本地的ContentProvider，以组件名为key。
-
-### 2.2 getContentResolver
-
-Context中调用getContentResolver，经过层层调用(过程省略)，最后调用到ContextImpl类。
+### 2.1 getContentResolver
 
 [-> ContextImpl.java]
 
@@ -116,13 +104,9 @@ Context中调用getContentResolver，经过层层调用(过程省略)，最后�
         }
     }
 
-该方法获取的`mContentResolver`赋值操作是在`ContextImpl`对象实例化过程完成的：
+Context中调用getContentResolver，经过层层调用来到ContextImpl类。返回值`mContentResolver`赋值是在`ContextImpl`对象实例化过程完成的.mContentResolver的真实类型为`ApplicationContentResolver`，接下来再来看看query查询操作。
 
-    mContentResolver= new ApplicationContentResolver(this, mainThread, user);
-
-mContentResolver的真实类型为`ApplicationContentResolver`;该类继承于ContentResolver，位于ContextImpl的内部类。获取到ContentResolver(简称CR)。接下来，再来看看query操作。
-
-### 2.3 CR.query
+### 2.2 CR.query
 
 [-> ContentResolver.java]
 
@@ -135,7 +119,7 @@ mContentResolver的真实类型为`ApplicationContentResolver`;该类继承于Co
     public final  Cursor query(final  Uri uri,  String[] projection,
                  String selection,  String[] selectionArgs,
                  String sortOrder,  CancellationSignal cancellationSignal) {
-            //获取unstable provider【见小节2.4】
+            //获取unstable provider【见小节2.3】
             IContentProvider unstableProvider = acquireUnstableProvider(uri);
             if (unstableProvider == null) {
                 return null;
@@ -146,7 +130,7 @@ mContentResolver的真实类型为`ApplicationContentResolver`;该类继承于Co
                 long startTime = SystemClock.uptimeMillis();
                 ...
                 try {
-                    //执行查询操作【见小节2.5】
+                    //执行查询操作【见小节2.9】
                     qCursor = unstableProvider.query(mPackageName, uri, projection,
                             selection, selectionArgs, sortOrder, remoteCancellationSignal);
                 } catch (DeadObjectException e) {
@@ -191,23 +175,21 @@ mContentResolver的真实类型为`ApplicationContentResolver`;该类继承于Co
             }
         }
 
-该方法涉及到ContentProvider的stable与unstable之分，一般地query的流程：
+一般地获取unstable的provider：
 
-- 调用acquireUnstableProvider()，尝试获取unstable的ContentProvider;
-- 然后执行query操作；
+1. 调用acquireUnstableProvider()，尝试获取unstable的ContentProvider;
+2. 然后执行query操作；
 
-但是当在执行query过程抛出DeadObjectException，即代表ContentProvider所在进程死亡，则开始尝试获取stable的ContentProvider，执行流程：
+当执行query过程抛出DeadObjectException，即代表ContentProvider所在进程死亡，则尝试获取stable的ContentProvider:
 
-- 先调用unstableProviderDied来处理刚才创建的unstable的ContentProvider；
-- 调用acquireProvider()，尝试获取stable的ContentProvider;
-- 然后执行query操作；
+1. 先调用unstableProviderDied(), 清理刚创建的unstable的ContentProvider；
+2. 调用acquireProvider()，尝试获取stable的ContentProvider; 此时当ContentProvider进程死亡，则会杀掉该ContentProvider的客户端进程。
+3. 然后执行query操作；
 
-如果再次发生ContentProvider进程死亡，则会杀掉该ContentProvider所对应的客户端进程。
-
-不论是acquireUnstableProvider还是acquireProvider方法，最终都会调用ActivityThread的同一个方法acquireProvider()。先用一句话说说stable与unstable的区别，采用unstable类型的ContentProvider的app不会因为远程ContentProvider进程的死亡而被杀，stable则恰恰相反。这便是ContentProvider坑爹之处，对于app无法事先决定创建的ContentProvider是stable，还是unstable
+先用一句话说说stable与unstable的区别，采用unstable类型的ContentProvider的app不会因为远程ContentProvider进程的死亡而被杀，stable则恰恰相反。这便是ContentProvider坑爹之处，对于app无法事先决定创建的ContentProvider是stable，还是unstable
 类型的，也便无法得知自己的进程是否会依赖于远程ContentProvider的生死。
 
-###  2.4 CR.acquireUnstableProvider
+###  2.3 CR.acquireUnstableProvider
 [-> ContentResolver.java]
 
     public final IContentProvider acquireUnstableProvider(Uri uri) {
@@ -217,20 +199,20 @@ mContentResolver的真实类型为`ApplicationContentResolver`;该类继承于Co
         }
         String auth = uri.getAuthority();
         if (auth != null) {
-            //【见小节2.4.1】
+            //【见小节2.4】
             return acquireUnstableProvider(mContext, uri.getAuthority());
         }
         return null;
     }
 
-#### 2.4.1 ACR.acquireUnstableProvider
-[-> ContextImpl.java]
+### 2.4 ACR.acquireUnstableProvider
+[-> ContextImpl.java ::ApplicationContentResolver]
 
     class ContextImpl extends Context {
         private static final class ApplicationContentResolver extends ContentResolver {
             ...
             protected IContentProvider acquireUnstableProvider(Context c, String auth) {
-                //【见小节2.4.2】
+                //【见小节2.5】
                 return mMainThread.acquireProvider(c,
                         ContentProvider.getAuthorityWithoutUserId(auth),
                         resolveUserIdFromAuthority(auth), false);
@@ -238,14 +220,15 @@ mContentResolver的真实类型为`ApplicationContentResolver`;该类继承于Co
         }
     }
 
+不论是acquireUnstableProvider还是acquireProvider方法，最终都会调用ActivityThread的同一个方法acquireProvider()。
 getAuthorityWithoutUserId()的过程是字符截断过程，即去掉auth中的UserId信息，比如`com.gityuan.articles@123`，经过该方法处理后就变成了`com.gityuan.articles`。
 
-#### 2.4.2 AT.acquireProvider
+### 2.5 AT.acquireProvider
 [-> ActivityThread.java]
 
     public final IContentProvider acquireProvider(
             Context c, String auth, int userId, boolean stable) {
-        //【见小节2.4.3】
+        //【见小节2.5.1】
         final IContentProvider provider = acquireExistingProvider(c, auth, userId, stable);
         if (provider != null) {
             //成功获取已经存在的ContentProvider对象，则直接返回
@@ -254,7 +237,7 @@ getAuthorityWithoutUserId()的过程是字符截断过程，即去掉auth中的U
 
         IActivityManager.ContentProviderHolder holder = null;
         try {
-            //【见小节2.4.4】
+            //【见小节2.6】
             holder = ActivityManagerNative.getDefault().getContentProvider(
                     getApplicationThread(), auth, userId, stable);
         } catch (RemoteException ex) {
@@ -264,7 +247,7 @@ getAuthorityWithoutUserId()的过程是字符截断过程，即去掉auth中的U
             return null;
         }
 
-        //安装provider将会增加引用计数【见小节2.4.6】
+        //安装provider将会增加引用计数【见小节2.8】
         holder = installProvider(c, holder, holder.info,
                 true , holder.noReleaseNeeded, stable);
         return holder.provider;
@@ -276,14 +259,14 @@ getAuthorityWithoutUserId()的过程是字符截断过程，即去掉auth中的U
 - 通过AMS来获取provider，当无法获取auth所对应的provider则直接返回，否则继续执行；
 - 采用installProvider安装provider，并该provider的增加引用计数。
 
-#### 2.4.3 AT.acquireExistingProvider
+#### 2.5.1 AT.acquireExistingProvider
 [-> ActivityThread.java]
 
     public final IContentProvider acquireExistingProvider(
             Context c, String auth, int userId, boolean stable) {
         synchronized (mProviderMap) {
             final ProviderKey key = new ProviderKey(auth, userId);
-            //从mProviderMap查询是否存在相对应的provider
+            //从AT.mProviderMap查询是否存在相对应的provider
             final ProviderClientRecord pr = mProviderMap.get(key);
             if (pr == null) {
                 return null;
@@ -306,14 +289,11 @@ getAuthorityWithoutUserId()的过程是字符截断过程，即去掉auth中的U
         }
     }
 
-- 首先从`mProviderMap`查询是否存在相对应的provider，若不存在则直接返回，否则继续执行；
-- 当provider所在进程已经死亡，则回调死亡处理方法`handleUnstableProviderDiedLocked`后返回，否则继续执行；
-- 当provider已经存在引用计数，则继续增加引用计数，否则不增加。
+- 首先从ActivityThread的`mProviderMap`查询是否存在相对应的provider，若不存在则直接返回；
+- 当provider记录存在,但其所在进程已经死亡，则调用`handleUnstableProviderDiedLocked`清理provider信息,并返回；
+- 当provider记录存在,且进程存活的情况下,则在provider引用计数不为空时则继续增加引用计数。
 
-#### 2.4.4 AMS.getContentProvider
-
-ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传递给AMS来完成相应工作，关于这个调用过程前面的文章已经讲过多次这里就不再介绍了。
-
+### 2.6 AMS.getContentProvider
 [-> ActivityManagerService.java]
 
     public final ContentProviderHolder getContentProvider(
@@ -321,10 +301,14 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
         if (caller == null) {
             throw new SecurityException();
         }
+        //见小节2.7】
         return getContentProviderImpl(caller, name, null, stable, userId);
     }
 
-#### 2.4.5 AMS.getContentProviderImpl
+ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传递给AMS来完成相应工作, 从这里开始便进入了system_server进程。
+
+### 2.7 AMS.getContentProviderImpl
+[-> ActivityManagerService.java]
 
     private final ContentProviderHolder getContentProviderImpl(IApplicationThread caller,
             String name, IBinder token, boolean stable, int userId) {
@@ -333,24 +317,53 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
         ProviderInfo cpi = null;
 
         synchronized(this) {
-            ProcessRecord r = null;
-            if (caller != null) {
-                r = getRecordForAppLocked(caller);
-                //当调用者的进程记录不存在，则抛出异常
-                if (r == null) {
-                    throw new SecurityException(...);
-                }
-            }
-            ...
-            //此处name为authority，检查其相应的ContentProvider是否已经发布
+            //获取调用者的进程记录ProcessRecord；
+            ProcessRecord r = getRecordForAppLocked(caller);
+            //从AMS中查询相应的ContentProviderRecord
             cpr = mProviderMap.getProviderByName(name, userId);
             ...
-
             boolean providerRunning = cpr != null;
+
+            // 目标provider已存在的情况 [见小节2.7.1]
+            if (providerRunning) {
+                ...
+            }
+
+            // 目标provider不存在的情况 [见小节2.7.2]
+            if (!providerRunning) {
+                ...
+            }
+        }
+
+        //循环等待provider发布完成 [见小节2.7.3]
+        synchronized (cpr) {
+            while (cpr.provider == null) {
+                ...
+            }
+        }
+
+        return cpr != null ? cpr.newHolder(conn) : null;
+    }
+
+该方法比较长,也是获取provider的核心实现代码, 这里分成以下3部分:
+
+- 目标provider已存在的情况;
+- 目标provider不存在的情况;
+- 循环等待provider发布完成;
+
+#### 2.7.1  目标provider已存在
+
+    private final ContentProviderHolder getContentProviderImpl(IApplicationThread caller,
+            String name, IBinder token, boolean stable, int userId) {
+        ContentProviderRecord cpr;
+        ContentProviderConnection conn = null;
+        ProviderInfo cpi = null;
+
+        synchronized(this) {
             //该ContentProvider已发布
             if (providerRunning) {
                 cpi = cpr.info;
-                //当允许运行在调用者进程且已发布，则直接返回
+                //当允许运行在调用者进程且已发布，则直接返回[见小节2.7.4]
                 if (r != null && cpr.canRunHere(r)) {
                     ContentProviderHolder holder = cpr.newHolder(null);
                     holder.provider = null;
@@ -358,7 +371,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                 }
 
                 final long origId = Binder.clearCallingIdentity();
-                //增加引用计数
+                //增加引用计数[见小节2.8.3]
                 conn = incProviderCountLocked(r, cpr, token, stable);
                 if (conn != null && (conn.stableCount+conn.unstableCount) == 1) {
                     if (cpr.proc != null && r.setAdj <= ProcessList.PERCEPTIBLE_APP_ADJ) {
@@ -368,10 +381,9 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                 }
 
                 if (cpr.proc != null) {
-                    //更新进程adj
-                    boolean success = updateOomAdjLocked(cpr.proc);
+                    boolean success = updateOomAdjLocked(cpr.proc); //更新进程adj
                     if (!success) {
-                        //provider进程被杀
+                        //provider进程被杀,则减少引用计数 [见小节2.8.2]
                         boolean lastRef = decProviderCountLocked(conn, cpr, token, stable);
                         appDiedLocked(cpr.proc);
                         if (!lastRef) {
@@ -383,16 +395,33 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                 }
                 Binder.restoreCallingIdentity(origId);
             }
+            ...
+        }
+        ...
+    }
 
-            boolean singleton;
+
+当ContentProvider所在进程已存在时的功能：
+
+- 权限检查
+- 当允许运行在调用者进程且已发布，则直接返回
+- 增加引用计数
+- 更新进程LRU队列
+- 更新进程adj
+- 当provider进程被杀时，则减少引用计数并调用appDiedLocked，且设置ContentProvider为没有发布的状态
+
+#### 2.7.2 目标provider不存在
+
+    private final ContentProviderHolder getContentProviderImpl(IApplicationThread caller,
+            String name, IBinder token, boolean stable, int userId) {
+        ...
+        synchronized(this) {
+            ...
             if (!providerRunning) {
                 //根据authority，获取ProviderInfo对象
-                cpi = AppGlobals.getPackageManager().
-                    resolveContentProvider(name,
+                cpi = AppGlobals.getPackageManager().resolveContentProvider(name,
                         STOCK_PM_FLAGS | PackageManager.GET_URI_PERMISSION_PATTERNS, userId);
-                if (cpi == null) {
-                    return null;
-                }
+                ...
                 singleton = isSingleton(cpi.processName, cpi.applicationInfo,
                         cpi.name, cpi.flags)
                         && isValidSingletonCall(r.uid, cpi.applicationInfo.uid);
@@ -400,12 +429,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                     userId = UserHandle.USER_OWNER;
                 }
                 cpi.applicationInfo = getAppInfoForUser(cpi.applicationInfo, userId);
-
-                String msg;
-                if ((msg = checkContentProviderPermissionLocked(cpi, r, userId, !singleton))
-                        != null) {
-                    throw new SecurityException(msg);
-                }
+                ...
 
                 if (!mProcessesReady && !mDidUpdate && !mWaitingUpdate
                         && !cpi.processName.equals("system")) {
@@ -424,9 +448,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                     try {
                         ApplicationInfo ai = AppGlobals.getPackageManager().
                           getApplicationInfo(cpi.applicationInfo.packageName, STOCK_PM_FLAGS, userId);
-                        if (ai == null) {
-                            return null;
-                        }
+
                         ai = getAppInfoForUser(ai, userId);
                         //创建对象ContentProviderRecord
                         cpr = new ContentProviderRecord(this, cpi, ai, comp, singleton);
@@ -435,6 +457,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                     }
                 }
 
+                // [见小节2.7.4]
                 if (r != null && cpr.canRunHere(r)) {
                     return cpr.newHolder(null);
                 }
@@ -460,11 +483,11 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                         if (proc != null && proc.thread != null) {
                             if (!proc.pubProviders.containsKey(cpi.name)) {
                                 proc.pubProviders.put(cpi.name, cpr);
-                                //开始安装provider
+                                //启动provider进程启动并发布provider[见小节三]
                                 proc.thread.scheduleInstallProvider(cpi);
                             }
                         } else {
-                            // 启动进程
+                            // 启动进程[见小节三]
                             proc = startProcessLocked(cpi.processName,
                                     cpr.appInfo, false, 0, "content provider",
                                     new ComponentName(cpi.applicationInfo.packageName,
@@ -492,8 +515,32 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                 }
             }
         }
+        ...
+    }
 
-        //等待provider发布完成
+
+
+当ContentProvider所在进程没有存在时的功能：
+
+- 根据authority，获取ProviderInfo对象；
+- 权限检查
+- 当provider不是运行在system进程，且系统未准备好，则抛出IllegalArgumentException
+- 当拥有该provider的用户并没有运行，则直接返回
+- 根据ComponentName，从AMS.mProviderMap中查询相应的ContentProviderRecord;
+- 当首次调用，则创建对象ContentProviderRecord
+- 当允许运行在调用者进程且ProcessRecord不为空，则直接返回
+- 当provider并没有处于mLaunchingProviders队列，则启动它
+    - 当ProcessRecord不为空，则加入到pubProviders，并开始安装provider;
+    - 当ProcessRecord为空，则启动进程
+- 增加引用计数
+
+
+#### 2.7.3 等待目标provider发布
+
+    private final ContentProviderHolder getContentProviderImpl(IApplicationThread caller,
+            String name, IBinder token, boolean stable, int userId) {
+        ...
+        //循环等待provider发布
         synchronized (cpr) {
             while (cpr.provider == null) {
                 if (cpr.launchingApp == null) {
@@ -515,32 +562,10 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
         return cpr != null ? cpr.newHolder(conn) : null;
     }
 
-该方法比较长，简单总结整个过程：
 
-1. 调用getRecordForAppLocked获取调用者的进程记录ProcessRecord；
-2. 根据authority，从mProviderMap中查询相应的ContentProviderRecord;
-3. 当ContentProvider已发布时：
-    - 权限检查
-    - 当允许运行在调用者进程且已发布，则直接返回
-    - 增加引用计数
-    - 更新进程LRU队列
-    - 更新进程adj
-    - 当provider进程被杀时，则减少引用计数并调用appDiedLocked，且设置ContentProvider为没有发布的状态
-4. 当ContentProvider没有发布时：
-    - 根据authority，获取ProviderInfo对象；
-    - 权限检查
-    - 当provider不是运行在system进程，且系统未准备好，则抛出IllegalArgumentException
-    - 当拥有该provider的用户并没有运行，则直接返回
-    - 根据ComponentName，从mProviderMap中查询相应的ContentProviderRecord;
-    - 当首次调用，则创建对象ContentProviderRecord
-    - 当允许运行在调用者进程且ProcessRecord不为空，则直接返回
-    - 当provider并没有处于mLaunchingProviders队列，则启动它
-        - 当ProcessRecord不为空，则加入到pubProviders，并开始安装provider;
-        - 当ProcessRecord为空，则启动进程
-    - 增加引用计数
-5. 等待provider发布完成
+循环等待,直到provider发布完成才会退出循环.
 
-**小知识**：CPR.canRunHere
+#### 2.7.4 canRunHere
 [-> ContentProviderRecord.java]
 
     public boolean canRunHere(ProcessRecord app) {
@@ -553,7 +578,10 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
 - 条件1：ContentProvider在AndroidManifest.xml文件配置multiprocess=true；或调用者进程与ContentProvider在同一个进程。
 - 条件2：ContentProvider进程跟调用者所在进程是同一个uid。
 
-#### 2.4.6 AT.installProvider
+
+一般地, 程序进行到此处[小节2.5] AT.acquireProvider方法应该已成功获取了Provider对象, 接下来便是在调用端安装Provider.
+
+### 2.8 AT.installProvider
 
 [-> ActivityThread.java]
 
@@ -572,33 +600,25 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
         synchronized (mProviderMap) {
             IBinder jBinder = provider.asBinder();
             if (localProvider != null) {
-                ComponentName cname = new ComponentName(info.packageName, info.name);
-                ProviderClientRecord pr = mLocalProvidersByName.get(cname);
-                if (pr != null) {
-                    provider = pr.mProvider;
-                } else {
-                    holder = new IActivityManager.ContentProviderHolder(info);
-                    holder.provider = provider;
-                    holder.noReleaseNeeded = true;
-                    pr = installProviderAuthoritiesLocked(provider, localProvider, holder);
-                    mLocalProviders.put(jBinder, pr);
-                    mLocalProvidersByName.put(cname, pr);
-                }
-                retHolder = pr.mHolder;
+                ...
             } else {
                 //根据jBinder，从mProviderRefCountMap中查询相应的ProviderRefCount
                 ProviderRefCount prc = mProviderRefCountMap.get(jBinder);
                 if (prc != null) {
+                    //只有当需要释放引用时则进入该分支
                     if (!noReleaseNeeded) {
                         incProviderRefLocked(prc, stable);
+                        //[见流程2.8.1]
                         ActivityManagerNative.getDefault().removeContentProvider(
                                 holder.connection, stable);
                         ...
                     }
                 } else {
+                    //[见流程2.8.4]
                     ProviderClientRecord client = installProviderAuthoritiesLocked(
                             provider, localProvider, holder);
                     if (noReleaseNeeded) {
+                        //[见流程2.8.5]
                         prc = new ProviderRefCount(holder, client, 1000, 1000);
                     } else {
                         prc = stable
@@ -613,7 +633,149 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
         return retHolder;
     }
 
-### 2.5 CPP.query
+获取ContentProviderHolder对象,该对象的成员变量provider记录着ContentProviderProxy对象.
+
+#### 2.8.1 AMS.removeContentProvider
+[-> ActivityManagerService.java]
+
+    public void removeContentProvider(IBinder connection, boolean stable) {
+        enforceNotIsolatedCaller("removeContentProvider");
+        long ident = Binder.clearCallingIdentity();
+        try {
+            synchronized (this) {
+                ContentProviderConnection conn;
+                try {
+                    conn = (ContentProviderConnection)connection;
+                } catch (ClassCastException e) {
+                    throw new IllegalArgumentException(msg);
+                }
+                ...
+
+                //[见流程2.8.2]
+                if (decProviderCountLocked(conn, null, null, stable)) {
+                    updateOomAdjLocked();
+                }
+            }
+        } finally {
+            Binder.restoreCallingIdentity(ident);
+        }
+    }
+
+#### 2.8.2 AMS.decProviderCountLocked
+[-> ActivityManagerService.java]
+
+    boolean decProviderCountLocked(ContentProviderConnection conn,
+            ContentProviderRecord cpr, IBinder externalProcessToken, boolean stable) {
+        if (conn != null) {
+            cpr = conn.provider;
+            if (stable) {
+                conn.stableCount--;
+            } else {
+                conn.unstableCount--;
+            }
+            //当provider连接的 stable和unstable引用次数都为0时,则移除该连接对象信息
+            if (conn.stableCount == 0 && conn.unstableCount == 0) {
+                cpr.connections.remove(conn);
+                conn.client.conProviders.remove(conn);
+                stopAssociationLocked(conn.client.uid, conn.client.processName, cpr.uid, cpr.name);
+                return true;
+            }
+            return false;
+        }
+        cpr.removeExternalProcessHandleLocked(externalProcessToken);
+        return false;
+    }
+
+减小provider引用相对应的便是增加引用incProviderCountLocked:
+
+#### 2.8.3 AMS.incProviderCountLocked
+[-> ActivityManagerService.java]
+
+    ContentProviderConnection incProviderCountLocked(ProcessRecord r,
+            final ContentProviderRecord cpr, IBinder externalProcessToken, boolean stable) {
+        if (r != null) {
+            for (int i=0; i<r.conProviders.size(); i++) {
+                //从当前进程所使用的provider中查询与目标provider一致的信息
+                ContentProviderConnection conn = r.conProviders.get(i);
+                if (conn.provider == cpr) {
+                    if (stable) {
+                        conn.stableCount++;
+                        conn.numStableIncs++;
+                    } else {
+                        conn.unstableCount++;
+                        conn.numUnstableIncs++;
+                    }
+                    return conn;
+                }
+            }
+            //当查询不到时,则新建provider连接对象
+            ContentProviderConnection conn = new ContentProviderConnection(cpr, r);
+            if (stable) {
+                conn.stableCount = 1;
+                conn.numStableIncs = 1;
+            } else {
+                conn.unstableCount = 1;
+                conn.numUnstableIncs = 1;
+            }
+            cpr.connections.add(conn);
+            r.conProviders.add(conn);
+            startAssociationLocked(r.uid, r.processName, cpr.uid, cpr.name, cpr.info.processName);
+            return conn;
+        }
+        cpr.addExternalProcessHandleLocked(externalProcessToken);
+        return null;
+    }
+
+#### 2.8.4 AT.installProviderAuthoritiesLocked
+[-> ActivityThread.java]
+
+    private ProviderClientRecord installProviderAuthoritiesLocked(IContentProvider provider,
+            ContentProvider localProvider, IActivityManager.ContentProviderHolder holder) {
+        final String auths[] = holder.info.authority.split(";");
+        final int userId = UserHandle.getUserId(holder.info.applicationInfo.uid);
+
+        final ProviderClientRecord pcr = new ProviderClientRecord(
+                auths, provider, localProvider, holder);
+        for (String auth : auths) {
+            final ProviderKey key = new ProviderKey(auth, userId);
+            final ProviderClientRecord existing = mProviderMap.get(key);
+            if (existing != null) {
+                ... //已发布
+            } else {
+                mProviderMap.put(key, pcr);
+            }
+        }
+        return pcr;
+    }
+
+#### 2.8.5 ProviderRefCount
+[-> ActivityThread.java ::ProviderRefCount]
+
+    private static final class ProviderRefCount {
+        public final IActivityManager.ContentProviderHolder holder;
+        public final ProviderClientRecord client;
+        public int stableCount;
+        public int unstableCount;
+
+        //当该标记设置,意味着stable和unstable的引用都会设置为0
+        public boolean removePending;
+
+        ProviderRefCount(IActivityManager.ContentProviderHolder inHolder,
+                ProviderClientRecord inClient, int sCount, int uCount) {
+            holder = inHolder;
+            client = inClient;
+            stableCount = sCount;
+            unstableCount = uCount;
+        }
+    }
+
+- stableCount代表的是stable引用的次数;
+- unstableCount代表的是unstable引用的次数;
+
+
+### 2.9 CPP.query
+回到[小节2.3]执行完acquireUnstableProvider()操作则成功获取了
+
 [-> ContentProviderNative.java ::ContentProviderProxy]
 
     public Cursor query(String callingPkg, Uri url, String[] projection, String selection,
@@ -648,7 +810,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
             data.writeString(sortOrder);
             data.writeStrongBinder(adaptor.getObserver().asBinder());
             data.writeStrongBinder(cancellationSignal != null ? cancellationSignal.asBinder() : null);
-            //发送给Binder Bn端【见小节2.5.1】
+            //发送给Binder服务端【见小节2.10】
             mRemote.transact(IContentProvider.QUERY_TRANSACTION, data, reply, 0);
 
             DatabaseUtils.readExceptionFromParcel(reply);
@@ -672,7 +834,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
         }
     }
 
-#### 2.5.1 CPN.onTransact
+### 2.10 CPN.onTransact
 [-> ContentProviderNative.java]
 
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
@@ -683,7 +845,6 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                 String callingPkg = data.readString();
                 Uri url = Uri.CREATOR.createFromParcel(data);
 
-                // String[] projection
                 int num = data.readInt();
                 String[] projection = null;
                 if (num > 0) {
@@ -693,7 +854,6 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                     }
                 }
 
-                // String selection, String[] selectionArgs...
                 String selection = data.readString();
                 num = data.readInt();
                 String[] selectionArgs = null;
@@ -709,7 +869,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                         data.readStrongBinder());
                 ICancellationSignal cancellationSignal = ICancellationSignal.Stub.asInterface(
                         data.readStrongBinder());
-                //【见小节2.5.2】
+                //【见小节2.11】
                 Cursor cursor = query(callingPkg, url, projection, selection, selectionArgs,
                         sortOrder, cancellationSignal);
                 if (cursor != null) {
@@ -744,7 +904,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
         }
     }
 
-#### 2.5.2 Transport.query
+### 2.11 Transport.query
 [-> ContentProvider.java ::Transport]
 
     public Cursor query(String callingPkg, Uri uri, String[] projection,
@@ -776,58 +936,38 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
         }
     }
 
-整个查询过程较复杂的，客户端创建BulkCursorToCursorAdaptor，服务端创建的=CursorToCursorAdaptor等还进一步展开，先留坑。。。
+query过程更为繁琐,本文就不再介绍,到这里便真正调用到了目标provider的query方法.
+
 
 ##  三、发布ContentProvider
-system_server进程调用startProcessLocked()创建子进程后，在子进程会调用AMS.attachApplication()，ATP.bindApplication再经过binder IPC会调用到目标进程的AT.bindApplication()方法，接下来从该方法说起。
 
-### 3.1 AT.bindApplication
+
+有两种场景会触发发布ContentProvider, 最终都会进入[小节3.3]installContentProviders操作
+
+### 3.1 场景一(进程不存在)
+
+system_server进程调用[startProcessLocked()](http://localhost:4000/2016/10/10/app-process-create-2/)创建子进程,并attach到system_server之后, 便会再通过binder IPC会调用到该子进程AT.bindApplication()方法
+
+#### 3.1.1 AT.bindApplication
 [-> ActivityThread.java]
 
-    public final void bindApplication(String processName, ApplicationInfo appInfo,
-            List<ProviderInfo> providers, ComponentName instrumentationName,
-            ProfilerInfo profilerInfo, Bundle instrumentationArgs,
-            IInstrumentationWatcher instrumentationWatcher,
-            IUiAutomationConnection instrumentationUiConnection, int debugMode,
-            boolean enableOpenGlTrace, boolean trackAllocation, boolean isRestrictedBackupMode,
-            boolean persistent, Configuration config, CompatibilityInfo compatInfo,
-            Map<String, IBinder> services, Bundle coreSettings) {
 
-        if (services != null) {
-            ServiceManager.initServiceCache(services);
-        }
-
-        //发送消息SET_CORE_SETTINGS
-        setCoreSettings(coreSettings);
-
+    public final void bindApplication(...) {
+        ...
         AppBindData data = new AppBindData();
-        data.processName = processName;
-        data.appInfo = appInfo;
         data.providers = providers;
-        data.instrumentationName = instrumentationName;
-        data.instrumentationArgs = instrumentationArgs;
-        data.instrumentationWatcher = instrumentationWatcher;
-        data.instrumentationUiAutomationConnection = instrumentationUiConnection;
-        data.debugMode = debugMode;
-        data.enableOpenGlTrace = enableOpenGlTrace;
-        data.trackAllocation = trackAllocation;
-        data.restrictedBackupMode = isRestrictedBackupMode;
-        data.persistent = persistent;
-        data.config = config;
-        data.compatInfo = compatInfo;
-        data.initProfilerInfo = profilerInfo;
+        ...
         sendMessage(H.BIND_APPLICATION, data);
     }
 
-该方法先发送消息`H.SET_CORE_SETTINGS`，再发送消息`H.BIND_APPLICATION`。这里我们主要讲跟provider相关的部分，当主线程收到`H.BIND_APPLICATION`消息后，会调用handleBindApplication方法。
+当主线程收到`H.BIND_APPLICATION`消息后，会调用handleBindApplication方法。
 
-### 3.2 AT.handleBindApplication
+#### 3.1.2 AT.handleBindApplication
 [-> ActivityThread.java]
 
     private void handleBindApplication(AppBindData data) {
         ...
-        //设置进程名
-        Process.setArgV0(data.processName);
+        Process.setArgV0(data.processName); //设置进程名
         //实例化app
         Application app = data.info.makeApplication(data.restrictedBackupMode, null);
         ...
@@ -842,6 +982,31 @@ system_server进程调用startProcessLocked()创建子进程后，在子进程�
         //回调app.onCreate()
         mInstrumentation.callApplicationOnCreate(app);
     }
+
+### 3.2 场景二(provider未发布)
+获取provider的过程,发现所对应的provider还没有发布,则进入小节[2.7.2], 此时当目标进程不存在是则触发创建进程的过程,跟场景一类似.当目标进程存在并且attach过,则需要触发provider来执行publish的操作.
+
+#### 3.2.1 AT.scheduleInstallProvider
+[-> ActivityThread.java]
+
+    public void scheduleInstallProvider(ProviderInfo provider) {
+        sendMessage(H.INSTALL_PROVIDER, provider);
+    }
+
+#### 3.2.2  AT.handleInstallProvider
+[-> ActivityThread.java]
+
+    public void handleInstallProvider(ProviderInfo info) {
+        final StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskWrites();
+        try {
+            //[见流程3.3]
+            installContentProviders(mInitialApplication, Lists.newArrayList(info));
+        } finally {
+            StrictMode.setThreadPolicy(oldPolicy);
+        }
+    }
+
+无论是场景一, 还是场景二, 最后都会进入主线程来执行installContentProviders的操作,如下:
 
 ### 3.3 AT.installContentProviders
 [-> ActivityThread.java]
@@ -935,7 +1100,7 @@ system_server进程调用startProcessLocked()创建子进程后，在子进程�
         return retHolder;
     }
 
-一般地，installProvider()的第二个参数holder为空，则用于ContentProvider进程的安装过程；第二个参数holder不为空，则用于Client端的使用。
+该过程主要是通过反射，创建目标ContentProvider对象,并调用该对象onCreate方法.
 
 ### 3.5 AMS.publishContentProviders
 由AMP.publishContentProviders经过binder IPC，交由AMS.publishContentProviders来处理
@@ -997,69 +1162,33 @@ system_server进程调用startProcessLocked()创建子进程后，在子进程�
        }
    }
 
+一旦publish成功,则会移除provider发布超时的消息,并且调用notifyAll()来唤醒所有等待的Client端进程.
 
-## 四、小节
+## 四、小结
 
-### 4.1 CR.query
+本文以ContentProvider的查询过程为例展开了对Provider的整个使用过程的源码分析.先获取provider,然后安装provider信息,最后便是真正的查询操作.
 
-    ContentResolver.query
-        ContentResolver.acquireUnstableProvider
-            ApplicationContentResolver.acquireUnstableProvider
-                ActivityThread.acquireProvider
-                    AT.acquireExistingProvider, return.
-                    AMP.getContentProvider
-                        AMS.getContentProvider
-                            AMS.getContentProviderImpl
-                                startProcessLocked
-                                    notifyAll
-                                cpr.wait
-                    AT.installProvider
-                        newInstance
-                        ContentProvider.this.onCreate();
-         ContentProviderProxy.query
-            ContentProviderNative.query
-                ContentProvider.Transport.query
-                    ContentProvider.query
+### 4.1 场景一
 
+进程不存在: 当provider进程不存在时,先创建进程并publish相关的provider:
 
-### 4.2 releaseProvider
+![content_provider_ipc](/images/contentprovider/content_provider_ipc.jpg)
 
-CASE 1: releaseProvider
+- 图中左侧则是client端进程向system_server请求获取provider的过程, 最右侧则是provider所在进程发布provier信息的一个过程. 这两个过程都需要通过Binder向system_server进行通信.
+- 图中有两个installProvider()的调用过程, 当第二个参数holder为空，则用于ContentProvider所在进程的发布provider过程；第二个参数holder不为空，则用于Client端安装provider的过。
+- 调用AMS.getContentProviderImpl获取provider的过程中,当cpr.provider ==null则进入wait()状态,直到notifyAll()事件的到来;否则直接进入AT.installProvider.
+- 进程在启动过程便会publish该进程相应的provider信息,并调用notifyAll()来唤醒所有在等待该provider的进程/线程.
 
-    ContextImpl.ApplicationContentResolver.releaseProvider
-        AT.releaseProvider (true)
-            AMP.refContentProvider
-                AMS.refContentProvider
-            AT.completeRemoveProvider
-                AMP.removeContentProvider
-                    AMS.removeContentProvider
-                        AMS.decProviderCountLocked
+### 4.2 场景二
 
-CASE 2: releaseUnstableProvider
+provider未发布:有时在请求provider的时,provider进程存在,但provide的记录对象cpr ==null,这时的流程如下:
 
-    ContextImpl.ApplicationContentResolver.releaseUnstableProvider
-        AT.releaseProvider (false)
-            AMP.refContentProvider
-                AMS.refContentProvider
-            AT.completeRemoveProvider
-                AMP.removeContentProvider
-                    AMS.removeContentProvider
-                        AMS.decProviderCountLocked
+![content_provider_ipc2](/images/contentprovider/content_provider_ipc2.jpg)
 
 
-###  4.3 unstableProviderDied
+- Client进程在获取provider的过程,发现cpr为空,则调用scheduleInstallProvider来向provider所在进程发出一个oneway的binder请求,并进入wait()状态.
+- provider进程安装完provider信息,则notifyAll()处于等待状态的进程/线程;
 
-    CR.unstableProviderDied
-        ACR.unstableProviderDied
-            AT.handleUnstableProviderDied
-                AT.handleUnstableProviderDiedLocked
-                    AMP.unstableProviderDied
-                        AMS.unstableProviderDied
-                            AMS.appDiedLocked
+如果provider在publish完成之后, 这时再次请求该provider,那就便没有的最右侧的这个过程,直接在AMS.getContentProviderImpl之后便进入AT.installProvider的过程,而不会再次进入wait()过程.
 
-### 4.4 close流程
-...
-
-### 未成品
-
-整个文章其实还刚刚介绍的整个流程调用链4.1，后续还需要再进一步解释 4.2，4.3， 4.4，以及增加流程与架构图。。。
+最后,关于provider分为stable provider和 unstable provider, 一句话来说就是stable provider建立的是强连接, 客户端进程的与provider进程是存在依赖关系, 即provider进程死亡则会导致客户端进程被杀.

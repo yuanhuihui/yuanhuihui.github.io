@@ -33,9 +33,7 @@
         } catch (ClassCastException e) {
             throw new IllegalArgumentException(msg);
         }
-        if (conn == null) {
-            throw new NullPointerException("connection is null");
-        }
+        
 
         //从conn对象中获取ContentProviderRecord变量的IContentProvider
         synchronized (this) {
@@ -184,8 +182,5 @@
   ·  通过AMS的removeContentProvider将删除对应ContentProviderRecord中此客户端进程的信息，这样一来，客户端进程和目标CP进程的紧密关系就荡然无存了。
 
 
-## 几个方法
-
-incProviderRefLocked
-AMS.incProviderCountLocked
-ams.decProviderCountLocked
+### 4.4 close流程
+...
