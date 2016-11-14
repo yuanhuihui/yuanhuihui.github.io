@@ -41,7 +41,7 @@ Mainthread handler: handleMessage(), post*(runnable r), etc
 
 3. 内存 泄露，内存不足， 内存碎片
 
-    atdalvik.system.VMRuntime.trackExternalAllocation(NativeMethod)内存不足导致block在创建bitmap上
+    at dalvik.system.VMRuntime.trackExternalAllocation(NativeMethod)内存不足导致block在创建bitmap上
 
 4. 硬件损坏或接触不良
 
