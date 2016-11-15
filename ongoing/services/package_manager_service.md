@@ -22,11 +22,12 @@ PackageManagerService(简称PMS)，是Android系统核心服务之一，管理�
 
 IPackageManager.aidl由工具转换后自动生成binder的服务端IPackageManager.Stub和客户端IPackageManager.Stub.Proxy。
 
+![package_manager_service](/images/pkms/package_manager_service.jpg)
+
 - Binder服务端：PackageManagerService继承于IPackageManager.Stub；
 - Binder客户端：ApplicationPackageManager(简称APM)的成员变量`mPM`继承于IPackageManager.Stub.Proxy;
 APM继承于PackageManager。
 
-### 1.1 类图
 
 ## 二. 启动过程
 
@@ -237,7 +238,6 @@ APM继承于PackageManager。
     }
     
 ### 4.2 初始化PKMS
-
 
     public PackageManagerService(Context context, Installer installer,
             boolean factoryTest, boolean onlyCore) {
@@ -653,7 +653,7 @@ PKMS对象初始化过程的5次Event事件：
             return sPackageManager;
         }
         IBinder b = ServiceManager.getService("package");
-        sPackageManager = IPackageManager.Stub.asInterface(b);
+        sPackageManager = \`A``````````````````````````A  `A  `(b);
         return sPackageManager;
     }
 
@@ -678,3 +678,7 @@ PKMS对象初始化过程的5次Event事件：
 		}
 
 mSettings.addSharedUserLPw
+
+### 总结
+
+Java层的installer通过socket跟Native层的installd建立连接，
