@@ -918,7 +918,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
             ServiceManager.initServiceCache(services);
         }
 
-        //发送消息H.SET_CORE_SETTINGS
+        //发送消息H.SET_CORE_SETTINGS [见小节3.12]
         setCoreSettings(coreSettings);
 
         IPackageManager pm = getPackageManager();
@@ -939,7 +939,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
             }
         }
 
-        //初始化AppBindData, 再发送消息H.BIND_APPLICATION
+        //初始化AppBindData
         AppBindData data = new AppBindData();
         data.processName = processName;
         data.appInfo = appInfo;
@@ -955,6 +955,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
         data.config = config;
         data.compatInfo = compatInfo;
         data.initProfilerInfo = profilerInfo;
+        //发送消息H.BIND_APPLICATION [见小节3.13]
         sendMessage(H.BIND_APPLICATION, data);
     }
 
@@ -994,7 +995,6 @@ ATP经过binder ipc传递到ATN的onTransact过程.
         mBoundApplication = data;
         mConfiguration = new Configuration(data.config);
         mCompatConfiguration = new Configuration(data.config);
-
         ...
 
         //设置进程名, 也就是说进程名是在进程真正创建以后的BIND_APPLICATION过程中才取名
@@ -1034,12 +1034,6 @@ ATP经过binder ipc传递到ATN的onTransact过程.
                 setupGraphicsSupport(data.info, codeCacheDir);
             }
         }
-
-
-        final boolean is24Hr = "24".equals(mCoreSettings.getString(Settings.System.TIME_12_24));
-        DateFormat.set24HourTimePref(is24Hr);
-
-        View.mDebugViewAttributes =  mCoreSettings.getInt(Settings.Global.DEBUG_VIEW_ATTRIBUTES, 0) != 0;
         ...
 
         //当处于调试模式,则运行应用生成systrace信息
@@ -1055,35 +1049,6 @@ ATP经过binder ipc传递到ATN的onTransact过程.
         }
 
         if (data.instrumentationName != null) {
-            InstrumentationInfo ii = null;
-            ii = appContext.getPackageManager().getInstrumentationInfo(data.instrumentationName, 0);
-
-            mInstrumentationPackageName = ii.packageName;
-            mInstrumentationAppDir = ii.sourceDir;
-            mInstrumentationSplitAppDirs = ii.splitSourceDirs;
-            mInstrumentationLibDir = ii.nativeLibraryDir;
-            mInstrumentedAppDir = data.info.getAppDir();
-            mInstrumentedSplitAppDirs = data.info.getSplitAppDirs();
-            mInstrumentedLibDir = data.info.getLibDir();
-
-            ApplicationInfo instrApp = new ApplicationInfo();
-            instrApp.packageName = ii.packageName;
-            instrApp.sourceDir = ii.sourceDir;
-            instrApp.publicSourceDir = ii.publicSourceDir;
-            instrApp.splitSourceDirs = ii.splitSourceDirs;
-            instrApp.splitPublicSourceDirs = ii.splitPublicSourceDirs;
-            instrApp.dataDir = ii.dataDir;
-            instrApp.nativeLibraryDir = ii.nativeLibraryDir;
-            LoadedApk pi = getPackageInfo(instrApp, data.compatInfo,
-                    appContext.getClassLoader(), false, true, false);
-            ContextImpl instrContext = ContextImpl.createAppContext(this, pi);
-
-            java.lang.ClassLoader cl = instrContext.getClassLoader();
-            mInstrumentation = (Instrumentation)cl.loadClass(data.instrumentationName.getClassName()).newInstance();
-
-            mInstrumentation.init(this, instrContext, appContext,
-                   new ComponentName(ii.packageName, ii.name), data.instrumentationWatcher,
-                   data.instrumentationUiAutomationConnection);
             ...
         } else {
             mInstrumentation = new Instrumentation();
@@ -1119,7 +1084,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
     }
 
 
-**小节:** 到此进程启动的全过程基本介绍完, 那接下来程序该往哪执行呢, 那就是要继续看[见流程3.8] AMS.attachApplicationLocked.从[3.9 ~ 3.13] 只是介绍了bindApplication过程, 该方法之后便是组件启动相关的内容,本文主要将进程相关内容, 组件的内容后续还会再进一步介绍.
+**说明:** [3.9 ~ 3.11]执行AMS.attachApplicationLocked,介绍了bindApplication过程, 该方法之后便是组件启动相关的内容,本文主要将进程相关内容, 组件的内容后续还会再进一步介绍.
 
 ## 四. 总结
 

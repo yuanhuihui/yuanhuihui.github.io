@@ -371,7 +371,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             boolean whileRestarting) throws TransactionTooLargeException {
         if (r.app != null && r.app.thread != null) {
             //调用service.onStartCommand()过程
-            sendServiceArgsLocked(r, execInFg, false); 
+            sendServiceArgsLocked(r, execInFg, false);
             return null;
         }
         if (!whileRestarting && r.restartDelay > 0) {
@@ -639,9 +639,9 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         mAm.mHandler.sendMessageAtTime(msg,
                 proc.execServicesFg ? (now+SERVICE_TIMEOUT) : (now+ SERVICE_BACKGROUND_TIMEOUT));
     }
-    
+
 发送延时消息SERVICE_TIMEOUT_MSG,延时时长：
-    
+
 - 对于前台服务，则超时为SERVICE_TIMEOUT，即timeout=20s；
 - 对于后台服务，则超时为SERVICE_BACKGROUND_TIMEOUT，即timeout=200s；
 
@@ -666,10 +666,10 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         data.recycle();
     }
 
-## 三. Service所在进程端
+## 四. Service所在进程端
 
 借助于ATP/ATN这对Binder对象，便完成了从system_server所在进程到Service所在进程调用过程
-    
+
 ### 12. ATN.onTransact
 [-> ApplicationThreadNative.java]
 
@@ -738,12 +738,12 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         //当应用处于后台即将进行GC，而此时被调回到活动状态，则跳过本次gc。
         unscheduleGcIdler();
         LoadedApk packageInfo = getPackageInfoNoCheck(data.info.applicationInfo, data.compatInfo);
-        
+
         java.lang.ClassLoader cl = packageInfo.getClassLoader();
         //通过反射创建目标服务对象
         Service service = (Service) cl.loadClass(data.info.name).newInstance();
         ...
-        
+
         try {
             //创建ContextImpl对象
             ContextImpl context = ContextImpl.createAppContext(this, packageInfo);
@@ -752,7 +752,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             service.attach(context, this, data.info.name, data.token, app,
                     ActivityManagerNative.getDefault());
             //调用服务onCreate()方法 【见流程15.1】
-            service.onCreate(); 
+            service.onCreate();
             mServices.put(data.token, service);
             //调用服务创建完成【见流程16】
             ActivityManagerNative.getDefault().serviceDoneExecuting(
@@ -779,7 +779,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             mServices.serviceDoneExecutingLocked((ServiceRecord)token, type, startId, res);
         }
     }
-    
+
 由[流程10.1]的bumpServiceExecutingLocked()发送一个延时消息SERVICE_TIMEOUT_MSG
 
 #### 16.1 AS.serviceDoneExecutingLocked
@@ -796,7 +796,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
         ...
     }
-    
+
 #### 16.2 serviceDoneExecutingLocked
 [-> ActiveServices.java]
 
@@ -829,7 +829,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             }
         }
     }
-    
+
 handleCreateService()执行后便会移除服务启动超时的消息SERVICE_TIMEOUT_MSG。
 Service启动过程出现ANR，”executing service [发送超时serviceRecord信息]”，
 这往往是service的onCreate()回调方法执行时间过长。
@@ -889,7 +889,7 @@ Service启动过程出现ANR，”executing service [发送超时serviceRecord�
             }
         }
     }
-    
+
 [流程10]中的AS.realStartServiceLocked的过程先后依次执行如下方法：
 
 - 执行scheduleCreateService()方法，层层调用最终回调Service.onCreate(); [见流程11~16]

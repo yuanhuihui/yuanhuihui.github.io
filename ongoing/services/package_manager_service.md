@@ -33,8 +33,8 @@ APM继承于PackageManager。
     private void startBootstrapServices() {
         //启动installer服务【见小节三】
         Installer installer = mSystemServiceManager.startService(Installer.class);
-        ... 
-        
+        ...
+
         String cryptState = SystemProperties.get("vold.decrypt");
         if (ENCRYPTING_STATE.equals(cryptState)) {
             Slog.w(TAG, "Detected encryption in progress - only parsing core apps");
@@ -43,7 +43,7 @@ APM继承于PackageManager。
             Slog.w(TAG, "Device encrypted - only parsing core apps");
             mOnlyCore = true; //加密设备，仅仅解析核心应用
         }
-        //【见小节四】
+        //【见小节4.1】
         mPackageManagerService = PackageManagerService.main(mSystemContext, installer,
                     mFactoryTestMode != FactoryTest.FACTORY_TEST_OFF, mOnlyCore);
         mFirstBoot = mPackageManagerService.isFirstBoot();
@@ -54,19 +54,23 @@ APM继承于PackageManager。
 
     private void startOtherServices() {
         ...
+        //启动MountService, PKMS需要用到
+        mSystemServiceManager.startService(MOUNT_SERVICE_CLASS);
+        //【见小节4.5】
         mPackageManagerService.performBootDexOpt();
-        
-        ActivityManagerNative.getDefault().showBootMessage(
-                context.getResources().getText(com.android.internal.R.string.android_upgrading_starting_apps),
-                        false);
         ...  
+
+        mSystemServiceManager.startBootPhase(SystemService.PHASE_SYSTEM_SERVICES_READY);// phase 500
+        ...
+
+        //
         mPackageManagerService.systemReady();
         ...
     }
 
 - ENCRYPTING_STATE = "trigger_restart_min_framework"
 - ENCRYPTED_STATE = "1"
-  
+
 ## 三. 启动Installer
 
 [-> Installer.java]
@@ -76,7 +80,7 @@ APM继承于PackageManager。
         //创建InstallerConnection对象
         mInstaller = new InstallerConnection();
     }
-    
+
     public void onStart() {
       Slog.i(TAG, "Waiting for installd to be ready.");
       //【见小节3.1】
@@ -113,7 +117,7 @@ APM继承于PackageManager。
             return -1;
         }
     }
-    
+
 ### 3.3 transact
 [-> InstallerConnection.java]
 
@@ -122,13 +126,14 @@ APM继承于PackageManager。
         if (!connect()) {
             return "-1";
         }
+
         //【见小节3.3.2】
         if (!writeCommand(cmd)) {
             if (!connect() || !writeCommand(cmd)) {
                 return "-1";
             }
         }
-        
+
         //读取应答消息【3.3.3】
         final int replyLength = readReply();
         if (replyLength > 0) {
@@ -138,7 +143,7 @@ APM继承于PackageManager。
             return "-1";
         }
     }
-    
+
 #### 3.3.1 connect
 
     private boolean connect() {
@@ -162,7 +167,7 @@ APM继承于PackageManager。
         }
         return true;
     }
-    
+
 #### 3.3.2 writeCommand
 
     private boolean writeCommand(String cmdString) {
@@ -217,10 +222,10 @@ APM继承于PackageManager。
 
          return true;
      }
-     
+
  可见，一次transact过程为先connect()来判断是否建立socket连接，如果已连接则通过writeCommand()
  将命令写入socket的mOut管道，等待从管道的mIn中readFully()读取应答消息。
- 
+
 ## 四. PackageManagerService
 
 ### 4.1 PKMS.main
@@ -235,7 +240,7 @@ APM继承于PackageManager。
         ServiceManager.addService("package", m);
         return m;
     }
-    
+
 ### 4.2 初始化PKMS
 
 
@@ -248,7 +253,7 @@ APM继承于PackageManager。
         mLazyDexOpt = "eng".equals(SystemProperties.get("ro.build.type"));
         mMetrics = new DisplayMetrics();
         mSettings = new Settings(mPackages);
-        
+
         mSettings.addSharedUserLPw("android.uid.system", Process.SYSTEM_UID,
                 ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
         mSettings.addSharedUserLPw("android.uid.phone", RADIO_UID,
@@ -294,7 +299,7 @@ APM继承于PackageManager。
             mHandlerThread.start();
             mHandler = new PackageHandler(mHandlerThread.getLooper());
             Watchdog.getInstance().addThread(mHandler, WATCHDOG_TIMEOUT);
-            
+
             //创建各种目录
             File dataDir = Environment.getDataDirectory();
             mAppDataDir = new File(dataDir, "data");
@@ -314,7 +319,7 @@ APM继承于PackageManager。
                         new SharedLibraryEntry(libConfig.valueAt(i), null));
             }
             ...
-            
+
             mRestoredSettings = mSettings.readLPw(this, sUserManager.getUsers(false),
                     mSdkVersion, mOnlyCore);
             ...
@@ -335,16 +340,16 @@ APM继承于PackageManager。
                 for (String element : bootClassPathElements) {
                     alreadyDexOpted.add(element);
                 }
-            } 
+            }
 
             if (systemServerClassPath != null) {
                 String[] systemServerClassPathElements = splitString(systemServerClassPath, ':');
                 for (String element : systemServerClassPathElements) {
                     alreadyDexOpted.add(element);
                 }
-            } 
+            }
             ...
-            
+
             if (mSharedLibraries.size() > 0) {
                 for (String dexCodeInstructionSet : dexCodeInstructionSets) {
                     for (SharedLibraryEntry libEntry : mSharedLibraries.values()) {
@@ -377,18 +382,18 @@ APM继承于PackageManager。
                         if (alreadyDexOpted.contains(path)) {
                             continue;
                         }
-                        
+
                         if (!path.endsWith(".apk") && !path.endsWith(".jar")) {
                             continue;
                         }
-                        
+
                         int dexoptNeeded = DexFile.getDexOptNeeded(path, dexCodeInstructionSet,
                                 "speed", false);
                         if (dexoptNeeded != DexFile.NO_DEXOPT_NEEDED) {
                             mInstaller.dexopt(path, Process.SYSTEM_UID, dexCodeInstructionSet,
                                     dexoptNeeded, DEXOPT_PUBLIC /*dexFlags*/);
                         }
-                        
+
                     }
                 }
             }
@@ -634,7 +639,7 @@ PKMS对象初始化过程的5次Event事件：
         if (mPackageManager != null) {
             return mPackageManager;
         }
-        
+
         //【见小节4.4】
         IPackageManager pm = ActivityThread.getPackageManager();
         if (pm != null) {
@@ -657,24 +662,188 @@ PKMS对象初始化过程的5次Event事件：
         return sPackageManager;
     }
 
-## 二. 源码
+### 4.5 performBootDexOpt
+[-> PackageManagerService.java]
 
-### 2.1 CI.getPackageManager
+    public void performBootDexOpt() {
+       // 确保只有system或者root uid有权限执行该方法
+       enforceSystemOrRoot("Only the system can request dexopt be performed");
 
-[-> ContextImpl.java]
+       //运行在同一个进程,此处拿到的MountService的服务端
+       IMountService ms = PackageHelper.getMountService();
+       if (ms != null) {
+           final boolean isUpgrade = isUpgrade();
+           boolean doTrim = isUpgrade;
+           if (doTrim) {
+               Slog.w(TAG, "Running disk maintenance immediately due to system update");
+           } else {
+               final long interval = android.provider.Settings.Global.getLong(
+                       mContext.getContentResolver(),
+                       android.provider.Settings.Global.FSTRIM_MANDATORY_INTERVAL,
+                       DEFAULT_MANDATORY_FSTRIM_INTERVAL);
+               if (interval > 0) {
+                   final long timeSinceLast = System.currentTimeMillis() - ms.lastMaintenance();
+                   if (timeSinceLast > interval) {
+                       doTrim = true;
+                   }
+               }
+           }
+           //执行fstrim操作
+           if (doTrim) {
+               ms.runMaintenance();
+           }
+       }
 
-		public PackageManager getPackageManager() {
-				if (mPackageManager != null) {
-						return mPackageManager;
-				}
+       final ArraySet<PackageParser.Package> pkgs;
+       synchronized (mPackages) {
+           pkgs = mPackageDexOptimizer.clearDeferredDexOptPackages();
+       }
 
-				IPackageManager pm = ActivityThread.getPackageManager();
-				if (pm != null) {
-						// Doesn't matter if we make more than one instance.
-						return (mPackageManager = new ApplicationPackageManager(this, pm));
-				}
+       if (pkgs != null) {
+           ArrayList<PackageParser.Package> sortedPkgs = new ArrayList<PackageParser.Package>();
 
-				return null;
-		}
+           for (Iterator<PackageParser.Package> it = pkgs.iterator(); it.hasNext();) {
+               PackageParser.Package pkg = it.next();
+               if (pkg.coreApp) {
+                   sortedPkgs.add(pkg);
+                   it.remove();
+               }
+           }
+           // Give priority to system apps that listen for pre boot complete.
+           Intent intent = new Intent(Intent.ACTION_PRE_BOOT_COMPLETED);
+           ArraySet<String> pkgNames = getPackageNamesForIntent(intent);
+           for (Iterator<PackageParser.Package> it = pkgs.iterator(); it.hasNext();) {
+               PackageParser.Package pkg = it.next();
+               if (pkgNames.contains(pkg.packageName)) {
+                   if (DEBUG_DEXOPT) {
+                       Log.i(TAG, "Adding pre boot system app " + sortedPkgs.size() + ": " + pkg.packageName);
+                   }
+                   sortedPkgs.add(pkg);
+                   it.remove();
+               }
+           }
+           // Filter out packages that aren't recently used.
+           filterRecentlyUsedApps(pkgs);
 
-mSettings.addSharedUserLPw
+           // Add all remaining apps.
+           for (PackageParser.Package pkg : pkgs) {
+               if (DEBUG_DEXOPT) {
+                   Log.i(TAG, "Adding app " + sortedPkgs.size() + ": " + pkg.packageName);
+               }
+               sortedPkgs.add(pkg);
+           }
+
+           // If we want to be lazy, filter everything that wasn't recently used.
+           if (mLazyDexOpt) {
+               filterRecentlyUsedApps(sortedPkgs);
+           }
+
+           int i = 0;
+           int total = sortedPkgs.size();
+           File dataDir = Environment.getDataDirectory();
+           long lowThreshold = StorageManager.from(mContext).getStorageLowBytes(dataDir);
+           if (lowThreshold == 0) {
+               throw new IllegalStateException("Invalid low memory threshold");
+           }
+           for (PackageParser.Package pkg : sortedPkgs) {
+               long usableSpace = dataDir.getUsableSpace();
+               if (usableSpace < lowThreshold) {
+                   Log.w(TAG, "Not running dexopt on remaining apps due to low memory: " + usableSpace);
+                   break;
+               }
+               performBootDexOpt(pkg, ++i, total);
+           }
+       }
+   }
+
+### 4.6 systemReady
+
+    public void systemReady() {
+        mSystemReady = true;
+
+        boolean compatibilityModeEnabled = android.provider.Settings.Global.getInt(
+                mContext.getContentResolver(),
+                android.provider.Settings.Global.COMPATIBILITY_MODE, 1) == 1;
+        PackageParser.setCompatibilityModeEnabled(compatibilityModeEnabled);
+
+        int[] grantPermissionsUserIds = EMPTY_INT_ARRAY;
+
+        synchronized (mPackages) {
+
+            ArrayList<PreferredActivity> removed = new ArrayList<PreferredActivity>();
+            for (int i=0; i<mSettings.mPreferredActivities.size(); i++) {
+                PreferredIntentResolver pir = mSettings.mPreferredActivities.valueAt(i);
+                removed.clear();
+                for (PreferredActivity pa : pir.filterSet()) {
+                    if (mActivities.mActivities.get(pa.mPref.mComponent) == null) {
+                        removed.add(pa);
+                    }
+                }
+                if (removed.size() > 0) {
+                    for (int r=0; r<removed.size(); r++) {
+                        PreferredActivity pa = removed.get(r);
+                        Slog.w(TAG, "Removing dangling preferred activity: "
+                                + pa.mPref.mComponent);
+                        pir.removeFilter(pa);
+                    }
+                    mSettings.writePackageRestrictionsLPr(
+                            mSettings.mPreferredActivities.keyAt(i));
+                }
+            }
+
+            for (int userId : UserManagerService.getInstance().getUserIds()) {
+                if (!mSettings.areDefaultRuntimePermissionsGrantedLPr(userId)) {
+                    grantPermissionsUserIds = ArrayUtils.appendInt(
+                            grantPermissionsUserIds, userId);
+                }
+            }
+        }
+        sUserManager.systemReady();
+
+        // If we upgraded grant all default permissions before kicking off.
+        for (int userId : grantPermissionsUserIds) {
+            mDefaultPermissionPolicy.grantDefaultPermissions(userId);
+        }
+
+        // Kick off any messages waiting for system ready
+        if (mPostSystemReadyMessages != null) {
+            for (Message msg : mPostSystemReadyMessages) {
+                msg.sendToTarget();
+            }
+            mPostSystemReadyMessages = null;
+        }
+
+        // Watch for external volumes that come and go over time
+        final StorageManager storage = mContext.getSystemService(StorageManager.class);
+        storage.registerListener(mStorageListener);
+
+        mInstallerService.systemReady();
+        mPackageDexOptimizer.systemReady();
+
+        MountServiceInternal mountServiceInternal = LocalServices.getService(
+                MountServiceInternal.class);
+        mountServiceInternal.addExternalStoragePolicy(
+                new MountServiceInternal.ExternalStorageMountPolicy() {
+            @Override
+            public int getMountMode(int uid, String packageName) {
+                if (Process.isIsolated(uid)) {
+                    return Zygote.MOUNT_EXTERNAL_NONE;
+                }
+                if (checkUidPermission(WRITE_MEDIA_STORAGE, uid) == PERMISSION_GRANTED) {
+                    return Zygote.MOUNT_EXTERNAL_DEFAULT;
+                }
+                if (checkUidPermission(READ_EXTERNAL_STORAGE, uid) == PERMISSION_DENIED) {
+                    return Zygote.MOUNT_EXTERNAL_DEFAULT;
+                }
+                if (checkUidPermission(WRITE_EXTERNAL_STORAGE, uid) == PERMISSION_DENIED) {
+                    return Zygote.MOUNT_EXTERNAL_READ;
+                }
+                return Zygote.MOUNT_EXTERNAL_WRITE;
+            }
+
+            @Override
+            public boolean hasExternalStorage(int uid, String packageName) {
+                return true;
+            }
+        });
+    }
