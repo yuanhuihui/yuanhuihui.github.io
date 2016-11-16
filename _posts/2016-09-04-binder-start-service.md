@@ -965,7 +965,7 @@ transact主要过程:
                 //进入该分支，当线程todo队列没有数据，则进入休眠等待状态，显然不休眠，继续往下执行
                 ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
         }
-        
+
         if (ret)
             return ret; //对于非阻塞的调用，直接返回
 
@@ -1031,9 +1031,11 @@ transact主要过程:
 
             if (t->from) {
                 struct task_struct *sender = t->from->proc->tsk;
+                //对于非oneway的情况下,将调用者进程的pid保存到sender_pid
                 tr.sender_pid = task_tgid_nr_ns(sender,
                                 current->nsproxy->pid_ns);
             } else {
+                //杜宇oneway的\的情况下,则该值为0
                 tr.sender_pid = 0;
             }
 
@@ -1128,6 +1130,7 @@ transact主要过程:
                 const int32_t origStrictModePolicy = mStrictModePolicy;
                 const int32_t origTransactionBinderFlags = mLastTransactionBinderFlags;
 
+                //设置调用者的pid和uid
                 mCallingPid = tr.sender_pid;
                 mCallingUid = tr.sender_euid;
                 mLastTransactionBinderFlags = tr.flags;
@@ -1164,6 +1167,9 @@ transact主要过程:
                     //对于非oneway, 也就是需要reply的通信过程,则向Binder驱动发送BC_REPLY命令
                     sendReply(reply, 0);
                 }
+                //恢复pid和uid信息
+                mCallingPid = origPid;
+                mCallingUid = origUid;
                 ...
             }
             break;

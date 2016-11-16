@@ -1,0 +1,190 @@
+实验1:
+
+setprop persist.sys.binder.max 15
+setprop persist.sys.binder.vmsize  1040384
+
+
+实验2:
+setprop persist.sys.binder.max 31
+setprop persist.sys.binder.vmsize 2088960
+
+
+
+### 一.安兔兔跑分:
+
+#### 实验1: 136316
+
+Applications Graphics Acceleration Info:
+Uptime: 668948 Realtime: 2878750
+
+** Graphics info for pid 4967 [com.antutu.ABenchMark] **
+
+Stats since: 89305772464ns
+Total frames rendered: 1169
+Janky frames: 98 (8.38%)
+90th percentile: 16ms
+95th percentile: 18ms
+99th percentile: 38ms
+Number Missed Vsync: 15
+Number High input latency: 0
+Number Slow UI thread: 29
+Number Slow bitmap uploads: 1
+Number Slow issue draw commands: 44
+
+Caches:
+Current memory usage / total memory usage (bytes):
+  TextureCache           801044 / 75497472
+  LayerCache                  0 / 50331648 (numLayers = 0)
+  Layers total          0 (numLayers = 0)
+  RenderBufferCache           0 /  8388608
+  GradientCache               0 /  1048576
+  PathCache                   0 / 33554432
+  TessellationCache           0 /  1048576
+  TextDropShadowCache         0 /  6291456
+  PatchCache                576 /   131072
+  FontRenderer 0 A8     1048576 /  1048576
+  FontRenderer 0 RGBA         0 /        0
+  FontRenderer 0 total  1048576 /  1048576
+Other:
+  FboCache                    0 /        0
+Total memory usage:
+  1850196 bytes, 1.76 MB
+
+Profile data in ms:
+
+	com.antutu.ABenchMark/com.antutu.benchmark.activity.MainActivity/android.view.ViewRootImpl@9e4016 (visibility=8)
+Stats since: 89305772464ns
+Total frames rendered: 1169
+Janky frames: 98 (8.38%)
+90th percentile: 16ms
+95th percentile: 18ms
+99th percentile: 38ms
+Number Missed Vsync: 15
+Number High input latency: 0
+Number Slow UI thread: 29
+Number Slow bitmap uploads: 1
+Number Slow issue draw commands: 44
+
+	com.antutu.ABenchMark/com.antutu.benchmark.activity.TestResultActivity/android.view.ViewRootImpl@1ec2d97 (visibility=8)
+Stats since: 89305772464ns
+Total frames rendered: 1169
+Janky frames: 98 (8.38%)
+90th percentile: 16ms
+95th percentile: 18ms
+99th percentile: 38ms
+Number Missed Vsync: 15
+Number High input latency: 0
+Number Slow UI thread: 29
+Number Slow bitmap uploads: 1
+Number Slow issue draw commands: 44
+
+	PopupWindow:255f93c/android.view.ViewRootImpl@13d9b84 (visibility=8)
+Stats since: 89305772464ns
+Total frames rendered: 1169
+Janky frames: 98 (8.38%)
+90th percentile: 16ms
+95th percentile: 18ms
+99th percentile: 38ms
+Number Missed Vsync: 15
+Number High input latency: 0
+Number Slow UI thread: 29
+Number Slow bitmap uploads: 1
+Number Slow issue draw commands: 44
+
+View hierarchy:
+
+  com.antutu.ABenchMark/com.antutu.benchmark.activity.MainActivity/android.view.ViewRootImpl@9e4016
+  435 views, 422.10 kB of display lists
+
+  com.antutu.ABenchMark/com.antutu.benchmark.activity.TestResultActivity/android.view.ViewRootImpl@1ec2d97
+  129 views, 125.23 kB of display lists
+
+  PopupWindow:255f93c/android.view.ViewRootImpl@13d9b84
+  40 views, 38.75 kB of display lists
+
+
+Total ViewRootImpl: 3
+Total Views:        604
+Total DisplayList:  586.08 kB
+
+
+
+#### 实验2: 147323
+
+root@gemini:/ # dumpsys gfxinfo com.antutu.ABenchMark
+Applications Graphics Acceleration Info:
+Uptime: 1410647 Realtime: 12163422
+
+** Graphics info for pid 6094 [com.antutu.ABenchMark] **
+
+Stats since: 432482425301ns
+Total frames rendered: 3596
+Janky frames: 289 (8.04%)
+90th percentile: 16ms
+95th percentile: 18ms
+99th percentile: 36ms
+Number Missed Vsync: 39
+Number High input latency: 0
+Number Slow UI thread: 82
+Number Slow bitmap uploads: 7
+Number Slow issue draw commands: 119
+
+Caches:
+Current memory usage / total memory usage (bytes):
+  TextureCache           296284 / 75497472
+  LayerCache                  0 / 50331648 (numLayers = 0)
+  Layers total          0 (numLayers = 0)
+  RenderBufferCache           0 /  8388608
+  GradientCache               0 /  1048576
+  PathCache                   0 / 33554432
+  TessellationCache           0 /  1048576
+  TextDropShadowCache     14800 /  6291456
+  PatchCache               1152 /   131072
+  FontRenderer 0 A8     1048576 /  1048576
+  FontRenderer 0 RGBA         0 /        0
+  FontRenderer 0 total  1048576 /  1048576
+Other:
+  FboCache                    0 /        0
+Total memory usage:
+  1360812 bytes, 1.30 MB
+
+Profile data in ms:
+
+	com.antutu.ABenchMark/com.antutu.benchmark.activity.MainActivity/android.view.ViewRootImpl@7d8848e (visibility=8)
+Stats since: 432482425301ns
+Total frames rendered: 3596
+Janky frames: 289 (8.04%)
+90th percentile: 16ms
+95th percentile: 18ms
+99th percentile: 36ms
+Number Missed Vsync: 39
+Number High input latency: 0
+Number Slow UI thread: 82
+Number Slow bitmap uploads: 7
+Number Slow issue draw commands: 119
+
+	com.antutu.ABenchMark/com.antutu.benchmark.activity.TestResultActivity/android.view.ViewRootImpl@367e4af (visibility=8)
+Stats since: 432482425301ns
+Total frames rendered: 3596
+Janky frames: 289 (8.04%)
+90th percentile: 16ms
+95th percentile: 18ms
+99th percentile: 36ms
+Number Missed Vsync: 39
+Number High input latency: 0
+Number Slow UI thread: 82
+Number Slow bitmap uploads: 7
+Number Slow issue draw commands: 119
+
+View hierarchy:
+
+  com.antutu.ABenchMark/com.antutu.benchmark.activity.MainActivity/android.view.ViewRootImpl@7d8848e
+  435 views, 422.10 kB of display lists
+
+  com.antutu.ABenchMark/com.antutu.benchmark.activity.TestResultActivity/android.view.ViewRootImpl@367e4af
+  33 views, 31.97 kB of display lists
+
+
+Total ViewRootImpl: 2
+Total Views:        468
+Total DisplayList:  454.07 kB
