@@ -1178,6 +1178,7 @@ system_server进程调用[startProcessLocked()](http://localhost:4000/2016/10/10
 - 图中有两个installProvider()的调用过程, 当第二个参数holder为空，则用于ContentProvider所在进程的发布provider过程；第二个参数holder不为空，则用于Client端安装provider的过。
 - 调用AMS.getContentProviderImpl获取provider的过程中,当cpr.provider ==null则进入wait()状态,直到notifyAll()事件的到来;否则直接进入AT.installProvider.
 - 进程在启动过程便会publish该进程相应的provider信息,并调用notifyAll()来唤醒所有在等待该provider的进程/线程.
+- 关于`CONTENT_PROVIDER_PUBLISH_TIMEOUT`超时时机是指在startProcessLocked之后会调用AMS.attachApplicationLocked为起点，一直到AMS.publishContentProviders的过程。
 
 ### 4.2 场景二
 
@@ -1191,4 +1192,4 @@ provider未发布:有时在请求provider的时,provider进程存在,但provide�
 
 如果provider在publish完成之后, 这时再次请求该provider,那就便没有的最右侧的这个过程,直接在AMS.getContentProviderImpl之后便进入AT.installProvider的过程,而不会再次进入wait()过程.
 
-最后,关于provider分为stable provider和 unstable provider, 一句话来说就是stable provider建立的是强连接, 客户端进程的与provider进程是存在依赖关系, 即provider进程死亡则会导致客户端进程被杀.
+最后,关于provider分为stable provider和unstable provider, 一句话来说就是stable provider建立的是强连接, 客户端进程的与provider进程是存在依赖关系, 即provider进程死亡则会导致客户端进程被杀.
