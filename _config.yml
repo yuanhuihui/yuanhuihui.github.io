@@ -80,7 +80,7 @@ featured-condition-size: 1              # A tag will be featured if the size of 
 
 # hotpages
 hotpages: [
-		{
+    {
         title: "Android 开篇    ",
         href:  "http://gityuan.com/android"
     }, {
