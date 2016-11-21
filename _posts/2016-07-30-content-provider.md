@@ -686,7 +686,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
         return false;
     }
 
-减小provider引用相对应的便是增加引用incProviderCountLocked:
+减小provider引用所相反的操作便是增加引用incProviderCountLocked,再来说说增加引用计数
 
 #### 2.8.3 AMS.incProviderCountLocked
 [-> ActivityManagerService.java]

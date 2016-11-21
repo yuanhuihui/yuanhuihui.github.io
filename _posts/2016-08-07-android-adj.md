@@ -14,7 +14,7 @@ tags:
 
 本文是根据android 6.0原生系统的算法分析，不同手机厂商都会有各自的激进策略。 本文只介绍Google原生系统adj和procState有哪些级别。
 
-#### 1.1 ADJ级别
+#### 1.1 Adj
 
 定义在ProcessList.java文件，oom_adj划分为16级，从-17到16之间取值。**adj值越大，优先级越低**，adj<0的进程都是系统进程。
 
@@ -39,7 +39,7 @@ tags:
 
 lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同adj级别的进程，[Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)。
 
-#### 1.2 Process State
+#### 1.2 ProcessState
 
 定义在ActivityManager.java文件，process_state划分18类，从-1到16之间取值。
 
@@ -527,6 +527,15 @@ lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同a
         if (allChanged) {
             requestPssAllProcsLocked(now, false, mProcessStats.isMemFactorLowered());
         }
+        
+        //更新 uid的改变
+        for (int i=mActiveUids.size()-1; i>=0; i--) {
+            final UidRecord uidRec = mActiveUids.valueAt(i);
+            if (uidRec.setProcState != uidRec.curProcState) {
+                uidRec.setProcState = uidRec.curProcState;
+                enqueueUidChangeLocked(uidRec, false);
+            }
+        }
         ...
     }
 
@@ -588,11 +597,10 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 该方法比较长，下面分几个部分来展开说明, 每一部分后主要功能便是设置adj和procState(进程状态)： (adj和procState的取值原则是以优先级高为主)
 
 
-#### 4.1 进程为空的情况
+#### 1. 空进程情况
 
      if (mAdjSeq == app.adjSeq) {
-          //已经调整完成
-         return app.curRawAdj;
+         return app.curRawAdj; //已经调整完成
      }
 
      // 当进程对象为空时，则设置curProcState=16， curAdj=curRawAdj=15
@@ -602,13 +610,11 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
          app.curProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY;
          return (app.curAdj=app.curRawAdj=ProcessList.CACHED_APP_MAX_ADJ);
      }
-     //app中包含的activity个数
-     final int activitiesSize = app.activities.size();
 
-#### 4.2 当maxAdj<=0情况
 
-当maxAdj <=0的情况，也就意味这不允许app将其adj调整到低于前台app的优先级别。
+#### 2. maxAdj<=0情况
 
+    final int activitiesSize = app.activities.size();
      if (app.maxAdj <= ProcessList.FOREGROUND_APP_ADJ) {
          app.adjType = "fixed";
          app.adjSeq = mAdjSeq;
@@ -621,6 +627,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
          //顶部的activity就是当前app，则代表正处于展现UI
          if (app == TOP_APP) {
              app.systemNoUi = false;
+         //进程中的activity个数大于0时
          } else if (activitiesSize > 0) {
              for (int j = 0; j < activitiesSize; j++) {
                  final ActivityRecord r = app.activities.get(j);
@@ -635,12 +642,13 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
          return (app.curAdj=app.maxAdj);
      }
 
-该过程执行后将直接返回
 
- - curProcState = ActivityManager.PROCESS_STATE_PERSISTENT_UI;
- - curAdj = app.maxAdj (该Adj<=0)
+当maxAdj <=0的情况，也就意味这不允许app将其adj调整到低于前台app的优先级别, 这样场景下执行后将直接返回:
 
-#### 4.3 前台的情况
+ - curProcState =PROCESS_STATE_PERSISTENT或 PROCESS_STATE_PERSISTENT_UI(存在visible的activity)
+ - curAdj = app.maxAdj (curAdj<=0)
+
+#### 3. 前台的情况
 
      if (app == TOP_APP) {
          adj = ProcessList.FOREGROUND_APP_ADJ;
@@ -696,7 +704,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
  |当进程存在正在执行的service|adj=0|procState=10|
  |以上条件都不符合|adj=cachedAd(>=0)j|procState=16|
 
-#### 4.4 非前台activity的情况
+#### 4. 非前台activity的情况
 
      if (!foregroundActivities && activitiesSize > 0) {
          for (int j = 0; j < activitiesSize; j++) {
@@ -763,7 +771,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 - 当activity正在停止， 则adj=2,procState=13(且activity尚未finish)；
 - 以上都不满足，否则procState=14
 
-#### 4.5 adj > 2的情况
+#### 5. adj > 2的情况
 
      if (adj > ProcessList.PERCEPTIBLE_APP_ADJ) {
          当存在前台service时，则adj=2, procState=4；
@@ -789,7 +797,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 - 当存在前台service时，则adj=2, procState=4；
 - 当强制前台时，则adj=2, procState=6；
 
-#### 4.6 HeavyWeightProces情况
+#### 6. HeavyWeightProces情况
 
      if (app == mHeavyWeightProcess) {
          if (adj > ProcessList.HEAVY_WEIGHT_APP_ADJ) {
@@ -805,7 +813,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 
 当进程为HeavyWeightProcess，则adj=4, procState=9；
 
-#### 4.7 HomeProcess情况
+#### 7. HomeProcess情况
 
      if (app == mHomeProcess) {
          if (adj > ProcessList.HOME_APP_ADJ) {
@@ -821,7 +829,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 
 当进程为HomeProcess情况，则adj=6, procState=12；
 
-#### 4.8 PreviousProcess情况
+#### 8. PreviousProcess情况
 
      if (app == mPreviousProcess && app.activities.size() > 0) {
          if (adj > ProcessList.PREVIOUS_APP_ADJ) {
@@ -837,7 +845,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 
 当进程为PreviousProcess情况，则adj=7, procState=13；
 
-#### 4.9 备份进程情况
+#### 9. 备份进程情况
 
      if (mBackupTarget != null && app == mBackupTarget.app) {
          if (adj > ProcessList.BACKUP_APP_ADJ) {
@@ -855,7 +863,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 
 对于备份进程的情况，则adj=3, procState=7或8
 
-#### 4.10 Service情况
+#### 10. Service情况
 
      //是否显示在最顶部
      boolean mayBeTop = false;
@@ -1073,7 +1081,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
      - 保证当前进程procState不会必client进程的procState大
  - 当进程adj >0，且activity可见 或者resumed 或 正在暂停，则设置adj = 0
 
-#### 4.11 ContentProvider情况
+#### 11. ContentProvider情况
 
      //当adj>0 或 schedGroup为后台线程组 或procState>2时
      for (int provi = app.pubProviders.size()-1;
@@ -1163,7 +1171,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
  - 当contentprovider存在外部进程依赖(非framework)时，则设置adj =0, procState=6
 
 
-#### 4.12 调整adj
+#### 12. 调整adj
 
      // 当client进程处于top，且procState>2时
      if (mayBeTop && procState > ActivityManager.PROCESS_STATE_TOP) {
@@ -1237,7 +1245,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
      return app.curRawAdj;
  }
 
-#### 4.13  小节
+#### 13.  小节
 
 主要工作：计算进程的adj和procState
 
