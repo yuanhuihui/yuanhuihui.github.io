@@ -1569,12 +1569,12 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
             }
 
         }
-        //当进程不存在则创建进程 [见流程2.15]
+        //当进程不存在则创建进程 [见流程2.14.1]
         mService.startProcessLocked(r.processName, r.info.applicationInfo, true, 0,
                 "activity", r.intent.getComponent(), false, false, true);
     }
 
-### 2.15 AMS.startProcessLocked
+#### 2.15 AMS.startProcessLocked
 
 在文章[理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/)中，详细介绍了AMS.startProcessLocked()整个过程，创建完新进程后会在新进程中调用`AMP.attachApplication
 `，该方法经过binder ipc后调用到`AMS.attachApplicationLocked`。
@@ -1597,7 +1597,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
 
 在执行完bindApplication()之后进入ASS.attachApplicationLocked()
 
-### 2.16 ASS.attachApplicationLocked
+#### 2.16 ASS.attachApplicationLocked
 
     boolean attachApplicationLocked(ProcessRecord app) throws RemoteException {
         final String processName = app.processName;
@@ -1901,7 +1901,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
         handleConfigurationChanged(null, null);
         //初始化wms
         WindowManagerGlobal.initialize();
-        //最终回调目标Activity的onCreate
+        //最终回调目标Activity的onCreate[见流程2.23]
         Activity a = performLaunchActivity(r, customIntent);
         if (a != null) {
             r.createdConfig = new Configuration(mConfiguration);
@@ -1920,6 +1920,113 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
             ActivityManagerNative.getDefault()
                 .finishActivity(r.token, Activity.RESULT_CANCELED, null, false);
         }
+    }
+
+### 2.23 ActivityThread.performLaunchActivity
+[-> ActivityThread.java]
+
+    private Activity performLaunchActivity(ActivityClientRecord r, Intent customIntent) {
+
+        ActivityInfo aInfo = r.activityInfo;
+        if (r.packageInfo == null) {
+            r.packageInfo = getPackageInfo(aInfo.applicationInfo, r.compatInfo,
+                    Context.CONTEXT_INCLUDE_CODE);
+        }
+
+        ComponentName component = r.intent.getComponent();
+        if (component == null) {
+            component = r.intent.resolveActivity(
+                mInitialApplication.getPackageManager());
+            r.intent.setComponent(component);
+        }
+
+        if (r.activityInfo.targetActivity != null) {
+            component = new ComponentName(r.activityInfo.packageName,
+                    r.activityInfo.targetActivity);
+        }
+
+        Activity activity = null;
+        try {
+            java.lang.ClassLoader cl = r.packageInfo.getClassLoader();
+            activity = mInstrumentation.newActivity(
+                    cl, component.getClassName(), r.intent);
+            StrictMode.incrementExpectedActivityCount(activity.getClass());
+            r.intent.setExtrasClassLoader(cl);
+            r.intent.prepareToEnterProcess();
+            if (r.state != null) {
+                r.state.setClassLoader(cl);
+            }
+        } catch (Exception e) {
+            ...
+        }
+
+        try {
+            //创建Application对象
+            Application app = r.packageInfo.makeApplication(false, mInstrumentation);
+
+            if (activity != null) {
+                Context appContext = createBaseContextForActivity(r, activity);
+                CharSequence title = r.activityInfo.loadLabel(appContext.getPackageManager());
+                Configuration config = new Configuration(mCompatConfiguration);
+
+                activity.attach(appContext, this, getInstrumentation(), r.token,
+                        r.ident, app, r.intent, r.activityInfo, title, r.parent,
+                        r.embeddedID, r.lastNonConfigurationInstances, config,
+                        r.referrer, r.voiceInteractor);
+
+                if (customIntent != null) {
+                    activity.mIntent = customIntent;
+                }
+                r.lastNonConfigurationInstances = null;
+                activity.mStartedActivity = false;
+                int theme = r.activityInfo.getThemeResource();
+                if (theme != 0) {
+                    activity.setTheme(theme);
+                }
+
+                activity.mCalled = false;
+                if (r.isPersistable()) {
+                    mInstrumentation.callActivityOnCreate(activity, r.state, r.persistentState);
+                } else {
+                    mInstrumentation.callActivityOnCreate(activity, r.state);
+                }
+                ...
+                r.activity = activity;
+                r.stopped = true;
+                if (!r.activity.mFinished) {
+                    activity.performStart();
+                    r.stopped = false;
+                }
+                if (!r.activity.mFinished) {
+                    if (r.isPersistable()) {
+                        if (r.state != null || r.persistentState != null) {
+                            mInstrumentation.callActivityOnRestoreInstanceState(activity, r.state,
+                                    r.persistentState);
+                        }
+                    } else if (r.state != null) {
+                        mInstrumentation.callActivityOnRestoreInstanceState(activity, r.state);
+                    }
+                }
+                if (!r.activity.mFinished) {
+                    activity.mCalled = false;
+                    if (r.isPersistable()) {
+                        mInstrumentation.callActivityOnPostCreate(activity, r.state,
+                                r.persistentState);
+                    } else {
+                        mInstrumentation.callActivityOnPostCreate(activity, r.state);
+                    }
+                    ...
+                }
+            }
+            r.paused = true;
+
+            mActivities.put(r.token, r);
+
+        }  catch (Exception e) {
+            ...
+        }
+
+        return activity;
     }
 
 到此，正式进入了Activity的onCreate, onStart, onResume这些生命周期的过程。

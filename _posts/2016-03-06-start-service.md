@@ -34,7 +34,7 @@ tags:
 
 ActivityManagerService是Android的Java framework的服务框架最重要的服务之一。对于Andorid的Activity、Service、Broadcast、ContentProvider四剑客的管理，包含其生命周期都是通过ActivityManagerService来完成的。对于这四剑客的介绍，此处先略过，后续博主会针对这4剑客分别阐述。
 
-### 1.1 类图
+#### 1.1 类图
 
 下面先看看ActivityManagerService相关的类图：
 
@@ -44,7 +44,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 单单就一个ActivityManagerService.java文件就代码超过2万行，我们需要需要一个线，再结合binder的知识，来把我们想要了解的东西串起来，那么本文将从App启动的视角来分析ActivityManagerService。
 
 
-### 1.2 流程图
+#### 1.2 流程图
 
 在app中启动一个service，就一行语句搞定，
 
@@ -80,7 +80,7 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 
 接下来，我们正式从代码角度来分析服务启动的过程。首先在我们应用程序的Activity类的调用startService()方法，该方法调用【流程1】的方法。
 
-## 二. 发起端
+## 二. 发起进程端
 
 ### 1. CW.startService
 [-> ContextWrapper.java]
@@ -446,14 +446,13 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return null;
     }
 
-- 当启动的服务所属的目标进程已经存在，则直接执行realStartServiceLocked()；
-- 当目标进程不存在，则需要先创建进程，之后再执行realStartServiceLocked()。
+- 当目标进程已存在，则直接执行realStartServiceLocked()；
+- 当目标进程不存在，则先执行[startProcessLocked](http://gityuan.com/2016/10/09/app-process-create-2/)创建进程，
+经过层层调用最后会调用到AMS.attachApplicationLocked, 然后再执行realStartServiceLocked()。
 
 对于非前台进程调用而需要启动的服务，如果已经有其他的后台服务正在启动中，那么我们可能希望延迟其启动。这是用来避免启动同时启动过多的进程(非必须的)。
 
 #### 9.1 AMS.attachApplicationLocked
-
-关于startProcessLocked的过程, 详见 [理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/),经过层层调用最后会调用到AMS.attachApplicationLocked过程.
 
 [-> ActivityManagerService.java]
 
@@ -666,7 +665,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         data.recycle();
     }
 
-## 四. Service所在进程端
+## 四. 目标进程端
 
 借助于ATP/ATN这对Binder对象，便完成了从system_server所在进程到Service所在进程调用过程
 
@@ -705,8 +704,8 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 该方法的执行在ActivityThread线程
 
-### 14. H.handleMessage
-[-> ActivityThread.java]
+#### 14. handleMessage
+[-> ActivityThread.java ::H]
 
     public void handleMessage(Message msg) {
         switch (msg.what) {
@@ -731,7 +730,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         }
     }
 
-### 15. handleCreateService
+### 15. AT.handleCreateService
 [-> ActivityThread.java]
 
     private void handleCreateService(CreateServiceData data) {
@@ -748,6 +747,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             //创建ContextImpl对象
             ContextImpl context = ContextImpl.createAppContext(this, packageInfo);
             context.setOuterContext(service);
+            //创建Application对象
             Application app = packageInfo.makeApplication(false, mInstrumentation);
             service.attach(context, this, data.info.name, data.token, app,
                     ActivityManagerNative.getDefault());

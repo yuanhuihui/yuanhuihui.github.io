@@ -16,6 +16,8 @@ tags:
 上一篇文章[理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)介绍了provider的整个原理,
 本文以查询操作为例,说一说provider引用计数的问题.
 
+### 1.1 query操作
+
     public final  Cursor query(final  Uri uri,  String[] projection,
                  String selection,  String[] selectionArgs,
                  String sortOrder,  CancellationSignal cancellationSignal) {
@@ -597,18 +599,43 @@ CASE 2: releaseProvider
         return false;
     }
 
-### 3.3 unstableProviderDied
+
+### 3.3 小节
+
+减小引用计数:
+
+|方法|stableCount|unstableCount|条件
+|---|---|---|
+|releaseProvider|-1|0|lastRef=false|
+|releaseProvider|-1|1|lastRef=true|
+|releaseUnstableProvider|0|-1|lastRef=false|
+|releaseUnstableProvider|0|0|lastRef=true|
+
+
+减小引用计数的具体方法:
+
+- AT.releaseProvider ==> AMS.refContentProvider
+- AMS.decProviderCountLocked
+
+ 当stable和unstable引用计数都为0时则移除connection信息
+
+
+## 四. Provider死亡
+
+#### 4.1 进程死亡
+
+对于unstable的provider可直接调用unstableProviderDied,或者是当provider进程死亡后会有死亡回调[binderDied](http://gityuan.com/2016/10/02/binder-died/),这两个方法最终都会调用到appDiedLocked().
+
 调用链如下:
 
         ACR.unstableProviderDied
             AT.handleUnstableProviderDied
-                AT.handleUnstableProviderDiedLocked //[见小节3.3.1]
+                AT.handleUnstableProviderDiedLocked //[见小节4.2]
                     AMP.unstableProviderDied
                         AMS.unstableProviderDied
                             AMS.appDiedLocked
 
-
-#### 3.3.1 AT.handleUnstableProviderDiedLocked
+#### 4.2 AT.handleUnstableProviderDiedLocked
 
     final void handleUnstableProviderDiedLocked(IBinder provider, boolean fromClient) {
         ProviderRefCount prc = mProviderRefCountMap.get(provider);
@@ -623,13 +650,14 @@ CASE 2: releaseProvider
             }
 
             if (fromClient) {
+                //[见小节4.3]
                 ActivityManagerNative.getDefault().unstableProviderDied(
                         prc.holder.connection);
             }
         }
     }
 
-#### 3.3.2 AMS.unstableProviderDied
+#### 4.3 AMS.unstableProviderDied
 
     public void unstableProviderDied(IBinder connection) {
         ContentProviderConnection conn = (ContentProviderConnection)connection;
@@ -663,16 +691,14 @@ CASE 2: releaseProvider
 
             final long ident = Binder.clearCallingIdentity();
             try {
-                appDiedLocked(proc); //[见小节3.3.3]
+                appDiedLocked(proc); //[见小节4.4]
             } finally {
                 Binder.restoreCallingIdentity(ident);
             }
         }
     }
 
-#### 3.3.3 AMS.cleanUpApplicationRecordLocked
-
-[appDiedLocked](http://localhost:4000/2016/10/03/binder-died/)经过层层调用进入cleanUpApplicationRecordLocked方法.
+#### 4.4 AMS.cleanUpApplicationRecordLocked
 
     private final boolean cleanUpApplicationRecordLocked(...) {
         ...
@@ -682,7 +708,7 @@ CASE 2: releaseProvider
             // allowRestart=true，一般地always=false
             final boolean always = app.bad || !allowRestart;
 
-            //ContentProvider服务端被杀，则client端进程也会被杀[见小节3.3.4]
+            //ContentProvider服务端被杀，则client端进程也会被杀[见小节4.5]
             boolean inLaunching = removeDyingProviderLocked(app, cpr, always);
             if ((inLaunching || always) && cpr.hasConnectionOrHandle()) {
                 restart = true; //需要重启
@@ -712,7 +738,7 @@ CASE 2: releaseProvider
         ...
     }
 
-#### 3.3.4 AMS.removeDyingProviderLocked
+#### 4.5 AMS.removeDyingProviderLocked
 
     private final boolean removeDyingProviderLocked(ProcessRecord proc,
               ContentProviderRecord cpr, boolean always) {
@@ -749,7 +775,7 @@ CASE 2: releaseProvider
                           + " in dying proc " + (proc != null ? proc.processName : "??"), true);
               }
           } else if (capp.thread != null && conn.provider.provider != null) {
-              //unstable的类型则不会被杀,也会调用到[小节3.3.1]
+              //unstable的类型则不会被杀,也会调用到[小节4.2]
               capp.thread.unstableProviderDied(conn.provider.provider.asBinder());
 
               cpr.connections.remove(i);
@@ -770,27 +796,10 @@ removeDyingProviderLocked()方法的功能非常值得注意:
 - 对于stable类型的provider(即conn.stableCount > 0),则会杀掉所有跟该provider建立stable连接的非persistent进程.
 - 对于unstable类的provider,并不会导致client进程被级联所杀.
 
-### 3.4 小节
 
-减小引用计数:
+## 五. 总结
 
-|方法|stableCount|unstableCount|条件
-|---|---|---|
-|releaseProvider|-1|0|lastRef=false|
-|releaseProvider|-1|1|lastRef=true|
-|releaseUnstableProvider|0|-1|lastRef=false|
-|releaseUnstableProvider|0|0|lastRef=true|
-
-
-减小引用计数的具体方法:
-
-- AT.releaseProvider ==> AMS.refContentProvider
-- AMS.decProviderCountLocked
-
- 当stable和unstable引用计数都为0时则移除connection信息
-
-
-## 四. 总结
+provider引用计数的增加与减少关系:
 
 |方法|stableCount|unstableCount|条件
 |---|---|---|
@@ -802,3 +811,8 @@ removeDyingProviderLocked()方法的功能非常值得注意:
 |acquireProvider|+1|-1|removePending=true|
 |acquireUnstableProvider|0|+1|removePending=false|
 |acquireUnstableProvider|0|0|removePending=true|
+
+当Client进程存在对某个provider的引用时,则会根据provider类型进行不同的处理:
+
+- 对于stable provider: 会杀掉所有跟该provider建立stable连接的非persistent进程.
+- 对于unstable provider: 不会导致client进程被级联所杀,只会回调unstableProviderDied来清理相关信息.

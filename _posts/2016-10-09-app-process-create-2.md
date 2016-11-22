@@ -719,6 +719,7 @@ system_server拥有ATP/AMS, 每一个新创建的进程都会有一个相应的A
                     ? app.instrumentationInfo.packageName
                     : app.info.packageName);
 
+            //获取应用appInfo
             ApplicationInfo appInfo = app.instrumentationInfo != null
                     ? app.instrumentationInfo : app.info;
             ...
@@ -1017,6 +1018,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
         mCurDefaultDisplayDpi = data.config.densityDpi;
         applyCompatConfiguration(mCurDefaultDisplayDpi);
 
+        //获取LoadedApk对象[见小节3.13.1]
         data.info = getPackageInfoNoCheck(data.appInfo, data.compatInfo);
         ...
 
@@ -1062,7 +1064,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
         }
 
         try {
-            // 通过反射,创建目标应用Application对象,即在AndroidManifest.xml文件定义的应用名
+            // 此处data.info是指LoadedApk, 通过反射创建目标应用Application对象[见小节3.14]
             Application app = data.info.makeApplication(data.restrictedBackupMode, null);
             mInitialApplication = app;
 
@@ -1083,8 +1085,174 @@ ATP经过binder ipc传递到ATN的onTransact过程.
         }
     }
 
+在handleBindApplication()的过程中,会同时设置以下两个值:
 
-**说明:** [3.9 ~ 3.11]执行AMS.attachApplicationLocked,介绍了bindApplication过程, 该方法之后便是组件启动相关的内容,本文主要将进程相关内容, 组件的内容后续还会再进一步介绍.
+- LoadedApk.mApplication
+- AT.mInitialApplication
+
+#### 3.13.1 getPackageInfoNoCheck
+[-> ActivityThread.java]
+
+    public final LoadedApk getPackageInfoNoCheck(ApplicationInfo ai,
+            CompatibilityInfo compatInfo) {
+        return getPackageInfo(ai, compatInfo, null, false, true, false);
+    }
+
+    private LoadedApk getPackageInfo(ApplicationInfo aInfo, CompatibilityInfo compatInfo,
+        ClassLoader baseLoader, boolean securityViolation, boolean includeCode,
+            boolean registerPackage) {
+        final boolean differentUser = (UserHandle.myUserId() != UserHandle.getUserId(aInfo.uid));
+        synchronized (mResourcesManager) {
+            WeakReference<LoadedApk> ref;
+            if (differentUser) {
+                //不支持跨用户
+                ref = null;
+            } else if (includeCode) {
+                ref = mPackages.get(aInfo.packageName);
+            } else {
+                ref = mResourcePackages.get(aInfo.packageName);
+            }
+
+            LoadedApk packageInfo = ref != null ? ref.get() : null;
+            if (packageInfo == null || (packageInfo.mResources != null
+                    && !packageInfo.mResources.getAssets().isUpToDate())) {
+                //创建LoadedApk对象
+                packageInfo =
+                    new LoadedApk(this, aInfo, compatInfo, baseLoader,
+                            securityViolation, includeCode &&
+                            (aInfo.flags&ApplicationInfo.FLAG_HAS_CODE) != 0, registerPackage);
+
+                if (mSystemThread && "android".equals(aInfo.packageName)) {
+                    packageInfo.installSystemApplicationInfo(aInfo,
+                            getSystemContext().mPackageInfo.getClassLoader());
+                }
+
+                if (differentUser) {
+                    //不支持跨用户
+                } else if (includeCode) {
+                    mPackages.put(aInfo.packageName,
+                            new WeakReference<LoadedApk>(packageInfo));
+                } else {
+                    mResourcePackages.put(aInfo.packageName,
+                            new WeakReference<LoadedApk>(packageInfo));
+                }
+            }
+            return packageInfo;
+        }
+    }
+
+创建LoadedApk对象
+
+### 3.14 makeApplication
+[-> LoadedApk.java]
+
+    public Application makeApplication(boolean forceDefaultAppClass,
+            Instrumentation instrumentation) {
+        if (mApplication != null) {
+            return mApplication;
+        }
+
+        Application app = null;
+
+        String appClass = mApplicationInfo.className;
+        if (forceDefaultAppClass || (appClass == null)) {
+            appClass = "android.app.Application";
+        }
+
+        try {
+            java.lang.ClassLoader cl = getClassLoader();
+            if (!mPackageName.equals("android")) {
+                initializeJavaContextClassLoader();
+            }
+            //[见小节3.14.1]
+            ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
+            //[见小节3.14.2]
+            app = mActivityThread.mInstrumentation.newApplication(
+                    cl, appClass, appContext);
+            appContext.setOuterContext(app);
+        } catch (Exception e) {
+            ...
+        }
+        mActivityThread.mAllApplications.add(app);
+        //设置mApplication对象值
+        mApplication = app;
+
+        if (instrumentation != null) {
+            try {
+                //调用app.onCreate()
+                instrumentation.callApplicationOnCreate(app);
+            } catch (Exception e) {
+                ...
+            }
+        }
+
+        SparseArray<String> packageIdentifiers = getAssets(mActivityThread)
+                .getAssignedPackageIdentifiers();
+        final int N = packageIdentifiers.size();
+        for (int i = 0; i < N; i++) {
+            final int id = packageIdentifiers.keyAt(i);
+            if (id == 0x01 || id == 0x7f) {
+                continue;
+            }
+            //重写所有apk库中的R常量[见小节3.14.3]
+            rewriteRValues(getClassLoader(), packageIdentifiers.valueAt(i), id);
+        }
+        return app;
+    }
+
+#### 3.14.1 createAppContext
+[-> ContextImpl.java]
+
+    static ContextImpl createAppContext(ActivityThread mainThread, LoadedApk packageInfo) {
+        if (packageInfo == null) throw new IllegalArgumentException("packageInfo");
+        return new ContextImpl(null, mainThread,
+                packageInfo, null, null, false, null, null, Display.INVALID_DISPLAY);
+    }
+
+创建ContextImpl对象
+
+#### 3.14.2 newApplication
+[-> Instrumentation.java]
+
+    public Application newApplication(ClassLoader cl, String className, Context context)
+            throws InstantiationException, IllegalAccessException,
+            ClassNotFoundException {
+        return newApplication(cl.loadClass(className), context);
+    }
+
+创建Application对象, 该对象名来自于mApplicationInfo.className.
+
+#### 3.14.3 rewriteRValues
+[-> LoadedApk.java]
+
+    private void rewriteRValues(ClassLoader cl, String packageName, int id) {
+        final Class<?> rClazz;
+        try {
+            rClazz = cl.loadClass(packageName + ".R");
+        } catch (ClassNotFoundException e) {
+            return;
+        }
+
+        final Method callback;
+        try {
+            callback = rClazz.getMethod("onResourcesLoaded", int.class);
+        } catch (NoSuchMethodException e) {
+            return;
+        }
+
+        Throwable cause;
+        try {
+            callback.invoke(null, id);
+            return;
+        } catch (IllegalAccessException e) {
+            cause = e;
+        } catch (InvocationTargetException e) {
+            cause = e.getCause();
+        }
+
+        throw new RuntimeException("Failed to rewrite resource references for " + packageName,
+                cause);
+    }
 
 ## 四. 总结
 
