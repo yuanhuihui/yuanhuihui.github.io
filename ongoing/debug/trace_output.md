@@ -1,6 +1,6 @@
 ### 相关源码
 
-    art/runtime/gc/heap.cc
+    /art/runtime/gc/heap.cc
     /art/runtime/
         signal_catcher.cc
         runtime.cc

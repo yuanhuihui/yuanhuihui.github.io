@@ -527,7 +527,7 @@ lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同a
         if (allChanged) {
             requestPssAllProcsLocked(now, false, mProcessStats.isMemFactorLowered());
         }
-        
+
         //更新 uid的改变
         for (int i=mActiveUids.size()-1; i>=0; i--) {
             final UidRecord uidRec = mActiveUids.valueAt(i);
@@ -1163,11 +1163,11 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
  当adj>0 或 schedGroup为后台线程组 或procState>2时，双重循环遍历：
 
  - 当client与当前app同一个进程，则continue;
- - 当client进程procState >=14，则设置成procState =16
+ - 当client进程procState >=14，则把client进程设置成procState =16
  - 没有ui展示，则保证adj >=0
- - 当client进程状态为前台时，则设置mayBeTop=true，并设置client进程procState=16设置为空进程
- - 当client进程状态 < 2时，则clientProcState=3；
- - procState 比client进程值更大时，则取client端的状态值。
+ - 当client进程状态=2()前台)时，则设置mayBeTop=true，并设置client进程procState=16(空进程)
+ - 当client进程状态<2时，则clientProcState=3；
+ - procState 比clientProcState更大时，则取client端的状态值。
  - 当contentprovider存在外部进程依赖(非framework)时，则设置adj =0, procState=6
 
 

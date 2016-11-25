@@ -27,6 +27,7 @@ tags:
 上一篇文章[Android系统启动-systemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程。简单回顾下，在`RuntimeInit.java`中invokeStaticMain方法通过创建并抛出异常ZygoteInit.MethodAndArgsCaller，在`ZygoteInit.java`中的main()方法会捕捉该异常，并调用`caller.run()`，再通过反射便会调用到SystemServer.main()方法，那么本文就接着该方法执行流程。
 
 ### 1.1 main
+[-->SystemServer.java]
 
     public final class SystemServer {
         ...
@@ -37,7 +38,6 @@ tags:
     }
 
 ### 1.2 run
-
 [-->SystemServer.java]
 
     private void run() {
@@ -55,7 +55,7 @@ tags:
             mProfilerSnapshotTimer = new Timer();
             //system_server每隔1小时采用一次，并保存结果到system_server文件
             mProfilerSnapshotTimer.schedule(new TimerTask() {
-                @Override
+
                 public void run() {
                     SamplingProfilerIntegration.writeSnapshot("system_server", null);
                 }

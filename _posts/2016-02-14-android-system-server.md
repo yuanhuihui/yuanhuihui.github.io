@@ -23,7 +23,9 @@ tags:
 
 ### 启动流程
 
-SystemServer的在Android体系中所处的地位，SystemServer由Zygote fork生成的，进程名为`system_server`，该进程承载着framework的核心服务。[Android系统启动-zygote篇](http://gityuan.com/22016/02/13/android-zygote/)中讲到Zygote启动过程中，会调用startSystemServer()，可知`startSystemServer()`函数是system_server启动流程的起点，启动流程图如下：
+SystemServer的在Android体系中所处的地位，SystemServer由Zygote fork生成的，进程名为`system_server`，该进程承载着framework的核心服务。
+[Android系统启动-zygote篇](http://gityuan.com/22016/02/13/android-zygote/)中讲到Zygote启动过程中会调用startSystemServer()，可知`startSystemServer()`函数是system_server启动流程的起点，
+启动流程图如下：
 
 ![system_server_boot_process](/images/boot/systemServer/system_server.jpg)
 
@@ -237,7 +239,7 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
     }
 
 
-此处`systemServerClasspath`至少包含/system/framework/services.jar，当然也可以不止于此，比如还可以包含/system/framework/ethernet-service.jar, /system/framework/wifi-service.jar等。
+此处`systemServerClasspath`环境变量主要有/system/framework/目录下的services.jar，ethernet-service.jar, wifi-service.jar这3个文件
 
 ### 6. performSystemServerDexOpt
 
@@ -326,7 +328,8 @@ nativeZygoteInit()方法在AndroidRuntime.cpp中，进行了jni映射，对应�
 
     static void com_android_internal_os_RuntimeInit_nativeZygoteInit(JNIEnv* env, jobject clazz)
     {
-        gCurRuntime->onZygoteInit(); //此处的gCurRuntime为AppRuntime，是在AndroidRuntime.cpp中定义的
+        //此处的gCurRuntime为AppRuntime，是在AndroidRuntime.cpp中定义的
+        gCurRuntime->onZygoteInit();
     }
 
 [-->app_main.cpp]
@@ -357,7 +360,6 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
         try {
             args = new Arguments(argv); //解析参数
         } catch (IllegalArgumentException ex) {
-            Slog.e(TAG, ex.getMessage());
             return;
         }
 
@@ -366,6 +368,7 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
         //调用startClass的static方法 main() 【见小节11】
         invokeStaticMain(args.startClass, args.startArgs, classLoader);
     }
+
 在startSystemServer()方法中通过硬编码初始化参数，可知此处args.startClass为"com.android.server.SystemServer"。
 
 ### 11. invokeStaticMain
@@ -374,29 +377,21 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
 
     private static void invokeStaticMain(String className, String[] argv, ClassLoader classLoader)
             throws ZygoteInit.MethodAndArgsCaller {
-        Class<?> cl;
-
-        try {
-            cl = Class.forName(className, true, classLoader);
-        } catch (ClassNotFoundException ex) {
-            throw new RuntimeException(
-                    "Missing class when invoking static main " + className, ex);
-        }
+        Class<?> cl = Class.forName(className, true, classLoader);
+        ...
 
         Method m;
         try {
             m = cl.getMethod("main", new Class[] { String[].class });
         } catch (NoSuchMethodException ex) {
-            throw new RuntimeException( "Missing static main on " + className, ex);
+            ...
         } catch (SecurityException ex) {
-            throw new RuntimeException(
-                    "Problem getting static main on " + className, ex);
+            ...
         }
 
         int modifiers = m.getModifiers();
         if (! (Modifier.isStatic(modifiers) && Modifier.isPublic(modifiers))) {
-            throw new RuntimeException(
-                    "Main method is not public and static on " + className);
+            ...
         }
 
         //通过抛出异常，回到ZygoteInit.main()。这样做好处是能清空栈帧，提高栈帧利用率。【见小节12】

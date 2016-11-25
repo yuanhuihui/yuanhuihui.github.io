@@ -16,6 +16,7 @@ tags:
     /frameworks/base/core/jni/AndroidRuntime.cpp
     /frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
     /frameworks/base/core/java/com/android/internal/os/Zygote.java
+
     /frameworks/base/core/java/android/net/LocalServerSocket.java
     /system/core/libutils/Threads.cpp
 
@@ -24,9 +25,9 @@ tags:
 Zygote启动函数调用类的栈关系：
 
     App_main.main
-        AndroidRuntime.start
-            startVm
-            startReg
+        AR.start
+            AR.startVm
+            AR.startReg
             ZygoteInit.main
                 registerZygoteSocket
                 preload
@@ -72,7 +73,7 @@ Zygote是由[init进程](http://gityuan.com/2016/01/16/android-init//#zygote)通
             if (strcmp(arg, "--zygote") == 0) {
                 zygote = true;
                 //对于64位系统nice_name为zygote64; 32位系统为zygote
-                niceName = ZYGOTE_NICE_NAME; 
+                niceName = ZYGOTE_NICE_NAME;
             } else if (strcmp(arg, "--start-system-server") == 0) {
                 startSystemServer = true;
             } else if (strcmp(arg, "--application") == 0) {
@@ -128,7 +129,7 @@ Zygote是由[init进程](http://gityuan.com/2016/01/16/android-init//#zygote)通
     }
 
 
-## 三、AndroidRuntime
+## 三、C++层
 
 ### 3.1  AR.start
 [-> AndroidRuntime.cpp]
@@ -191,18 +192,17 @@ Zygote是由[init进程](http://gityuan.com/2016/01/16/android-init//#zygote)通
         } else {
             jmethodID startMeth = env->GetStaticMethodID(startClass, "main",
                 "([Ljava/lang/String;)V");
-            // 调用ZygoteInit.main()方法【见小节4.0】
+            // 调用ZygoteInit.main()方法【见小节4.1】
             env->CallStaticVoidMethod(startClass, startMeth, strArray);
         }
         //释放相应对象的内存空间
-        free(slashClassName); 
+        free(slashClassName);
         mJavaVM->DetachCurrentThread();
         mJavaVM->DestroyJavaVM();
     }
 
 
 ### 3.2 AR.startVm
-
 [--> AndroidRuntime.cpp]
 
 创建Java虚拟机方法的主要篇幅是关于虚拟机参数的设置，下面只列举部分在调试优化过程中常用参数。
@@ -235,13 +235,15 @@ Zygote是由[init进程](http://gityuan.com/2016/01/16/android-init//#zygote)通
         parseRuntimeOption("dalvik.vm.heapmaxfree", heapmaxfreeOptsBuf, "-XX:HeapMaxFree=");
         parseRuntimeOption("dalvik.vm.heaptargetutilization",
                            heaptargetutilizationOptsBuf, "-XX:HeapTargetUtilization=");
+        ...
 
-        //preloaded-classes文件内容是由WritePreloadedClassFile.java生成的，在ZygoteInit类中会预加载工作将其中的classes提前加载到内存，以提高系统性能
+        //preloaded-classes文件内容是由WritePreloadedClassFile.java生成的，
+        //在ZygoteInit类中会预加载工作将其中的classes提前加载到内存，以提高系统性能
         if (!hasFile("/system/etc/preloaded-classes")) {
             return -1;
         }
 
-        //创建虚拟机
+        //初始化虚拟机
         if (JNI_CreateJavaVM(pJavaVM, pEnv, &initArgs) < 0) {
             ALOGE("JNI_CreateJavaVM failed\n");
             return -1;
@@ -324,8 +326,11 @@ array[i]是指gRegJNI数组, 该数组有100多个成员。其中每一项成员
             (void*) com_android_internal_os_RuntimeInit_nativeSetExitWithoutCleanup },
     };
 
-## 四 ZygoteInit
+## 四. Java层
 
+前面[小节3.1]AndroidRuntime.start()执行到最后通过反射调用到ZygoteInit.main(),见下文:
+
+### 4.1 ZygoteInit.main
 [-->ZygoteInit.java]
 
     public static void main(String argv[]) {
@@ -346,17 +351,16 @@ array[i]是指gRegJNI数组, 该数组有100多个成员。其中每一项成员
                     throw new RuntimeException("Unknown command line argument: " + argv[i]);
                 }
             }
-            if (abiList == null) {
-                throw new RuntimeException("No ABI list supplied.");
-            }
-            registerZygoteSocket(socketName); //为Zygote注册socket【见小节4.1】
-            preload(); // 预加载类和资源【见小节4.2】
+            ...
+
+            registerZygoteSocket(socketName); //为Zygote注册socket【见小节4.2】
+            preload(); // 预加载类和资源【见小节4.3】
             SamplingProfilerIntegration.writeZygoteSnapshot();
             gcAndFinalize(); //GC操作
             if (startSystemServer) {
-                startSystemServer(abiList, socketName);//启动system_server【见小节4.3】
+                startSystemServer(abiList, socketName);//启动system_server【见小节4.4】
             }
-            runSelectLoop(abiList); //进入循环模式【见小节4.4】
+            runSelectLoop(abiList); //进入循环模式【见小节4.5】
             closeServerSocket();
         } catch (MethodAndArgsCaller caller) {
             caller.run(); //启动system_server中会讲到。
@@ -368,7 +372,8 @@ array[i]是指gRegJNI数组, 该数组有100多个成员。其中每一项成员
 
 在异常捕获后调用的方法caller.run()，会在后续的system_server文章会讲到。
 
-### 4.1 registerZygoteSocket
+### 4.2 registerZygoteSocket
+[-->ZygoteInit.java]
 
     private static void registerZygoteSocket(String socketName) {
         if (sServerSocket == null) {
@@ -378,7 +383,7 @@ array[i]是指gRegJNI数组, 该数组有100多个成员。其中每一项成员
                 String env = System.getenv(fullSocketName);
                 fileDesc = Integer.parseInt(env);
             } catch (RuntimeException ex) {
-                throw new RuntimeException(fullSocketName + " unset or invalid", ex);
+                ...
             }
 
             try {
@@ -386,14 +391,13 @@ array[i]是指gRegJNI数组, 该数组有100多个成员。其中每一项成员
                 fd.setInt$(fileDesc); //设置文件描述符
                 sServerSocket = new LocalServerSocket(fd); //创建Socket的本地服务端
             } catch (IOException ex) {
-                throw new RuntimeException("Error binding to local socket '" + fileDesc + "'", ex);
+                ...
             }
         }
     }
 
-### 4.2 preload
-
-执行Zygote进程的初始化
+### 4.3 preload
+[-->ZygoteInit.java]
 
     static void preload() {
         //预加载位于/system/etc/preloaded-classes文件中的类
@@ -416,16 +420,15 @@ array[i]是指gRegJNI数组, 该数组有100多个成员。其中每一项成员
         WebViewFactory.prepareWebViewInZygote();
     }
 
-对于类加载，采用反射机制Class.forName()方法来加载。对于资源加载，主要是 com.android.internal.R.array.preloaded_drawables和com.android.internal.R.array.preloaded_color_state_lists，在应用程序中以com.android.internal.R.xxx开头的资源，便是此时由Zygote加载到内存的。
+执行Zygote进程的初始化,对于类加载，采用反射机制Class.forName()方法来加载。对于资源加载，主要是 com.android.internal.R.array.preloaded_drawables和com.android.internal.R.array.preloaded_color_state_lists，在应用程序中以com.android.internal.R.xxx开头的资源，便是此时由Zygote加载到内存的。
 
 zygote进程内加载了preload()方法中的所有资源，当需要fork新进程时，采用copy on write技术，如下：
 
 ![zygote_fork](/images/boot/zygote/zygote_fork.jpg)
 
 
-### 4.3 startSystemServer
-
-ZygoteInit.java
+### 4.4 startSystemServer
+[-->ZygoteInit.java]
 
     private static boolean startSystemServer(String abiList, String socketName)
             throws MethodAndArgsCaller, RuntimeException {
@@ -484,10 +487,11 @@ ZygoteInit.java
         return true;
     }
 
-准备参数并fork新进程，从上面可以看出system server进程参数信息为uid=1000,gid=1000,进程名为sytem_server，从zygote进程fork新进程后，需要关闭zygote原有的socket。另外，对于有两个zygote进程情况，需等待第2个zygote创建完成。更多详情见[Android系统启动-systemServer上篇]()。
+准备参数并fork新进程，从上面可以看出system server进程参数信息为uid=1000,gid=1000,进程名为sytem_server，从zygote进程fork新进程后，需要关闭zygote原有的socket。另外，对于有两个zygote进程情况，需等待第2个zygote创建完成。更多详情见[Android系统启动-systemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)。
 
 
-### 4.4 runSelectLoop
+### 4.5 runSelectLoop
+[-->ZygoteInit.java]
 
     private static void runSelectLoop(String abiList) throws MethodAndArgsCaller {
         ArrayList<FileDescriptor> fds = new ArrayList<FileDescriptor>();
@@ -506,10 +510,10 @@ ZygoteInit.java
             try {
                 Os.poll(pollFds, -1);
             } catch (ErrnoException ex) {
-                throw new RuntimeException("poll failed", ex);
+                ...
             }
             for (int i = pollFds.length - 1; i >= 0; --i) {
-                //采用I/O多路复用机制，当客户端发出连接请求或者数据处理请求时，跳过continue，执行后面的代码
+                //采用I/O多路复用机制，当客户端发出连接请求或者数据处理请求时才会往下执行
                 if ((pollFds[i].revents & POLLIN) == 0) {
                     continue;
                 }

@@ -188,3 +188,53 @@ View hierarchy:
 Total ViewRootImpl: 2
 Total Views:        468
 Total DisplayList:  454.07 kB
+
+
+
+### binder test
+
+#### 1. binderThroughputTest -w 16 -i 10000
+
+iterations per sec: 12483.2
+collecting results
+average:1.25665ms worst:44.2573ms best:0.032187ms
+50%: 0.195312 90%: 3.32031 95%: 4.10156 99%: 6.44531
+
+
+iterations per sec: 12230
+collecting results
+average:1.2862ms worst:17.2472ms best:0.032291ms
+50%: 0.585938 90%: 3.32031 95%: 4.10156 99%: 6.05469
+
+
+iterations per sec: 11854.5
+collecting results
+average:1.32977ms worst:24.3072ms best:0.032708ms
+50%: 0.585938 90%: 3.32031 95%: 4.10156 99%: 6.05469
+
+
+#### 2. binderThroughputTest -w 32 -i 10000
+
+iterations per sec: 10955.5
+collecting results
+average:2.86164ms worst:40.7557ms best:0.031615ms
+50%: 1.36719 90%: 7.22656 95%: 9.17969 99%: 12.6953
+
+
+iterations per sec: 11130.7
+collecting results
+average:2.82683ms worst:40.7917ms best:0.031667ms
+50%: 1.36719 90%: 7.22656 95%: 9.17969 99%: 12.3047
+
+
+iterations per sec: 10822.5
+collecting results
+average:2.90794ms worst:42.2877ms best:0.030678ms
+50%: 1.36719 90%: 7.22656 95%: 9.17969 99%: 12.6953
+
+#### 3. binderThroughputTest -w 16 -i 100000
+
+iterations per sec: 11556.9
+collecting results
+average:1.37626ms worst:28.4495ms best:0.028906ms
+50%: 0.585938 90%: 3.71094 95%: 4.49219 99%: 6.44531

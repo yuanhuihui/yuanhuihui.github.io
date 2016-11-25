@@ -180,7 +180,13 @@ BootFramework 拉频率
 
 DropBoxManagerService会将结果保存在/data/system/dropbox。
 
+### ctrl +z
 
+(1) CTRL+Z挂起进程并放入后台
+(2) jobs 显示当前暂停的进程
+(3) bg %N 使第N个任务在后台运行(%前有空格)
+(4) fg %N 使第N个任务在前台运行
+默认bg,fg不带%N时表示对最后一个进程操作!
 
 ### binder debug 3
 
@@ -189,7 +195,7 @@ android_util_Binder.cpp
 android_os_Parcel.cpp
 
     signalExceptionForError
-		
+
 ###
 
 setprop ctl.start bootanim //启动开机动画

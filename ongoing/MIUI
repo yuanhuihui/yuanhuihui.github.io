@@ -30,363 +30,84 @@ LOG_THREADPOOL("**** THREAD %p (PID %d) IS LEAVING THE THREAD POOL err=%p\n",
  }
 
 
+## 一. Service启动阶段监控
 
- struct task_struct {
- 1267	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
- 1268	void *stack;
- 1269	atomic_t usage;
- 1270	unsigned int flags;	/* per process flags, defined below */
- 1271	unsigned int ptrace;
- 1272
- 1273#ifdef CONFIG_SMP
- 1274	struct llist_node wake_entry;
- 1275	int on_cpu;
- 1276#endif
- 1277	int on_rq;
- 1278
- 1279	int prio, static_prio, normal_prio;
- 1280	unsigned int rt_priority;
- 1281	const struct sched_class *sched_class;
- 1282	struct sched_entity se;
- 1283	struct sched_rt_entity rt;
- 1284
- 1285#ifdef CONFIG_PREEMPT_NOTIFIERS
- 1286	/* list of struct preempt_notifier: */
- 1287	struct hlist_head preempt_notifiers;
- 1288#endif
- 1289
- 1290	/*
- 1291	 * fpu_counter contains the number of consecutive context switches
- 1292	 * that the FPU is used. If this is over a threshold, the lazy fpu
- 1293	 * saving becomes unlazy to save the trap. This is an unsigned char
- 1294	 * so that after 256 times the counter wraps and the behavior turns
- 1295	 * lazy again; this to deal with bursty apps that only use FPU for
- 1296	 * a short time
- 1297	 */
- 1298	unsigned char fpu_counter;
- 1299#ifdef CONFIG_BLK_DEV_IO_TRACE
- 1300	unsigned int btrace_seq;
- 1301#endif
- 1302
- 1303	unsigned int policy;
- 1304	cpumask_t cpus_allowed;
- 1305
- 1306#ifdef CONFIG_PREEMPT_RCU
- 1307	int rcu_read_lock_nesting;
- 1308	char rcu_read_unlock_special;
- 1309	struct list_head rcu_node_entry;
- 1310#endif /* #ifdef CONFIG_PREEMPT_RCU */
- 1311#ifdef CONFIG_TREE_PREEMPT_RCU
- 1312	struct rcu_node *rcu_blocked_node;
- 1313#endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
- 1314#ifdef CONFIG_RCU_BOOST
- 1315	struct rt_mutex *rcu_boost_mutex;
- 1316#endif /* #ifdef CONFIG_RCU_BOOST */
- 1317
- 1318#if defined(CONFIG_SCHEDSTATS) || defined(CONFIG_TASK_DELAY_ACCT)
- 1319	struct sched_info sched_info;
- 1320#endif
- 1321
- 1322	struct list_head tasks;
- 1323#ifdef CONFIG_SMP
- 1324	struct plist_node pushable_tasks;
- 1325#endif
- 1326
- 1327	struct mm_struct *mm, *active_mm;
- 1328#ifdef CONFIG_COMPAT_BRK
- 1329	unsigned brk_randomized:1;
- 1330#endif
- 1331#if defined(SPLIT_RSS_COUNTING)
- 1332	struct task_rss_stat	rss_stat;
- 1333#endif
- 1334/* task state */
- 1335	int exit_state;
- 1336	int exit_code, exit_signal;
- 1337	int pdeath_signal;  /*  The signal sent when the parent dies  */
- 1338	unsigned int jobctl;	/* JOBCTL_*, siglock protected */
- 1339	/* ??? */
- 1340	unsigned int personality;
- 1341	unsigned did_exec:1;
- 1342	unsigned in_execve:1;	/* Tell the LSMs that the process is doing an
- 1343				 * execve */
- 1344	unsigned in_iowait:1;
- 1345
- 1346
- 1347	/* Revert to default priority/policy when forking */
- 1348	unsigned sched_reset_on_fork:1;
- 1349	unsigned sched_contributes_to_load:1;
- 1350
- 1351#ifdef CONFIG_GENERIC_HARDIRQS
- 1352	/* IRQ handler threads */
- 1353	unsigned irq_thread:1;
- 1354#endif
- 1355
- 1356	pid_t pid;
- 1357	pid_t tgid;
- 1358
- 1359#ifdef CONFIG_CC_STACKPROTECTOR
- 1360	/* Canary value for the -fstack-protector gcc feature */
- 1361	unsigned long stack_canary;
- 1362#endif
- 1363
- 1364	/*
- 1365	 * pointers to (original) parent process, youngest child, younger sibling,
- 1366	 * older sibling, respectively.  (p->father can be replaced with
- 1367	 * p->real_parent->pid)
- 1368	 */
- 1369	struct task_struct __rcu *real_parent; /* real parent process */
- 1370	struct task_struct __rcu *parent; /* recipient of SIGCHLD, wait4() reports */
- 1371	/*
- 1372	 * children/sibling forms the list of my natural children
- 1373	 */
- 1374	struct list_head children;	/* list of my children */
- 1375	struct list_head sibling;	/* linkage in my parent's children list */
- 1376	struct task_struct *group_leader;	/* threadgroup leader */
- 1377
- 1378	/*
- 1379	 * ptraced is the list of tasks this task is using ptrace on.
- 1380	 * This includes both natural children and PTRACE_ATTACH targets.
- 1381	 * p->ptrace_entry is p's link on the p->parent->ptraced list.
- 1382	 */
- 1383	struct list_head ptraced;
- 1384	struct list_head ptrace_entry;
- 1385
- 1386	/* PID/PID hash table linkage. */
- 1387	struct pid_link pids[PIDTYPE_MAX];
- 1388	struct list_head thread_group;
- 1389
- 1390	struct completion *vfork_done;		/* for vfork() */
- 1391	int __user *set_child_tid;		/* CLONE_CHILD_SETTID */
- 1392	int __user *clear_child_tid;		/* CLONE_CHILD_CLEARTID */
- 1393
- 1394	cputime_t utime, stime, utimescaled, stimescaled;
- 1395	cputime_t gtime;
- 1396	unsigned long long cpu_power;
- 1397
- 1398#ifndef CONFIG_VIRT_CPU_ACCOUNTING
- 1399	cputime_t prev_utime, prev_stime;
- 1400#endif
- 1401	unsigned long nvcsw, nivcsw; /* context switch counts */
- 1402	struct timespec start_time; 		/* monotonic time */
- 1403	struct timespec real_start_time;	/* boot based time */
- 1404/* mm fault and swap info: this can arguably be seen as either mm-specific or thread-specific */
- 1405	unsigned long min_flt, maj_flt;
- 1406
- 1407	struct task_cputime cputime_expires;
- 1408	struct list_head cpu_timers[3];
- 1409
- 1410/* process credentials */
- 1411	const struct cred __rcu *real_cred; /* objective and real subjective task
- 1412					 * credentials (COW) */
- 1413	const struct cred __rcu *cred;	/* effective (overridable) subjective task
- 1414					 * credentials (COW) */
- 1415	struct cred *replacement_session_keyring; /* for KEYCTL_SESSION_TO_PARENT */
- 1416
- 1417	char comm[TASK_COMM_LEN]; /* executable name excluding path
- 1418				     - access with [gs]et_task_comm (which lock
- 1419				       it with task_lock())
- 1420				     - initialized normally by setup_new_exec */
- 1421/* file system info */
- 1422	int link_count, total_link_count;
- 1423#ifdef CONFIG_SYSVIPC
- 1424/* ipc stuff */
- 1425	struct sysv_sem sysvsem;
- 1426#endif
- 1427#ifdef CONFIG_DETECT_HUNG_TASK
- 1428/* hung task detection */
- 1429	unsigned long last_switch_count;
- 1430#endif
- 1431/* CPU-specific state of this task */
- 1432	struct thread_struct thread;
- 1433/* filesystem information */
- 1434	struct fs_struct *fs;
- 1435/* open file information */
- 1436	struct files_struct *files;
- 1437/* namespaces */
- 1438	struct nsproxy *nsproxy;
- 1439/* signal handlers */
- 1440	struct signal_struct *signal;
- 1441	struct sighand_struct *sighand;
- 1442
- 1443	sigset_t blocked, real_blocked;
- 1444	sigset_t saved_sigmask;	/* restored if set_restore_sigmask() was used */
- 1445	struct sigpending pending;
- 1446
- 1447	unsigned long sas_ss_sp;
- 1448	size_t sas_ss_size;
- 1449	int (*notifier)(void *priv);
- 1450	void *notifier_data;
- 1451	sigset_t *notifier_mask;
- 1452	struct audit_context *audit_context;
- 1453#ifdef CONFIG_AUDITSYSCALL
- 1454	uid_t loginuid;
- 1455	unsigned int sessionid;
- 1456#endif
- 1457	seccomp_t seccomp;
- 1458
- 1459/* Thread group tracking */
- 1460   	u32 parent_exec_id;
- 1461   	u32 self_exec_id;
- 1462/* Protection of (de-)allocation: mm, files, fs, tty, keyrings, mems_allowed,
- 1463 * mempolicy */
- 1464	spinlock_t alloc_lock;
- 1465
- 1466	/* Protection of the PI data structures: */
- 1467	raw_spinlock_t pi_lock;
- 1468
- 1469#ifdef CONFIG_RT_MUTEXES
- 1470	/* PI waiters blocked on a rt_mutex held by this task */
- 1471	struct plist_head pi_waiters;
- 1472	/* Deadlock detection and priority inheritance handling */
- 1473	struct rt_mutex_waiter *pi_blocked_on;
- 1474#endif
- 1475
- 1476#ifdef CONFIG_DEBUG_MUTEXES
- 1477	/* mutex deadlock detection */
- 1478	struct mutex_waiter *blocked_on;
- 1479#endif
- 1480#ifdef CONFIG_TRACE_IRQFLAGS
- 1481	unsigned int irq_events;
- 1482	unsigned long hardirq_enable_ip;
- 1483	unsigned long hardirq_disable_ip;
- 1484	unsigned int hardirq_enable_event;
- 1485	unsigned int hardirq_disable_event;
- 1486	int hardirqs_enabled;
- 1487	int hardirq_context;
- 1488	unsigned long softirq_disable_ip;
- 1489	unsigned long softirq_enable_ip;
- 1490	unsigned int softirq_disable_event;
- 1491	unsigned int softirq_enable_event;
- 1492	int softirqs_enabled;
- 1493	int softirq_context;
- 1494#endif
- 1495#ifdef CONFIG_LOCKDEP
- 1496# define MAX_LOCK_DEPTH 48UL
- 1497	u64 curr_chain_key;
- 1498	int lockdep_depth;
- 1499	unsigned int lockdep_recursion;
- 1500	struct held_lock held_locks[MAX_LOCK_DEPTH];
- 1501	gfp_t lockdep_reclaim_gfp;
- 1502#endif
- 1503
- 1504/* journalling filesystem info */
- 1505	void *journal_info;
- 1506
- 1507/* stacked block device info */
- 1508	struct bio_list *bio_list;
- 1509
- 1510#ifdef CONFIG_BLOCK
- 1511/* stack plugging */
- 1512	struct blk_plug *plug;
- 1513#endif
- 1514
- 1515/* VM state */
- 1516	struct reclaim_state *reclaim_state;
- 1517
- 1518	struct backing_dev_info *backing_dev_info;
- 1519
- 1520	struct io_context *io_context;
- 1521
- 1522	unsigned long ptrace_message;
- 1523	siginfo_t *last_siginfo; /* For ptrace use.  */
- 1524	struct task_io_accounting ioac;
- 1525#if defined(CONFIG_TASK_XACCT)
- 1526	u64 acct_rss_mem1;	/* accumulated rss usage */
- 1527	u64 acct_vm_mem1;	/* accumulated virtual memory usage */
- 1528	cputime_t acct_timexpd;	/* stime + utime since last update */
- 1529#endif
- 1530#ifdef CONFIG_CPUSETS
- 1531	nodemask_t mems_allowed;	/* Protected by alloc_lock */
- 1532	seqcount_t mems_allowed_seq;	/* Seqence no to catch updates */
- 1533	int cpuset_mem_spread_rotor;
- 1534	int cpuset_slab_spread_rotor;
- 1535#endif
- 1536#ifdef CONFIG_CGROUPS
- 1537	/* Control Group info protected by css_set_lock */
- 1538	struct css_set __rcu *cgroups;
- 1539	/* cg_list protected by css_set_lock and tsk->alloc_lock */
- 1540	struct list_head cg_list;
- 1541#endif
- 1542#ifdef CONFIG_FUTEX
- 1543	struct robust_list_head __user *robust_list;
- 1544#ifdef CONFIG_COMPAT
- 1545	struct compat_robust_list_head __user *compat_robust_list;
- 1546#endif
- 1547	struct list_head pi_state_list;
- 1548	struct futex_pi_state *pi_state_cache;
- 1549#endif
- 1550#ifdef CONFIG_PERF_EVENTS
- 1551	struct perf_event_context *perf_event_ctxp[perf_nr_task_contexts];
- 1552	struct mutex perf_event_mutex;
- 1553	struct list_head perf_event_list;
- 1554#endif
- 1555#ifdef CONFIG_NUMA
- 1556	struct mempolicy *mempolicy;	/* Protected by alloc_lock */
- 1557	short il_next;
- 1558	short pref_node_fork;
- 1559#endif
- 1560	struct rcu_head rcu;
- 1561
- 1562	/*
- 1563	 * cache last used pipe for splice
- 1564	 */
- 1565	struct pipe_inode_info *splice_pipe;
- 1566#ifdef	CONFIG_TASK_DELAY_ACCT
- 1567	struct task_delay_info *delays;
- 1568#endif
- 1569#ifdef CONFIG_FAULT_INJECTION
- 1570	int make_it_fail;
- 1571#endif
- 1572	/*
- 1573	 * when (nr_dirtied >= nr_dirtied_pause), it's time to call
- 1574	 * balance_dirty_pages() for some dirty throttling pause
- 1575	 */
- 1576	int nr_dirtied;
- 1577	int nr_dirtied_pause;
- 1578	unsigned long dirty_paused_when; /* start of a write-and-pause period */
- 1579
- 1580#ifdef CONFIG_LATENCYTOP
- 1581	int latency_record_count;
- 1582	struct latency_record latency_record[LT_SAVECOUNT];
- 1583#endif
- 1584	/*
- 1585	 * time slack values; these are used to round up poll() and
- 1586	 * select() etc timeout values. These are in nanoseconds.
- 1587	 */
- 1588	unsigned long timer_slack_ns;
- 1589	unsigned long default_timer_slack_ns;
- 1590
- 1591	struct list_head	*scm_work_list;
- 1592#ifdef CONFIG_FUNCTION_GRAPH_TRACER
- 1593	/* Index of current stored address in ret_stack */
- 1594	int curr_ret_stack;
- 1595	/* Stack of return addresses for return function tracing */
- 1596	struct ftrace_ret_stack	*ret_stack;
- 1597	/* time stamp for last schedule */
- 1598	unsigned long long ftrace_timestamp;
- 1599	/*
- 1600	 * Number of functions that haven't been traced
- 1601	 * because of depth overrun.
- 1602	 */
- 1603	atomic_t trace_overrun;
- 1604	/* Pause for the tracing */
- 1605	atomic_t tracing_graph_pause;
- 1606#endif
- 1607#ifdef CONFIG_TRACING
- 1608	/* state flags for use by tracers */
- 1609	unsigned long trace;
- 1610	/* bitmask and counter of trace recursion */
- 1611	unsigned long trace_recursion;
- 1612#endif /* CONFIG_TRACING */
- 1613#ifdef CONFIG_CGROUP_MEM_RES_CTLR /* memcg uses this to do batch job */
- 1614	struct memcg_batch_info {
- 1615		int do_batch;	/* incremented when batch uncharge started */
- 1616		struct mem_cgroup *memcg; /* target memcg of uncharge */
- 1617		unsigned long nr_pages;	/* uncharged usage */
- 1618		unsigned long memsw_nr_pages; /* uncharged mem+swap usage */
- 1619	} memcg_batch;
- 1620#endif
- 1621#ifdef CONFIG_HAVE_HW_BREAKPOINT
- 1622	atomic_t ptrace_bp_refcnt;
- 1623#endif
- 1624};
+1. CI.startServiceCommon
+
+2. AMS.startService
+3. AS.bringUpServiceLocked
+4. AS.realStartServiceLocked  (start "create")
+
+5. AT.scheduleCreateService
+6. AT.handleCreateService
+7. service.onCreate()   (end "create")
+                         (start "start")
+8. AS.sendServiceArgsLocked
+9. AT.scheduleServiceArgs
+10 -12 . AT.handleServiceArgs (end "start")
+
+时间阶段分析:
+
+1~2: system_server进程的binder线程繁忙
+[2~3: 系统准备service信息]
+
+3~4: 进程启动慢
+4~5: app进程的binder线程繁忙
+5~6: app进程的主线程繁忙, (可能消息队列过长)
+6~7: app的onCreate回调执行时间过长
+
+8~9:  app进程的binder线程繁忙
+9~10: app进程的主线程繁忙, (可能消息队列过长)
+10~11: app的onStartCommand回调执行时间过长
+11~12: QueuedWork执行时间过长
+
+实例: 1 2 3 (4 8) (5 9) 6 7 10 11 12
+
+11-23 10:20:29.860  9192  9192 I MIUI-AS : phase 1 service Intent { cmp=com.miui.weather2/.service.UpdateService }
+
+11-23 10:20:29.860  2621  4599 I MIUI-AS : phase 2 service Intent { cmp=com.miui.weather2/.service.UpdateService }, callingPackage=com.miui.weather2
+11-23 10:20:29.865  2621  4599 I MIUI-AS : phase 3 service ServiceRecord{366075c u0 com.miui.weather2/.service.UpdateService}, android.content.Intent$FilterComparison@f5539583
+11-23 10:20:29.865  2621  4599 I MIUI-AS : phase 4 service ServiceRecord{366075c u0 com.miui.weather2/.service.UpdateService}, ProcessRecord{baba5bd 9192:com.miui.weather2/u0a32}  //scheduleCreateService
+11-23 10:20:29.867  2621  4599 I MIUI-AS : phase 8 service ServiceRecord{366075c u0 com.miui.weather2/.service.UpdateService}  //scheduleServiceArgs
+
+11-23 10:20:29.867  9192  9205 I MIUI-AS : phase 5 service com.miui.weather2.service.UpdateService // scheduleCreateService
+11-23 10:20:29.867  9192  9205 I MIUI-AS : phase 9 service Intent { cmp=com.miui.weather2/.service.UpdateService }  // scheduleServiceArgs
+
+11-23 10:20:29.867  9192  9192 I MIUI-AS : phase 6 service com.miui.weather2.service.UpdateService
+11-23 10:20:29.869  9192  9192 I MIUI-AS : phase 7 service com.miui.weather2.service.UpdateService // onCreate刚执行结束
+11-23 10:20:29.869  9192  9192 I MIUI-AS : phase 10 service com.miui.weather2.service.UpdateService@f09c7fe with Intent { cmp=com.miui.weather2/.service.UpdateService }
+11-23 10:20:29.869  9192  9192 I MIUI-AS : phase 11 data=com.miui.weather2.service.UpdateService@f09c7fe with Intent { cmp=com.miui.weather2/.service.UpdateService }  //onStartCommand刚执行结束
+11-23 10:20:29.869  9192  9192 I MIUI-AS : phase 12 data=com.miui.weather2.service.UpdateService@f09c7fe with Intent { cmp=com.miui.weather2/.service.UpdateService }  //QueuedWork刚执行结束
+
+
+
+11-23 10:20:29.860  9192  9192 I MIUI-AS : phase 1 service Intent { cmp=com.miui.weather2/.service.UpdateService }
+11-23 10:20:29.860  2621  4599 I MIUI-AS : phase 2 service Intent { cmp=com.miui.weather2/.service.UpdateService }, callingPackage=com.miui.weather2
+11-23 10:20:29.865  2621  4599 I MIUI-AS : phase 3 service ServiceRecord{366075c u0 com.miui.weather2/.service.UpdateService}, android.content.Intent$FilterComparison@f5539583
+11-23 10:20:29.865  2621  4599 I MIUI-AS : phase 4 service ServiceRecord{366075c u0 com.miui.weather2/.service.UpdateService}, ProcessRecord{baba5bd 9192:com.miui.weather2/u0a32}
+11-23 10:20:29.867  9192  9205 I MIUI-AS : phase 5 service com.miui.weather2.service.UpdateService
+11-23 10:20:29.867  9192  9192 I MIUI-AS : phase 6 service com.miui.weather2.service.UpdateService
+11-23 10:20:29.869  9192  9192 I MIUI-AS : phase 7 service com.miui.weather2.service.UpdateService
+11-23 10:20:29.867  2621  4599 I MIUI-AS : phase 8 service ServiceRecord{366075c u0 com.miui.weather2/.service.UpdateService}
+11-23 10:20:29.867  9192  9205 I MIUI-AS : phase 9 service Intent { cmp=com.miui.weather2/.service.UpdateService }
+11-23 10:20:29.869  9192  9192 I MIUI-AS : phase 10 service com.miui.weather2.service.UpdateService@f09c7fe with Intent { cmp=com.miui.weather2/.service.UpdateService }
+11-23 10:20:29.869  9192  9192 I MIUI-AS : phase 11 data=com.miui.weather2.service.UpdateService@f09c7fe with Intent { cmp=com.miui.weather2/.service.UpdateService }
+11-23 10:20:29.869  9192  9192 I MIUI-AS : phase 12 data=com.miui.weather2.service.UpdateService@f09c7fe with Intent { cmp=com.miui.weather2/.service.UpdateService }
+
+
+
+checkTime?? 跟进程启动类似
+### 分析
+
+
+
+
+实验1:
+
+setprop persist.sys.binder.max 15
+setprop persist.sys.binder.vmsize  1040384
+
+
+实验2:
+setprop persist.sys.binder.max 31
+setprop persist.sys.binder.vmsize 2088960

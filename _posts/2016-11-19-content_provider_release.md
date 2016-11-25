@@ -491,7 +491,7 @@ CASE 2: releaseProvider
         }
     }
 
-### 3.2  completeRemoveProvider
+### 3.2  AT.completeRemoveProvider
 
     final void completeRemoveProvider(ProviderRefCount prc) {
         synchronized (mProviderMap) {
@@ -799,20 +799,25 @@ removeDyingProviderLocked()方法的功能非常值得注意:
 
 ## 五. 总结
 
-provider引用计数的增加与减少关系:
+provider引用计数的增加与减少关系: removePending是指即将被移除的引用, lastRef是指当前引用为0.
 
 |方法|stableCount|unstableCount|条件
 |---|---|---|
-|releaseProvider|-1|0|lastRef=false|
-|releaseProvider|-1|1|lastRef=true|
-|releaseUnstableProvider|0|-1|lastRef=false|
-|releaseUnstableProvider|0|0|lastRef=true|
 |acquireProvider|+1|0|removePending=false|
 |acquireProvider|+1|-1|removePending=true|
 |acquireUnstableProvider|0|+1|removePending=false|
 |acquireUnstableProvider|0|0|removePending=true|
+|releaseProvider|-1|0|lastRef=false|
+|releaseProvider|-1|1|lastRef=true|
+|releaseUnstableProvider|0|-1|lastRef=false|
+|releaseUnstableProvider|0|0|lastRef=true|
+
 
 当Client进程存在对某个provider的引用时,则会根据provider类型进行不同的处理:
 
 - 对于stable provider: 会杀掉所有跟该provider建立stable连接的非persistent进程.
 - 对于unstable provider: 不会导致client进程被级联所杀,只会回调unstableProviderDied来清理相关信息.
+
+当stable和unstable引用计数都为0时则移除connection信息:
+
+- AMS.removeContentProvider()过程移除该connection相关的所有信息
