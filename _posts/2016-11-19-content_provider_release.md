@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "provider引用计数"
+title:  "ContentProvider引用计数"
 date:   2016-11-19 20:30:00
 catalog:  true
 tags:
@@ -791,10 +791,10 @@ CASE 2: releaseProvider
       return inLaunching;
     }
 
-removeDyingProviderLocked()方法的功能非常值得注意:
+removeDyingProviderLocked()方法的功能非常值得注意，引用计数跟进程的存活息息相关：
 
 - 对于stable类型的provider(即conn.stableCount > 0),则会杀掉所有跟该provider建立stable连接的非persistent进程.
-- 对于unstable类的provider,并不会导致client进程被级联所杀.
+- 对于unstable类的provider(即conn.unstableCount > 0),并不会导致client进程被级联所杀.
 
 
 ## 五. 总结

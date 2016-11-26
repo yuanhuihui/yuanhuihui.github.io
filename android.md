@@ -196,6 +196,8 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 	- [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
 	- [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
 - Android服务篇-PackageManagerService
+  - [PackageManager启动篇](http://gityuan.com/2016/11/06/packagemanagerservice)
+  - [Installd守护进程](http://gityuan.com/2016/11/13/android-installd)
 - Android服务篇-WindowManagerService
 - Android服务篇-BatteryService
 	- [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
@@ -215,7 +217,8 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
     - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
 - Android组件-Content Provider
     - [理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)
-
+    - [ContentProvider引用计数](http://gityuan.com/2016/11/19/content_provider_release/)
+    
 #### 4.5 内存&&存储篇
 
 - 内存篇
