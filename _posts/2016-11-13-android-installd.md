@@ -30,29 +30,6 @@ installd是由Android系统的init进程(pid=1)，在解析init.rc文件的如�
     
 installd是随着系统启动过程中main class而启动的，并且会创建一个socket套接字，用于跟上层的PKMS进行交互。
 installd的启动入口frameworks/base/cmds/installd/installd.c的main()方法，接下来从这里开始说起。
-
-
-/* apk_path, uid, is_public, pkgname, instruction_set,
-     * dexopt_needed, vm_safe_mode, debuggable, oat_dir */
-    return dexopt(arg[0], atoi(arg[1]), atoi(arg[2]), arg[3], arg[4], atoi(arg[5]),
-                  atoi(arg[6]), atoi(arg[7]), arg[8]);
-                  
-StringBuilder builder = new StringBuilder("dexopt");
-   builder.append(' ');
-   builder.append(apkPath);
-   builder.append(' ');
-   builder.append(uid);
-   builder.append(' ');
-   builder.append(pkgName);
-   builder.append(' ');
-   builder.append(instructionSet);
-   builder.append(' ');
-   builder.append(dexoptNeeded);
-   builder.append(' ');
-   builder.append(outputPath != null ? outputPath : "!");
-   builder.append(' ');
-   builder.append(dexFlags);
-   return execute(builder.toS
      
 ## 二. installd启动
 
@@ -482,6 +459,6 @@ int initialize_globals() {
  可见，一次transact过程为先connect()来判断是否建立socket连接，如果已连接则通过writeCommand()
  将命令写入socket的mOut管道，等待从管道的mIn中readFully()读取应答消息。
  
- ## 四 总结
+## 四 总结
  
- 上层PKMS收集完相应信息，通过socket交给守护进程installd，该进程才是真正干活的进程。
+ 上层PKMS收集完相应信息，通过socket交给守护进程installd，该进程才是真正干活的进程。未完。。。
