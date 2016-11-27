@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "多用户管理之UserManager"
+title:  "多用户管理UserManager"
 date:   2016-09-04 11:30:00
 catalog:  true
 tags:

@@ -86,7 +86,6 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 [-> ContextWrapper.java]
 
     public class ContextWrapper extends Context {
-        @Override
         public ComponentName startService(Intent service) {
             return mBase.startService(service); //其中mBase为ContextImpl对象 【见流程2】
         }
