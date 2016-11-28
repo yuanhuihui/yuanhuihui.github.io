@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "调试系列3：dropBox源码篇"
+title:  "DropBoxManager启动篇"
 date:   2016-6-12 20:25:33
 catalog:    true
 tags:
@@ -12,45 +12,45 @@ tags:
 ## 一、启动流程
 
 DropBoxManagerService(简称DBMS) 记录着系统关键log信息，主要功能用于Debug调试。
+Android系统启动过程SystemServer进程时，在startOtherServices()过程会启动DBMS服务，如下：
 
-### 1.1 注册DBMS
-
-当系统启动过程中SystemServer.java中的startOtherServices()方法中启动：
-
+### 1.1 启动DBMS
 [-> SystemServer.java]
 
     private void startOtherServices() {
         try {
+            //初始化DBMS，并登记该服务【见小节1.2】
             ServiceManager.addService(Context.DROPBOX_SERVICE,
                     new DropBoxManagerService(context, new File("/data/system/dropbox")));
         } catch (Throwable e) {
-            reportWtf("starting DropBoxManagerService", e);
+            ...
         }
         ...
     }
 
-其中DROPBOX_SERVICE = "dropbox", DBMS工作目录位于"/data/system/dropbox"。
+其中DROPBOX_SERVICE = "dropbox", DBMS工作目录位于"/data/system/dropbox"，这个过程向ServiceManager
+登记名为“dropbox”的服务。后续便可以通过`dumpsys dropbox`来查看该服务的相关信息。
 
-### 1.2 创建DBMS
-
+### 1.2 初始化DBMS
 [-> DropBoxManagerService.java]
 
     public final class DropBoxManagerService extends IDropBoxManagerService.Stub {
         ...
         public DropBoxManagerService(final Context context, File path) {
-            mDropBoxDir = path; //保存工作目录
+            // 目录/data/system/dropbox
+            mDropBoxDir = path;
 
             mContext = context;
             mContentResolver = context.getContentResolver();
 
             IntentFilter filter = new IntentFilter();
-            //注册存储设备可用空间低的广播
+            // 1.存储设备可用空间低的广播
             filter.addAction(Intent.ACTION_DEVICE_STORAGE_LOW);
-            //注册开机完毕的广播
+            // 2.开机完毕的广播
             filter.addAction(Intent.ACTION_BOOT_COMPLETED);
             context.registerReceiver(mReceiver, filter);
 
-            //当Settings数据库变化时，则回调广播接收者的onReceive方法
+            // 3.Settings数据库变化时，则回调广播接收者的onReceive方法
             //此处CONTENT_URI=content://settings/global"
             mContentResolver.registerContentObserver(
                 Settings.Global.CONTENT_URI, true,
@@ -74,17 +74,16 @@ DropBoxManagerService(简称DBMS) 记录着系统关键log信息，主要功能�
         }
     }
 
-当下面3种情况任一发生：
+以下任一情况发生，都会触发触发执行mReceiver的onReceive方法：
 
 - 存储设备可用空间低；
 - 开机完毕；
 - Settings数据库变化；
 
-则会都触发执行mReceiver的onReceive方法，该方法主要功能是给dropbox目录所对应的存储空间进行搜身，接下来再说说这个搜身过程。
+该方法主要功能是给dropbox目录所对应的存储空间进行瘦身，接下来再说说这个搜身过程。
 
-### 1.3 广播接收者
-
-DBMS中的mReceiver定义如下：
+### 1.3 mReceiver.onReceive
+[-> DropBoxManagerService.java]
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -95,18 +94,16 @@ DBMS中的mReceiver定义如下：
             }
 
             //收到ACTION_DEVICE_STORAGE_LOW，则强制重新check存储空间
-            mCachedQuotaUptimeMillis = 0;  // Force a re-check of quota size
+            mCachedQuotaUptimeMillis = 0; 
 
-            // Run the initialization in the background (not this main thread).
-            // The init() and trimToFit() methods are synchronized, so they still
-            // block other users -- but at least the onReceive() call can finish.
+            //创建工作线程来执行init和trim操作
             new Thread() {
                 public void run() {
                     try {
                         init(); //【见小节1.3.1】
                         trimToFit(); //【见小节1.3.2】
                     } catch (IOException e) {
-                        Slog.e(TAG, "Can't init", e);
+                        ...
                     }
                 }
             }.start();
@@ -118,7 +115,7 @@ DBMS中的mReceiver定义如下：
     private synchronized void init() throws IOException {
         if (mStatFs == null) {
             if (!mDropBoxDir.isDirectory() && !mDropBoxDir.mkdirs()) {
-                throw new IOException("Can't mkdir: " + mDropBoxDir);
+                ...
             }
             mStatFs = new StatFs(mDropBoxDir.getPath());
             mBlockSize = mStatFs.getBlockSize(); //mBlockSize=4096
@@ -126,7 +123,7 @@ DBMS中的mReceiver定义如下：
 
         if (mAllFiles == null) {
             File[] files = mDropBoxDir.listFiles();
-            //创建mAllFiles对象，记录所有的dropbox文件
+            // 列举所有的dropbox文件
             mAllFiles = new FileList();
             mFilesByTag = new HashMap<String, FileList>();
 
@@ -149,6 +146,8 @@ DBMS中的mReceiver定义如下：
         }
     }
 
+该方法主要功能：创建目录/data/system/dropbox，列举该目录下所有的问题，并删除其中后缀为.tmp或者时间戳为0的文件。
+
 dropbox文件格式为`tag@时间戳.txt`或者`tag@时间戳.txt.gz`，例如`system_server_wtf@1465650845355.txt`
 
 #### 1.3.2 trimToFit
@@ -160,10 +159,12 @@ dropbox文件格式为`tag@时间戳.txt`或者`tag@时间戳.txt.gz`，例如`s
         int maxFiles = Settings.Global.getInt(mContentResolver,
                 Settings.Global.DROPBOX_MAX_FILES, DEFAULT_MAX_FILES);
         long cutoffMillis = System.currentTimeMillis() - ageSeconds * 1000;
+        
         while (!mAllFiles.contents.isEmpty()) {
             EntryFile entry = mAllFiles.contents.first();
             //当最老的文件时间戳在3天之内，且文件个数低于1000，则跳出循环
-            if (entry.timestampMillis > cutoffMillis && mAllFiles.contents.size() < maxFiles) break;
+            if (entry.timestampMillis > cutoffMillis 
+                && mAllFiles.contents.size() < maxFiles) break;
             FileList tag = mFilesByTag.get(entry.tag);
             if (tag != null && tag.contents.remove(entry)) tag.blocks -= entry.blocks;
             if (mAllFiles.contents.remove(entry)) mAllFiles.blocks -= entry.blocks;
@@ -223,15 +224,30 @@ dropbox文件格式为`tag@时间戳.txt`或者`tag@时间戳.txt.gz`，例如`s
         return mCachedQuotaBlocks * mBlockSize;
     }
 
-trimToFit过程中触发条件是：
+trimToFit过程中触发条件是：当文件有效时长超过3天，或者最大文件数超过1000，再或者剩余可用存储设备过低；
 
-- 文件有效时长超过3天；
-- 最大文件数超过1000；
-- 剩余可用存储设备过低；
+DBMS有很多常量参数：
 
-## 二、处理流程
+- DEFAULT_AGE_SECONDS = 3 * 86400：文件最长可存活时长为3天
+- DEFAULT_MAX_FILES = 1000：最大dropbox文件个数为1000
+- DEFAULT_QUOTA_KB = 5 * 1024：分配dropbox空间的最大值5M
+- DEFAULT_QUOTA_PERCENT = 10：是指dropbox目录最多可占用空间比例10%
+- DEFAULT_RESERVE_PERCENT = 10：是指dropbox不可使用的存储空间比例10%
+- QUOTA_RESCAN_MILLIS = 5000：重新扫描retrim时长为5s
 
-当应用出现Crash时，调用ActivityManagerService的handleApplicationCrash方法，在该方法内部会调用addErrorToDropBox
+当然上面这些都是默认值，完全可以通过设置`content://settings/global`数据库中相应项来设定值。
+
+## 二、DropBox工作
+
+当发生以下任一场景，都会调用AMS.addErrorToDropBox()来触发DBMS工作。
+
+- **crash:** 文章[理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/) [小节4]的AMS.handleApplicationCrashInner过程。
+- **anr:** 文章[android ANR原理分析](http://gityuan.com/2016/07/02/android-anr/)[小节3.1]的AMS.appNotResponding()过程；
+- **watchdog:** 文章[WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/) [小节3.1]的Watchdog.run()过程;
+- **wtf:** 当调用Log.wtf()或者Log.wtfQuiet的过程；
+- **lowmem:** 当内存较低时，触发AMS.reportMemUsage()过程；
+- ...
+
 
 ### 2.1 AMS.addErrorToDropBox
 
@@ -243,9 +259,9 @@ trimToFit过程中触发条件是：
             final String report, final File logFile,
             final ApplicationErrorReport.CrashInfo crashInfo) {
 
-        //如果是普通App崩溃，则dropboxTag为data_app_crash
+        //如果是普通App崩溃，则dropboxTag为data_app_crash【见小节2.1.1】
         final String dropboxTag = processClass(process) + "_" + eventType;
-        //获取dropbox服务的客户端
+        //获取dropbox服务的代理端
         final DropBoxManager dbox = (DropBoxManager)
                 mContext.getSystemService(Context.DROPBOX_SERVICE);
 
@@ -264,15 +280,16 @@ trimToFit过程中触发条件是：
             @Override
             public void run() {
                 if (report != null) {
-                    sb.append(report);
+                    //比如ANR时输出Cpuinfo，或者lowmem时输出的内存信息
+                    sb.append(report); 
                 }
                 if (logFile != null) {
-                    //当logFile不为空，则添加log信息到dropbox，最大上限为256KB
+                    //比如anr或者Watchdog时输出的traces文件(kill -3)，最大上限为256KB
                     sb.append(FileUtils.readTextFile(logFile, DROPBOX_MAX_SIZE,
                                 "\n\n[[TRUNCATED]]"));
                 }
                 if (crashInfo != null && crashInfo.stackTrace != null) {
-                    //当栈信息不为空，则添加stacktrace到dropbox
+                    // 比如crash时输出的调用栈
                     sb.append(crashInfo.stackTrace);
                 }
 
@@ -280,23 +297,21 @@ trimToFit过程中触发条件是：
                 int lines = Settings.Global.getInt(mContext.getContentResolver(), setting, 0);
                 //当dropboxTag所对应的settings项不等于0，则输出logcat
                 if (lines > 0) {
-                        java.lang.Process logcat = new ProcessBuilder("/system/bin/logcat",
-                                "-v", "time", "-b", "events", "-b", "system", "-b", "main",
-                                "-b", "crash",
-                                "-t", String.valueOf(lines)).redirectErrorStream(true).start();
+                  //输出evets/system/main/crash这些log信息
+                  java.lang.Process logcat = new ProcessBuilder("/system/bin/logcat",
+                          "-v", "time", "-b", "events", "-b", "system", "-b", "main",
+                          "-b", "crash",
+                          "-t", String.valueOf(lines)).redirectErrorStream(true).start();
 
-                        input = new InputStreamReader(logcat.getInputStream());
+                  input = new InputStreamReader(logcat.getInputStream());
 
-                        int num;
-                        char[] buf = new char[8192];
-                        while ((num = input.read(buf)) > 0) sb.append(buf, 0, num);
-                    } catch (IOException e) {
-                        Slog.e(TAG, "Error running logcat", e);
-                    } finally {
-                        if (input != null) try { input.close(); } catch (IOException e) {}
-                    }
+                  int num;
+                  char[] buf = new char[8192];
+                  //不断读取input中的log内容，并添加到sb
+                  while ((num = input.read(buf)) > 0) sb.append(buf, 0, num);
+                  ...
                 }
-                //将logcat的evets/system/main/crash信息输出到DropBox 【见小节2.2】
+                //将log信息输出到DropBox 【见小节2.2】
                 dbox.addText(dropboxTag, sb.toString());
             }
         };
@@ -311,33 +326,33 @@ trimToFit过程中触发条件是：
         }
     }
 
-**(1). dropbox文件输出内容项：**
+该方法主要功能是输出以下内容项：
 
 1. Process,flags, package等头信息；
-2. 当logFile不为空，则添加log信息到dropbox，最大上限为256KB；
-3. 当stack不为空，则添加stacktrace到dropbox；
-4. 当dropboxTag所对应的settings项不等于0，则输出logcat的events/system/main/crash信息。
+2. 当report不为空，则比如ANR时输出Cpuinfo，或者lowmem时输出的内存信息
+2. 当logFile不为空，则比如anr或者Watchdog时输出的traces文件(kill -3)，最大上限为256KB；
+3. 当stack不为空，则比如crash时输出的调用栈；
+4. 输出logcat的events/system/main/crash信息。
 
-**(2). dropbox文件名**
+#### 2.1.1 AMS.processClass
 
-dropbox文件名为`dropboxTag@xxx.txt`
+    private static String processClass(ProcessRecord process) {
+        //MY_PID代表的是当前进程pid，正是system_server进程
+        if (process == null || process.pid == MY_PID) {
+            return "system_server";
+        } else if ((process.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
+            return "system_app";
+        } else {
+            return "data_app";
+        }
+    }
 
-- dropboxTag  = processClass(process) + "_" + eventType;
-    - processClass：分为`system_server`, `system_app`, `data_app`;
-    - eventType：分为`crash`,`anr`,`wtf`等
-- xxx代表的是时间戳;
-- 后缀除了`.txt`，还可以是`.txt.gz`压缩格式。
+dropbox文件名格式为`dropboxTag@xxx.txt`，其中dropboxTag是由processClass(process) + "_" + eventType构成：
 
-         private static String processClass(ProcessRecord process) {
-             //MY_PID代表的是当前进程pid，正是system_server进程
-             if (process == null || process.pid == MY_PID) {
-                 return "system_server";
-             } else if ((process.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
-                 return "system_app";
-             } else {
-                 return "data_app";
-             }
-         }
+- processClass：分为`system_server`, `system_app`, `data_app`;
+- eventType：分为`crash`,`anr`,`wtf`等
+- xxx：代表时间戳;
+- 后缀：除了`.txt`，还有压缩格式`.txt.gz`     
 
 例如`system_server_crash@1465650845355.txt`，代表的是system_server进程出现crash，记录该文件时间戳为1465650845355。
 
@@ -346,8 +361,12 @@ dropbox文件名为`dropboxTag@xxx.txt`
 [-> DropBoxManager.java]
 
     public void addText(String tag, String data) {
-        //data数据封装到Entry对象实例，再调用DBMS中的方法。
-        try { mService.add(new Entry(tag, 0, data)); } catch (RemoteException e) {}
+        try { 
+            //data数据封装到Entry对象实例 【见小节2.3】
+            mService.add(new Entry(tag, 0, data)); 
+        } catch (RemoteException e) {
+            ...
+        }
     }
 
 在DropBoxManager中有addText, addData, addFile方法，三分归一统，对应于DBMS的add()方法。
@@ -360,12 +379,10 @@ dropbox文件名为`dropboxTag@xxx.txt`
         final String tag = entry.getTag();
         try {
             int flags = entry.getFlags();
-            if ((flags & DropBoxManager.IS_EMPTY) != 0) throw new IllegalArgumentException();
+            ...
             init(); // 初始化【见小节1.3.1】
-            if (!isTagEnabled(tag)) return;
             long max = trimToFit(); // 压缩空间【见小节1.3.2】
             long lastTrim = System.currentTimeMillis();
-            //mBlockSize等于4096
             byte[] buffer = new byte[mBlockSize];
             InputStream input = entry.getInputStream();
 
@@ -408,7 +425,6 @@ dropbox文件名为`dropboxTag@xxx.txt`
 
                 long len = temp.length();
                 if (len > max) {
-                    Slog.w(TAG, "Dropping: " + tag + " (" + temp.length() + " > " + max + " bytes)");
                     temp.delete();
                     temp = null;
                     break;
@@ -427,23 +443,22 @@ dropbox文件名为`dropboxTag@xxx.txt`
             //发送广播MSG_SEND_BROADCAST
             mHandler.sendMessage(mHandler.obtainMessage(MSG_SEND_BROADCAST, dropboxIntent));
         } catch (IOException e) {
-            Slog.e(TAG, "Can't write: " + tag, e);
+            ...
         } finally {
-            try { if (output != null) output.close(); } catch (IOException e) {}
+            if (output != null) output.close();
             entry.close();
             if (temp != null) temp.delete();
         }
     }
 
-### 小结
+## 三. 总结
 
-当应用出现Crash时，调用AMS的handleApplicationCrash方法，该方法最终会调用DBMS，将数据保存在目录`/data/system/dropbox`，当出现crash, anr, wtf或者存储设备可用空间低，以及开机完成时利用DropBoxManager，再通过binder向DBMS发出请求，完成信息的收集工作。 DBMS有很多常量参数：
+DBMS服务的数据保存目录为`/data/system/dropbox`。
 
-- DEFAULT_AGE_SECONDS = 3 * 86400：文件最长可存活时长为3天
-- DEFAULT_MAX_FILES = 1000：最大dropbox文件个数为1000
-- DEFAULT_QUOTA_KB = 5 * 1024：分配dropbox空间的最大值5M
-- DEFAULT_QUOTA_PERCENT = 10：是指dropbox目录最多可占用空间比例10%
-- DEFAULT_RESERVE_PERCENT = 10：是指dropbox不可使用的存储空间比例10%
-- QUOTA_RESCAN_MILLIS = 5000：重新扫描retrim时长为5s
+当出现crash, anr, wtf，lowmem，以及开机完成时都会通过DropBoxManager，
+收集系统的重要信息： Process,flags, package等头信息和logcat信息。
+另外就是根据不同场景输出相应的信息，例如：
 
-当然上面这些都是默认值，完全可以通过设置`content://settings/global`数据库中相应项来设定值。
+1. CRASH：输出发生crash时的当前线程的调用栈信息；
+2. ANR：输出Cpuinfo，以及重要进程的各个线程的traces文件(kill -3)；
+3. Watchdog: 也输出重要进程的各个线程的traces文件(kill -3)

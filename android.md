@@ -188,7 +188,11 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Android系统启动—SystemServer篇
 	- [SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)
 	- [SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)
-
+- 守护进程(Daemon process，往往以d为后缀，比如logd)
+  - [debuggerd](http://gityuan.com/2016/06/15/android-debuggerd/)
+  - [installd](http://gityuan.com/2016/11/13/android-installd)
+  - [lmkd](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
+  
 #### 4.3 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
@@ -202,6 +206,8 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Android服务篇-BatteryService
 	- [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
 - Android服务篇-PowerManagerService
+- Android服务篇-DropBoxManagerService
+  - [DropBoxManager启动篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
 - 更多服务介绍, 敬请期待...
 
 #### 4.4 四大组件篇
@@ -244,8 +250,6 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - [dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)
 - [调试系列1：bugreport源码篇](http://gityuan.com/2016/06/10/bugreport/)
 - [调试系列2：bugreport实战篇](http://gityuan.com/2016/06/11/bugreport-2/)
-- [调试系列3：dropBox源码篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
-- [调试系列4：debuggerd源码篇](http://gityuan.com/2016/06/15/android-debuggerd/)
 
 
 #### 4.7 系统分析篇

@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "调试系列4：debuggerd源码篇"
+title:  "debuggerd守护进程"
 date:   2016-6-15 20:25:33
 catalog:    true
 tags:
