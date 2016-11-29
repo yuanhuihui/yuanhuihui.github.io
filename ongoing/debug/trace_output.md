@@ -1,20 +1,84 @@
-### 相关源码
+---
+layout: post
+title:  "ART虚拟机的traces原理"
+date:   2016-6-22 22:19:53
+catalog:    true
+tags:
+    - android
+    - debug
+    - art
 
-    /art/runtime/gc/heap.cc
+---
+
+> 分析Art虚拟机下，当发生异常时的处理机制，相关源码都位于/art/runtime目录：
+
     /art/runtime/
-        signal_catcher.cc
-        runtime.cc
-        intern_table.cc
-        thread_list.cc
-        java_vm_ext.cc
-        class_linker.cc
+        - signal_catcher.cc
+        - runtime.cc
+        - intern_table.cc
+        - thread_list.cc
+        - java_vm_ext.cc
+        - class_linker.cc
+        - gc/heap.cc
 
 
+一、概述
 
-当signal_catcher线程收到 signal 3信息的时候便会进入如下方法来打印信息:
+Android 6.0系统采用的art虚拟机，所有的Java进程都运行在art之上，当应用发生ANR(无响应)时，往往会通过
+Process.sendSignal()向目标进程发送信号SIGNAL_QUIT, 传统的linux则是终止程序并输出core，而对于Android来说当收到SIGQUIT
+时，虚拟机会捕获该信号，并输出相应的traces信息。当然，我们也可以通过一条命令来获取指定进程的traces信息：
+
+    kill -3 [pid]  //通过指定进程pid，输出结果位于/data/anr/traces.txt
+
+上述命令的作用，便是等效于向目标进程pid发送了信号SIGQUIT(3)，接下来说说目标进程收到该信号的处理过程。
+
+二. ART
+
+### 1. SignalCatcher
+[-> SignalCatcher.cc]
+
+    void* SignalCatcher::Run(void* arg) {
+      SignalCatcher* signal_catcher = reinterpret_cast<SignalCatcher*>(arg);
+      Runtime* runtime = Runtime::Current();
+      
+      Thread* self = Thread::Current();
+      //当前进程状态处于非Runnable是
+      DCHECK_NE(self->GetState(), kRunnable);
+      {
+        MutexLock mu(self, signal_catcher->lock_);
+        signal_catcher->thread_ = self;
+        signal_catcher->cond_.Broadcast(self);
+      }
+
+      //设置需要handle的信号
+      SignalSet signals;
+      signals.Add(SIGQUIT); //信号3
+      signals.Add(SIGUSR1); //信号10
+
+      while (true) {
+        int signal_number = signal_catcher->WaitForSignal(self, signals);
+        if (signal_catcher->ShouldHalt()) {
+          runtime->DetachCurrentThread();
+          return nullptr;
+        }
+
+        switch (signal_number) {
+        case SIGQUIT:
+          //收到信号3 【见小节2】
+          signal_catcher->HandleSigQuit();
+          break;
+        case SIGUSR1:
+          signal_catcher->HandleSigUsr1();
+          break;
+        default:
+          LOG(ERROR) << "Unexpected signal %d" << signal_number;
+          break;
+        }
+      }
+    }
 
 
-### 1.  SignalCatcher::HandleSigQuit
+### 2.  SignalCatcher::HandleSigQuit
 [-> signal_catcher.cc]
 
     void SignalCatcher::HandleSigQuit() {
@@ -28,30 +92,30 @@
       os << "Build fingerprint: '" << (fingerprint.empty() ? "unknown" : fingerprint) << "'\n";
       os << "ABI: '" << GetInstructionSetString(runtime->GetInstructionSet()) << "'\n";
       os << "Build type: " << (kIsDebugBuild ? "debug" : "optimized") << "\n";
-      // [见下节]
+      // [见小节3]
       runtime->DumpForSigQuit(os);
 
       os << "----- end " << getpid() << " -----\n";
       Output(os.str());
     }
 
-### 2. Runtime::DumpForSigQuit
+### 3. Runtime::DumpForSigQuit
 [-> runtime.cc]
 
     void Runtime::DumpForSigQuit(std::ostream& os) {
-      GetClassLinker()->DumpForSigQuit(os); //[2.1]
-      GetInternTable()->DumpForSigQuit(os); //[2.2]
-      GetJavaVM()->DumpForSigQuit(os); //[2.3]
-      GetHeap()->DumpForSigQuit(os); //[2.4]
+      GetClassLinker()->DumpForSigQuit(os); //[见小节3.1]
+      GetInternTable()->DumpForSigQuit(os); //[见小节3.2]
+      GetJavaVM()->DumpForSigQuit(os); //[见小节3.3]
+      GetHeap()->DumpForSigQuit(os); //[见小节3.4]
       TrackedAllocators::Dump(os);
       os << "\n";
 
-      thread_list_->DumpForSigQuit(os); //[2.5]
+      thread_list_->DumpForSigQuit(os); //[见小节3.5]
       BaseMutex::DumpAll(os);
     }
 
-#### 2.1 ClassLinker
-class_linker.cc
+#### 3.1 ClassLinker
+[-> class_linker.cc]
 
     void ClassLinker::DumpForSigQuit(std::ostream& os) {
       Thread* self = Thread::Current();
@@ -64,15 +128,15 @@ class_linker.cc
          << class_table_.Size() << "\n";
     }
 
-#### 2.2 InternTable
-intern_table.cc
+#### 3.2 InternTable
+[-> intern_table.cc]
 
     void InternTable::DumpForSigQuit(std::ostream& os) const {
       os << "Intern table: " << StrongSize() << " strong; " << WeakSize() << " weak\n";
     }
 
-#### 2.3 JavaVMExt
-java_vm_ext.cc
+#### 3.3 JavaVMExt
+[-> java_vm_ext.cc]
 
     void JavaVMExt::DumpForSigQuit(std::ostream& os) {
       os << "JNI: CheckJNI is " << (check_jni_ ? "on" : "off");
@@ -98,8 +162,8 @@ java_vm_ext.cc
       }
     }
 
-#### 2.4 Heap
-heap.cc
+#### 3.4 Heap
+[-> heap.cc]
 
     void Heap::DumpForSigQuit(std::ostream& os) {
       os << "Heap: " << GetPercentFree() << "% free, " << PrettySize(GetBytesAllocated()) << "/"
@@ -107,7 +171,7 @@ heap.cc
       DumpGcPerformanceInfo(os);  //输出大量gc相关的信息
     }
 
-#### 2.5 ThreadList
+#### 3.5 ThreadList
 [-> thread_list.cc]
 
     void ThreadList::DumpForSigQuit(std::ostream& os) {
@@ -120,16 +184,17 @@ heap.cc
               suspend_all_historam_.PrintConfidenceIntervals(os, 0.99, data);  // Dump time to suspend.
             }
         }
-        Dump(os);
-        DumpUnattachedThreads(os);
+        Dump(os); // [见小节3.5.1]
+        DumpUnattachedThreads(os); //[见小节3.5.2]
     }
 
-##### 2.5.1 Dump
+##### 3.5.1 Dump
 [-> thread_list.cc]
 
     void ThreadList::Dump(std::ostream& os) {
       {
         MutexLock mu(Thread::Current(), *Locks::thread_list_lock_);
+        //输出当前进程的线程个数
         os << "DALVIK THREADS (" << list_.size() << "):\n";
       }
       DumpCheckpoint checkpoint(&os);
@@ -139,7 +204,9 @@ heap.cc
       }
     }
 
-##### 2.5.2 DumpUnattachedThreads
+`DALVIK THREADS (25)`代表的是当前虚拟机中的线程个数为25
+
+##### 3.5.2 DumpUnattachedThreads
 [-> thread_list.cc]
 
     void ThreadList::DumpUnattachedThreads(std::ostream& os) {
@@ -160,33 +227,24 @@ heap.cc
             contains = Contains(tid);
           }
           if (!contains) {
-            DumpUnattachedThread(os, tid); //[见下文3.1]
+            DumpUnattachedThread(os, tid); //[见小节4]
           }
         }
       }
       closedir(d);
     }
 
-`DALVIK THREADS (25)`代表的是当前虚拟机中的线程个数为25
-
-## 三. 真正的输出
-
-### 3.1 DumpUnattachedThread
+### 4. DumpUnattachedThread
 [-> thread_list.cc]
 
     static void DumpUnattachedThread(std::ostream& os, pid_t tid) NO_THREAD_SAFETY_ANALYSIS {
-      Thread::DumpState(os, nullptr, tid); //[见下文3.2]
-      DumpKernelStack(os, tid, "  kernel: ", false);
-
-      if (false) {
-        DumpNativeStack(os, tid, "  native: ");
-      }
+      Thread::DumpState(os, nullptr, tid); //[见小节4.1]
+      DumpKernelStack(os, tid, "  kernel: ", false); //[见小节4.2]
       os << "\n";
     }
 
-### 3.1 Thread::DumpState
+#### 4.1 Thread::DumpState
 [-> thread.cc]
-
 
     void Thread::DumpState(std::ostream& os, const Thread* thread, pid_t tid) {
       std::string group_name;
@@ -314,14 +372,49 @@ heap.cc
       }
     }
 
-#### 3.2.1 GetState
-[-> art/runtime/thread.h]
+#### 4.2 DumpKernelStack
+[-> art/runtime/utils.cc]
 
-    ThreadState GetState() const {
-       DCHECK_GE(tls32_.state_and_flags.as_struct.state, kTerminated);
-       DCHECK_LE(tls32_.state_and_flags.as_struct.state, kSuspended);
-       return static_cast<ThreadState>(tls32_.state_and_flags.as_struct.state);
+    void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool include_count) {
+      if (tid == GetTid()) {
+        return;
+      }
+
+      //内核栈是通过读取节点/proc/self/task/[tid]/stack
+      std::string kernel_stack_filename(StringPrintf("/proc/self/task/%d/stack", tid));
+      std::string kernel_stack;
+      if (!ReadFileToString(kernel_stack_filename, &kernel_stack)) {
+        os << prefix << "(couldn't read " << kernel_stack_filename << ")\n";
+        return;
+      }
+
+      std::vector<std::string> kernel_stack_frames;
+      Split(kernel_stack, '\n', &kernel_stack_frames);
+
+      kernel_stack_frames.pop_back();
+      for (size_t i = 0; i < kernel_stack_frames.size(); ++i) {
+
+        const char* text = kernel_stack_frames[i].c_str();
+        const char* close_bracket = strchr(text, ']');
+        if (close_bracket != nullptr) {
+          text = close_bracket + 2;
+        }
+        os << prefix;
+        if (include_count) {
+          os << StringPrintf("#%02zd ", i);
+        }
+        os << text << "\n";
+      }
     }
+
+内核栈是通过读取节点/proc/self/task/[tid]/stack
+
+
+## 四. 线程状态
+
+### 4.1 虚拟机角度
+
+[-> art/runtime/thread.h]
 
 状态表:
 
@@ -352,6 +445,8 @@ heap.cc
     kWaitingForGetObjectsAllocated,   // WAITING        TS_WAIT      waiting for getting the number of allocated objects
 
 
+### 4.2 内核角度
+
 [-> kernel/include/linux/sched.h]
 
     #define TASK_RUNNING		0         //R
@@ -362,42 +457,9 @@ heap.cc
     #define EXIT_ZOMBIE		16            //Z
     #define EXIT_DEAD		32            //X
 
-
 进程状态: R/S/D/T/Z/X
+
+### 4.3 映射关系
 
 R: Runnable, Native, Suspended
 S: TimedWaiting, Waiting, Sleeping, Native,  Blocked
-
-### 3.3 DumpKernelStack
-[-> art/runtime/utils.cc]
-
-    void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool include_count) {
-      if (tid == GetTid()) {
-        return;
-      }
-
-      std::string kernel_stack_filename(StringPrintf("/proc/self/task/%d/stack", tid));
-      std::string kernel_stack;
-      if (!ReadFileToString(kernel_stack_filename, &kernel_stack)) {
-        os << prefix << "(couldn't read " << kernel_stack_filename << ")\n";
-        return;
-      }
-
-      std::vector<std::string> kernel_stack_frames;
-      Split(kernel_stack, '\n', &kernel_stack_frames);
-
-      kernel_stack_frames.pop_back();
-      for (size_t i = 0; i < kernel_stack_frames.size(); ++i) {
-
-        const char* text = kernel_stack_frames[i].c_str();
-        const char* close_bracket = strchr(text, ']');
-        if (close_bracket != nullptr) {
-          text = close_bracket + 2;
-        }
-        os << prefix;
-        if (include_count) {
-          os << StringPrintf("#%02zd ", i);
-        }
-        os << text << "\n";
-      }
-    }

@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "stackTraces"
+title:  "ANR"
 date:   2016-6-22 22:19:53
 catalog:    true
 tags:
@@ -10,41 +10,64 @@ tags:
 
 ---
 
+> 分析Art虚拟机下，当发生异常时的处理过程
+
+    /art/runtime/
+        - signal_catcher.cc
+        - runtime.cc
+        - intern_table.cc
+        - thread_list.cc
+        - java_vm_ext.cc
+        - class_linker.cc
+        - gc/heap.cc
+
 ### 1. AMS.appNotResponding
 
-final void appNotResponding(ProcessRecord app, ActivityRecord activity,
-        ActivityRecord parent, boolean aboveSystem, final String annotation) {
-    ...
-    synchronized (this) {
-      firstPids.add(app.pid);
-      int parentPid = app.pid;
-      ...
-      //添加system_server的pid
-      if (MY_PID != app.pid && MY_PID != parentPid) firstPids.add(MY_PID);
-      for (int i = mLruProcesses.size() - 1; i >= 0; i--) {
-          ProcessRecord r = mLruProcesses.get(i);
-          if (r != null && r.thread != null) {
-              int pid = r.pid;
-              if (pid > 0 && pid != app.pid && pid != parentPid && pid != MY_PID) {
-                  if (r.persistent) {
-                      firstPids.add(pid); //将persistent进程添加到firstPids
-                  } else {
-                      lastPids.put(pid, Boolean.TRUE); //其他进程添加到lastPids
+    final void appNotResponding(ProcessRecord app, ActivityRecord activity,
+            ActivityRecord parent, boolean aboveSystem, final String annotation) {
+        ...
+        updateCpuStatsNow();
+        
+        synchronized (this) {
+          firstPids.add(app.pid);
+          int parentPid = app.pid;
+          ...
+          //将system_server进程添加到firstPids
+          if (MY_PID != app.pid && MY_PID != parentPid) firstPids.add(MY_PID);
+          for (int i = mLruProcesses.size() - 1; i >= 0; i--) {
+              ProcessRecord r = mLruProcesses.get(i);
+              if (r != null && r.thread != null) {
+                  int pid = r.pid;
+                  if (pid > 0 && pid != app.pid && pid != parentPid && pid != MY_PID) {
+                      if (r.persistent) {
+                          firstPids.add(pid); //将persistent进程添加到firstPids
+                      } else {
+                          lastPids.put(pid, Boolean.TRUE); //其他进程添加到lastPids
+                      }
                   }
               }
           }
-      }
+        }
+        final ProcessCpuTracker processCpuTracker = new ProcessCpuTracker(true);
+        //【见小节2】
+        File tracesFile = dumpStackTraces(true, firstPids, processCpuTracker, lastPids,
+                NATIVE_STACKS_OF_INTEREST);
+        updateCpuStatsNow();
+        ...
+        cpuInfo = mProcessCpuTracker.printCurrentState(anrTime);
+        Slog.e(TAG, info.toString()); //输出当前ANR的reason，以及CPU使用率、负载信息
         
+        //将traces文件 和 CPU使用率信息保存到dropbox，即data/system/dropbox目录
+        addErrorToDropBox("anr", app, app.processName, activity, parent, annotation,
+                cpuInfo, tracesFile, null);
+        ...
     }
-    final ProcessCpuTracker processCpuTracker = new ProcessCpuTracker(true);
-    //【见小节】
-    File tracesFile = dumpStackTraces(true, firstPids, processCpuTracker, lastPids,
-            NATIVE_STACKS_OF_INTEREST);
-}
 
-- firstPids：第一个是发生ANR进程，第二个是system_server，之后全是persistent进程；
-- lastPids: mLruProcesses中的进程，且不属于firstPids的进程
+ANR输出内容主要有两大块：重要进程的traces信息，系统进程的使用情况以及负载。其中重要进程主要输入以下进程：
+
+- firstPids：第一个是发生ANR进程，第二个是system_server，剩余的全都是persistent进程；
 - NATIVE_STACKS_OF_INTEREST：是指/system/bin/目录下的mediaserver,sdcard,surfaceflinger这3个native进程。
+- lastPids: mLruProcesses中的不属于firstPids的所有进程
 
 ### 2. AMS.dumpStackTraces
 
@@ -66,10 +89,12 @@ final void appNotResponding(ProcessRecord app, ActivityRecord activity,
         } catch (IOException e) {
             return null;
         }
-        //输出trace内容
+        //输出trace内容【见小节3】
         dumpStackTraces(tracesPath, firstPids, processCpuTracker, lastPids, nativeProcs);
         return tracesFile;
     }
+
+这里会保证data/anr/traces.txt文件内容是全新的方式，而非追加。
 
 ### 3. AMS.dumpStackTraces
 
@@ -104,7 +129,7 @@ final void appNotResponding(ProcessRecord app, ActivityRecord activity,
                 int[] pids = Process.getPidsForCommands(nativeProcs);
                 if (pids != null) {
                     for (int pid : pids) {
-                        //【见小节】
+                        //【见小节5】
                         Debug.dumpNativeBacktraceToFile(pid, tracesPath);
                     }
                 }
@@ -115,11 +140,8 @@ final void appNotResponding(ProcessRecord app, ActivityRecord activity,
                 processCpuTracker.init();
                 System.gc();
                 processCpuTracker.update();
-                try {
-                    synchronized (processCpuTracker) {
-                        processCpuTracker.wait(500); // measure over 1/2 second.
-                    }
-                } catch (InterruptedException e) {
+                synchronized (processCpuTracker) {
+                    processCpuTracker.wait(500); //等待500ms
                 }
                 processCpuTracker.update();
 
@@ -130,15 +152,10 @@ final void appNotResponding(ProcessRecord app, ActivityRecord activity,
                     ProcessCpuTracker.Stats stats = processCpuTracker.getWorkingStats(i);
                     if (lastPids.indexOfKey(stats.pid) >= 0) {
                         numProcs++;
-                        try {
-                            synchronized (observer) {
-                                Process.sendSignal(stats.pid, Process.SIGNAL_QUIT);
-                                observer.wait(200); 
-                            }
-                        } catch (InterruptedException e) {
-                            Slog.wtf(TAG, e);
+                        synchronized (observer) {
+                            Process.sendSignal(stats.pid, Process.SIGNAL_QUIT);
+                            observer.wait(200); 
                         }
-
                     }
                 }
             }
@@ -149,21 +166,117 @@ final void appNotResponding(ProcessRecord app, ActivityRecord activity,
     
 该方法的主要功能，依次输出：
 
-1. 收集firstPids进程的stacks；
+1. 收集firstPids进程的stacks；（kill -3）
   - 第一个是发生ANR进程；
   - 第二个是system_server；
   - mLruProcesses中所有的persistent进程；
-2. 收集Native进程的stacks；
+2. 收集Native进程的stacks；(dumpNativeBacktraceToFile)
   - 依次是mediaserver,sdcard,surfaceflinger进程；
-3. 收集CPU使用率top 5的进程。
+3. 收集lastPids进程的stacks;；（kill -3）
+  - 依次输出CPU使用率top 5的进程；
 
-总共进程 2(self + system_server) + x(persistent) + 3(native) +5(top 5)
+总共dump的进程个数： 2(self + system_server) + x(persistent) + 3(native) +5(top 5)
+
+
+
+## 三. Native
+
+    frameworks/base/core/java/android/os/Debug.java
+    frameworks/base/core/jni/android_os_Debug.cpp
+    system/core/libcutils/debugger.c
+    
+### 5. dumpNativeBacktraceToFile
+Debug.dumpNativeBacktraceToFile(pid, tracesPath)经过JNI调用如下方法：
+
+    static void android_os_Debug_dumpNativeBacktraceToFile(JNIEnv* env, jobject clazz,
+        jint pid, jstring fileName)
+    {
+        ...
+        const jchar* str = env->GetStringCritical(fileName, 0);
+        String8 fileName8;
+        if (str) {
+            fileName8 = String8(reinterpret_cast<const char16_t*>(str),
+                                env->GetStringLength(fileName));
+            env->ReleaseStringCritical(fileName, str);
+        }
+
+        //打开/data/anr/traces.txt
+        int fd = open(fileName8.string(), O_CREAT | O_WRONLY | O_NOFOLLOW, 0666);  /* -rw-rw-rw- */
+        if (fd < 0) {
+            fprintf(stderr, "Can't open %s: %s\n", fileName8.string(), strerror(errno));
+            return;
+        }
+
+        if (lseek(fd, 0, SEEK_END) < 0) {
+            fprintf(stderr, "lseek: %s\n", strerror(errno));
+        } else {
+            //【见小节6】
+            dump_backtrace_to_file(pid, fd);
+        }
+
+        close(fd);
+    }
+
+### 6. dump_backtrace_to_file
+[-> debugger.c]
+
+    int dump_backtrace_to_file(pid_t tid, int fd) {
+        return dump_backtrace_to_file_timeout(tid, fd, 0);
+    }
+
+    int dump_backtrace_to_file_timeout(pid_t tid, int fd, int timeout_secs) {
+      //通过socket向服务端发送dump backtrace的请求【见小节7】
+      int sock_fd = make_dump_request(DEBUGGER_ACTION_DUMP_BACKTRACE, tid, timeout_secs);
+      if (sock_fd < 0) {
+        return -1;
+      }
+
+      int result = 0;
+      char buffer[1024];
+      ssize_t n;
+      //阻塞等待，从sock_fd中读取到服务端发送过来的数据，并写入buffer
+      while ((n = TEMP_FAILURE_RETRY(read(sock_fd, buffer, sizeof(buffer)))) > 0) {
+        //再将buffer数据输出到traces.txt文件
+        if (TEMP_FAILURE_RETRY(write(fd, buffer, n)) != n) {
+          result = -1;
+          break;
+        }
+      }
+      close(sock_fd);
+      return result;
+    }
+
+可见，这个过程主要是通过向debuggerd守护进程发送命令DEBUGGER_ACTION_DUMP_BACKTRACE， debuggerd收到该命令，在子进程中调用
+dump_backtrace()来输出backtrace.
+
+### 7. dump_backtrace
+[-> debuggerd/backtrace.cpp]
+
+    void dump_backtrace(int fd, BacktraceMap* map, pid_t pid, pid_t tid,
+                        const std::set<pid_t>& siblings, std::string* amfd_data) {
+      log_t log;
+      log.tfd = fd;
+      log.amfd_data = amfd_data;
+
+      dump_process_header(&log, pid); //头部信息
+      dump_thread(&log, map, pid, tid);//【见小节5.3】
+
+      for (pid_t sibling : siblings) {
+        dump_thread(&log, map, pid, sibling);//【见小节5.3】
+      }
+
+      dump_process_footer(&log, pid);//尾部信息
+    }
+
+### 8. dump_thread
+[-> debuggerd/backtrace.cpp]
+
+是由/proc/%d/maps解析而来的
+
+http://gityuan.com/2016/06/15/android-debuggerd/
+
+### 其他
 
 - 提高性能的方法之一：setprop dalvik.vm.stack-trace-file ""
 - 提高trace效率， 增加白名单，有些进程并不放入firstPids ?? 可行乎
-
-
-
-
-
-## dumpKernelStackTraces
+- uncatchexception的修改
