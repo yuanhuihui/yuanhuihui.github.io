@@ -238,3 +238,70 @@ iterations per sec: 11556.9
 collecting results
 average:1.37626ms worst:28.4495ms best:0.028906ms
 50%: 0.585938 90%: 3.71094 95%: 4.49219 99%: 6.44531
+
+
+
+## 其他
+
+- Binder.java 检查parcel大小;
+- android_util_Binder.cpp 检查transact时长
+
+
+绝大多少时间都是小于1ms的.
+
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3148 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.569  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.574  1276  3078 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.574  1276  3078 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.574  1276  3078 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.614  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.626  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 12 ms
+11-28 12:23:46.628  1276  3181 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.632  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 4 ms
+11-28 12:23:46.632  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.632  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.634  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.634  1276  3153 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.635  1276  3106 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.636  1276  3180 E IPCThreadState: binder thread pool (15 threads) starved for 1 ms
+11-28 12:23:46.636  1276  3180 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:23:46.636  1276  3180 E IPCThreadState: binder thread pool (15 threads) starved for 0 ms
+11-28 12:24:33.618   436   479 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:33.619   436  4165 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:33.819   436   482 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:33.819   436   482 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:33.819   436  4165 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:33.820   436   482 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:33.820   436   520 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:35.723   436   520 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:35.725   436  7286 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:35.725   436  7286 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:35.726   436  7286 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:35.729   436  7286 E IPCThreadState: binder thread pool (4 threads) starved for 3 ms
+11-28 12:24:35.733   436   482 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:36.325   436   479 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:36.326   436   479 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:36.459   436   482 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:36.459   436  7286 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:36.459   436   520 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:36.459   436   482 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:36.578   436  4165 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:36.580   436   520 E IPCThreadState: binder thread pool (4 threads) starved for 2 ms
+11-28 12:24:36.610   436   482 E IPCThreadState: binder thread pool (4 threads) starved for 0 ms
+11-28 12:24:36.611   436  7286 E IPCThreadState: binder thread pool (4 threads) starved for 1 ms
+
+

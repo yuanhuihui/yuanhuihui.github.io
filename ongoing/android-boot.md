@@ -808,7 +808,7 @@ dwwdddd
 //phase480 && 500
 11-23 14:37:05.056  1274  1274 I SystemServiceManager: Starting phase 480
 11-23 14:37:05.061  1274  1274 I SystemServiceManager: Starting phase 500
-11-23 14:37:05.231  1274  1274 I ActivityManager: System now ready  <==>
+11-23 14:37:05.231  1274  1274 I ActivityManager: System now ready  <==> boot_progress_ams_ready
 11-23 14:37:05.234  1274  1274 I SystemServer: Making services ready
 11-23 14:37:05.243  1274  1274 I SystemServer: WebViewFactory preparation
 
