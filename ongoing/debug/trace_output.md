@@ -328,6 +328,7 @@ Process.sendSignal()向目标进程发送信号SIGNAL_QUIT, 传统的linux则是
       os << "\n";
 
       std::string scheduler_stats;
+      //读取
       if (ReadFileToString(StringPrintf("/proc/self/task/%d/schedstat", tid), &scheduler_stats)) {
         scheduler_stats.resize(scheduler_stats.size() - 1);  // Lose the trailing '\n'.
       } else {

@@ -853,3 +853,13 @@ system_server: 1274
 - 上一次: logcat -L
 
 - /d/binder/目录下记录的binder输出信息.
+
+
+### 分析技巧
+
+先看zygote释放起来, 再看system_server主线程的运行情况.
+
+adb logcat -s Zygote
+adb logcat -s SystemServer
+adb logcat | grep "1359  1359" //system_server情况
+adb logcat -s ActivityManager

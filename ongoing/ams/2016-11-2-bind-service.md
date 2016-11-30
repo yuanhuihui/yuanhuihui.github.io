@@ -1,7 +1,7 @@
----
+--
 layout: post
 title:  "bindService启动过程分析"
-date:   2016-11-07 23:10:28
+date:   2016-03-13 23:10:28
 catalog:  true
 tags:
     - android
@@ -10,6 +10,10 @@ tags:
 ---
 
 基于Android 6.0的源码剖析， 分析bind service的启动流程。
+
+    /frameworks/base/core/java/android/app/ContextImpl.java
+    /frameworks/base/core/java/android/app/LoadedApk.java
+    /frameworks/base/core/java/android/app/IServiceConnection.aidl(自动生成Binder两端)
 
 ## 一. 概述
 
@@ -21,7 +25,7 @@ startService的过程，本文介绍另一种通过bind方式来启动服务。
 定义AIDL文件：
 
     interface IRemoteService {
-        String getBlog(); //获取博客地址
+        String getBlog();
     }
     
 **远程服务进程**
@@ -43,7 +47,7 @@ startService的过程，本文介绍另一种通过bind方式来启动服务。
         };
     }
     
-**Client进程**
+**发起端进程**
 
     private IRemoteService mBpRemoteService;
     
@@ -65,7 +69,7 @@ startService的过程，本文介绍另一种通过bind方式来启动服务。
     //Client端通过bindService去绑定远程服务【见下文】
     bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
     
-## 二. 发起进程端
+## 二. 发起端进程
 
 ### 1. CW.bindService
 [-> ContextWrapper.java]
@@ -120,6 +124,13 @@ startService的过程，本文介绍另一种通过bind方式来启动服务。
         }
     }
 
+该方法主要功能:
+
+- 创建对象内部静态类LoadedApk.ServiceDispatcher.InnerConnection的对象;
+- 通过IActivityManager接口,向AMS发送bind请求.
+
+这里需要注意的是mMainThread.getApplicationThread()方法返回的是ApplicationThread对象, 该对象继承于ApplicationThreadNative(Binder服务端)
+
 #### 3.1 getServiceDispatcher
 [-> LoadedApk.java]
 
@@ -148,12 +159,11 @@ startService的过程，本文介绍另一种通过bind方式来启动服务。
          }
      }
 
-返回的对象是LoadedApk.ServiceDispatcher.InnerConnection，该对象继承于IServiceConnection.Stub，
+返回的对象是LoadedApk.ServiceDispatcher.InnerConnection，该对象继承于IServiceConnection.Stub, 该类是由IServiceConnection.aidl自动生成的
 作为binder服务端。
 
 #### 3.2 ServiceDispatcher
-
-ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDispatcher的静态内部类。
+[-> LoadedApk.java ::ServiceDispatcher]
 
     static final class ServiceDispatcher {
         //内部类
@@ -203,6 +213,9 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
         }
     }
     
+ServiceDispatcher是LoadedApk的静态内部类。InnerConnection是ServiceDispatcher的静态内部类, 
+通过getIServiceConnection()方法返回的便是构造方法中创建的InnerConnection对象.
+
 ### 4. AMP.bindService
 [-> ActivityManagerNative.java :: AMP]
 
@@ -230,6 +243,8 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
         return res;
     }
 
+经过Binder IPC便进入了system_server进程.
+
 ## 三. system_server端
 
 ### 5. AMN.onTransact
@@ -240,7 +255,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
         case BIND_SERVICE_TRANSACTION: {
           data.enforceInterface(IActivityManager.descriptor);
           IBinder b = data.readStrongBinder();
-          //生成ApplicationThreadNative的代理对象，即ApplicationThreadProxy对象
+          //此处b为ApplicationThread的, 转换后生成即ApplicationThreadProxy对象
           IApplicationThread app = ApplicationThreadNative.asInterface(b);
           IBinder token = data.readStrongBinder();
           Intent service = Intent.CREATOR.createFromParcel(data);
@@ -262,13 +277,22 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
       }
     }
     
+该方法的主要功能:
+
+- 参数app: 根据发起端进程传递过来的ApplicationThread对象(Binder服务端), 通过asInterface()方法生成新的代理对象ApplicationThreadProxy类型对象app;
+- 参数conn: 根据发起端进程传递过来的InnerConnectiond对象(Binder服务端),同样通过转换后,生成IServiceConnection.Stub.Proxy类型对象conn;
+- 参数service: 数据类型为Intent, 是指本次要启动的service的意图;
+- 参数callingPackage: 发起方所属的包名;
+- 参数fl: 是指flags, 此时等于Context.BIND_AUTO_CREATE, 即值为1.
+
+将这些参数传递给AMS来处理
+
 ### 6. AMS.bindService
 
     public int bindService(IApplicationThread caller, IBinder token, Intent service,
             String resolvedType, IServiceConnection connection, int flags, String callingPackage,
             int userId) throws TransactionTooLargeException {
         ...
-
         synchronized(this) {
             //【见流程7】
             return mServices.bindServiceLocked(caller, token, service,
@@ -282,6 +306,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
     int bindServiceLocked(IApplicationThread caller, IBinder token, Intent service,
             String resolvedType, IServiceConnection connection, int flags,
             String callingPackage, int userId) throws TransactionTooLargeException {
+        //查询发起端所对应的进程记录结构
         final ProcessRecord callerApp = mAm.getRecordForAppLocked(caller);
         ...
         
@@ -296,15 +321,8 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
         int clientLabel = 0;
         PendingIntent clientIntent = null;
 
-        //发起方是system进程的情况
         if (callerApp.info.uid == Process.SYSTEM_UID) {
-            clientIntent = service.getParcelableExtra(Intent.EXTRA_CLIENT_INTENT);
-            if (clientIntent != null) {
-                clientLabel = service.getIntExtra(Intent.EXTRA_CLIENT_LABEL, 0);
-                if (clientLabel != 0) {
-                    service = service.cloneFilter();
-                }
-            }
+            ... //发起方是system进程的情况
         }
         ...
 
@@ -338,7 +356,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
 
             //【见流程7.2】
             AppBindRecord b = s.retrieveAppBindingLocked(service, callerApp);
-            //创建对象ConnectionRecord
+            //创建对象ConnectionRecord,此处connection来自发起方
             ConnectionRecord c = new ConnectionRecord(b, activity,
                     connection, flags, clientLabel, clientIntent);
 
@@ -390,7 +408,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
 
             if (s.app != null && b.intent.received) {
                 try {
-                    //Service已经正在运行，则调用InnerConnectiond的代理对象【见小节7.1】
+                    //Service已经正在运行，则调用InnerConnectiond的代理对象
                     c.conn.connected(s.name, b.intent.binder);
                 } catch (Exception e) {
                     ...
@@ -411,7 +429,17 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
         return 1;
     }
 
-#### 7.1 retrieveServiceLocked
+该方法主要功能:
+    
+- 通过retrieveServiceLocked(),根据用户传递进来Intent来检索相对应的服务
+- 通过retrieveAppBindingLocked().创建AppBindRecord对象记录着当前ServiceRecord, intent以及发起方的进程信息。
+- 通过bringUpServiceLocked()拉起目标服务;
+
+另外, 将发起发传递过来的LoadedApk.ServiceDispatcher.InnerConnection的代理对象, 即IServiceConnection.Stub.Proxy类型对象connection,
+保存到新创建的ConnectionRecord对象的成员变量. 再通过clist.add(c), 将该ConnectionRecord对象添加到clist队列. 后面便可以通过clist来
+查询发起方的信息.
+    
+#### 7.1 AS.retrieveServiceLocked
 [-> ActiveServices.java]
 
     private ServiceLookupResult retrieveServiceLocked(Intent service,
@@ -471,7 +499,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
                     smap.mServicesByName.put(name, r);
                     smap.mServicesByIntent.put(filter, r);
 
-                    //确保该组件不再pending队列
+                    //确保该组件不再位于pending队列
                     for (int i=mPendingServices.size()-1; i>=0; i--) {
                         ServiceRecord pr = mPendingServices.get(i);
                         if (pr.serviceInfo.applicationInfo.uid == sInfo.applicationInfo.uid
@@ -526,7 +554,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
 2. 组件运行在system进程的情况；
 3. 具有ServiceInfo.FLAG_SINGLE_USER flags，且uid=Process.PHONE_UID或者persistent app的情况；
 
-#### 7.2 retrieveAppBindingLocked
+#### 7.2 SR.retrieveAppBindingLocked
 [-> ServiceRecord.java]
 
     public AppBindRecord retrieveAppBindingLocked(Intent intent,
@@ -549,34 +577,72 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnectiond是ServiceDisp
         return a;
     }
     
-AppBindRecord对象记录着当前ServiceRecord,intent以及调用方的进程信息。
+AppBindRecord对象记录着当前ServiceRecord,intent以及发起方的进程信息。
 
 ### 8. bringUpServiceLocked
 [-> ActiveServices.java]
 
-bringUpServiceLocked -> realStartServiceLocked
+        private final String bringUpServiceLocked(ServiceRecord r, int intentFlags, boolean execInFg,
+                boolean whileRestarting) throws TransactionTooLargeException {
+            // 进程已存在的情况
+            if (r.app != null && r.app.thread != null) {
+                //调用service.onStartCommand()过程
+                sendServiceArgsLocked(r, execInFg, false);
+                return null;
+            }
+            ....
+            
+            //服务正在启动，设置package停止状态为false
+            AppGlobals.getPackageManager().setPackageStoppedState(
+                    r.packageName, false, r.userId);
 
+            ProcessRecord app;
+            if (!isolated) {
+                app = mAm.getProcessRecordLocked(procName, r.appInfo.uid, false);
+                if (app != null && app.thread != null) {
+                    app.addPackage(r.appInfo.packageName, r.appInfo.versionCode, mAm.mProcessStats);
+                    // 启动服务 【见流程9】
+                    realStartServiceLocked(r, app, execInFg);
+                    return null;
+                    
+            }
+
+            //对于进程没有启动的情况
+            if (app == null) {
+                //启动service所要运行的进程,最终还是会调用到【见流程9】
+                if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
+                        "service", r.name, false, isolated, false)) == null) {
+                    ...
+                    return msg;
+                }
+                
+            }
+            if (!mPendingServices.contains(r)) {
+                mPendingServices.add(r);
+            }
+            ...
+            
+            return null;
+        }
+
+### 9. realStartServiceLocked
+[-> ActiveServices.java]
 
     private final void realStartServiceLocked(ServiceRecord r,
             ProcessRecord app, boolean execInFg) throws RemoteException {
         ...
-
         r.app = app;
         r.restartTime = r.lastActivity = SystemClock.uptimeMillis();
         final boolean newService = app.services.add(r);
 
-        //发送delay消息【见流程10.1】
+        //发送delay消息
         bumpServiceExecutingLocked(r, execInFg, "create");
-        mAm.updateLruProcessLocked(app, false, null);
-        mAm.updateOomAdjLocked();
         boolean created = false;
         try {
-            synchronized (r.stats.getBatteryStats()) {
-                r.stats.startLaunchedLocked();
-            }
+            ...
             mAm.ensurePackageDexOpt(r.serviceInfo.packageName);
             app.forceProcessStateUpTo(ActivityManager.PROCESS_STATE_SERVICE);
-            //服务进入 onCreate() 【见流程11】
+            //服务进入 onCreate() 【见流程10】
             app.thread.scheduleCreateService(r, r.serviceInfo,
                     mAm.compatibilityInfoForPackageLocked(r.serviceInfo.applicationInfo),
                     app.repProcState);
@@ -600,7 +666,7 @@ bringUpServiceLocked -> realStartServiceLocked
             }
         }
         
-        //【见流程】
+        //【见流程12】
         requestServiceBindingsLocked(r, execInFg);
         updateServiceClientActivitiesLocked(app, null, true);
 
@@ -614,28 +680,79 @@ bringUpServiceLocked -> realStartServiceLocked
             getServiceMap(r.userId).mDelayedStartList.remove(r);
             r.delayed = false;
         }
-        if (r.delayedStop) {
-            r.delayedStop = false;
-            if (r.startRequested) {
-                stopServiceLocked(r); 
-            }
+        ...
+    }
+    
+
+## 三. 远程服务进程
+
+### 10.  AT.scheduleCreateService
+[-> ApplicationThread.java]
+
+    public final void scheduleCreateService(IBinder token,
+                ServiceInfo info, CompatibilityInfo compatInfo, int processState) {
+        updateProcessState(processState, false);
+        CreateServiceData s = new CreateServiceData(); //准备服务创建所需的数据
+        s.token = token;
+        s.info = info;
+        s.compatInfo = compatInfo;
+        //发送消息 【见流程11】
+        sendMessage(H.CREATE_SERVICE, s);
+    }
+
+通过handler机制, 将H.CREATE_SERVICE消息发送给远程服务进程的主线程的handler来处理
+
+### 11. AT.handleCreateService
+
+[-> ActivityThread.java]
+
+    private void handleCreateService(CreateServiceData data) {
+        //当应用处于后台即将进行GC，而此时被调回到活动状态，则跳过本次gc。
+        unscheduleGcIdler();
+        LoadedApk packageInfo = getPackageInfoNoCheck(data.info.applicationInfo, data.compatInfo);
+
+        java.lang.ClassLoader cl = packageInfo.getClassLoader();
+        //通过反射创建目标服务对象
+        Service service = (Service) cl.loadClass(data.info.name).newInstance();
+        ...
+
+        try {
+            //创建ContextImpl对象
+            ContextImpl context = ContextImpl.createAppContext(this, packageInfo);
+            context.setOuterContext(service);
+            //创建Application对象
+            Application app = packageInfo.makeApplication(false, mInstrumentation);
+            service.attach(context, this, data.info.name, data.token, app,
+                    ActivityManagerNative.getDefault());
+            //调用服务onCreate()方法
+            service.onCreate();
+            mServices.put(data.token, service);
+            //调用服务创建完成
+            ActivityManagerNative.getDefault().serviceDoneExecuting(
+                    data.token, SERVICE_DONE_EXECUTING_ANON, 0, 0);
+        } catch (Exception e) {
+            ...
         }
     }
 
-### 9. requestServiceBindingsLocked
+
+## 四. system_server端
+
+### 12. requestServiceBindingsLocked
 [-> ActiveServices.java]
 
     private final void requestServiceBindingsLocked(ServiceRecord r, boolean execInFg)
             throws TransactionTooLargeException {
         for (int i=r.bindings.size()-1; i>=0; i--) {
             IntentBindRecord ibr = r.bindings.valueAt(i);
+            //[见流程13]
             if (!requestServiceBindingLocked(r, ibr, execInFg, false)) {
                 break;
             }
         }
     }
 
-### 10. requestServiceBindingLocked
+### 13. requestServiceBindingLocked
 [-> ActiveServices.java]
 
     private final boolean requestServiceBindingLocked(ServiceRecord r, IntentBindRecord i,
@@ -643,12 +760,13 @@ bringUpServiceLocked -> realStartServiceLocked
         if (r.app == null || r.app.thread == null) {
             return false;
         }
+        
         if ((!i.requested || rebind) && i.apps.size() > 0) {
             try {
                 //发送bind开始的消息
                 bumpServiceExecutingLocked(r, execInFg, "bind");
                 r.app.forceProcessStateUpTo(ActivityManager.PROCESS_STATE_SERVICE);
-                //服务进入 onBind() 【见流程11】
+                //服务进入 onBind() 【见流程14】
                 r.app.thread.scheduleBindService(r, i.intent.getIntent(), rebind, r.app.repProcState);
                 if (!rebind) {
                     i.requested = true;
@@ -669,7 +787,7 @@ bringUpServiceLocked -> realStartServiceLocked
     }
 
 
-### 11. ATP.scheduleBindService
+### 14. ATP.scheduleBindService
 [-> ApplicationThreadProxy.java]
 
     public final void scheduleBindService(IBinder token, Intent intent, boolean rebind,
@@ -680,14 +798,15 @@ bringUpServiceLocked -> realStartServiceLocked
         intent.writeToParcel(data, 0);
         data.writeInt(rebind ? 1 : 0);
         data.writeInt(processState);
+        //【见流程15】
         mRemote.transact(SCHEDULE_BIND_SERVICE_TRANSACTION, data, null,
                 IBinder.FLAG_ONEWAY);
         data.recycle();
     }
 
-## 目标进程
+## 五. 远程服务进程
 
-### 12. ATN.onTransact
+### 15. ATN.onTransact
 [-> ApplicationThreadNative.java]
 
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
@@ -707,7 +826,7 @@ bringUpServiceLocked -> realStartServiceLocked
     }
 
 ### 13. AT.scheduleBindService
-[-> activityThread.java]
+[-> ActivityThread.java]
 
     public final void scheduleBindService(IBinder token, Intent intent,
             boolean rebind, int processState) {
@@ -720,7 +839,10 @@ bringUpServiceLocked -> realStartServiceLocked
         sendMessage(H.BIND_SERVICE, s);
     }
 
+通过handler机制, 将H.BIND_SERVICE消息发送给远程服务进程的主线程的handler来处理
+
 ### 14. AT.handleBindService
+[-> ActivityThread.java]
 
     private void handleBindService(BindServiceData data) {
         Service s = mServices.get(data.token);
@@ -730,7 +852,7 @@ bringUpServiceLocked -> realStartServiceLocked
                 data.intent.prepareToEnterProcess();
                 
                 if (!data.rebind) {
-                    //【见流程14.1】
+                    // 执行Service.onBind()回调方法
                     IBinder binder = s.onBind(data.intent);
                     //将onBind返回值传递回去【见流程15】
                     ActivityManagerNative.getDefault().publishService(
@@ -747,31 +869,54 @@ bringUpServiceLocked -> realStartServiceLocked
         }
     }
 
-### 15. AMS.publishService
+### 15. AMP.publishService
+[-> ActivityManagerNative.java  ::ActivityManagerProxy]
+
+    public void publishService(IBinder token,
+            Intent intent, IBinder service) throws RemoteException {
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        data.writeInterfaceToken(IActivityManager.descriptor);
+        data.writeStrongBinder(token);
+        intent.writeToParcel(data, 0);
+        //将service.onBind的返回值传递给远程进程
+        data.writeStrongBinder(service);
+        // [见流程16]
+        mRemote.transact(PUBLISH_SERVICE_TRANSACTION, data, reply, 0);
+        reply.readException();
+        data.recycle();
+        reply.recycle();
+    }
+
+经过Binder IPC进入system_server进程交由AMS来处理
+
+## 六. system_server进程
+
+### 16. AMS.publishService
 
     public void publishService(IBinder token, Intent intent, IBinder service) {
-        if (intent != null && intent.hasFileDescriptors() == true) {
-            throw new IllegalArgumentException("File descriptors passed in Intent");
-        }
-
+        ...
         synchronized(this) {
             if (!(token instanceof ServiceRecord)) {
                 throw new IllegalArgumentException("Invalid service token");
             }
-            //【见流程16】
+            //【见流程17】
             mServices.publishServiceLocked((ServiceRecord)token, intent, service);
         }
     }
 
-### 16. publishServiceLocked
+远程服务的onBind()的返回值的IBinder(Bn端), 在AMP.publishService()过程中经过data.writeStrongBinder(service)传递到底层,
+再回到system_server进程中AMN.onTransact()中经过data.readStrongBinder()方法会获取该service所相对应的代理对象(Bp端).
+简言之,此处的service就是远程服务中IBinder的Bp端对象.
+
+### 17. publishServiceLocked
 [-> ActiveServices.java]
     
     void publishServiceLocked(ServiceRecord r, Intent intent, IBinder service) {
         final long origId = Binder.clearCallingIdentity();
         try {
             if (r != null) {
-                Intent.FilterComparison filter
-                        = new Intent.FilterComparison(intent);
+                Intent.FilterComparison filter = new Intent.FilterComparison(intent);
                 IntentBindRecord b = r.bindings.get(filter);
                 if (b != null && !b.received) {
                     b.binder = service;
@@ -785,7 +930,7 @@ bringUpServiceLocked -> realStartServiceLocked
                                 continue;
                             }
                             try {
-                                //【见流程17】
+                                //【见流程18】
                                 c.conn.connected(r.name, service);
                             } catch (Exception e) {
                                 ...
@@ -793,7 +938,6 @@ bringUpServiceLocked -> realStartServiceLocked
                         }
                     }
                 }
-
                 serviceDoneExecutingLocked(r, mDestroyingServices.contains(r), false);
             }
         } finally {
@@ -801,11 +945,13 @@ bringUpServiceLocked -> realStartServiceLocked
         }
     }
 
-### 17. onServiceConnected
+[小节7]AS.bindServiceLocked的过程中初始化, 可知c.conn是指通往发起端进程的IServiceConnection.Stub.Proxy代理对象. 
+通过Binder IPC调用, 进入发起方进程的IServiceConnection.Stub对象. 由于LoadedApk.ServiceDispatcher.InnerConnection  继承于IServiceConnection.Stub.
+所以,接下来便由回到发起方进程中的InnerConnection对象.
 
-#### 17.1 InnerConnection.connected
-system_server进程通过Bind调用回到了发起方所在进程的connected方法，如下：
+## 七. 发起方进程
 
+### 18. InnerConnection.connected
 [-> LoadedApk.ServiceDispatcher.InnerConnection]
 
     private static class InnerConnection extends IServiceConnection.Stub {
@@ -818,25 +964,25 @@ system_server进程通过Bind调用回到了发起方所在进程的connected方
         public void connected(ComponentName name, IBinder service) throws RemoteException {
             LoadedApk.ServiceDispatcher sd = mDispatcher.get();
             if (sd != null) {
-                sd.connected(name, service); // 【17.2】
+                sd.connected(name, service); //[见流程19]
             }
         }
     }
 
-#### 17.2 ServiceDispatcher.connected
 
+### 19. ServiceDispatcher.connected
 [-> LoadedApk.ServiceDispatcher]
 
     public void connected(ComponentName name, IBinder service) {
         if (mActivityThread != null) {
-            //这是主线程的Handler 【17.3】
+            //这是主线程的Handler 【见流程20】
             mActivityThread.post(new RunConnection(name, service, 0));
         } else {
             doConnected(name, service);
         }
     }
 
-#### 17.3 RunConnection.run
+### 20. RunConnection.run
 [-> LoadedApk.ServiceDispatcher.RunConnection]
 
     private final class RunConnection implements Runnable {
@@ -849,7 +995,7 @@ system_server进程通过Bind调用回到了发起方所在进程的connected方
 
         public void run() {
             if (mCommand == 0) {
-                doConnected(mName, mService); //【见流程17.4】
+                doConnected(mName, mService); //【见流程21】
             } else if (mCommand == 1) {
                 doDeath(mName, mService);
             }
@@ -860,9 +1006,10 @@ system_server进程通过Bind调用回到了发起方所在进程的connected方
         final int mCommand;
     }
 
-这里的mName是指远程服务的ComponentName, mService ？？？？
+- 此处的mName是指远程服务的组件名对象ComponentName;
+- 此处的mService是指远程服务的onBind()返回的IBinder代理对象;
 
-#### 17.4 doConnected
+### 21. doConnected
 [-> LoadedApk.ServiceDispatcher]
     
     public void doConnected(ComponentName name, IBinder service) {
@@ -906,12 +1053,70 @@ system_server进程通过Bind调用回到了发起方所在进程的connected方
             mConnection.onServiceDisconnected(name);
         }
         if (service != null) {
-            //回调用户定义的ServiceConnection对象相应的方法
+            //回调用户定义的ServiceConnection()
             mConnection.onServiceConnected(name, service);
         }
     }
 
-### 18.unbind
+此处创建了死亡监听对象,也是内部类:LoadedApk.ServiceDispatcher.DeathMonitor,定义如下:
+
+    private final class DeathMonitor implements IBinder.DeathRecipient
+    {
+        DeathMonitor(ComponentName name, IBinder service) {
+            mName = name;
+            mService = service;
+        }
+
+        public void binderDied() {
+            death(mName, mService); //【见流程18.2】
+        }
+
+        final ComponentName mName;
+        final IBinder mService;
+    }
+
+
+## 总结 调用链接
+
+CW.bindService
+    CI.bindService
+        CI.bindServiceCommon
+            AMP.bindService
+                AMS.bindService
+                    AS.bindServiceLocked
+                        AS.retrieveServiceLocked
+                        SR.retrieveAppBindingLocked
+                        AS.bringUpServiceLocked
+                            AS.realStartServiceLocked
+                                ATP.scheduleCreateService
+                                    AT.scheduleCreateService
+                                        AT.handleCreateService
+                                            Service.onCreate()
+                                            AMP.serviceDoneExecuting
+                                                AMS.serviceDoneExecuting
+                                requestServiceBindingsLocked
+                                    requestServiceBindingLocked
+                                         ATP.scheduleBindService
+                                             AT.scheduleBindService
+                                                AT.handleBindService
+                                                    Service.onBind()
+                                                    AMP.publishService
+                                                        AMS.publishService
+                                                            AS.publishServiceLocked
+                                                                IServiceConnection.Stub.Proxy.connected
+                                                                    InnerConnection.connected
+                                                                        ServiceDispatcher.connected
+                                                                            RunConnection.run
+                                                                                ServiceDispatcher.doConnected
+                                                                                    ServiceConnection.onServiceConnected
+                                                    AMP.serviceDoneExecuting
+                                                        AMS.serviceDoneExecuting
+
+整个过程中3个重要的对象 IServiceConnection.Stub.Proxy,AMP, ATP
+
+## unbind过程分析
+
+### 1.unbind
 
 当service所在进程死亡后，binderDied死亡回调后触发的。
 
@@ -1000,3 +1205,5 @@ AMS.unbindService
             AT.scheduleUnbindService
           ATP.scheduleStopService
             AT.scheduleStopService
+
+...未完...
