@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "ART虚拟机的trace内部机理"
+title:  "ART虚拟机之trace"
 date:   2016-6-22 22:19:53
 catalog:    true
 tags:
@@ -10,7 +10,7 @@ tags:
 
 ---
 
-> 分析Art虚拟机下，当发生异常时的处理机制，相关源码都位于/art/runtime目录：
+> 分析Art虚拟机的trace原理，相关源码都位于/art/runtime目录：
 
     /art/runtime/
         - signal_catcher.cc
@@ -24,12 +24,12 @@ tags:
 
 一、概述
 
-Android 6.0系统采用的art虚拟机，所有的Java进程都运行在art之上，当应用发生ANR(无响应)时，往往会向目标进程发送信号SIGNAL_QUIT, 传统的linux则是终止程序并输出core，而对于Android来说当收到SIGQUIT
-时，虚拟机会捕获该信号，并输出相应的traces信息。当然，我们也可以通过一条命令来获取指定进程的traces信息：
+Android 6.0系统采用的art虚拟机，所有的Java进程都运行在art之上，当应用发生ANR(无响应)时，往往会向目标进程发送信号SIGNAL_QUIT, 传统的linux则是终止程序并输出core，而对于Android来说当收到SIGQUIT时，ART虚拟机会捕获该信号，并输出相应的traces信息。当然，我们也可以通过一条命令来获取指定进程的traces信息：
 
     kill -3 [pid]  //通过指定进程pid，输出结果位于/data/anr/traces.txt
 
-上述命令的作用，便是等效于向目标进程pid发送了信号SIGQUIT(3)，接下来说说目标进程收到该信号的处理过程。
+上述命令的作用，便是等效于向目标进程pid发送了信号SIGQUIT，Java层面的进程都是跑在虚拟机之上的，
+接下来从虚拟机角度说说目标进程收到该信号的处理过程。
 
 二. ART
 
