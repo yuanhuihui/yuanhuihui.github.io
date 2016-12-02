@@ -1,0 +1,38 @@
+ANR:
+
+### 途径1
+
+/data/anr/traces.txt.report 这个抓bugreport时生成的 (现抓的)
+/data/anr/traces.txt 这是上次发生anr时抓取的 (这个重点看)
+
+traces文件, 格式:
+
+----- pid 874 at 2016-09-30 10:23:30 -----
+Cmd line: system_server
+
+
+### 途径2
+
+/data/dropbox/system_server_anr之类
+
+
+bugreport关键词: DUMP OF SERVICE dropbox:
+
+#### 输出CPU信息:
+
+
+2016-09-29 16:07:46 system_app_anr (text, 3054 bytes)
+Process: com.miui.home
+Flags: 0x40d9be45
+Package: com.miui.home v10000 (1.0)
+Activity: com.miui.home/.launcher.Launcher
+Subject: Input dispatching timed out (Waiting to send non-key event because the touched window has not finished processing certain input events that were delivered to it over 500.0ms ago.  Wait queue length: 14.  Wait queue head age: 5565.2ms.)
+Build: Xiaomi/aries/aries:5.0.2/LRX22G/6.9.29:user/release-keys
+
+CPU usage from 2215ms to -4677ms ago with 99% awake:
+  75% 967/system_server: 49% user + 25% kernel / faults: 9371 minor 12 major
+  10% 2320/com.miui.home: 5.8% user + 4.6% kernel / faults: 3099 minor 9 major
+  6.5% 2561/com.android.phone: 3.4% user + 3% kernel / faults: 2670 minor 3 major
+  
+ 
+#### 再紧跟着发生ANR时的traces信息

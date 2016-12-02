@@ -945,9 +945,9 @@ bugreport通过socket与dumpstate服务建立通信，在dumpstate.cpp中的dump
 6. `event log`；
 7. radio log;
 8. `vm traces`：
-    - just now的栈信息；
-    - last ANR的栈信息;(存在则输出)
-    - tombstones信息;(存在这输出)
+    1. VM TRACES JUST NOW (/data/anr/traces.txt.bugreport) (抓bugreport时主动触发)
+    2. VM TRACES AT LAST ANR (/data/anr/traces.txt) (存在则输出)
+    3. TOMBSTONE (/data/tombstones/tombstone_xx) (存在这输出)
 9. network相关信息；
 10. `last kernel log`;
 11. `last system log`;

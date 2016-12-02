@@ -1112,7 +1112,7 @@ CW.bindService
                                                     AMP.serviceDoneExecuting
                                                         AMS.serviceDoneExecuting
 
-整个过程中3个重要的对象 IServiceConnection.Stub.Proxy,AMP, ATP
+整个过程中3个重要的对象 IServiceConnection.Stub.Proxy,AMP, ATP, Service.onBind对象
 
 ## unbind过程分析
 

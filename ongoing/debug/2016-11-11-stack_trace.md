@@ -48,22 +48,101 @@ tags:
               }
           }
         }
+        
+        // 记录ANR输出到main log
+        StringBuilder info = new StringBuilder();
+        info.setLength(0);
+        info.append("ANR in ").append(app.processName);
+        if (activity != null && activity.shortComponentName != null) {
+            info.append(" (").append(activity.shortComponentName).append(")");
+        }
+        info.append("\n");
+        info.append("PID: ").append(app.pid).append("\n");
+        if (annotation != null) {
+            info.append("Reason: ").append(annotation).append("\n");
+        }
+        if (parent != null && parent != activity) {
+            info.append("Parent: ").append(parent.shortComponentName).append("\n");
+        }
+        
+        //创建CPU tracker对象
         final ProcessCpuTracker processCpuTracker = new ProcessCpuTracker(true);
-        //【见小节2】
+        //输出traces信息【见小节2】
         File tracesFile = dumpStackTraces(true, firstPids, processCpuTracker, lastPids,
                 NATIVE_STACKS_OF_INTEREST);
         updateCpuStatsNow();
-        ...
-        cpuInfo = mProcessCpuTracker.printCurrentState(anrTime);
-        Slog.e(TAG, info.toString()); //输出当前ANR的reason，以及CPU使用率、负载信息
+        //记录当前各个进程的CPU使用情况
+        synchronized (mProcessCpuTracker) {
+            cpuInfo = mProcessCpuTracker.printCurrentState(anrTime);
+        }
+        //记录当前CPU负载情况
+        info.append(processCpuTracker.printCurrentLoad());
+        info.append(cpuInfo);
+        //记录从anr时间开始的Cpu使用情况
+        info.append(processCpuTracker.printCurrentState(anrTime));
+        //输出当前ANR的reason，以及CPU使用率、负载信息
+        Slog.e(TAG, info.toString()); 
         
         //将traces文件 和 CPU使用率信息保存到dropbox，即data/system/dropbox目录
         addErrorToDropBox("anr", app, app.processName, activity, parent, annotation,
                 cpuInfo, tracesFile, null);
-        ...
+
+        synchronized (this) {
+            ...
+            //后台ANR的情况, 则直接杀掉
+            if (!showBackground && !app.isInterestingToUserLocked() && app.pid != MY_PID) {
+                app.kill("bg anr", true);
+                return;
+            }
+
+            //设置app的ANR状态，病查询错误报告receiver
+            makeAppNotRespondingLocked(app,
+                    activity != null ? activity.shortComponentName : null,
+                    annotation != null ? "ANR " + annotation : "ANR",
+                    info.toString());
+
+            //重命名trace文件
+            String tracesPath = SystemProperties.get("dalvik.vm.stack-trace-file", null);
+            if (tracesPath != null && tracesPath.length() != 0) {
+                //traceRenameFile = "/data/anr/traces.txt"
+                File traceRenameFile = new File(tracesPath);
+                String newTracesPath;
+                int lpos = tracesPath.lastIndexOf (".");
+                if (-1 != lpos)
+                    // 新的traces文件= /data/anr/traces_进程名_当前日期.txt
+                    newTracesPath = tracesPath.substring (0, lpos) + "_" + app.processName + "_" + mTraceDateFormat.format(new Date()) + tracesPath.substring (lpos);
+                else
+                    newTracesPath = tracesPath + "_" + app.processName;
+
+                traceRenameFile.renameTo(new File(newTracesPath));
+            }
+                    
+            //弹出ANR对话框
+            Message msg = Message.obtain();
+            HashMap<String, Object> map = new HashMap<String, Object>();
+            msg.what = SHOW_NOT_RESPONDING_MSG;
+            msg.obj = map;
+            msg.arg1 = aboveSystem ? 1 : 0;
+            map.put("app", app);
+            if (activity != null) {
+                map.put("activity", activity);
+            }
+            
+            //向ui线程发送，内容为SHOW_NOT_RESPONDING_MSG的消息
+            mUiHandler.sendMessage(msg);
+        }
+        
     }
 
-ANR输出内容主要有两大块：重要进程的traces信息，系统进程的使用情况以及负载。其中重要进程主要输入以下进程：
+当发生ANR时, 会依次执行:
+
+1. 输出ANR Reason信息;
+2. 收集并输出重要进程列表中的各个线程的traces信息; (比较耗时可能会长达10s)
+3. 输出当前各个进程的CPU使用情况以及CPU负载情况;
+4. 将traces文件 和 CPU使用率信息保存到dropbox，即data/system/dropbox目录
+5. 根据进程类型,来决定直接后台杀掉,还是弹框告知用户.
+
+ANR输出重要进程的traces信息，这些进程包含:
 
 - firstPids：第一个是发生ANR进程，第二个是system_server，剩余的全都是persistent进程；
 - NATIVE_STACKS_OF_INTEREST：是指/system/bin/目录下的mediaserver,sdcard,surfaceflinger这3个native进程。
@@ -135,7 +214,7 @@ ANR输出内容主要有两大块：重要进程的traces信息，系统进程�
                 }
             }
 
-            //测量CPU使用情况
+            
             if (processCpuTracker != null) {
                 processCpuTracker.init();
                 System.gc();
@@ -143,6 +222,7 @@ ANR输出内容主要有两大块：重要进程的traces信息，系统进程�
                 synchronized (processCpuTracker) {
                     processCpuTracker.wait(500); //等待500ms
                 }
+                //测量CPU使用情况
                 processCpuTracker.update();
 
                 //从lastPids中选取CPU使用率 top 5的进程，输出这些进程的stacks
@@ -166,17 +246,19 @@ ANR输出内容主要有两大块：重要进程的traces信息，系统进程�
     
 该方法的主要功能，依次输出：
 
-1. 收集firstPids进程的stacks；（kill -3）
+1. 收集firstPids进程的stacks；
   - 第一个是发生ANR进程；
   - 第二个是system_server；
   - mLruProcesses中所有的persistent进程；
 2. 收集Native进程的stacks；(dumpNativeBacktraceToFile)
   - 依次是mediaserver,sdcard,surfaceflinger进程；
-3. 收集lastPids进程的stacks;；（kill -3）
+3. 收集lastPids进程的stacks;；
   - 依次输出CPU使用率top 5的进程；
 
-总共dump的进程个数： 2(self + system_server) + x(persistent) + 3(native) +5(top 5)
+这个过程中taces输出的方法: 对于Java进程则采用kill -3, 对于Native进程则调用dumpNativeBacktraceToFile.
 
+firstPids列表中的进程, 两个进程之间会休眠200ms, 可见persistent进程越多,则时间越长.
+出top 5进程的traces过程中, 同样是间隔200ms, 另外进程使用情况的收集也是比较耗时.
 
 
 ## 三. Native

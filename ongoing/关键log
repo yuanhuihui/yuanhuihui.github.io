@@ -1,0 +1,19 @@
+
+灭屏
+01-18 04:22:08.869  2082  2082 I WindowManager: Started going to sleep... (why=2)
+01-18 04:22:09.184  2082  2082 I WindowManager: Finished going to sleep... (why=2)
+01-18 04:22:09.201  2082  2082 V LocationPolicy: Screen state changed
+
+亮屏
+01-18 04:22:10.188  2082  2082 I WindowManager: Started waking up...
+01-18 04:22:10.188  2082  2082 V KeyguardServiceDelegate: onStartedWakingUp()
+01-18 04:22:10.216  2082  2082 V LocationPolicy: Screen state changed
+01-18 04:22:10.264  2082  2082 I WindowManager: Finished waking up...
+
+
+
+调试技巧:
+
+输出不包含的log:
+
+adb logcat -b events | egrep -v "am_pss|sysui_|am_broadcast"

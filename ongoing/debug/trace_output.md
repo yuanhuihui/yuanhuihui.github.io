@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "ART虚拟机的traces原理"
+title:  "ART虚拟机的trace内部机理"
 date:   2016-6-22 22:19:53
 catalog:    true
 tags:
@@ -24,8 +24,7 @@ tags:
 
 一、概述
 
-Android 6.0系统采用的art虚拟机，所有的Java进程都运行在art之上，当应用发生ANR(无响应)时，往往会通过
-Process.sendSignal()向目标进程发送信号SIGNAL_QUIT, 传统的linux则是终止程序并输出core，而对于Android来说当收到SIGQUIT
+Android 6.0系统采用的art虚拟机，所有的Java进程都运行在art之上，当应用发生ANR(无响应)时，往往会向目标进程发送信号SIGNAL_QUIT, 传统的linux则是终止程序并输出core，而对于Android来说当收到SIGQUIT
 时，虚拟机会捕获该信号，并输出相应的traces信息。当然，我们也可以通过一条命令来获取指定进程的traces信息：
 
     kill -3 [pid]  //通过指定进程pid，输出结果位于/data/anr/traces.txt
@@ -171,6 +170,8 @@ Process.sendSignal()向目标进程发送信号SIGNAL_QUIT, 传统的linux则是
       DumpGcPerformanceInfo(os);  //输出大量gc相关的信息
     }
 
+DumpGcPerformanceInfo()这个方法的参数非常多,先省略, 后续再单独用一篇文章来讲解.
+
 #### 3.5 ThreadList
 [-> thread_list.cc]
 
@@ -227,23 +228,27 @@ Process.sendSignal()向目标进程发送信号SIGNAL_QUIT, 传统的linux则是
             contains = Contains(tid);
           }
           if (!contains) {
-            DumpUnattachedThread(os, tid); //[见小节4]
+            DumpUnattachedThread(os, tid); //[见小节3.6]
           }
         }
       }
       closedir(d);
     }
 
-### 4. DumpUnattachedThread
+获取当前进程中所有的线程
+
+### 3.6 DumpUnattachedThread
 [-> thread_list.cc]
 
     static void DumpUnattachedThread(std::ostream& os, pid_t tid) NO_THREAD_SAFETY_ANALYSIS {
-      Thread::DumpState(os, nullptr, tid); //[见小节4.1]
-      DumpKernelStack(os, tid, "  kernel: ", false); //[见小节4.2]
+      Thread::DumpState(os, nullptr, tid); //[见小节3.6.1]
+      DumpKernelStack(os, tid, "  kernel: ", false); //[见小节3.6.2]
       os << "\n";
     }
 
-#### 4.1 Thread::DumpState
+将进程中的每个线程都执行一次该方法
+
+#### 3.6.1 Thread::DumpState
 [-> thread.cc]
 
     void Thread::DumpState(std::ostream& os, const Thread* thread, pid_t tid) {
@@ -328,7 +333,6 @@ Process.sendSignal()向目标进程发送信号SIGNAL_QUIT, 传统的linux则是
       os << "\n";
 
       std::string scheduler_stats;
-      //读取
       if (ReadFileToString(StringPrintf("/proc/self/task/%d/schedstat", tid), &scheduler_stats)) {
         scheduler_stats.resize(scheduler_stats.size() - 1);  // Lose the trailing '\n'.
       } else {
@@ -373,7 +377,7 @@ Process.sendSignal()向目标进程发送信号SIGNAL_QUIT, 传统的linux则是
       }
     }
 
-#### 4.2 DumpKernelStack
+#### 3.6..2 DumpKernelStack
 [-> art/runtime/utils.cc]
 
     void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool include_count) {
@@ -410,6 +414,52 @@ Process.sendSignal()向目标进程发送信号SIGNAL_QUIT, 传统的linux则是
 
 内核栈是通过读取节点/proc/self/task/[tid]/stack
 
+## 实例
+
+    //[见小节2]
+    ----- pid 874 at 2016-11-11 22:22:22 -----
+    Cmd line: system_server
+    ABI: arm
+    Build type: optimized
+    //[见小节3.1]
+    Loaded classes: 6805 allocated classes
+    //[见小节3.2]
+    Intern table: 6422 strong; 10703 weak
+    //[见小节3.3]
+    JNI: CheckJNI is off; globals=2418 (plus 115 weak)
+    Libraries: /system/lib/libandroid.so /system/lib/libandroid_servers.so /system/lib/libaudioeffect_jni.so /system/lib/libcompiler_rt.so /system/lib/libjavacrypto.so /system/lib/libjnigraphics.so /system/lib/libmedia_jni.so /system/lib/libmiui_security.so /system/lib/libmiuiclassproxy.so /system/lib/libmiuinative.so /system/lib/librs_jni.so /system/lib/libsechook.so /system/lib/libshell_jni.so /system/lib/libsoundpool.so /system/lib/libwebviewchromium_loader.so /system/lib/libwifi-service.so /vendor/lib/libalarmservice_jni.so /vendor/lib/liblocationservice.so libjavacore.so (19)
+    //[见小节3.4]
+    Heap: 27% free, 29MB/40MB; 307772 objects
+    ... //省略GC相关信息
+
+    //[见小节3.5]
+    DALVIK THREADS (99):
+    //[见小节3.6]
+    "main" prio=5 tid=1 Native
+      | group="main" sCount=1 dsCount=0 obj=0x7474e0d0 self=0xb5007800
+      | sysTid=874 nice=-2 cgrp=apps sched=0/0 handle=0xb6fc7ec8
+      | state=S schedstat=( 0 0 0 ) utm=900 stm=435 core=2 HZ=100
+      | stack=0xbe78e000-0xbe790000 stackSize=8MB
+      | held mutexes=
+      native: #00 pc 0003684c  /system/lib/libc.so (__epoll_pwait+20)
+      native: #01 pc 00011b1f  /system/lib/libc.so (epoll_pwait+26)
+      native: #02 pc 00011b2d  /system/lib/libc.so (epoll_wait+6)
+      native: #03 pc 00010fab  /system/lib/libutils.so (_ZN7android6Looper9pollInnerEi+98)
+      native: #04 pc 000111d5  /system/lib/libutils.so (_ZN7android6Looper8pollOnceEiPiS1_PPv+92)
+      native: #05 pc 0007c625  /system/lib/libandroid_runtime.so (_ZN7android18NativeMessageQueue8pollOnceEP7_JNIEnvi+22)
+      native: #06 pc 000b0e47  /data/dalvik-cache/arm/system@framework@boot.oat (Java_android_os_MessageQueue_nativePollOnce__JI+102)
+      at android.os.MessageQueue.nativePollOnce(Native method)
+      at android.os.MessageQueue.next(MessageQueue.java:143)
+      at android.os.Looper.loop(Looper.java:122)
+      at com.android.server.SystemServer.run(SystemServer.java:282)
+      at com.android.server.SystemServer.main(SystemServer.java:183)
+      at java.lang.reflect.Method.invoke!(Native method)
+      at java.lang.reflect.Method.invoke(Method.java:372)
+      at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:906)
+      at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:701)
+      
+   ... //此处省略N个线程.
+    
 
 ## 四. 线程状态
 

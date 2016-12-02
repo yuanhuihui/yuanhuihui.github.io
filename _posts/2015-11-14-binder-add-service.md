@@ -13,8 +13,8 @@ tags:
 
     /framework/native/libs/binder/IServiceManager.cpp
     /framework/native/libs/binder/BpBinder.cpp
-    /framework/native/libs/binder/IPCThreadState.cpp
     /framework/native/libs/binder/Binder.cpp
+    /framework/native/libs/binder/IPCThreadState.cpp
     /framework/native/libs/binder/ProcessState.cpp
 
     /framework/av/media/libmediaplayerservice/MediaPlayerService.cpp

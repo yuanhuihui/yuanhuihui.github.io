@@ -18,51 +18,42 @@ Android系统启动过程SystemServer进程时，在startOtherServices()过程�
 [-> SystemServer.java]
 
     private void startOtherServices() {
-        try {
-            //初始化DBMS，并登记该服务【见小节1.2】
-            ServiceManager.addService(Context.DROPBOX_SERVICE,
-                    new DropBoxManagerService(context, new File("/data/system/dropbox")));
-        } catch (Throwable e) {
-            ...
-        }
+        //初始化DBMS，并登记该服务【见小节1.2】
+        ServiceManager.addService(Context.DROPBOX_SERVICE,
+                new DropBoxManagerService(context, new File("/data/system/dropbox")));
         ...
     }
 
 其中DROPBOX_SERVICE = "dropbox", DBMS工作目录位于"/data/system/dropbox"，这个过程向ServiceManager
-登记名为“dropbox”的服务。后续便可以通过`dumpsys dropbox`来查看该服务的相关信息。
+登记名为“dropbox”的服务。那么可通过`dumpsys dropbox`来查看该dropbox服务信息。
 
 ### 1.2 初始化DBMS
 [-> DropBoxManagerService.java]
 
     public final class DropBoxManagerService extends IDropBoxManagerService.Stub {
-        ...
-        public DropBoxManagerService(final Context context, File path) {
-            // 目录/data/system/dropbox
-            mDropBoxDir = path;
 
+        public DropBoxManagerService(final Context context, File path) {
+            mDropBoxDir = path;  // 目录/data/system/dropbox
             mContext = context;
             mContentResolver = context.getContentResolver();
 
             IntentFilter filter = new IntentFilter();
-            // 1.存储设备可用空间低的广播
+            // 监听存储设备可用空间低的广播
             filter.addAction(Intent.ACTION_DEVICE_STORAGE_LOW);
-            // 2.开机完毕的广播
+            // 监听开机完毕的广播
             filter.addAction(Intent.ACTION_BOOT_COMPLETED);
             context.registerReceiver(mReceiver, filter);
 
-            // 3.Settings数据库变化时，则回调广播接收者的onReceive方法
-            //此处CONTENT_URI=content://settings/global"
+            // Settings数据库变化时则回调广播接收者的onReceive方法,此处CONTENT_URI=content://settings/global"
             mContentResolver.registerContentObserver(
                 Settings.Global.CONTENT_URI, true,
                 new ContentObserver(new Handler()) {
-                    @Override
                     public void onChange(boolean selfChange) {
                         mReceiver.onReceive(context, (Intent) null);
                     }
                 });
 
             mHandler = new Handler() {
-                @Override
                 public void handleMessage(Message msg) {
                     // 发送广播
                     if (msg.what == MSG_SEND_BROADCAST) {
@@ -74,19 +65,20 @@ Android系统启动过程SystemServer进程时，在startOtherServices()过程�
         }
     }
 
-以下任一情况发生，都会触发触发执行mReceiver的onReceive方法：
+
+
+该方法主要功能是给dropbox目录所对应的存储空间进行瘦身:
 
 - 存储设备可用空间低；
 - 开机完毕；
 - Settings数据库变化；
 
-该方法主要功能是给dropbox目录所对应的存储空间进行瘦身，接下来再说说这个搜身过程。
+当发生任一以上情况都会触发触发执行mReceiver的onReceive方法,接下来看看该onReceive()过程.
 
 ### 1.3 mReceiver.onReceive
 [-> DropBoxManagerService.java]
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
         public void onReceive(Context context, Intent intent) {
             if (intent != null && Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
                 mBooted = true;
@@ -132,7 +124,7 @@ Android系统启动过程SystemServer进程时，在startOtherServices()过程�
                     file.delete(); //删除后缀为.tmp文件
                     continue;
                 }
-                // 创建dropbox的实体文件对象
+                // 创建dropbox的实体文件对象, 根据文件名来获取相应的时间戳
                 EntryFile entry = new EntryFile(file, mBlockSize);
                 if (entry.tag == null) {
                     continue; //忽略tag为空的文件
@@ -146,9 +138,13 @@ Android系统启动过程SystemServer进程时，在startOtherServices()过程�
         }
     }
 
-该方法主要功能：创建目录/data/system/dropbox，列举该目录下所有的问题，并删除其中后缀为.tmp或者时间戳为0的文件。
+该方法主要功能：
 
-dropbox文件格式为`tag@时间戳.txt`或者`tag@时间戳.txt.gz`，例如`system_server_wtf@1465650845355.txt`
+- 创建目录/data/system/dropbox;
+- 列举该目录下所有文件,并对其进行:
+    - 将每一个dropbox文件都对应于一个EntryFile对象,根据文件名来获取相应的时间戳
+    - 删除后缀为.tmp的文件;
+    - 删除时间戳为0的文件.
 
 #### 1.3.2 trimToFit
 
@@ -241,13 +237,13 @@ DBMS有很多常量参数：
 
 当发生以下任一场景，都会调用AMS.addErrorToDropBox()来触发DBMS工作。
 
-- **crash:** 文章[理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/) [小节4]的AMS.handleApplicationCrashInner过程。
+- **crash:** 文章[理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/) [小节4]的AMS.handleApplicationCrashInner过程
 - **anr:** 文章[android ANR原理分析](http://gityuan.com/2016/07/02/android-anr/)[小节3.1]的AMS.appNotResponding()过程；
 - **watchdog:** 文章[WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/) [小节3.1]的Watchdog.run()过程;
-- **wtf:** 当调用Log.wtf()或者Log.wtfQuiet的过程；
+- **native_crash**: 当调用NativeCrashReporter.run()的过程;
+- **wtf:** 当调用Log.wtf()或者Log.wtfQuiet()的过程；
 - **lowmem:** 当内存较低时，触发AMS.reportMemUsage()过程；
 - ...
-
 
 ### 2.1 AMS.addErrorToDropBox
 
@@ -259,7 +255,7 @@ DBMS有很多常量参数：
             final String report, final File logFile,
             final ApplicationErrorReport.CrashInfo crashInfo) {
 
-        //如果是普通App崩溃，则dropboxTag为data_app_crash【见小节2.1.1】
+        //创建dropbox标签名【见小节2.1.1】
         final String dropboxTag = processClass(process) + "_" + eventType;
         //获取dropbox服务的代理端
         final DropBoxManager dbox = (DropBoxManager)
@@ -269,9 +265,12 @@ DBMS有很多常量参数：
         if (dbox == null || !dbox.isTagEnabled(dropboxTag)) return;
 
         final StringBuilder sb = new StringBuilder(1024);
-        //输出Process,flags,以及进程中所有package
+        //输出Process,flags,以及进程中所有package 【见小节2.1.2】
         appendDropBoxProcessHeaders(process, processName, sb);
         ...
+        if (subject != null) {
+            sb.append("Subject: ").append(subject).append("\n");
+        }
         sb.append("Build: ").append(Build.FINGERPRINT).append("\n");
         sb.append("\n");
 
@@ -347,14 +346,79 @@ DBMS有很多常量参数：
         }
     }
 
-dropbox文件名格式为`dropboxTag@xxx.txt`，其中dropboxTag是由processClass(process) + "_" + eventType构成：
+dropbox文件名格式为`dropboxTag@xxx.txt` xxx代表时间戳,例如`system_server_crash@1465650845355.txt`,则记录该文件时间戳为1465650845355.
+文件后缀除了`.txt`，还有压缩格式`.txt.gz`. 对于dropboxTag是由processClass + eventType组合而成.
 
-- processClass：分为`system_server`, `system_app`, `data_app`;
-- eventType：分为`crash`,`anr`,`wtf`等
-- xxx：代表时间戳;
-- 后缀：除了`.txt`，还有压缩格式`.txt.gz`     
+- processClass分为`system_server`, `system_app`, `data_app`;
+- eventType：分为`crash`,`anr`,`wtf`,`native_cras`,`lowmem`, `watchdog` 
 
-例如`system_server_crash@1465650845355.txt`，代表的是system_server进程出现crash，记录该文件时间戳为1465650845355。
+列举部分常见tags以及含义:
+
+|dropboxTag|含义|
+|---|---|
+|system_server_anr|system进程无响应|
+|system_server_watchdog|system进程发生watchdog|
+|system_server_crash|system进程崩溃|
+|system_server_native_crash|system进程native出现崩溃|
+|system_server_wtf|system进程发生严重错误|
+|system_server_lowmem|system进程内存不足|
+
+当然除了`system_server`进程, 还有`system_app`, `data_app`类型的进程, 以上所有类型都适用,列举部分:
+
+|system_app_crash|系统app崩溃|
+|system_app_anr|系统app无响应|
+|data_app_crash|普通app崩溃|
+|data_app_anr|普通app无响应|
+
+
+
+#### 2.1.2 AMS.appendDropBoxProcessHeaders
+
+    private void appendDropBoxProcessHeaders(ProcessRecord process, String processName,
+            StringBuilder sb) {
+        if (process == null) {
+            sb.append("Process: ").append(processName).append("\n");
+            return;
+        }
+
+        synchronized (this) {
+            sb.append("Process: ").append(processName).append("\n");
+            int flags = process.info.flags;
+            IPackageManager pm = AppGlobals.getPackageManager();
+            sb.append("Flags: 0x").append(Integer.toString(flags, 16)).append("\n");
+            for (int ip=0; ip<process.pkgList.size(); ip++) {
+                String pkg = process.pkgList.keyAt(ip);
+                sb.append("Package: ").append(pkg);
+                try {
+                    PackageInfo pi = pm.getPackageInfo(pkg, 0, UserHandle.getCallingUserId());
+                    if (pi != null) {
+                        sb.append(" v").append(pi.versionCode);
+                        if (pi.versionName != null) {
+                            sb.append(" (").append(pi.versionName).append(")");
+                        }
+                    }
+                } catch (RemoteException e) {
+                    ...
+                }
+                sb.append("\n");
+            }
+        }
+    }
+
+该方法输出的信息:
+
+- 进程名;
+- 进程的ApplicationInfo的flags信息;
+- 进程中所有的包名以及版本信息;
+
+
+这里列举头信息实例:
+
+    2016-11-11 22:22:22 system_app_anr (compressed text, 26165 bytes)
+    Process: com.android.systemui
+    Flags: 0x40d83e0d
+    Package: com.android.systemui v21 (5.0.2)
+    Subject: Broadcast of Intent { act=android.intent.action.TIME_TICK flg=0x50000014 (has extras) }
 
 ### 2.2 DBM.addText
 
@@ -372,6 +436,7 @@ dropbox文件名格式为`dropboxTag@xxx.txt`，其中dropboxTag是由processCla
 在DropBoxManager中有addText, addData, addFile方法，三分归一统，对应于DBMS的add()方法。
 
 ### 2.3 DBMS.add
+[ -> DropBoxManagerService.java]
 
     public void add(DropBoxManager.Entry entry) {
         File temp = null;
@@ -430,7 +495,8 @@ dropbox文件名格式为`dropboxTag@xxx.txt`，其中dropboxTag是由processCla
                     break;
                 }
             } while (read > 0);
-
+            
+            //[见小节2.3.1]
             long time = createEntry(temp, tag, flags);
             temp = null;
 
@@ -450,6 +516,26 @@ dropbox文件名格式为`dropboxTag@xxx.txt`，其中dropboxTag是由processCla
             if (temp != null) temp.delete();
         }
     }
+    
+    
+#### 2.3.1 DBMS.createEntry
+[ -> DropBoxManagerService.java]
+
+    private synchronized long createEntry(File temp, String tag, int flags) throws IOException {
+        long t = System.currentTimeMillis(); //当当前时间作为dropbox文件的时间戳
+        ...
+        if (temp == null) {
+            enrollEntry(new EntryFile(mDropBoxDir, tag, t));
+        } else {
+            enrollEntry(new EntryFile(temp, mDropBoxDir, tag, t, flags, mBlockSize));
+        }
+        return t;
+    }
+
+关于时间戳问题:
+
+1. EntryFile(File file, int blockSize) : 从file文件获取时间戳,并保存到EntryFile.timestampMillis. init()过程使用.
+2. 其他的构造方法则都会在创建时,将当前时间保存到EntryFile.timestampMillis.比如EntryFile(File dir, String tag, long timestampMillis)
 
 ## 三. 总结
 
@@ -462,3 +548,6 @@ DBMS服务的数据保存目录为`/data/system/dropbox`。
 1. CRASH：输出发生crash时的当前线程的调用栈信息；
 2. ANR：输出Cpuinfo，以及重要进程的各个线程的traces文件(kill -3)；
 3. Watchdog: 也输出重要进程的各个线程的traces文件(kill -3)
+
+
+

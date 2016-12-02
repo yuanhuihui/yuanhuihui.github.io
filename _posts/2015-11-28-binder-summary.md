@@ -9,6 +9,9 @@ tags:
 
 ---
 
+> 基于Android 6.0的源码剖析， Binder所涉及的源码目录
+
+
 ### 1. Binder概述
 
 1. 从IPC角度来说：Binder是Android中的一种跨进程通信方式，该通信方式在linux中没有，是Android独有；
@@ -48,3 +51,52 @@ Binder IPC机制，就是指在进程间传输数据（binder_transaction_data�
 **binder的路由原理**：BpBinder发送端，根据handler，在当前binder_proc中，找到相应的binder_ref，由binder_ref再找到目标binder_node实体，由目标binder_node再找到目标进程binder_proc。简单地方式是直接把binder_transaction节点插入到binder_proc的todo队列中，完成传输过程。
 
 对于binder驱动来说应尽可能地把binder_transaction节点插入到目标进程的某个线程的todo队列，效率更高。当binder驱动可以找到合适的线程，就会把binder_transaction节点插入到相应线程的todo队列中，如果找不到合适的线程，就把节点之间插入binder_proc的todo队列。
+
+### 5. 源码目录
+从上之下, 整个Binder架构所涉及的总共有以下5个目录:
+
+    /framework/base/core/java/               (Java)
+    /framework/base/core/jni/                (JNI)
+    /framework/native/libs/binder            (Native)
+    /framework/native/cmds/servicemanager/   (Native)
+    /kernel/drivers/staging/android          (Driver)
+
+
+#### 5.1 Java framework
+    /framework/base/core/java/android/os/  
+        - IInterface.java
+        - IBinder.java
+        - Parcel.java
+        - IServiceManager.java
+        - ServiceManager.java
+        - ServiceManagerNative.java
+        - Binder.java  
+
+        
+    /framework/base/core/jni/    
+        - android_os_Parcel.cpp
+        - AndroidRuntime.cpp
+        - android_util_Binder.cpp (核心类)
+        
+#### 5.2 Native framework
+
+    /framework/native/libs/binder         
+        - IServiceManager.cpp
+        - BpBinder.cpp
+        - Binder.cpp
+        - IPCThreadState.cpp (核心类)
+        - ProcessState.cpp  (核心类)
+    
+    /framework/native/include/binder/ 
+        - IServiceManager.h
+        - IInterface.h
+    
+    /framework/native/cmds/servicemanager/ 
+        - service_manager.c
+        - binder.c
+        
+#### 5.3 Kernel 
+
+    /kernel/drivers/staging/android/
+        - binder.c
+        - uapi/binder.h
