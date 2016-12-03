@@ -332,7 +332,7 @@ Debug.dumpNativeBacktraceToFile(pid, tracesPath)经过JNI调用如下方法：
     }
 
 可见，这个过程主要是通过向debuggerd守护进程发送命令DEBUGGER_ACTION_DUMP_BACKTRACE， debuggerd收到该命令，在子进程中调用
-dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-trace/)。
+dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)。
 
 ## 二. 总结
 
@@ -348,7 +348,7 @@ dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理]
 
 |进程类型|trace命令|文章|描述|
 |Java|kill -3 [pid]|[ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)|不适用于Native进程|
-|Native|debuggerd -b [pid]|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-trace/)|也适用于Java进程
+|Native|debuggerd -b [pid]|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)|也适用于Java进程
 
 说明：`kill -3`命令需要虚拟机的支持，所以无法输出Native进程traces.而`debuggerd -b [pid]`也可用于Java进程，但信息量远没有kill -3多。
 总之，ANR信息最为重要的是dropbox信息，比如system_server_anr。

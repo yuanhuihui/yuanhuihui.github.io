@@ -224,8 +224,22 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Android组件-Content Provider
     - [理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)
     - [ContentProvider引用计数](http://gityuan.com/2016/11/19/content_provider_release/)
-    
-#### 4.5 内存&&存储篇
+
+#### 4.5 系统分析篇
+Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理流程,才能再进一步分析具体问题. 这里先展开原理篇.
+
+- Android ANR系列
+  - [理解Android ANR的触发情景](http://gityuan.com/2016/07/02/android-anr/)
+  - [理解Android ANR的处理过程](http://gityuan.com/2016/12/02/app-not-response/)
+  - [ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)
+  - [Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)
+  
+- Android Crash系列
+  - [理解Java   Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)
+  - [理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)
+  - [WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)
+
+#### 4.6 内存&&存储篇
 
 - 内存篇
     - [Android LowMemoryKiller原理分析](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
@@ -238,8 +252,8 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - dalvik/art
     - [ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)
     - 敬请期待
-
-#### 4.6 工具篇
+    
+#### 4.7 工具篇
 最后，说说Android相关的一些常用命令和工具以及调试手段.
 
 - [理解Android编译命令](http://gityuan.com/2016/03/19/android-build/)
@@ -253,17 +267,9 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - [调试系列2：bugreport实战篇](http://gityuan.com/2016/06/11/bugreport-2/)
 
 
-#### 4.7 系统分析篇
-Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理流程,才能再进一步分析具体问题. 这里先展开原理篇.
-
-- [理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)
-- [理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)
-- [Android ANR原理分析](http://gityuan.com/2016/07/02/android-anr/)
-- [WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)
-
 ---
 
-后续,还有系统分析的实战篇, 回顾整个架构，系统层面的性能/稳定性，需要掌握进程、内存、IO这些层面知识，这里牵涉面较广，博客会持续更新，各个击破。
+后续还有系统分析的实战篇, 回顾整个架构，系统层面的性能/稳定性，需要掌握进程、内存、IO这些层面知识，这里牵涉面较广，博客会持续更新，各个击破。
 
 ---
 

@@ -583,7 +583,9 @@ keyDispatching timout与inputDispatching Timeout流畅基本一致。
 
 对于keyDispatching Timeout的ANR，当触发该类型ANR时，如果不再有输入事件，则不会弹出ANR对话框；只有在下一次input事件产生后5s才弹出ANR提示框。
 
-## 四、其他
+## 三、总结
+
+当出现ANR时，都是调用到AMS.appNotResponding()方法，详细过程见文章[理解Android ANR的处理过程](http://gityuan.com/2016/12/02/app-not-response/)
 
 ### 导致ANR常见情形：
 
@@ -591,22 +593,18 @@ keyDispatching timout与inputDispatching Timeout流畅基本一致。
 - 网络阻塞；
 - onReceiver执行时间超过10s;
 - 多线程死锁
+- ...
 
 ### 避免ANR:
 
 - UI线程尽量只做跟UI相关的工作
-- 耗时的工作()比如数据库操作，I/O，网络操作)，采用单独的工作线程处理
-- 用Handler来处理UIthread和工作thread的交互
+- 耗时的工作比如数据库，I/O，网络操作)，放入工作线程处理
 
-UI线程，例如：
+UI线程也就是常说的主线程，比如生命周期就是运行在主线程：
 
 - Activity:onCreate(), onResume(), onDestroy(), onKeyDown(), onClick(),etc
 - AsyncTask: onPreExecute(), onProgressUpdate(), onPostExecute(), onCancel,etc
 - Mainthread handler: handleMessage(), post*(runnable r), etc
 - ...
-
-**ANR分析**：需要关注CPU/IO，trace死锁等数据。
-
-----
 
 先写到这，本文尚未写完，待续...
