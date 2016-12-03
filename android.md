@@ -188,7 +188,7 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Android系统启动—SystemServer篇
 	- [SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)
 	- [SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)
-- 守护进程(Daemon process，往往以d为后缀，比如logd)
+- 守护进程(进程名一般以d为后缀，比如logd)
   - [debuggerd](http://gityuan.com/2016/06/15/android-debuggerd/)
   - [installd](http://gityuan.com/2016/11/13/android-installd)
   - [lmkd](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
@@ -269,7 +269,8 @@ Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理�
 
 ---
 
-后续还有系统分析的实战篇, 回顾整个架构，系统层面的性能/稳定性，需要掌握进程、内存、IO这些层面知识，这里牵涉面较广，博客会持续更新，各个击破。
+**计划：** 后续不断持续得新增和完善整个大纲，不限于进程、内存、IO知识，系统各个服务框架，整体架构，以及各种系统分析实战文章。
+博客会持续更新，各个击破。 本文会持续更新，`最近更新时间点: `2016.12.03`.
 
 ---
 
