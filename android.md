@@ -116,7 +116,7 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 - [Binder系列9—如何使用AIDL](http://gityuan.com/2015/11/23/binder-aidl/)
 - [Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)
 
-**全栈型:** 从Java framework到Native层,再到Linux层的一条线的串通
+**全栈架构型:** 从Java framework到Native层,再到Linux层的一条线的串通
 
 - [彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)
 
@@ -236,6 +236,7 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Linux驱动篇
     - 敬请期待
 - dalvik/art
+    - [ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)
     - 敬请期待
 
 #### 4.6 工具篇

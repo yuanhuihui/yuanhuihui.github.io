@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "ANR"
-date:   2016-6-22 22:19:53
+title:  "理解Android ANR的处理过程"
+date:   2016-12-02 22:19:53
 catalog:    true
 tags:
     - android
@@ -10,30 +10,42 @@ tags:
 
 ---
 
-> 分析Art虚拟机下，当发生异常时的处理过程
+> 基于Android 6.0源码， 分析当发生ANR时系统的处理过程
 
-    /art/runtime/
-        - signal_catcher.cc
-        - runtime.cc
-        - intern_table.cc
-        - thread_list.cc
-        - java_vm_ext.cc
-        - class_linker.cc
-        - gc/heap.cc
+    frameworks/base/core/java/android/os/Debug.java
+    frameworks/base/core/jni/android_os_Debug.cpp
+    system/core/libcutils/debugger.c
+    
+## 一. 处理ANR
+
+无论是四大组件或者进程等只要发生ANR，最终都会调用AMS.appNotResponding()方法，下面从这个方法说起。
 
 ### 1. AMS.appNotResponding
 
     final void appNotResponding(ProcessRecord app, ActivityRecord activity,
             ActivityRecord parent, boolean aboveSystem, final String annotation) {
         ...
-        updateCpuStatsNow();
-        
+        updateCpuStatsNow(); //第一次 更新cpu统计信息
         synchronized (this) {
+          //PowerManager.reboot() 会阻塞很长时间，因此忽略关机时的ANR
+          if (mShuttingDown) {
+              return;
+          } else if (app.notResponding) {
+              return;
+          } else if (app.crashing) {
+              return;
+          }
+          //记录ANR
+          EventLog.writeEvent(EventLogTags.AM_ANR, app.userId, app.pid,
+                  app.processName, app.info.flags, annotation);
+                  
+          // 将当前进程添加到firstPids
           firstPids.add(app.pid);
           int parentPid = app.pid;
-          ...
+          
           //将system_server进程添加到firstPids
           if (MY_PID != app.pid && MY_PID != parentPid) firstPids.add(MY_PID);
+          
           for (int i = mLruProcesses.size() - 1; i >= 0; i--) {
               ProcessRecord r = mLruProcesses.get(i);
               if (r != null && r.thread != null) {
@@ -68,9 +80,10 @@ tags:
         //创建CPU tracker对象
         final ProcessCpuTracker processCpuTracker = new ProcessCpuTracker(true);
         //输出traces信息【见小节2】
-        File tracesFile = dumpStackTraces(true, firstPids, processCpuTracker, lastPids,
-                NATIVE_STACKS_OF_INTEREST);
-        updateCpuStatsNow();
+        File tracesFile = dumpStackTraces(true, firstPids, processCpuTracker, 
+                lastPids, NATIVE_STACKS_OF_INTEREST);
+                
+        updateCpuStatsNow(); //第二次更新cpu统计信息
         //记录当前各个进程的CPU使用情况
         synchronized (mProcessCpuTracker) {
             cpuInfo = mProcessCpuTracker.printCurrentState(anrTime);
@@ -134,19 +147,19 @@ tags:
         
     }
 
-当发生ANR时, 会依次执行:
+当发生ANR时, 会按顺序依次执行:
 
 1. 输出ANR Reason信息;
-2. 收集并输出重要进程列表中的各个线程的traces信息; (比较耗时可能会长达10s)
-3. 输出当前各个进程的CPU使用情况以及CPU负载情况;
-4. 将traces文件 和 CPU使用率信息保存到dropbox，即data/system/dropbox目录
+2. 收集并输出重要进程列表中的各个线程的**traces信息**，该方法较耗时; 【见小节2】
+3. 输出当前各个进程的**CPU使用情况**以及CPU负载情况;
+4. 将traces文件和 CPU使用情况信息**保存到dropbox**，即data/system/dropbox目录
 5. 根据进程类型,来决定直接后台杀掉,还是弹框告知用户.
 
 ANR输出重要进程的traces信息，这些进程包含:
 
-- firstPids：第一个是发生ANR进程，第二个是system_server，剩余的全都是persistent进程；
-- NATIVE_STACKS_OF_INTEREST：是指/system/bin/目录下的mediaserver,sdcard,surfaceflinger这3个native进程。
-- lastPids: mLruProcesses中的不属于firstPids的所有进程
+- firstPids队列：第一个是ANR进程，第二个是system_server，剩余是所有persistent进程；
+- Native队列：是指/system/bin/目录的mediaserver,sdcard 以及surfaceflinger进程；
+- lastPids队列: 是指mLruProcesses中的不属于firstPids的所有进程。
 
 ### 2. AMS.dumpStackTraces
 
@@ -193,7 +206,7 @@ ANR输出重要进程的traces信息，这些进程包含:
                     int num = firstPids.size();
                     for (int i = 0; i < num; i++) {
                         synchronized (observer) {
-                            //【见小节4】
+                            //向目标进程发送signal来输出traces
                             Process.sendSignal(firstPids.get(i), Process.SIGNAL_QUIT);
                             observer.wait(200);  //等待直到写关闭，或者200ms超时
                         }
@@ -208,13 +221,12 @@ ANR输出重要进程的traces信息，这些进程包含:
                 int[] pids = Process.getPidsForCommands(nativeProcs);
                 if (pids != null) {
                     for (int pid : pids) {
-                        //【见小节5】
+                        //输出native进程的trace【见小节4】
                         Debug.dumpNativeBacktraceToFile(pid, tracesPath);
                     }
                 }
             }
 
-            
             if (processCpuTracker != null) {
                 processCpuTracker.init();
                 System.gc();
@@ -255,19 +267,10 @@ ANR输出重要进程的traces信息，这些进程包含:
 3. 收集lastPids进程的stacks;；
   - 依次输出CPU使用率top 5的进程；
 
-这个过程中taces输出的方法: 对于Java进程则采用kill -3, 对于Native进程则调用dumpNativeBacktraceToFile.
-
-firstPids列表中的进程, 两个进程之间会休眠200ms, 可见persistent进程越多,则时间越长.
+**Tips:** firstPids列表中的进程, 两个进程之间会休眠200ms, 可见persistent进程越多,则时间越长.
 出top 5进程的traces过程中, 同样是间隔200ms, 另外进程使用情况的收集也是比较耗时.
 
-
-## 三. Native
-
-    frameworks/base/core/java/android/os/Debug.java
-    frameworks/base/core/jni/android_os_Debug.cpp
-    system/core/libcutils/debugger.c
-    
-### 5. dumpNativeBacktraceToFile
+### 4. dumpNativeBacktraceToFile
 Debug.dumpNativeBacktraceToFile(pid, tracesPath)经过JNI调用如下方法：
 
     static void android_os_Debug_dumpNativeBacktraceToFile(JNIEnv* env, jobject clazz,
@@ -292,14 +295,14 @@ Debug.dumpNativeBacktraceToFile(pid, tracesPath)经过JNI调用如下方法：
         if (lseek(fd, 0, SEEK_END) < 0) {
             fprintf(stderr, "lseek: %s\n", strerror(errno));
         } else {
-            //【见小节6】
+            //【见小节5】
             dump_backtrace_to_file(pid, fd);
         }
 
         close(fd);
     }
 
-### 6. dump_backtrace_to_file
+### 5. dump_backtrace_to_file
 [-> debugger.c]
 
     int dump_backtrace_to_file(pid_t tid, int fd) {
@@ -307,7 +310,7 @@ Debug.dumpNativeBacktraceToFile(pid, tracesPath)经过JNI调用如下方法：
     }
 
     int dump_backtrace_to_file_timeout(pid_t tid, int fd, int timeout_secs) {
-      //通过socket向服务端发送dump backtrace的请求【见小节7】
+      //通过socket向服务端发送dump backtrace的请求
       int sock_fd = make_dump_request(DEBUGGER_ACTION_DUMP_BACKTRACE, tid, timeout_secs);
       if (sock_fd < 0) {
         return -1;
@@ -329,36 +332,30 @@ Debug.dumpNativeBacktraceToFile(pid, tracesPath)经过JNI调用如下方法：
     }
 
 可见，这个过程主要是通过向debuggerd守护进程发送命令DEBUGGER_ACTION_DUMP_BACKTRACE， debuggerd收到该命令，在子进程中调用
-dump_backtrace()来输出backtrace.
+dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-trace/)。
 
-### 7. dump_backtrace
-[-> debuggerd/backtrace.cpp]
+## 二. 总结
 
-    void dump_backtrace(int fd, BacktraceMap* map, pid_t pid, pid_t tid,
-                        const std::set<pid_t>& siblings, std::string* amfd_data) {
-      log_t log;
-      log.tfd = fd;
-      log.amfd_data = amfd_data;
+触发ANR时系统会输出关键信息：
 
-      dump_process_header(&log, pid); //头部信息
-      dump_thread(&log, map, pid, tid);//【见小节5.3】
+1. ANR reason以及CPU使用情况信息，输出到main log;
+2. 获取重要进程trace信息，保存到/data/anr/traces.txt；
+    - Java进程的traces;
+    - Native进程的traces;
+3. 再将CPU使用情况和进程trace文件信息，再保存到/data/system/dropbox；
 
-      for (pid_t sibling : siblings) {
-        dump_thread(&log, map, pid, sibling);//【见小节5.3】
-      }
+整个过程中进程Trace的输出是最为核心的环节，Java和Native进程采用不同的策略，如下：
 
-      dump_process_footer(&log, pid);//尾部信息
-    }
+|进程类型|trace命令|文章|描述|
+|Java|kill -3 [pid]|[ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)|不适用于Native进程|
+|Native|debuggerd -b [pid]|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-trace/)|也适用于Java进程
 
-### 8. dump_thread
-[-> debuggerd/backtrace.cpp]
+说明：`kill -3`命令需要虚拟机的支持，所以无法输出Native进程traces.而`debuggerd -b [pid]`也可用于Java进程，但信息量远没有kill -3多。
+总之，ANR信息最为重要的是dropbox信息，比如system_server_anr。
 
-是由/proc/%d/maps解析而来的
+重要节点：
 
-http://gityuan.com/2016/06/15/android-debuggerd/
-
-### 其他
-
-- 提高性能的方法之一：setprop dalvik.vm.stack-trace-file ""
-- 提高trace效率， 增加白名单，有些进程并不放入firstPids ?? 可行乎
-- uncatchexception的修改
+- 进程名：cat /proc/<pid>/cmdline
+- 线程名：cat /proc/<tid>/comm
+- Kernel栈：cat /proc/[tid]/stack
+- Native栈： 解析/proc/%d/maps

@@ -9,19 +9,40 @@ tags:
 
 ---
 
+> 基于Android 6.0源码， 分析debuggerd守护进程的工作原理
+
+    /system/core/debuggerd/debuggerd.cpp
+    /system/core/debuggerd/tombstone.cpp
+    /system/core/debuggerd/backtrace.cpp
+    /system/core/debuggerd/arm/Machine.cpp
+    /system/core/debuggerd/arm64/Machine.cpp
+
+    /system/core/libcutils/debugger.c
+    /system/core/include/BacktraceMap.h
+    /system/core/libbacktrace/BacktraceMap.cpp
+    /system/core/libbacktrace/Backtrace.cpp
+
+    /bionic/linker/arch/arm/begin.S
+    /bionic/linker/linker.cpp
+    /bionic/linker/debugger.cpp
+
 ## 一、概述
 
 Android系统有监控程序异常退出的机制，这便是本文要讲述得debuggerd守护进程。当发生native crash或者主动调用debuggerd时，会输出进程相关的状态信息到文件或者控制台。输出的debuggerd数据
-保存在文件`/data/tombstones/tombstone_XX`，该类型文件个数上限位10个，当超过时则每次覆盖时间最老的文件。针对进程出现的不同的状态，Linux kernel会发送相应的signal给异常进程，捕获signal并对其做相应的处理（通常动作是退出异常进程）。而Android在这机制的前提下，通过拦截这些信号来dump进程信息，方便开发人员调试分析。
+保存在文件`/data/tombstones/tombstone_XX`，该类型文件个数上限位10个，当超过时则每次覆盖时间最老的文件。
 
-debuggerd守护进程会打开socket服务端，当需要调用debuggerd服务时，先通过客户端进程向debuggerd服务端建立socket连接，然后发送不同的请求给debuggerd服务端，当服务端收到不同的请求，则会采取相应的dump操作。接下来从源码角度来探索debuggerd客户端和服务端的工作原理。
+针对进程出现的不同的状态，Linux kernel会发送相应的signal给异常进程，捕获signal并对其做相应的处理（通常动作是退出异常进程）。而Android在这机制的前提下，通过拦截这些信号来dump进程信息，方便开发人员调试分析。
+
+debuggerd守护进程会打开socket服务端，当需要调用debuggerd服务时，先通过客户端进程向debuggerd服务端建立socket连接，然后发送不同的请求给debuggerd服务端，当服务端收到不同的请求，则会采取相应的dump操作。
+
+接下来从源码角度来探索debuggerd客户端和服务端的工作原理。
 
 ## 二、debuggerd客户端
 
     debuggerd -b <tid>
     debuggerd <tid>
 
-通过adb执行上面的命令都能触发debuggerd进行相应的dump操作，其中参数-b`表示在控制台中输出backtrace，参数tid表示的是需要dump的进程或者线程id。这两个命令的输出结果相差较大，下面来一步步分析看看这两个命令分别能触发哪些操作，执行上述任一命令都会调用debuggerd的main方法()。
+通过adb执行上面的命令都能触发debuggerd进行相应的dump操作，其中参数`-b`表示在控制台中输出backtrace，参数tid表示的是需要dump的进程或者线程id。这两个命令的输出结果相差较大，下面来一步步分析看看这两个命令分别能触发哪些操作，执行上述命令都会调用debuggerd的main方法()。
 
 ### 2.1 main
 
@@ -843,28 +864,17 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
 4. 调用BacktraceMap::Create来生成backtrace;
 5. 当Action=`DEBUGGER_ACTION_CRASH`，则执行activity_manager_connect；
 6. 调用drop_privileges来取消特权模式；
-7. 通过perform_dump执行dump操作；
-    - SIGSTOP && `DEBUGGER_ACTION_DUMP_TOMBSTONE`，则`engrave_tombstone`()
+7. 通过perform_dump执行dump操作：【见小节3.6.4】
     - SIGSTOP && `DEBUGGER_ACTION_DUMP_BACKTRACE`，则`dump_backtrace`()
-    - `SIGBUS等`致命信号，则`engrave_tombstone`()
+    - SIGSTOP && `DEBUGGER_ACTION_DUMP_TOMBSTONE`，则`engrave_tombstone`()
+    - SIGBUS等致命信号，则`engrave_tombstone`()
 8. 当Action=`DEBUGGER_ACTION_DUMP_TOMBSTONE`，则将向client端写入tombstone数据；
 9. 调用activity_manager_write，将进程crash情况告知AMS；
 10. 调用ptrace方法detach到目标进程;
 11. 当Action=`DEBUGGER_ACTION_CRASH`，发送信号SIGKILL给目标进程tid
 12. 调用exit来结束进程。
 
-**可知：**
-
-`debuggerd -b <tid>`:  
-发送请求的action为`DEBUGGER_ACTION_DUMP_BACKTRACE`，则调用`dump_backtrace()`;
-
-`debuggerd <tid>`:
-发送请求的action为`DEBUGGER_ACTION_DUMP_TOMBSTONE`，则调用`engrave_tombstone()`;
-
-`native crash`:
-发送请求的action为`DEBUGGER_ACTION_CRASH`，且发送信号为SIGBUS等致命信号，则调用`engrave_tombstone()`。
-
-再接下来，需要重点看看`engrave_tombstone`和`dump_backtrace`这两个方法。
+整个过程中，【见小节3.6.4】perform_dump是核心过程：对于DEBUGGER_ACTION_DUMP_BACKTRACE命令，则执行`dump_backtrace`；否则执行`engrave_tombstone`。接下来分别说说这两个过程
 
 ## 四、tombstone
 
@@ -1428,210 +1438,38 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
 **engrave_tombstone**主要输出信息：
 
 - dump_header_info
-- 主线程dump_thread
+- 主线程dump_thread 【见小节4.7.1】
 - dump_logs (ro.debuggable=1 才输出此项)
-- 兄弟线程dump_thread
+- 兄弟线程dump_thread 见小节4.7.2】
 - dump_logs (ro.debuggable=1 才输出此项)
 
-**主线程dump_thread**
+#### 4.7.1 主线程dump_thread
 
 1. build相关头信息；
-2. **线程相关信息，包含pid/tid以及相应name**
+2. 线程相关信息，包含pid/tid以及相应name
 3. signal相关信息，包含fault address
-4. **寄存器状态**
-5. **backtrace**
-6. **stack**
+4. 寄存器状态
+5. backtrace
+6. stack
 7. memory near
 8. code around
 9. memory map
 
-其中加粗项2，4，5，6只是兄弟线程调用dump_thread也会输出的内容，其他项便只有主线程才会输出。
+#### 4.7.2 兄弟线程dump_thread
 
-## 五、 backtrace
+2. 线程相关信息，包含pid/tid以及相应name
+4. 寄存器状态
+5. backtrace
+6. stack
 
-### 5.1 dump_backtrace
-
-[-> debuggerd/backtrace.cpp]
-
-    void dump_backtrace(int fd, BacktraceMap* map, pid_t pid, pid_t tid,
-                        const std::set<pid_t>& siblings, std::string* amfd_data) {
-      log_t log;
-      log.tfd = fd;
-      log.amfd_data = amfd_data;
-
-      dump_process_header(&log, pid); //【见小节5.2】
-      dump_thread(&log, map, pid, tid);//【见小节5.3】
-
-      for (pid_t sibling : siblings) {
-        dump_thread(&log, map, pid, sibling);//【见小节5.3】
-      }
-
-      dump_process_footer(&log, pid);//【见小节5.4】
-    }
-
-### 5.2 dump_process_header
-[-> debuggerd/backtrace.cpp]
-
-    static void dump_process_header(log_t* log, pid_t pid) {
-      char path[PATH_MAX];
-      char procnamebuf[1024];
-      char* procname = NULL;
-      FILE* fp;
-
-      //获取/proc/<pid>/cmdline节点的进程名
-      snprintf(path, sizeof(path), "/proc/%d/cmdline", pid);
-      if ((fp = fopen(path, "r"))) {
-        procname = fgets(procnamebuf, sizeof(procnamebuf), fp);
-        fclose(fp);
-      }
-
-      time_t t = time(NULL);
-      struct tm tm;
-      localtime_r(&t, &tm);
-      char timestr[64];
-      strftime(timestr, sizeof(timestr), "%F %T", &tm);
-      _LOG(log, logtype::BACKTRACE, "\n\n----- pid %d at %s -----\n", pid, timestr);
-
-      if (procname) {
-        _LOG(log, logtype::BACKTRACE, "Cmd line: %s\n", procname);
-      }
-      _LOG(log, logtype::BACKTRACE, "ABI: '%s'\n", ABI_STRING);
-    }
-
-例如：
-
-    ----- pid 1789 at 2016-06-16 23:31:00 -----
-    Cmd line: system_server
-    ABI: 'arm'
-
-### 5.3 dump_thread
-[-> debuggerd/backtrace.cpp]
-
-    static void dump_thread(log_t* log, BacktraceMap* map, pid_t pid, pid_t tid) {
-      char path[PATH_MAX];
-      char threadnamebuf[1024];
-      char* threadname = NULL;
-      FILE* fp;
-
-      //获取/proc/<tid>/comm节点的线程名
-      snprintf(path, sizeof(path), "/proc/%d/comm", tid);
-      if ((fp = fopen(path, "r"))) {
-        threadname = fgets(threadnamebuf, sizeof(threadnamebuf), fp);
-        fclose(fp);
-        if (threadname) {
-          size_t len = strlen(threadname);
-          if (len && threadname[len - 1] == '\n') {
-              threadname[len - 1] = '\0';
-          }
-        }
-      }
-
-      _LOG(log, logtype::BACKTRACE, "\n\"%s\" sysTid=%d\n", threadname ? threadname : "<unknown>", tid);
-
-      std::unique_ptr<Backtrace> backtrace(Backtrace::Create(pid, tid, map));
-      if (backtrace->Unwind(0)) {
-        dump_backtrace_to_log(backtrace.get(), log, "  ");
-      }
-    }
-
-**输出backtrace信息**
-
-#### 5.3.1 dump_backtrace_to_log
-
-[-> debuggerd/Backtrace.cpp]
-
-    void dump_backtrace_to_log(Backtrace* backtrace, log_t* log, const char* prefix) {
-      for (size_t i = 0; i < backtrace->NumFrames(); i++) {
-        _LOG(log, logtype::BACKTRACE, "%s%s\n", prefix, backtrace->FormatFrameData(i).c_str());
-      }
-    }
-
-backtrace->NumFrames()是指该backtrace中栈帧数,通过循环遍历输出每一栈帧FormatFrameData的信息.
-
-    std::string Backtrace::FormatFrameData(size_t frame_num) {
-      if (frame_num >= frames_.size()) {
-        return "";
-      }
-      return FormatFrameData(&frames_[frame_num]);
-    }
+兄弟线程调用dump_thread也会输出的内容其实是主线程dump的第2，4，5，6项目。
 
 
-    std::string Backtrace::FormatFrameData(const backtrace_frame_data_t* frame) {
-      const char* map_name;
-      if (BacktraceMap::IsValid(frame->map) && !frame->map.name.empty()) {
-        map_name = frame->map.name.c_str();
-      } else {
-        map_name = "<unknown>";
-      }
-
-      uintptr_t relative_pc = BacktraceMap::GetRelativePc(frame->map, frame->pc);
-      //这便是,平时大家看到的backtrace每一行的信息
-      std::string line(StringPrintf("#%02zu pc %" PRIPTR "  %s", frame->num, relative_pc, map_name));
-      // Special handling for non-zero offset maps, we need to print that
-      // information.
-      if (frame->map.offset != 0) {
-        line += " (offset " + StringPrintf("0x%" PRIxPTR, frame->map.offset) + ")";
-      }
-      if (!frame->func_name.empty()) {
-        line += " (" + frame->func_name;
-        if (frame->func_offset) {
-          line += StringPrintf("+%" PRIuPTR, frame->func_offset);
-        }
-        line += ')';
-      }
-
-      return line;
-    }
-
-//栈帧数 pc指针 map_name (函数名+offset)  
- #01 pc 000000000001cca4  /system/lib64/libc.so (epoll_pwait+32)
-
-这些map信息是由/proc/%d/maps解析出来的
-
-#### 5.3.2 实例
-
-    ----- pid 9613 at 2016-08-31 09:36:58 -----
-    Cmd line: com.android.camera
-    ABI: 'arm64'
-
-    ".android.camera" sysTid=9613
-      #00 pc 0000000000069be4  /system/lib64/libc.so (__epoll_pwait+8)
-      #01 pc 000000000001cca4  /system/lib64/libc.so (epoll_pwait+32)
-      #02 pc 000000000001ad74  /system/lib64/libutils.so (_ZN7android6Looper9pollInnerEi+144)
-      #03 pc 000000000001b154  /system/lib64/libutils.so (_ZN7android6Looper8pollOnceEiPiS1_PPv+80)
-      #04 pc 00000000000d29a0  /system/lib64/libandroid_runtime.so (_ZN7android18NativeMessageQueue8pollOnceEP7_JNIEnvP8_jobjecti+48)
-      #05 pc 00000000742a282c  /data/dalvik-cache/arm64/system@framework@boot.oat (offset 0x2499000)
-
-      ...
-
-debuggerd -b命令,参数虽然指定tid,但输出结果会把整个线程组的backtrace都打印出来(上面只是省略).
-
-
-### 5.4 dump_process_footer
-[-> debuggerd/backtrace.cpp]
-
-    static void dump_process_footer(log_t* log, pid_t pid) {
-      _LOG(log, logtype::BACKTRACE, "\n----- end %d -----\n", pid);
-    }
-
-例如：`----- end 1789 -----`
-
-### 5.5 小结
-
-backtrace输出信息：
-
-- dump_process_header
-- 主线程backtrace
-- 兄弟线程backtrace
-- dump_process_footer
-
- 可见dump_backtrace主要输出主线程与兄弟线程的backtrace，而dump_tombstone的信息量远比其丰富。
-
-## 六、实例
+## 五、实例
 
 这里是dump_tombstone文件内容的组成：
 
-### 6.1 文件头信息
+### 5.1 文件头信息
 
     *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
     //【见小节4.3】dump_header_info
@@ -1639,7 +1477,7 @@ backtrace输出信息：
     Revision: '0'
     ABI: 'arm'
 
-### 6.2 主线程dump_thread
+### 5.2 主线程dump_thread
 
 
     //【见小节4.4.1】dump_thread_info
@@ -1670,7 +1508,7 @@ backtrace输出信息：
     memory map:
     //【见小节4.5】dump_logs
 
-###  6.3 兄弟线程dump_thread
+###  5.3 兄弟线程dump_thread
 
     --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
     //【见小节4.4.1】dump_thread_info
@@ -1691,27 +1529,13 @@ backtrace输出信息：
 
 所有兄弟线程是以一系列`---`作为开头的分割符。
 
-## 总结
+## 六. 总结
 
 这里主要以源码角度来分析debuggerd的原理，整个过程中最重要的产物便是tombstone文件，先留坑，后续再进一步讲述如何分析tombstone文件。
 
-- 对于`debuggerd -b`,则只输出backtrace,核心方法是`debuggerd/tombstone.cpp` 中的dump_thread();
-- 对于`debuggerd`或者`native crash`, 输出信息量比较大,核心方法是`debuggerd/backtrace.cpp` 中的 dump_thread();
-
-
-## 相关源码
-
-    /system/core/debuggerd/debuggerd.cpp
-    /system/core/debuggerd/tombstone.cpp
-    /system/core/debuggerd/backtrace.cpp
-    /system/core/debuggerd/arm/Machine.cpp
-    /system/core/debuggerd/arm64/Machine.cpp
-
-    /system/core/libcutils/debugger.c
-    /system/core/include/BacktraceMap.h
-    /system/core/libbacktrace/BacktraceMap.cpp
-    /system/core/libbacktrace/Backtrace.cpp
-
-    /bionic/linker/arch/arm/begin.S
-    /bionic/linker/linker.cpp
-    /bionic/linker/debugger.cpp
+- `debuggerd -b <tid>`:  
+发送请求的action为`DEBUGGER_ACTION_DUMP_BACKTRACE`，则调用`dump_backtrace()`;[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)
+- `debuggerd <tid>`:
+发送请求的action为`DEBUGGER_ACTION_DUMP_TOMBSTONE`，则调用`engrave_tombstone()`;
+- `native crash`:
+发送请求的action为`DEBUGGER_ACTION_CRASH`，且发送信号为SIGBUS等致命信号，则调用`engrave_tombstone()`。

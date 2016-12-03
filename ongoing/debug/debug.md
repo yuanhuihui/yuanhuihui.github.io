@@ -8,35 +8,6 @@ Xiaomi/gemini/gemini:6.0.1/MXB48T/6.6.4:user/release-keys
 [ 2559.728031] gic_show_resume_irq: 200 triggered qcom,smd-rpm
 
 
-
-
-
-至此， 我们可以很清楚的 解析 trace文件中 thread信息的含义了：
-1. 第一行是 固定的头, 指明下面的都是 当前运行的 dvm thread ：“DALVIK THREADS:”
-2. 第二行输出的是该 进程里各种线程互斥量的值。（具体的互斥量的作用在 dalvik 线程一章 单独陈述）
-3. 第三行输出分别是 线程的名字（“main”），线程优先级（“prio=5”），线程id（“tid=1”） 以及线程的 类型（“NATIVE”）
-4. 第四行分别是线程所述的线程组 （“main”），线程被正常挂起的次处（“sCount=1”），线程因调试而挂起次数（”dsCount=0“），
-当前线程所关联的java线程对象（”obj=0x400246a0“）以及该线程本身的地址（“self=0x12770”）。
-
-5. 第五行 显示 线程调度信息。 分别是该线程在linux系统下得本地线程id （“ sysTid=503”），
-线程的调度有优先级（“nice=0”），调度策略（sched=0/0），
-优先组属（“cgrp=default”）以及 处理函数地址（“handle=-1342909272”）
-
-6 第六行 显示更多该线程当前上下文，分别是 调度状态（从 /proc/[pid]/task/[tid]/schedstat读出）（“schedstat=( 15165039025 12197235258 23068 )”），
-以及该线程运行信息 ，它们是 线程用户态下使用的时间值(单位是jiffies）（“utm=182”）， 内核态下得调度时间值（“stm=1334”），以及最后运行改线程的cup标识（“core=0”）；
-
-7.后面几行输出 该线程 调用栈。
-
-
-2113833799 1469190352 6795
-2114541923 1469354832 6797
-2117451453 1470489571 6809
-
-| state=S schedstat=( 2207457456 1680147196 6979 ) utm=145 stm=75 core=4 HZ=100
-| state=S schedstat=( 2208407923 1680147196 6981 ) utm=145 stm=75 core=4 HZ=100
-| state=S schedstat=( 2208982923 1680230009 6983 ) utm=145 stm=75 core=7 HZ=100
-
-
 进程状态: R/S/D/T/Z/X
 
 R: Runnable
