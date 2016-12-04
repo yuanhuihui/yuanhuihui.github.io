@@ -1,7 +1,7 @@
---
+---
 layout: post
 title:  "bindService启动过程分析"
-date:   2016-03-13 23:10:28
+date:   2016-05-01 20:22:50
 catalog:  true
 tags:
     - android
@@ -9,7 +9,7 @@ tags:
 
 ---
 
-基于Android 6.0的源码剖析， 分析bind service的启动流程。
+> 基于Android 6.0的源码剖析， 分析bind service的启动流程。
 
     /frameworks/base/core/java/android/app/ContextImpl.java
     /frameworks/base/core/java/android/app/LoadedApk.java
@@ -28,7 +28,7 @@ startService的过程，本文介绍另一种通过bind方式来启动服务。
         String getBlog();
     }
     
-**远程服务进程**
+服务端（远程服务进程)
 
     public class RemoteService extends Service {
         ...
@@ -47,7 +47,7 @@ startService的过程，本文介绍另一种通过bind方式来启动服务。
         };
     }
     
-**发起端进程**
+Client端（发起端进程)
 
     private IRemoteService mBpRemoteService;
     
@@ -1076,134 +1076,44 @@ AppBindRecord对象记录着当前ServiceRecord,intent以及发起方的进程�
     }
 
 
-## 总结 调用链接
+## 八. 总结 
 
-CW.bindService
-    CI.bindService
-        CI.bindServiceCommon
-            AMP.bindService
-                AMS.bindService
-                    AS.bindServiceLocked
-                        AS.retrieveServiceLocked
-                        SR.retrieveAppBindingLocked
-                        AS.bringUpServiceLocked
-                            AS.realStartServiceLocked
-                                ATP.scheduleCreateService
-                                    AT.scheduleCreateService
-                                        AT.handleCreateService
-                                            Service.onCreate()
-                                            AMP.serviceDoneExecuting
-                                                AMS.serviceDoneExecuting
-                                requestServiceBindingsLocked
-                                    requestServiceBindingLocked
-                                         ATP.scheduleBindService
-                                             AT.scheduleBindService
-                                                AT.handleBindService
-                                                    Service.onBind()
-                                                    AMP.publishService
-                                                        AMS.publishService
-                                                            AS.publishServiceLocked
-                                                                IServiceConnection.Stub.Proxy.connected
-                                                                    InnerConnection.connected
-                                                                        ServiceDispatcher.connected
-                                                                            RunConnection.run
-                                                                                ServiceDispatcher.doConnected
-                                                                                    ServiceConnection.onServiceConnected
-                                                    AMP.serviceDoneExecuting
-                                                        AMS.serviceDoneExecuting
+调用链
+
+    CW.bindService
+        CI.bindService
+            CI.bindServiceCommon
+                AMP.bindService
+                    AMS.bindService
+                        AS.bindServiceLocked
+                            AS.retrieveServiceLocked
+                            SR.retrieveAppBindingLocked
+                            AS.bringUpServiceLocked
+                                AS.realStartServiceLocked
+                                    ATP.scheduleCreateService
+                                        AT.scheduleCreateService
+                                            AT.handleCreateService
+                                                Service.onCreate()
+                                                AMP.serviceDoneExecuting
+                                                    AMS.serviceDoneExecuting
+                                    requestServiceBindingsLocked
+                                        requestServiceBindingLocked
+                                             ATP.scheduleBindService
+                                                 AT.scheduleBindService
+                                                    AT.handleBindService
+                                                        Service.onBind()
+                                                        AMP.publishService
+                                                            AMS.publishService
+                                                                AS.publishServiceLocked
+                                                                    IServiceConnection.Stub.Proxy.connected
+                                                                        InnerConnection.connected
+                                                                            ServiceDispatcher.connected
+                                                                                RunConnection.run
+                                                                                    ServiceDispatcher.doConnected
+                                                                                        ServiceConnection.onServiceConnected
+                                                        AMP.serviceDoneExecuting
+                                                            AMS.serviceDoneExecuting
 
 整个过程中3个重要的对象 IServiceConnection.Stub.Proxy,AMP, ATP, Service.onBind对象
 
-## unbind过程分析
-
-### 1.unbind
-
-当service所在进程死亡后，binderDied死亡回调后触发的。
-
-#### 18.1 DeathMonitor.binderDied
-[-> LoadedApk.ServiceDispatcher.DeathMonitor]
-
-    private final class DeathMonitor implements IBinder.DeathRecipient
-    {
-        DeathMonitor(ComponentName name, IBinder service) {
-            mName = name;
-            mService = service;
-        }
-
-        public void binderDied() {
-            death(mName, mService); //【见流程18.2】
-        }
-
-        final ComponentName mName;
-        final IBinder mService;
-    }
-
-#### 18.2 ServiceDispatcher.death
-[-> LoadedApk.ServiceDispatcher]
-
-    public void death(ComponentName name, IBinder service) {
-        ServiceDispatcher.ConnectionInfo old;
-
-        synchronized (this) {
-            mDied = true;
-            old = mActiveConnections.remove(name);
-            if (old == null || old.binder != service) {
-                return;
-            }
-            old.binder.unlinkToDeath(old.deathMonitor, 0);
-        }
-
-        if (mActivityThread != null) {
-            //【见流程18.3】
-            mActivityThread.post(new RunConnection(name, service, 1));
-        } else {
-            doDeath(name, service);
-        }
-    }
-
-#### 18.3 RunConnection.run
-[-> LoadedApk.ServiceDispatcher.RunConnection]
-
-    private final class RunConnection implements Runnable {
-        RunConnection(ComponentName name, IBinder service, int command) {
-            mName = name;
-            mService = service;
-            mCommand = command;
-        }
-
-        public void run() {
-            if (mCommand == 0) {
-                doConnected(mName, mService);
-            } else if (mCommand == 1) {
-                doDeath(mName, mService); //【见流程18.4】
-            }
-        }
-    }
-
-#### 18.4 doDeath
-[-> LoadedApk.ServiceDispatcher]
-
-    public void doDeath(ComponentName name, IBinder service) {
-       //回调用户定义的onServiceDisconnected方法
-       mConnection.onServiceDisconnected(name);
-    }
-    
-### 19.其他
-
-用户主动调用unbind过程，主要功能是
-
-AMS.unbindService
-  AS.unbindServiceLocked
-    AS.removeConnectionLocked
-      ATP.scheduleUnbindService
-        AT.scheduleUnbindService
-          AT.handleUnbindService
-            Service.onUnbind
-      AS.bringDownServiceIfNeededLocked
-        AS.bringDownServiceLocked
-          ATP.scheduleUnbindService
-            AT.scheduleUnbindService
-          ATP.scheduleStopService
-            AT.scheduleStopService
-
-...未完...
+流程图，设计图，总结， 后续补充...
