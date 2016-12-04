@@ -1,7 +1,5 @@
-## 时间问题
-
+## 时间
 1. up time: 00:30:16, idle time: 00:29:30, sleep time: 00:02:41 (重点看up time)
-
 
 ## 一. Java Crash
 
@@ -26,63 +24,14 @@ app crash
     //[pid, UserId, 进程名, flags, Exception类, Exception内容, 抛异常文件名, 抛异常行号]
     am_crash: [16208,0,com.android.camera,952745541,java.lang.RuntimeException,getParameters failed (empty parameters),CameraManager.java,262]
 
-定义:
-
-    EventLog.writeEvent(EventLogTags.AM_CRASH,
-        Binder.getCallingPid(),
-        UserHandle.getUserId(Binder.getCallingUid()),
-        processName,
-        r == null ? -1 : r.info.flags,
-        crashInfo.exceptionClassName,
-        crashInfo.exceptionMessage,
-        crashInfo.throwFileName,
-        crashInfo.throwLineNumber);
-
 3. dropbox
 
 位于`/data/system/dropbox`
 
     system_server_crash
+    system_server_watchdog
     system_app_crash
     data_app_crash
-
-主要输出输出内容:
-
-- Process,flags, package等头信息；
-- stacktrace栈信息;
-
-
-**小结:system server crash关键词**
-
-    FATAL EXCEPTION IN SYSTEM PROCESS
-    system_server_crash
-
-
-## 二. Watchdog
-
-默认timeout=60s,调试时才为10s方便找出潜在的ANR问题
-
-输出内容项:
-
-    遍历输出阻塞线程的栈信息
-        AMS.dumpStackTraces
-            kill -3
-            backtrace.dump_backtrace()
-        dumpKernelStackTraces，输出kernel栈信息
-        doSysRq('l');
-        生成文件到dropBox,文件名system_server_watchdog前缀
-    杀死system_server
-
-输出文件:
-
-
-**小结:system server watchdog关键词**
-
-    WATCHDOG KILLING SYSTEM PROCESS
-    system_server_watchdog
-
-
-### 这里有几个问题, AMS.dumpStackTraces, dumpKernelStackTraces，doSysRq???
 
 ## 三. Native Crash
 
@@ -110,22 +59,27 @@ native程序(C/C++)出现异常时，kernel会发送相应的signal, 当进程�
 ## 四. 总结
 
 ### 4.1 system进程
-
 对于system_server异常需要关注的关键词:
 
 **Java Crash:**
-
     FATAL EXCEPTION IN SYSTEM PROCESS (位于system log)
     system_server_crash (位于dropbox)
 
 **watchdog:**
-
     WATCHDOG KILLING SYSTEM PROCESS (位于system log)
     system_server_watchdog  (位于dropbox)
 
 **Native Crash:**
-
     >>> system_server <<< (位于tombstone)
+
+小结： 无论是ANR，还是Watchdog，最重要的信息是查看dropbox。
+
+其他关键词：
+
+ANR in system
+beginning  of crash
+FATAL EXCEPTION
+
 
 ### 4.2 普通进程
 
@@ -141,7 +95,47 @@ native程序(C/C++)出现异常时，kernel会发送相应的signal, 当进程�
     >>>   (位于tombstone)
 
 
+## Kernel debug
 
+http://wiki.mioffice.cn/xmg/Debug_kernel
+
+http://wiki.mioffice.cn/xmg/Power_up_reason
+
+## 项目
+
+### 途径1
+
+/data/anr/traces.txt.report 这个抓bugreport时生成的 (现抓的)
+/data/anr/traces.txt 这是上次发生anr时抓取的 (这个重点看)
+
+### 途径2
+
+/data/dropbox/system_server_anr之类
+
+bugreport关键词: DUMP OF SERVICE dropbox:
+
+### 一、reboot
+
+#### dumpsys_all
+
+Kernel reboot
+kpanic
+Internal error
+
+#### lask_kernel
+
+Internal error
+Kernel panic
+
+#### current_kernel
+
+Powerup reason
+
+
+#### 小技巧
+
+1. 查看uptime，来判断是上层重启，还是底层重启
+2. 查看zygote, system_server的pid，大于10000，基本上是发生了framework重启
 
 ## 其他
 
@@ -227,3 +221,33 @@ cat bugreport_1472203656562.log | egrep "force acquire UnstableProvider|acquire 
 DEBUG : timed out waiting for stop signal: tid=7601
 DEBUG : detach failed: tid 7601, No such process
 debuggerd committing suicide to free the zombie
+
+
+## getprop
+[ro.product.mod_device]: [gemini_alpha]
+[ro.product.model]: [MI 5]
+
+灭屏
+01-18 04:22:08.869  2082  2082 I WindowManager: Started going to sleep... (why=2)
+01-18 04:22:09.184  2082  2082 I WindowManager: Finished going to sleep... (why=2)
+01-18 04:22:09.201  2082  2082 V LocationPolicy: Screen state changed
+
+PowerManagerService: Going to sleep due to power button
+PowerManagerService: Sleeping
+
+亮屏
+01-18 04:22:10.188  2082  2082 I WindowManager: Started waking up...
+01-18 04:22:10.188  2082  2082 V KeyguardServiceDelegate: onStartedWakingUp()
+01-18 04:22:10.216  2082  2082 V LocationPolicy: Screen state changed
+01-18 04:22:10.264  2082  2082 I WindowManager: Finished waking up...
+
+PowerManagerService: Waking up from sleep
+
+灭屏:
+
+
+调试技巧:
+
+输出不包含的log:
+
+adb logcat -b events | egrep -v "am_pss|sysui_|am_broadcast"

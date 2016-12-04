@@ -1,23 +1,27 @@
-Xiaomi/gemini/gemini:6.0.1/MXB48T/6.6.4:user/release-keys
-[ro.product.mod_device]: [gemini_alpha]
-[ro.product.model]: [MI 5]
+### 命令
+
+/proc/locks 内核锁住的文件列表
+
+系统允许打开的最大文件数: sysctl -a | grep fs.file-max
+
+单进程允许打开的最大文件数: ulimit -n  (一般为1024)
+
+http://www.cnblogs.com/vinozly/p/5699147.html
+
+### 掉帧
+
+showmap
+
+dumpsys gfxinfo com.miui.home
 
 
-[ 2559.728031] gic_show_resume_irq: 178 triggered wcnss_wlan
-[ 2559.728031] Resume caused by IRQ 178, wcnss_wlan
-[ 2559.728031] gic_show_resume_irq: 200 triggered qcom,smd-rpm
+### logcat
 
+LogBufferElement::populateDroppedMessage
 
-进程状态: R/S/D/T/Z/X
+http://blog.csdn.net/kc58236582/article/details/51506896
 
-R: Runnable
-S: TimedWaiting, Native, Waiting, Blocked, Sleeping, not attached
-
-TimedWaiting: Object.wait(timeout)
-Waiting: Object.wait()
-Sleeping:  Thread.sleep()
-Blocked: 等待持有某个锁
-
+chatty这样的log，那就是删除了log最多的那个uid的log。而且会合并。
 
 ### kernel log打印级别
 
@@ -39,35 +43,4 @@ Blocked: 等待持有某个锁
 #define KERN_WARNING              "<4>"        /* 告警级：警告条件，对可能出现问题的情况进行警告   */
 #define KERN_NOTICE                  "<5>"        /* 注意级：正常但又重要的条件，用于提醒                                   */
 #define KERN_INFO                       "<6>"         /* 通知级：提示信息，如驱动程序启动时，打印硬件信息   */
-#define KERN_DEBUG                   "<7>"        /* 调试级：调试级别的信息                                                    */
-
-
-SystemServer: Entered the Android system server!
-
-init: Starting
-init: Service
-
-
-### 可以查看 dumpsys all里面的 DUMP OF SERVICE dropbox:
-
-
-
-### 命令
-
-/proc/locks 内核锁住的文件列表
-
-系统允许打开的最大文件数: sysctl -a | grep fs.file-max
-
-单进程允许打开的最大文件数: ulimit -n  (一般为1024)
-
-http://www.cnblogs.com/vinozly/p/5699147.html
-
-
-亮屏:
-
-PowerManagerService: Waking up from sleep
-
-灭屏:
-
-PowerManagerService: Going to sleep due to power button
-PowerManagerService: Sleeping
+#define KERN_DEBUG                   "<7>"        /* 调试级：调试级别的信息      

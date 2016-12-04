@@ -78,8 +78,3 @@ vmstat
 ### process
 
 dumpsys procstats
-
-
-### 杀进程
-
-Process.killProcessGroup（uid, pid）;

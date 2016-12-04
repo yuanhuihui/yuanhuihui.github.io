@@ -57,10 +57,10 @@ Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 #### 2.4 Framework层
 
 - Zygote进程，是由init进程通过解析init.rc文件后fork生成的，Zygote进程主要包含：
-	- 加载ZygoteInit类，注册Zygote Socket服务端套接字；
-	- 加载虚拟机；
-	- preloadClasses；
-	- preloadResouces。
+  - 加载ZygoteInit类，注册Zygote Socket服务端套接字；
+  - 加载虚拟机；
+  - preloadClasses；
+  - preloadResouces。
 - System Server进程，是由Zygote进程fork而来，`System Server是Zygote孵化的第一个进程`，System Server负责启动和管理整个Java framework，包含ActivityManager，PowerManager等服务。
 - Media Server进程，是由init进程fork而来，负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service，等服务。
 
@@ -186,8 +186,8 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - [Android系统启动—init篇](http://gityuan.com/2016/02/05/android-init/)
 - [Android系统启动—Zygote篇](http://gityuan.com/2016/02/13/android-zygote/)
 - Android系统启动—SystemServer篇
-	- [SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)
-	- [SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)
+  - [SystemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)
+  - [SystemServer下篇](http://gityuan.com/2016/02/20/android-system-server-2/)
 - 守护进程(进程名一般以d为后缀，比如logd)
   - [debuggerd](http://gityuan.com/2016/06/15/android-debuggerd/)
   - [installd](http://gityuan.com/2016/11/13/android-installd)
@@ -197,14 +197,14 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
 - Android服务篇-ActivityManagerService
-	- [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
-	- [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
+  - [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
+  - [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
 - Android服务篇-PackageManagerService
   - [PackageManager启动篇](http://gityuan.com/2016/11/06/packagemanagerservice)
   - [Installd守护进程](http://gityuan.com/2016/11/13/android-installd)
 - Android服务篇-WindowManagerService
 - Android服务篇-BatteryService
-	- [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
+  - [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
 - Android服务篇-PowerManagerService
 - Android服务篇-DropBoxManagerService
   - [DropBoxManager启动篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
@@ -214,16 +214,17 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：
 
 - Android组件-Activity
-	- [startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
+  - [startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
   - [简述Activity生命周期](http://gityuan.com/2016/03/18/start-activity-cycle/)
 - Android组件-Service
-	- [startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
-    - [以Binder视角来看Service启动](http://gityuan.com/2016/09/04/binder-start-service/)
+  - [startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
+  - [bindService启动过程分析](http://gityuan.com/2016/05/01/bind-service/)
+  - [以Binder视角来看Service启动](http://gityuan.com/2016/09/04/binder-start-service/)
 - Android组件-Broadcast Receiver
-    - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
+  - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
 - Android组件-Content Provider
-    - [理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)
-    - [ContentProvider引用计数](http://gityuan.com/2016/11/19/content_provider_release/)
+  - [理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)
+  - [ContentProvider引用计数](http://gityuan.com/2016/11/19/content_provider_release/)
 
 #### 4.5 系统分析篇
 Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理流程,才能再进一步分析具体问题. 这里先展开原理篇.
@@ -243,7 +244,7 @@ Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理�
 
 - 内存篇
     - [Android LowMemoryKiller原理分析](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
-	- [Linux内存管理](http://gityuan.com/2015/10/30/kernel-memory/)
+  - [Linux内存管理](http://gityuan.com/2015/10/30/kernel-memory/)
 - 存储篇
     - [Android存储系统之源码篇](http://gityuan.com/2016/07/17/android-io/)
     - [Android存储系统之架构篇](http://gityuan.com/2016/07/23/android-io-arch)

@@ -97,6 +97,9 @@ LOG_THREADPOOL("**** THREAD %p (PID %d) IS LEAVING THE THREAD POOL err=%p\n",
 
 
 checkTime?? 跟进程启动类似
+
+watchdog, 半路输出一次trace
+
 ### 分析
 
 

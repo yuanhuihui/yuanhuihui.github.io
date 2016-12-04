@@ -45,4 +45,4 @@ http://ota.pt.miui.com/?r=eng&dir=/symbols
 
 3. 注意
 
-对于kernel来说都是vmlinux来获取的
+对于kernel来说都是通过vmlinux来获取的
