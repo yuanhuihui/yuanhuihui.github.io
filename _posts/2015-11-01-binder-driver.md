@@ -617,6 +617,8 @@ BINDER_LOOPER_STATE_INVALID: 当binder_thread创建过程状态不正确时会�
 |kuid_t    |sender_euid|发送端uid
 
 - debug_id：是一个全局静态变量，每当创建一个`binder_transaction`或`binder_node`或`binder_ref`对象，则++debug_id
+- from与to_thread是一对，分别是发送端线程和接收端线程；
+- from_parent与to_parent是一对，分别是上一个和下一个binder_transaction，组成一个链表。
 
 ### 3.6 binder_write_read
 用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。

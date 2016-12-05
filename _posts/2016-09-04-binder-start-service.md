@@ -527,8 +527,9 @@ transact主要过程:
             if ((err=talkWithDriver()) < NO_ERROR) break; // 【见小节2.11】
             err = mIn.errorCheck();
             if (err < NO_ERROR) break; //当存在error则退出循环
-
-            if (mIn.dataAvail() == 0) continue;  //mIn有数据则往下执行
+            
+             //每当跟Driver交互一次，若mIn收到数据则往下执行一次BR命令
+            if (mIn.dataAvail() == 0) continue; 
 
             cmd = mIn.readInt32();
 
@@ -537,13 +538,14 @@ transact主要过程:
                 //只有当不需要reply, 也就是oneway时 才会跳出循环,否则还需要等待.
                 if (!reply && !acquireResult) goto finish; break;
 
-            case BR_DEAD_REPLY: ...           goto finish;
-            case BR_FAILED_REPLY: ...         goto finish;
-            case BR_REPLY: ...                goto finish;
-
+            case BR_DEAD_REPLY: 
+                err = DEAD_OBJECT;         goto finish;
+            case BR_FAILED_REPLY: 
+                err = FAILED_TRANSACTION;  goto finish;
+            case BR_REPLY: ...             goto finish;
 
             default:
-                err = executeCommand(cmd);  //【见小节2.10.1】
+                err = executeCommand(cmd);  //【见小节2.12】
                 if (err != NO_ERROR) goto finish;
                 break;
             }
@@ -556,42 +558,17 @@ transact主要过程:
         return err;
     }
 
-在这个过程中, 常见的几个BR_命令:
+在这个过程中, 收到以下任一BR_命令，处理后便会退出waitForResponse()的状态:
 
 - BR_TRANSACTION_COMPLETE: binder驱动收到BC_TRANSACTION事件后的应答消息; 对于oneway transaction,当收到该消息,则完成了本次Binder通信;
 - BR_DEAD_REPLY: 回复失败，往往是线程或节点为空. 则结束本次通信Binder;
 - BR_FAILED_REPLY:回复失败，往往是transaction出错导致. 则结束本次通信Binder;
 - BR_REPLY: Binder驱动向Client端发送回应消息; 对于非oneway transaction时,当收到该消息,则完整地完成本次Binder通信;
 
-**规律:** BC_TRANSACTION +  BC_REPLY =  BR_TRANSACTION_COMPLETE +  BR_DEAD_REPLY +  BR_FAILED_REPLY
+除了以上命令，其他命令的处理流程【见小节2.12】
 
-#### 2.10.1  IPC.executeCommand
-
-    status_t IPCThreadState::executeCommand(int32_t cmd)
-    {
-        BBinder* obj;
-        RefBase::weakref_type* refs;
-        status_t result = NO_ERROR;
-
-        switch ((uint32_t)cmd) {
-        case BR_ERROR: ...
-        case BR_OK: ...
-        case BR_ACQUIRE: ...
-        case BR_RELEASE: ...
-        case BR_INCREFS: ...
-        case BR_TRANSACTION: ... //Binder驱动向Server端发送消息
-        case BR_DEAD_BINDER: ...
-        case BR_CLEAR_DEATH_NOTIFICATION_DONE: ...
-        case BR_NOOP: ...
-        case BR_SPAWN_LOOPER: ... //创建新binder线程
-        default: ...
-        }
-    }
-
-处于剩余的BR_命令.
 
 ### 2.11  IPC.talkWithDriver
-
 
     //mOut有数据，mIn还没有数据。doReceive默认值为true
     status_t IPCThreadState::talkWithDriver(bool doReceive)
@@ -620,7 +597,7 @@ transact主要过程:
         bwr.read_consumed = 0;
         status_t err;
         do {
-            //ioctl不停的读写操作，经过syscall，进入Binder驱动。调用Binder_ioctl【小节3.1】
+            //ioctl执行binder读写操作，经过syscall，进入Binder驱动。调用Binder_ioctl【小节3.1】
             if (ioctl(mProcess->mDriverFD, BINDER_WRITE_READ, &bwr) >= 0)
                 err = NO_ERROR;
             else
@@ -645,7 +622,32 @@ transact主要过程:
     }
 
 
-[binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。 ioctl()方法经过syscall最终调用到Binder_ioctl()方法.
+[binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。 
+
+### 2.12  IPC.executeCommand
+
+    status_t IPCThreadState::executeCommand(int32_t cmd)
+    {
+        BBinder* obj;
+        RefBase::weakref_type* refs;
+        status_t result = NO_ERROR;
+
+        switch ((uint32_t)cmd) {
+        case BR_ERROR: ...
+        case BR_OK: ...
+        case BR_ACQUIRE: ...
+        case BR_RELEASE: ...
+        case BR_INCREFS: ...
+        case BR_TRANSACTION: ... //Binder驱动向Server端发送消息
+        case BR_DEAD_BINDER: ...
+        case BR_CLEAR_DEATH_NOTIFICATION_DONE: ...
+        case BR_NOOP: ...
+        case BR_SPAWN_LOOPER: ... //创建新binder线程
+        default: ...
+        }
+    }
+
+再回到【小节2.11】，可知ioctl()方法经过syscall最终调用到Binder_ioctl()方法.
 
 ## 三、Binder driver
 
@@ -848,7 +850,7 @@ transact主要过程:
         t->flags = tr->flags;  // 此次通信flags = 0
         t->priority = task_nice(current);
 
-        //从目标进程中分配内存空间
+        //从目标进程target_proc中分配内存空间
         t->buffer = binder_alloc_buf(target_proc, tr->data_size,
             tr->offsets_size, !reply && (t->flags & TF_ONE_WAY));
 
@@ -861,8 +863,10 @@ transact主要过程:
         offp = (binder_size_t *)(t->buffer->data + ALIGN(tr->data_size, sizeof(void *)));
 
         //分别拷贝用户空间的binder_transaction_data中ptr.buffer和ptr.offsets到内核
-        copy_from_user(t->buffer->data, (const void __user *)(uintptr_t)tr->data.ptr.buffer, tr->data_size);
-        copy_from_user(offp, (const void __user *)(uintptr_t)tr->data.ptr.offsets, tr->offsets_size);
+        copy_from_user(t->buffer->data, 
+            (const void __user *)(uintptr_t)tr->data.ptr.buffer, tr->data_size);
+        copy_from_user(offp, 
+            (const void __user *)(uintptr_t)tr->data.ptr.offsets, tr->offsets_size);
 
         off_end = (void *)offp + tr->offsets_size;
 
@@ -900,14 +904,15 @@ transact主要过程:
         }
 
         if (reply) {
+            //BC_REPLY的过程
             binder_pop_transaction(target_thread, in_reply_to);
         } else if (!(t->flags & TF_ONE_WAY)) {
-            //非reply 且 非oneway,则设置事务栈信息
+            //BC_TRANSACTION 且 非oneway,则设置事务栈信息
             t->need_reply = 1;
             t->from_parent = thread->transaction_stack;
             thread->transaction_stack = t;
         } else {
-            //非reply 且 oneway,则加入异步todo队列
+            //BC_TRANSACTION 且 oneway,则加入异步todo队列
             if (target_node->has_async_transaction) {
                 target_list = &target_node->async_todo;
                 target_wait = NULL;
@@ -915,18 +920,19 @@ transact主要过程:
                 target_node->has_async_transaction = 1;
         }
 
-        //将新事务添加到目标队列
+        //将BINDER_WORK_TRANSACTION添加到目标队列，本次通信的目标队列为target_proc->todo
         t->work.type = BINDER_WORK_TRANSACTION;
         list_add_tail(&t->work.entry, target_list);
 
         //将BINDER_WORK_TRANSACTION_COMPLETE添加到当前线程的todo队列
         tcomplete->type = BINDER_WORK_TRANSACTION_COMPLETE;
         list_add_tail(&tcomplete->entry, &thread->todo);
+        
+        //唤醒等待队列，本次通信的目标队列为target_proc->wait
         if (target_wait)
-            wake_up_interruptible(target_wait); //唤醒等待队列
+            wake_up_interruptible(target_wait);
         return;
     }
-
 
 主要功能:
 
@@ -935,9 +941,15 @@ transact主要过程:
   - call事务， 则目标队列target_list=`target_proc->todo`;
   - reply事务，则目标队列target_list=`target_thread->todo`;  
   - async事务，则目标队列target_list=`target_node->async_todo`.
-3. 将`BINDER_WORK_TRANSACTION_COMPLETE`添加到当前线程的todo队列。
+3. 设置事务栈信息
+  - BC_TRANSACTION且非oneway, 则将当前事务添加到thread->transaction_stack；
+4. 事务分发过程：
+  - 将BINDER_WORK_TRANSACTION添加到目标队列，本次通信的目标队列为target_proc->todo
+  - 将`BINDER_WORK_TRANSACTION_COMPLETE`添加到当前线程thread->todo队列。
+5. 唤醒目标进程target_proc开始执行事务。
 
-此时当前线程的todo队列已经有事务, 接下来便会进入binder_thread_read（）来处理相关的事务.
+该方法中proc，thread是指当前发起方的进程信息，而binder_proc目标接收端进程。
+此时当前线程thread的todo队列已经有事务, 接下来便会进入binder_thread_read（）来处理相关的事务.
 
 #### 3.5 binder_thread_read
 
@@ -949,9 +961,10 @@ transact主要过程:
                 ptr += sizeof(uint32_t);
             }
     retry:
-        //todo队列有数据,则为false
+        //binder_transaction()已设置transaction_stack不为空，则wait_for_proc_work为false.
         wait_for_proc_work = thread->transaction_stack == NULL &&
                 list_empty(&thread->todo);
+        //只有当前线程todo队列为空，并且transaction_stack也为空，才会开始处于当前进程的事务
         if (wait_for_proc_work) {
             if (non_block) {
                 ...
@@ -962,7 +975,7 @@ transact主要过程:
             if (non_block) {
                 ...
             } else
-                //进入该分支，当线程todo队列没有数据，则进入休眠等待状态，显然不休眠，继续往下执行
+                //当线程todo队列有数据则执行往下执行；当线程todo队列没有数据，则进入休眠等待状态
                 ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
         }
 
@@ -975,7 +988,7 @@ transact主要过程:
             struct binder_transaction_data tr;
             struct binder_work *w;
             struct binder_transaction *t = NULL;
-            //先考虑从线程todo队列获取事务数据
+            //先从线程todo队列获取事务数据
             if (!list_empty(&thread->todo)) {
                 w = list_first_entry(&thread->todo, struct binder_work, entry);
             // 线程todo队列没有数据, 则从进程todo对获取事务数据
@@ -997,7 +1010,7 @@ transact主要过程:
 
                 case BINDER_WORK_TRANSACTION_COMPLETE:
                     cmd = BR_TRANSACTION_COMPLETE;
-                    //将BR_TRANSACTION_COMPLETE写入*ptr.
+                    //将BR_TRANSACTION_COMPLETE写入*ptr，并跳出循环。
                     put_user(cmd, (uint32_t __user *)ptr)；
                     list_del(&w->entry);
                     kfree(w);
@@ -1009,8 +1022,9 @@ transact主要过程:
                 case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: ...   break;
             }
 
+            //只有BINDER_WORK_TRANSACTION命令才能继续往下执行
             if (!t)
-                continue; //只有BINDER_WORK_TRANSACTION命令才能继续往下执行
+                continue; 
 
             if (t->buffer->target_node) {
                 //获取目标node
@@ -1031,11 +1045,11 @@ transact主要过程:
 
             if (t->from) {
                 struct task_struct *sender = t->from->proc->tsk;
-                //对于非oneway的情况下,将调用者进程的pid保存到sender_pid
+                //当非oneway的情况下,将调用者进程的pid保存到sender_pid
                 tr.sender_pid = task_tgid_nr_ns(sender,
                                 current->nsproxy->pid_ns);
             } else {
-                //杜宇oneway的\的情况下,则该值为0
+                //当oneway的的情况下,则该值为0
                 tr.sender_pid = 0;
             }
 
@@ -1082,27 +1096,97 @@ transact主要过程:
         return 0;
     }
 
-
 - 当收到的是BINDER_WORK_TRANSACTION_COMPLETE, 则将命令BR_TRANSACTION_COMPLETE写回用户空间.
 - 当收到的是BINDER_WORK_TRANSACTION命令, 则将命令BR_TRANSACTION或BR_TRANSACTION写回用户空间.
 
-
-## 四. 回到用户空间
-
-#### 4.1 何去何从
+#### 3.6 下一步何去何从
 
 1. 执行完binder_thread_write方法后, 通过binder_transaction()首先写入`BINDER_WORK_TRANSACTION_COMPLETE`写入当前线程.
 2. 这时bwr.read_size > 0, 回到binder_ioctl_write_read方法, 便开始执行binder_thread_read();
 3. 在binder_thread_read()方法, 将获取cmd=BR_TRANSACTION_COMPLETE, 再将cmd和数据写回用户空间;
-4. 一次Binder_ioctl完成,接着回调用户空间方法talkWithDriver(),并且刚才的数据写入`mIn`.
-5. 这时mIn有可读数据, 回到waitForResponse()方法,完成BR_TRANSACTION_COMPLETE过程.
-6. 再回退到transact()方法, 对于oneway的操作, 这次Binder通信便完成, 否则还是要等待Binder服务端的返回.
+4. 一次Binder_ioctl完成,接着回调用户空间方法talkWithDriver(),刚才的数据以写入mIn.
+5. 这时mIn有可读数据, 回到【小节2.10】IPC.waitForResponse()方法,完成BR_TRANSACTION_COMPLETE过程.
+如果本次transaction采用非oneway方式, 这次Binder通信便完成, 否则还是要等待Binder服务端的返回。
 
-对于startService过程, 显然没有指定oneway的方式,那么发起者进程还会继续停留在waitForResponse()方法,等待收到BR_REPLY消息. 由于在前面binder_transaction过程中,除了向自己所在线程写入了`BINDER_WORK_TRANSACTION_COMPLETE`, 还向目标进程(此处为system_server)写入了`BINDER_WORK_TRANSACTION`命令. 而此时system_server进程的binder线程一旦空闲便是停留在binder_thread_read()方法来处理进程/线程新的事务, 收到的是`BINDER_WORK_TRANSACTION`命令, 经过binder_thread_read()后生成命令`BR_TRANSACTION`.同样的流程.
+对于startService过程, 采用的便是非oneway方式,那么发起者进程还会继续停留在waitForResponse()方法,继续talkWithDriver()，然后休眠在binder_thread_read()的wait_event_freezable()过程，等待当前线程的todo队列有数据的到来，即等待收到BR_REPLY消息. 
 
-接下来,从`system_server`的binder线程一直的执行流: IPC.joinThreadPool -->  IPC.getAndExecuteCommand() ->  IPC.talkWithDriver() ,但talkWithDriver收到事务之后, 便进入IPC.executeCommand(), 接下来,从executeCommand说起.
+由于在前面binder_transaction()除了向自己所在线程写入了`BINDER_WORK_TRANSACTION_COMPLETE`, 还向目标进程(此处为system_server)写入了`BINDER_WORK_TRANSACTION`命令，那么接下里介绍system_server进程的工作。
 
-####  4.2 IPC.executeCommand
+## 四. 回到用户空间
+
+`system_server`的binder线程是如何运转的，那么就需要从Binder线程的创建开始说起，
+Binder线程的创建有两种方式：
+
+- ProcessState::self()->startThreadPool();
+- IPCThreadState::self()->joinThreadPool();
+    
+从文章[addService 小节14](http://gityuan.com/2015/11/14/binder-add-service/)，可知，调用链如下：
+startThreadPool()过程会创建新Binder线程，再经过层层调用也会进入joinThreadPool()方法。
+`system_server`的binder线程从IPC.joinThreadPool -->  IPC.getAndExecuteCommand() ->  IPC.talkWithDriver() ,但talkWithDriver收到事务之后, 便进入IPC.executeCommand()方法。 
+
+接下来从joinThreadPool说起：
+
+#### 4.1 IPC.joinThreadPool
+
+    void IPCThreadState::joinThreadPool(bool isMain)
+    {
+        mOut.writeInt32(isMain ? BC_ENTER_LOOPER : BC_REGISTER_LOOPER);
+        set_sched_policy(mMyThreadId, SP_FOREGROUND);
+
+        status_t result;
+        do {
+            processPendingDerefs(); //处理对象引用
+            result = getAndExecuteCommand();//获取并执行命令【见小节4.2】
+
+            if (result < NO_ERROR && result != TIMED_OUT && result != -ECONNREFUSED && result != -EBADF) {
+                ALOGE("getAndExecuteCommand(fd=%d) returned unexpected error %d, aborting",
+                      mProcess->mDriverFD, result);
+                abort();
+            }
+
+            //对于binder非主线程不再使用，则退出
+            if(result == TIMED_OUT && !isMain) {
+                break;
+            }
+        } while (result != -ECONNREFUSED && result != -EBADF);
+
+        mOut.writeInt32(BC_EXIT_LOOPER);
+        talkWithDriver(false);
+    }
+
+#### 4.2  IPC.getAndExecuteCommand
+
+    status_t IPCThreadState::getAndExecuteCommand()
+    {
+        status_t result;
+        int32_t cmd;
+
+        result = talkWithDriver(); //该Binder Driver进行交互
+        if (result >= NO_ERROR) {
+            size_t IN = mIn.dataAvail();
+            if (IN < sizeof(int32_t)) return result;
+            cmd = mIn.readInt32(); //读取命令
+
+            pthread_mutex_lock(&mProcess->mThreadCountLock);
+            mProcess->mExecutingThreadsCount++;
+            pthread_mutex_unlock(&mProcess->mThreadCountLock);
+
+            result = executeCommand(cmd); //【见小节4.3】
+
+            pthread_mutex_lock(&mProcess->mThreadCountLock);
+            mProcess->mExecutingThreadsCount--;
+            pthread_cond_broadcast(&mProcess->mThreadCountDecrement);
+            pthread_mutex_unlock(&mProcess->mThreadCountLock);
+
+            set_sched_policy(mMyThreadId, SP_FOREGROUND);
+        }
+        return result;
+    }
+
+此时system_server的binder线程空闲便是停留在binder_thread_read()方法来处理进程/线程新的事务。
+由【小节3.4】可知收到的是`BINDER_WORK_TRANSACTION`命令, 再经过inder_thread_read()后生成命令cmd=`BR_TRANSACTION`.再将cmd和数据写回用户空间。
+
+####  4.3 IPC.executeCommand
 
     status_t IPCThreadState::executeCommand(int32_t cmd)
     {
@@ -1150,7 +1234,8 @@ transact主要过程:
                     //尝试通过弱引用获取强引用
                     if (reinterpret_cast<RefBase::weakref_type*>(
                             tr.target.ptr)->attemptIncStrong(this)) {
-                        // tr.cookie里存放的是BBinder子类JavaBBinder [见流程4.3]
+                            
+                        // tr.cookie里存放的是BBinder子类JavaBBinder [见流程4.4]
                         error = reinterpret_cast<BBinder*>(tr.cookie)->transact(tr.code, buffer,
                                 &reply, tr.flags);
                         reinterpret_cast<BBinder*>(tr.cookie)->decStrong(this);
@@ -1164,7 +1249,7 @@ transact主要过程:
 
                 if ((tr.flags & TF_ONE_WAY) == 0) {
                     if (error < NO_ERROR) reply.setError(error);
-                    //对于非oneway, 也就是需要reply的通信过程,则向Binder驱动发送BC_REPLY命令
+                    //对于非oneway, 需要reply通信过程,则向Binder驱动发送BC_REPLY命令【见小节4.3.1】
                     sendReply(reply, 0);
                 }
                 //恢复pid和uid信息
@@ -1181,10 +1266,10 @@ transact主要过程:
         return result;
     }
 
-- 对于oneway的场景, 则到此全部结束.
-- 对于非oneway, 也就是需要reply的通信过程,则向Binder驱动发送BC_REPLY命令
+- 对于oneway的场景, 执行完本次transact()则全部结束.
+- 对于非oneway, 需要reply的通信过程,则向Binder驱动发送BC_REPLY命令【见小节5.1】
 
-#### 4.3   BBinder.transact
+#### 4.4   BBinder.transact
 [-> Binder.cpp ::BBinder ]
 
     status_t BBinder::transact(
@@ -1198,7 +1283,7 @@ transact主要过程:
                 reply->writeInt32(pingBinder());
                 break;
             default:
-                err = onTransact(code, data, reply, flags); //【见流程4.4】
+                err = onTransact(code, data, reply, flags); //【见流程454】
                 break;
         }
 
@@ -1209,7 +1294,7 @@ transact主要过程:
         return err;
     }
 
-#### 4.4 JavaBBinder.onTransact
+#### 4.5 JavaBBinder.onTransact
 [-> android_util_Binder.cpp]
 
     virtual status_t onTransact(
@@ -1219,7 +1304,7 @@ transact主要过程:
 
         IPCThreadState* thread_state = IPCThreadState::self();
 
-        //调用Binder.execTransact [见流程4.5]
+        //调用Binder.execTransact [见流程4.6]
         jboolean res = env->CallBooleanMethod(mObject, gBinderOffsets.mExecTransact,
             code, reinterpret_cast<jlong>(&data), reinterpret_cast<jlong>(reply), flags);
 
@@ -1230,7 +1315,6 @@ transact主要过程:
             env->DeleteLocalRef(excep);
         }
         ...
-
         return res != JNI_FALSE ? NO_ERROR : UNKNOWN_TRANSACTION;
     }
 
@@ -1240,7 +1324,7 @@ transact主要过程:
 
 此处斗转星移, 从C++代码回到了Java代码. 进入AMN.execTransact, 由于AMN继续于Binder对象, 接下来进入Binder.execTransact
 
-#### 4.5 Binder.execTransact
+#### 4.6 Binder.execTransact
 [Binder.java]
 
     private boolean execTransact(int code, long dataObj, long replyObj,
@@ -1250,7 +1334,7 @@ transact主要过程:
 
         boolean res;
         try {
-            // 调用子类AMN.onTransact方法 [见流程4.6]
+            // 调用子类AMN.onTransact方法 [见流程4.7]
             res = onTransact(code, data, reply, flags);
         } catch (RemoteException e) {
             if ((flags & FLAG_ONEWAY) != 0) {
@@ -1282,7 +1366,7 @@ transact主要过程:
 
 当发生RemoteException, RuntimeException, OutOfMemoryError, 对于非oneway的情况下都会把异常传递给调用者.
 
-#### 4.6 AMN.onTransact
+#### 4.7 AMN.onTransact
 [-> ActivityManagerNative.java]
 
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
@@ -1298,7 +1382,7 @@ transact主要过程:
             String resolvedType = data.readString();
             String callingPackage = data.readString();
             int userId = data.readInt();
-            //调用ActivityManagerService的startService()方法【见流程4.7】
+            //调用ActivityManagerService的startService()方法【见流程4.8】
             ComponentName cn = startService(app, service, resolvedType, callingPackage, userId);
             reply.writeNoException();
             ComponentName.writeToParcel(cn, reply);
@@ -1306,7 +1390,7 @@ transact主要过程:
         }
     }
 
-#### 4.7 AMS.startService
+#### 4.8 AMS.startService
 
     public ComponentName startService(IApplicationThread caller, Intent service,
             String resolvedType, String callingPackage, int userId)
@@ -1322,23 +1406,185 @@ transact主要过程:
     }
 
 
-历经千山万水, 总算是进入了AMS.startService. 当system_server收到BR_TRANSACTION的过程后, 再经历一个类似的过程,将事件告知app所在进程service启动完成.过程基本一致,此处就不再展开.
+历经千山万水, 总算是进入了AMS.startService. 当system_server收到BR_TRANSACTION的过程后，通信并没有完全结束，还需将服务启动完成的回应消息
+告诉给发起端进程。
+
+## 五. Reply流程
+
+还记得前面【小节2.10】IPC.waitForResponse()过程，对于非oneway的方式，还仍在一直等待system_server这边的响应呢，只有收到BR_REPLY，或者BR_DEAD_REPLY，或者BR_FAILED_REPLY，再或许其他BR_命令执行出错的情况下，该waitForResponse()才会退出。
+
+BR_REPLY命令是如何来的呢？【小节4.3】IPC.executeCommand()过程处理完BR_TRANSACTION命令的同时，还会通过sendReply()向Binder Driver发送BC_REPLY消息，接下来从该方法说起。
+
+#### 5.1 IPC.sendReply
+
+    status_t IPCThreadState::sendReply(const Parcel& reply, uint32_t flags)
+    {
+        status_t err;
+        status_t statusBuffer;
+        //[见小节2.10]
+        err = writeTransactionData(BC_REPLY, flags, -1, 0, reply, &statusBuffer);
+        if (err < NO_ERROR) return err;
+        //[见小节5.3]
+        return waitForResponse(NULL, NULL);
+    }
+
+先将数据写入mOut；再进waitForResponse，等待应答，此时同理也是等待BR_TRANSACTION_COMPLETE。
+同理经过IPC.talkWithDriver -> binder_ioctl -> binder_ioctl_write_read -> binder_thread_write，
+再就是进入binder_transaction方法。
+
+#### 5.2 binder_transaction
+
+    // reply =true
+    static void binder_transaction(struct binder_proc *proc,
+    			       struct binder_thread *thread,
+    			       struct binder_transaction_data *tr, int reply)
+    {
+      ...
+    	if (reply) {
+    		in_reply_to = thread->transaction_stack; //接收端的事务栈
+    		...
+    		thread->transaction_stack = in_reply_to->to_parent;
+    		target_thread = in_reply_to->from; //发起端的线程
+        
+        //发起端线程不能为空
+    		if (target_thread == NULL) {
+    			return_error = BR_DEAD_REPLY;
+    			goto err_dead_binder; 
+    		}
+        
+        //发起端线程的事务栈 要等于 接收端的事务栈
+    		if (target_thread->transaction_stack != in_reply_to) {
+    			return_error = BR_FAILED_REPLY;
+    			in_reply_to = NULL;
+    			target_thread = NULL;
+    			goto err_dead_binder; 
+    		}
+    		target_proc = target_thread->proc; //发起端的进程
+    	} else {
+        ...
+      }
+      
+      if (target_thread) {
+          //发起端的线程
+      		target_list = &target_thread->todo;
+      		target_wait = &target_thread->wait;
+      	} else {
+      		...
+      	}
+
+      	t = kzalloc(sizeof(*t), GFP_KERNEL);
+      	tcomplete = kzalloc(sizeof(*tcomplete), GFP_KERNEL);
+      	...
+
+      	if (!reply && !(tr->flags & TF_ONE_WAY))
+      		t->from = thread;
+      	else
+      		t->from = NULL; //进入该分支
+      	t->sender_euid = task_euid(proc->tsk);
+      	t->to_proc = target_proc;
+      	t->to_thread = target_thread;
+      	t->code = tr->code;
+      	t->flags = tr->flags;
+      	t->priority = task_nice(current);
+
+        // 发起端进程分配buffer
+      	t->buffer = binder_alloc_buf(target_proc, tr->data_size,
+      		tr->offsets_size, !reply && (t->flags & TF_ONE_WAY));
+      	...
+      	t->buffer->allow_user_free = 0;
+      	t->buffer->transaction = t;
+      	t->buffer->target_node = target_node;
+      	if (target_node)
+      		binder_inc_node(target_node, 1, 0, NULL);
+
+        //分别拷贝用户空间的binder_transaction_data中ptr.buffer和ptr.offsets到内核
+        copy_from_user(t->buffer->data, 
+           (const void __user *)(uintptr_t)tr->data.ptr.buffer, tr->data_size);
+        copy_from_user(offp, 
+           (const void __user *)(uintptr_t)tr->data.ptr.offsets, tr->offsets_size);
+        ...
+        
+        if (reply) {
+          binder_pop_transaction(target_thread, in_reply_to);
+        } else if (!(t->flags & TF_ONE_WAY)) {
+          ...
+        } else {
+          ...
+        }
+        
+        //将BINDER_WORK_TRANSACTION添加到目标队列，本次通信的目标队列为target_thread->todo
+        t->work.type = BINDER_WORK_TRANSACTION;
+        list_add_tail(&t->work.entry, target_list);
+
+        //将BINDER_WORK_TRANSACTION_COMPLETE添加到当前线程的todo队列
+        tcomplete->type = BINDER_WORK_TRANSACTION_COMPLETE;
+        list_add_tail(&tcomplete->entry, &thread->todo);
+        
+        //唤醒等待队列，本次通信的目标队列为target_thread->wait
+        if (target_wait)
+            wake_up_interruptible(target_wait);
+        return;
+          
+binder_transaction -> binder_thread_read -> IPC.waitForResponse，收到BR_REPLY来回收buffer.
+
+#### 5.3 IPC.waitForResponse
+
+    status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
+    {
+        int32_t cmd;
+        int32_t err;
+
+        while (1) {
+            if ((err=talkWithDriver()) < NO_ERROR) break; // 【见小节2.11】
+            if (mIn.dataAvail() == 0) continue; 
+            ...
+            cmd = mIn.readInt32();
+            switch (cmd) {
+              ...
+              case BR_REPLY:
+               {
+                   binder_transaction_data tr;
+                   err = mIn.read(&tr, sizeof(tr));
+                   if (err != NO_ERROR) goto finish;
+
+                   if (reply) {
+                       ...
+                   } else {
+                       // 释放buffer
+                       freeBuffer(NULL,
+                           reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
+                           tr.data_size,
+                           reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
+                           tr.offsets_size/sizeof(binder_size_t), this);
+                       continue;
+                   }
+               }
+               goto finish;
+            default:
+                err = executeCommand(cmd); 
+                ...
+                break;
+            }
+        }
+        ...
+    }
 
 
-## 五. 总结
-
+## 六. 总结
 
 本文详细地介绍如何从AMP.startService是如何通过Binder一步步调用进入到system_server进程的AMS.startService. 整个过程涉及Java framework, native, kernel driver各个层面知识. 仅仅一个Binder IPC调用, 就花费了如此大篇幅来讲解, 可见系统之庞大. 整个过程的调用流程:
 
-### 5.1 通信流程
+### 6.1 通信流程
 
 从通信流程角度来看整个过程:
 ![binder_ipc_process](/images/binder/binder_start_service/binder_ipc_process.jpg)
 
-前面第二至第四段落,主要讲解过程 BC_TRANSACTION --> BR_TRANSACTION_COMPLETE --> BR_TRANSACTION.
+本文详细讲解过程BC_TRANSACTION --> BR_TRANSACTION_COMPLETE --> BR_TRANSACTION.
 有兴趣的同学可以再看看后面3个事务的处理:BC_REPLY --> BR_TRANSACTION_COMPLETE --> BR_REPLY,这两个流程基本是一致的.
 
-### 5.2 通信协议
+**规律:** BC_TRANSACTION +  BC_REPLY =  BR_TRANSACTION_COMPLETE +  BR_DEAD_REPLY +  BR_FAILED_REPLY
+
+### 6.2 通信协议
 
 从通信协议的角度来看这个过程:
 
@@ -1348,8 +1594,10 @@ transact主要过程:
 - 只有当`BC_TRANSACTION`或者`BC_REPLY`时, 才调用binder_transaction()来处理事务. 并且都会回应调用者一个`BINDER_WORK_TRANSACTION_COMPLETE`事务, 经过binder_thread_read()会转变成`BR_TRANSACTION_COMPLETE`.
 - startService过程便是一个非oneway的过程, 那么oneway的通信过程如下所述.
 
+Tips: Binder线程只有当本线程的thread->todo队列为空，并且thread->transaction_stack也为空，才会去处理当前进程的事务，否则会继续处理或等待
+当前线程的todo队列事务。换句话说，就是只有当前线程的事务
 
-### 5.3 说一说oneway
+### 6.3 说一说oneway
 
 上图是非oneway通信过程的协议图, 下图则是对于oneway场景下的通信协议图:
 
@@ -1373,4 +1621,4 @@ transact主要过程:
 
 这便是一次完成的非oneway通信过程.
 
-oneway与非oneway: 都是需要等待Binder Driver的回应消息BR_TRANSACTION_COMPLETE. 主要区别在于oneway的通信收到BR_TRANSACTION_COMPLETE则返回,而不会再等待BR_REPLY消息的到来.
+oneway与非oneway: 都是需要等待Binder Driver的回应消息BR_TRANSACTION_COMPLETE. 主要区别在于oneway的通信收到BR_TRANSACTION_COMPLETE则返回,而不会再等待BR_REPLY消息的到来. 另外，oneway的binder IPC则接收端无法获取对方的pid.

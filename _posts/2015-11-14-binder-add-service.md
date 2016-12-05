@@ -765,6 +765,14 @@ IPCThreadState进行transact事务处理分3部分：
 
 对于参数`isMain`=true的情况下，command为BC_ENTER_LOOPER，表示是程序主动创建的线程；而对于`isMain`=false的情况下，command为BC_REGISTER_LOOPER，表示是由binder驱动强制创建的线程。Binder设计架构中，只有第一个Binder线程是由应用层主动创建，对于Binder线程池其他的线程都是由Binder驱动根据IPC通信需求来控制创建的。
 
+从这个过程可以发现，调用链：
+
+    PS.startThreadPool 
+     PS.spawnPooledThread 
+      PoolThread.run 
+        IPCThreadState::self()->joinThreadPool()
+    
+startThreadPool最终还是调用joinThreadPool()来执行binder操作。
 
 ### 17 IPC.getAndExecuteCommand
 [-> IPCThreadState.cpp]
