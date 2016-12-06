@@ -944,12 +944,12 @@ transact主要过程:
 3. 设置事务栈信息
   - BC_TRANSACTION且非oneway, 则将当前事务添加到thread->transaction_stack；
 4. 事务分发过程：
-  - 将BINDER_WORK_TRANSACTION添加到目标队列，本次通信的目标队列为target_proc->todo
-  - 将`BINDER_WORK_TRANSACTION_COMPLETE`添加到当前线程thread->todo队列。
+  - 将`BINDER_WORK_TRANSACTION`添加到目标队列(此时为target_proc->todo队列);
+  - 将`BINDER_WORK_TRANSACTION_COMPLETE`添加到当前线程thread->todo队列;
 5. 唤醒目标进程target_proc开始执行事务。
 
-该方法中proc，thread是指当前发起方的进程信息，而binder_proc目标接收端进程。
-此时当前线程thread的todo队列已经有事务, 接下来便会进入binder_thread_read（）来处理相关的事务.
+该方法中proc/thread是指当前发起方的进程信息，而binder_proc是指目标接收端进程。
+此时当前线程thread的todo队列已经有事务, 接下来便会进入binder_thread_read来处理相关的事务.
 
 #### 3.5 binder_thread_read
 
@@ -1096,8 +1096,18 @@ transact主要过程:
         return 0;
     }
 
-- 当收到的是BINDER_WORK_TRANSACTION_COMPLETE, 则将命令BR_TRANSACTION_COMPLETE写回用户空间.
-- 当收到的是BINDER_WORK_TRANSACTION命令, 则将命令BR_TRANSACTION或BR_TRANSACTION写回用户空间.
+该方法功能说明:
+
+此处wait_for_proc_work是指当前线程todo队列为空，并且transaction_stack也为空,该值为true.
+
+1. 当wait_for_proc_work = false, 则进入线程的等待队列thread->wait, 直到thread->todo队列有事务才往下执行;
+    - 获取并处理thread->todo队列中的事务;将相应的cmd和数据写回用户空间.
+2. 当wait_for_proc_work = true, 则进入线程的等待队列proc->wait, 直到proc->todo队列有事务才往下执行;
+    - 获取并处理proc->todo队列中的事务;将相应的cmd和数据写回用户空间.
+
+
+到这里,可能有人好奇,对于[小节3.4]介绍了target_list有3种, 这里只会处理前2种:thread->todo, proc->todo.那么对于
+target_node->async_todo的处理过程时间呢? [见小节5.4]
 
 #### 3.6 下一步何去何从
 
@@ -1432,27 +1442,27 @@ BR_REPLY命令是如何来的呢？【小节4.3】IPC.executeCommand()过程处�
 同理经过IPC.talkWithDriver -> binder_ioctl -> binder_ioctl_write_read -> binder_thread_write，
 再就是进入binder_transaction方法。
 
-#### 5.2 binder_transaction
+#### 5.2  BC_REPLY
 
     // reply =true
     static void binder_transaction(struct binder_proc *proc,
     			       struct binder_thread *thread,
     			       struct binder_transaction_data *tr, int reply)
     {
-      ...
+        ...
     	if (reply) {
     		in_reply_to = thread->transaction_stack; //接收端的事务栈
     		...
     		thread->transaction_stack = in_reply_to->to_parent;
     		target_thread = in_reply_to->from; //发起端的线程
         
-        //发起端线程不能为空
+            //发起端线程不能为空
     		if (target_thread == NULL) {
     			return_error = BR_DEAD_REPLY;
     			goto err_dead_binder; 
     		}
         
-        //发起端线程的事务栈 要等于 接收端的事务栈
+            //发起端线程的事务栈 要等于 接收端的事务栈
     		if (target_thread->transaction_stack != in_reply_to) {
     			return_error = BR_FAILED_REPLY;
     			in_reply_to = NULL;
@@ -1527,7 +1537,7 @@ BR_REPLY命令是如何来的呢？【小节4.3】IPC.executeCommand()过程处�
           
 binder_transaction -> binder_thread_read -> IPC.waitForResponse，收到BR_REPLY来回收buffer.
 
-#### 5.3 IPC.waitForResponse
+#### 5.3 BR_REPLY
 
     status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
     {
@@ -1550,7 +1560,7 @@ binder_transaction -> binder_thread_read -> IPC.waitForResponse，收到BR_REPLY
                    if (reply) {
                        ...
                    } else {
-                       // 释放buffer
+                       // 释放buffer[见小节5.4]
                        freeBuffer(NULL,
                            reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
                            tr.data_size,
@@ -1569,6 +1579,151 @@ binder_transaction -> binder_thread_read -> IPC.waitForResponse，收到BR_REPLY
         ...
     }
 
+#### 5.4 IPC.freeBuffer
+
+    void IPCThreadState::freeBuffer(Parcel* parcel, const uint8_t* data,
+                                    size_t /*dataSize*/,
+                                    const binder_size_t* /*objects*/,
+                                    size_t /*objectsSize*/, void* /*cookie*/)
+    {
+        if (parcel != NULL) parcel->closeFileDescriptors();
+        IPCThreadState* state = self();
+        state->mOut.writeInt32(BC_FREE_BUFFER);
+        state->mOut.writePointer((uintptr_t)data);
+    }
+
+将BC_FREE_BUFFER写入mOut,再talkWithDriver()
+
+
+##### 5.5 BC_FREE_BUFFER
+
+    static int binder_thread_write(struct binder_proc *proc,
+                struct binder_thread *thread,
+                binder_uintptr_t binder_buffer, size_t size,
+                binder_size_t *consumed)
+    {
+        uint32_t cmd;
+        void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
+        void __user *ptr = buffer + *consumed;
+        void __user *end = buffer + size;
+        while (ptr < end && thread->return_error == BR_OK) {
+            //拷贝用户空间的cmd命令，此时为BC_FREE_BUFFER
+            if (get_user(cmd, (uint32_t __user *)ptr)) -EFAULT;
+            ptr += sizeof(uint32_t);
+            switch (cmd) {
+            case BC_TRANSACTION:
+            case BC_REPLY: ...
+            case BC_FREE_BUFFER: {
+                void __user *data_ptr;
+                struct binder_buffer *buffer;
+
+                if (get_user(data_ptr, (void * __user *)ptr)) return -EFAULT;
+                ptr += sizeof(void *);
+
+                buffer = binder_buffer_lookup(proc, data_ptr);
+                ...
+                
+                if (buffer->transaction) {
+                    buffer->transaction->buffer = NULL;
+                    buffer->transaction = NULL;
+                }
+                // binder_buffer存在异步事务,且binder_node不为空
+                if (buffer->async_transaction && buffer->target_node) {
+                    if (list_empty(&buffer->target_node->async_todo))
+                        buffer->target_node->has_async_transaction = 0;
+                    else
+                        //当异步队列async_todo也不为空,则事务追加到该线程todo队列.
+                        list_move_tail(buffer->target_node->async_todo.next, &thread->todo);
+                }
+
+                binder_transaction_buffer_release(proc, buffer, NULL);
+                binder_free_buf(proc, buffer);
+                break;
+            }
+        }
+        *consumed = ptr - buffer;
+      }
+      return 0;
+    }
+    
+接收端线程处理BC_FREE_BUFFER命令: 
+
+- 当binder_buffer存在异步事务,当异步队列async_todo也不为空,则事务追加到该线程todo队列.
+- 释放当前的buffer.
+    
+##### 5.6  binder_thread_read
+
+    binder_thread_read（）{
+        ...
+        while (1) {
+
+            uint32_t cmd;
+            struct binder_transaction_data tr;
+            struct binder_work *w;
+            struct binder_transaction *t = NULL;
+            
+            //从线程todo队列获取事务数据
+            if (!list_empty(&thread->todo)) {
+                w = list_first_entry(&thread->todo, struct binder_work, entry);
+            } else if (!list_empty(&proc->todo) && wait_for_proc_work) {
+                ...
+            } else {
+                ...
+            }
+
+            switch (w->type) {
+                case BINDER_WORK_TRANSACTION:
+                    //获取transaction数据
+                    t = container_of(w, struct binder_transaction, work);
+                    break;
+                    
+                ...
+            }
+            
+            ...
+            if (t->buffer->target_node) {
+                //获取目标node
+                struct binder_node *target_node = t->buffer->target_node;
+                tr.target.ptr = target_node->ptr;
+                tr.cookie =  target_node->cookie;
+                t->saved_priority = task_nice(current);
+                ...
+                cmd = BR_TRANSACTION;  //设置命令为BR_TRANSACTION
+            } else {
+                tr.target.ptr = NULL;
+                tr.cookie = NULL;
+                cmd = BR_REPLY; //设置命令为BR_REPLY
+            }
+            
+            tr.code = t->code;
+            tr.flags = t->flags;
+            tr.sender_euid = t->sender_euid;
+
+            ...
+            //将cmd和数据写回用户空间
+            if (put_user(cmd, (uint32_t __user *)ptr)) return -EFAULT;
+            ptr += sizeof(uint32_t);
+            if (copy_to_user(ptr, &tr, sizeof(tr)))  return -EFAULT;
+            ptr += sizeof(tr);
+
+            list_del(&t->work.entry);
+            t->buffer->allow_user_free = 1;
+            if (cmd == BR_TRANSACTION && !(t->flags & TF_ONE_WAY)) {
+                t->to_parent = thread->transaction_stack;
+                t->to_thread = thread;
+                thread->transaction_stack = t;
+            } else {
+                t->buffer->transaction = NULL;
+                kfree(t); //通信完成,则运行释放
+            }
+            break;
+        }
+        
+        ...
+        return 0;
+    }
+
+
 
 ## 六. 总结
 
@@ -1579,10 +1734,6 @@ binder_transaction -> binder_thread_read -> IPC.waitForResponse，收到BR_REPLY
 从通信流程角度来看整个过程:
 ![binder_ipc_process](/images/binder/binder_start_service/binder_ipc_process.jpg)
 
-本文详细讲解过程BC_TRANSACTION --> BR_TRANSACTION_COMPLETE --> BR_TRANSACTION.
-有兴趣的同学可以再看看后面3个事务的处理:BC_REPLY --> BR_TRANSACTION_COMPLETE --> BR_REPLY,这两个流程基本是一致的.
-
-**规律:** BC_TRANSACTION +  BC_REPLY =  BR_TRANSACTION_COMPLETE +  BR_DEAD_REPLY +  BR_FAILED_REPLY
 
 ### 6.2 通信协议
 
@@ -1594,8 +1745,6 @@ binder_transaction -> binder_thread_read -> IPC.waitForResponse，收到BR_REPLY
 - 只有当`BC_TRANSACTION`或者`BC_REPLY`时, 才调用binder_transaction()来处理事务. 并且都会回应调用者一个`BINDER_WORK_TRANSACTION_COMPLETE`事务, 经过binder_thread_read()会转变成`BR_TRANSACTION_COMPLETE`.
 - startService过程便是一个非oneway的过程, 那么oneway的通信过程如下所述.
 
-Tips: Binder线程只有当本线程的thread->todo队列为空，并且thread->transaction_stack也为空，才会去处理当前进程的事务，否则会继续处理或等待
-当前线程的todo队列事务。换句话说，就是只有当前线程的事务
 
 ### 6.3 说一说oneway
 
@@ -1622,3 +1771,14 @@ Tips: Binder线程只有当本线程的thread->todo队列为空，并且thread->
 这便是一次完成的非oneway通信过程.
 
 oneway与非oneway: 都是需要等待Binder Driver的回应消息BR_TRANSACTION_COMPLETE. 主要区别在于oneway的通信收到BR_TRANSACTION_COMPLETE则返回,而不会再等待BR_REPLY消息的到来. 另外，oneway的binder IPC则接收端无法获取对方的pid.
+
+
+### 6.4 小规律
+
+- BC_TRANSACTION +  BC_REPLY =  BR_TRANSACTION_COMPLETE +  BR_DEAD_REPLY +  BR_FAILED_REPLY
+- Binder线程只有当本线程的thread->todo队列为空，并且thread->transaction_stack也为空，才会去处理当前进程的事务，
+否则会继续处理或等待当前线程的todo队列事务。换句话说，就是只有当前线程的事务;
+- binder_thread_write: 添加成员到todo队列;
+- binder_thread_read: 消耗todo队列;
+- 对于处于空闲可用的,或者Ready的binder线程是指停在binder_thread_read()的wait_event地方的Binder线程;
+- 每一次BR_TRANSACTION或者BR_REPLY结束之后都会调用freeBuffer.
