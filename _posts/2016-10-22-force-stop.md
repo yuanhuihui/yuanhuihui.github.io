@@ -265,7 +265,7 @@ AMP.forceStopPackage来运行在执行adb时所创建的进程，经过Binder Dr
              didSomething = true;
          }
          for (i = providers.size() - 1; i >= 0; i--) {
-              //清理providers [见流程6.2]
+              //清理providers [见流程6.3]
              removeDyingProviderLocked(null, providers.get(i), true);
          }
 
