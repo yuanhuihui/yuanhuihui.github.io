@@ -15,22 +15,28 @@ ANR(Application Not responding)，是指应用程序未响应，Android系统对
 
 那么哪些场景会造成ANR呢？
 
-- Service Timeout:服务在20s内未执行完成；
-- BroadcastQueue Timeout：比如前台广播在10s内执行完成
+- Service Timeout:比如前台服务在20s内未执行完成；
+- BroadcastQueue Timeout：比如前台广播在10s内未执行完成
 - ContentProvider Timeout：内容提供者执行超时
-- inputDispatching Timeout: 输入事件分发超时5s，包括按键分发事件的超时。
-- ...
+- inputDispatching Timeout: 输入事件分发超时5s，包括按键和触摸事件。
 
-## 二、ANR触发时机
+触发ANR的过程可分为三个步骤: 埋炸弹, 拆炸弹, 引爆炸弹
 
-### 2.1 Service Timeout
+## 二 Service
 
-Service Timeout触发时机，简单说就是AMS中的`mHandler`收到`SERVICE_TIMEOUT_MSG`消息时触发。
+Service Timeout是位于"ActivityManager"线程中的AMS.MainHandler收到`SERVICE_TIMEOUT_MSG`消息时触发。
 
-在前面文章[startService流程分析](http://gityuan.com/2016/03/06/start-service/)详细介绍Service启动流程，在Service所在进程attach到system_server进程的过程中会调用`realStartServiceLocked()`方法
+对于Service有两类:
 
-#### 2.1.1 realStartServiceLocked
+- 对于前台服务，则超时为SERVICE_TIMEOUT = 20s；
+- 对于后台服务，则超时为SERVICE_BACKGROUND_TIMEOUT = 200s
 
+### 2.1 埋炸弹
+
+文章[startService流程分析](http://gityuan.com/2016/03/06/start-service/)详细介绍Service启动流程.
+其中在Service进程attach到system_server进程的过程中会调用`realStartServiceLocked()`方法来埋下炸弹.
+
+#### 2.1.1  AS.realStartServiceLocked
 [-> ActiveServices.java]
 
     private final void realStartServiceLocked(ServiceRecord r,
@@ -44,26 +50,21 @@ Service Timeout触发时机，简单说就是AMS中的`mHandler`收到`SERVICE_T
             app.thread.scheduleCreateService(r, r.serviceInfo,
                     mAm.compatibilityInfoForPackageLocked(r.serviceInfo.applicationInfo),
                     app.repProcState);
-
-            } catch (DeadObjectException e) {
-                ...
+        } catch (DeadObjectException e) {
+            mAm.appDiedLocked(app);
+            throw e;
         } finally {
-            if (!created) {
-                //当service启动完毕，则remove SERVICE_TIMEOUT_MSG消息【见小节2.1.3】
-                serviceDoneExecutingLocked(r, inDestroying, inDestroying);
-                ...
-            }
+            ...
         }
     }
 
-#### 2.1.2 bumpServiceExecutingLocked
-
-该方法的主要工作发送delay消息(SERVICE_TIMEOUT_MSG)
+#### 2.1.2  AS.bumpServiceExecutingLocked
 
     private final void bumpServiceExecutingLocked(ServiceRecord r, boolean fg, String why) {
-        ...
+        ... 
         scheduleServiceTimeoutLocked(r.app);
     }
+    
     void scheduleServiceTimeoutLocked(ProcessRecord proc) {
         if (proc.executingServices.size() == 0 || proc.thread == null) {
             return;
@@ -72,18 +73,52 @@ Service Timeout触发时机，简单说就是AMS中的`mHandler`收到`SERVICE_T
         Message msg = mAm.mHandler.obtainMessage(
                 ActivityManagerService.SERVICE_TIMEOUT_MSG);
         msg.obj = proc;
-        //当超时后仍没有remove该SERVICE_TIMEOUT_MSG消息，则执行service Timeout流程【见2.1.4】
+        
+        //当超时后仍没有remove该SERVICE_TIMEOUT_MSG消息，则执行service Timeout流程【见2.3.1】
         mAm.mHandler.sendMessageAtTime(msg,
-                proc.execServicesFg ? (now+SERVICE_TIMEOUT) : (now+ SERVICE_BACKGROUND_TIMEOUT));
+            proc.execServicesFg ? (now+SERVICE_TIMEOUT) : (now+ SERVICE_BACKGROUND_TIMEOUT));
     }
 
+    
+该方法的主要工作发送delay消息(`SERVICE_TIMEOUT_MSG`). 炸弹已埋下, 我们并不希望炸弹被引爆, 那么就需要在炸弹爆炸之前拆除炸弹.
 
-- 对于前台服务，则超时为`SERVICE_TIMEOUT`，即timeout=20s；
-- 对于后台服务，则超时为`SERVICE_BACKGROUND_TIMEOUT`，即timeout=200s；
+### 2.2 拆炸弹
 
-#### 2.1.3 serviceDoneExecutingLocked
+在system_server进程AS.realStartServiceLocked()调用的过程会埋下一颗炸弹, 超时没有启动完成则会爆炸.
+那么什么时候会拆除这颗炸弹的引线呢? 经过Binder等层层调用进入目标进程的主线程handleCreateService()的过程.
 
-该方法的主要工作是当service启动完成，则移除service Timeout消息。
+#### 2.2.1  AT.handleCreateService
+[-> ActivityThread.java]
+
+        private void handleCreateService(CreateServiceData data) {
+            ...
+            java.lang.ClassLoader cl = packageInfo.getClassLoader();
+            Service service = (Service) cl.loadClass(data.info.name).newInstance();
+            ...
+
+            try {
+                //创建ContextImpl对象
+                ContextImpl context = ContextImpl.createAppContext(this, packageInfo);
+                context.setOuterContext(service);
+                //创建Application对象
+                Application app = packageInfo.makeApplication(false, mInstrumentation);
+                service.attach(context, this, data.info.name, data.token, app,
+                        ActivityManagerNative.getDefault());
+                //调用服务onCreate()方法 
+                service.onCreate();
+                
+                //拆除炸弹引线[见小节2.2.2]
+                ActivityManagerNative.getDefault().serviceDoneExecuting(
+                        data.token, SERVICE_DONE_EXECUTING_ANON, 0, 0);
+            } catch (Exception e) {
+                ...
+            }
+        }
+
+在这个过程会创建目标服务对象,以及回调onCreate()方法, 紧接再次经过多次调用回到system_server来执行serviceDoneExecuting.
+    
+
+#### 2.2.2 AS.serviceDoneExecutingLocked
 
     private void serviceDoneExecutingLocked(ServiceRecord r, boolean inDestroying,
                 boolean finishing) {
@@ -99,17 +134,26 @@ Service Timeout触发时机，简单说就是AMS中的`mHandler`收到`SERVICE_T
         }
         ...
     }
+    
+该方法的主要工作是当service启动完成，则移除服务超时消息`SERVICE_TIMEOUT_MSG`。
 
-#### 2.1.4 SERVICE_TIMEOUT_MSG
+### 2.3 引爆炸弹
 
-到此不难理解，当`SERVICE_TIMEOUT_MSG`消息成功发送时，则AMS中的`mHandler`收到该消息则触发调用`serviceTimeout`。
+前面介绍了埋炸弹和拆炸弹的过程, 如果在炸弹倒计时结束之前成功拆卸炸弹,那么就没有爆炸的机会, 但是世事难料.
+总有些极端情况下无法即时拆除炸弹,导致炸弹爆炸, 其结果就是App发生ANR. 接下来,带大家来看看炸弹爆炸的现场:
+
+在system_server进程中有一个Handler线程, 名叫"ActivityManager".当倒计时结束便会向该Handler线程发送
+一条信息`SERVICE_TIMEOUT_MSG`, 
+
+#### 2.3.1 MainHandler.handleMessage
+[-> ActivityManagerService.java ::MainHandler]
 
     final class MainHandler extends Handler {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case SERVICE_TIMEOUT_MSG: {
                     ...
-                    //【见小节2.1.5】
+                    //【见小节2.3.2】
                     mServices.serviceTimeout((ProcessRecord)msg.obj);
                 } break;
                 ...
@@ -117,10 +161,8 @@ Service Timeout触发时机，简单说就是AMS中的`mHandler`收到`SERVICE_T
             ...
         }
     }
-
-#### 2.1.5 serviceTimeout
-
-[-> ActiveServices.java]
+    
+#### 2.3.2 AS.serviceTimeout
 
     void serviceTimeout(ProcessRecord proc) {
         String anrMessage = null;
@@ -159,7 +201,7 @@ Service Timeout触发时机，简单说就是AMS中的`mHandler`收到`SERVICE_T
         }
 
         if (anrMessage != null) {
-            //当存在timeout的service，则执行appNotResponding【见小节3.1】
+            //当存在timeout的service，则执行appNotResponding
             mAm.appNotResponding(proc, null, null, false, anrMessage);
         }
     }
@@ -167,27 +209,28 @@ Service Timeout触发时机，简单说就是AMS中的`mHandler`收到`SERVICE_T
 其中anrMessage的内容为"executing service [发送超时serviceRecord信息]";
 
 
-### 2.2 BroadcastQueue Timeout
+## 三 BroadcastQueue
 
-BroadcastQueue Timeout触发时机，简单说就是BroadcastQueue中的`mHandler`收到`BROADCAST_TIMEOUT_MSG`消息时触发。
+BroadcastQueue Timeout是位于"ActivityManager"线程中的BroadcastQueue.BroadcastHandler收到`BROADCAST_TIMEOUT_MSG`消息时触发。
 
-在前面文章[Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)详细介绍广播启动流程，在发送广播过程中会执行`scheduleBroadcastsLocked`方法来处理相关的广播，然后会调用到`processNextBroadcast`方法来处理下一条广播。
 
-processNextBroadcast执行过程分4步骤：
+对于广播队列有两个: foreground队列和background队列:
 
-- step1. 处理并行广播
-- step2. 处理当前有序广播
-- step3. 获取下条有序广播
-- step4. 处理下条有序广播
+- 对于前台广播，则超时为BROADCAST_FG_TIMEOUT = 10s；
+- 对于后台广播，则超时为BROADCAST_BG_TIMEOUT = 60s
 
-#### 2.2.1 processNextBroadcast
+### 3.1 埋炸弹
 
+文章[Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)详细介绍广播启动流程，通过调用
+processNextBroadcast来处理广播.其流程为先处理并行广播,再处理当前有序广播,最后获取并处理下条有序广播.
+
+#### 3.1.1 processNextBroadcast
 [-> BroadcastQueue.java]
 
     final void processNextBroadcast(boolean fromMsg) {
         synchronized(mService) {
             ...
-            //step 2: 处理当前有序广播
+            //part 2: 处理当前有序广播
             do {
                 r = mOrderedBroadcasts.get(0);
                 //获取所有该广播所有的接收者
@@ -196,7 +239,7 @@ processNextBroadcast执行过程分4步骤：
                     long now = SystemClock.uptimeMillis();
                     if ((numReceivers > 0) &&
                             (now > r.dispatchTime + (2*mTimeoutPeriod*numReceivers))) {
-                        //当广播处理时间超时，则强制结束这条广播【见小节2.2.5】
+                        //当广播处理时间超时，则强制结束这条广播【见小节3.3.2】
                         broadcastTimeoutLocked(false);
                         ...
                     }
@@ -210,17 +253,17 @@ processNextBroadcast执行过程分4步骤：
                             r.resultData, r.resultExtras, false, false, r.userId);
                         r.resultTo = null;
                     }
-                    //取消BROADCAST_TIMEOUT_MSG消息【见小节2.2.3】
+                    //拆炸弹【见小节3.2.1】
                     cancelBroadcastTimeoutLocked();
                 }
             } while (r == null);
             ...
 
-            //step 3: 获取下条有序广播
+            //part 3: 获取下条有序广播
             r.receiverTime = SystemClock.uptimeMillis();
             if (!mPendingBroadcastTimeoutMessage) {
                 long timeoutTime = r.receiverTime + mTimeoutPeriod;
-                //设置广播超时时间，发送BROADCAST_TIMEOUT_MSG【见小节2.2.2】
+                //埋炸弹【见小节3.1.3】
                 setBroadcastTimeoutLocked(timeoutTime);
             }
             ...
@@ -229,12 +272,12 @@ processNextBroadcast执行过程分4步骤：
 
 对于广播超时处理时机：
 
-1. 首先在step3的过程中setBroadcastTimeoutLocked(timeoutTime) 设置超时广播消息；
-2. 然后在step2根据广播处理情况来处理：
+1. 首先在part3的过程中setBroadcastTimeoutLocked(timeoutTime) 设置超时广播消息；
+2. 然后在part2根据广播处理情况来处理：
     - 当广播接收者等待时间过长，则调用broadcastTimeoutLocked(false);
-    - 当，cancelBroadcastTimeoutLocked
+    - 当广播处理时间过长，cancelBroadcastTimeoutLocked
 
-#### 2.2.2 setBroadcastTimeoutLocked
+#### 3.1.2 setBroadcastTimeoutLocked
 
     final void setBroadcastTimeoutLocked(long timeoutTime) {
         if (! mPendingBroadcastTimeoutMessage) {
@@ -246,11 +289,12 @@ processNextBroadcast执行过程分4步骤：
 
 设置定时广播BROADCAST_TIMEOUT_MSG，即当前往后推mTimeoutPeriod时间广播还没处理完毕，则进入广播超时流程。
 
-- 对于前台广播，则超时为`BROADCAST_FG_TIMEOUT`，即timeout=10s；
-- 对于后台广播，则超时为`BROADCAST_BG_TIMEOUT`，即timeout=60s。
 
+### 3.2 拆炸弹
 
-#### 2.2.3 cancelBroadcastTimeoutLocked
+在processNextBroadcast()过程, 执行完performReceiveLocked,便会拆除炸弹.
+
+#### 3.2.1 cancelBroadcastTimeoutLocked
 
     final void cancelBroadcastTimeoutLocked() {
         if (mPendingBroadcastTimeoutMessage) {
@@ -261,16 +305,17 @@ processNextBroadcast执行过程分4步骤：
 
 移除广播超时消息BROADCAST_TIMEOUT_MSG
 
-#### 2.2.4 BROADCAST_TIMEOUT_MSG
+### 3.3 引爆炸弹
 
-到此不难理解，当`BROADCAST_TIMEOUT_MSG`消息成功发送时，则AMS中的`mHandler`收到该消息则触发调用`serviceTimeout`。
+#### 3.3.1 BroadcastHandler.handleMessage
+[-> BroadcastQueue.java  ::BroadcastHandler]
 
     private final class BroadcastHandler extends Handler {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case BROADCAST_TIMEOUT_MSG: {
                     synchronized (mService) {
-                        //【见小节2.2.5】
+                        //【见小节3.3.2】
                         broadcastTimeoutLocked(true);
                     }
                 } break;
@@ -280,9 +325,10 @@ processNextBroadcast执行过程分4步骤：
         }
     }
 
-#### 2.2.5 broadcastTimeoutLocked
+#### 3.3.2 broadcastTimeoutLocked
 [-> BroadcastRecord.java]
 
+    //fromMsg = true
     final void broadcastTimeoutLocked(boolean fromMsg) {
         if (fromMsg) {
             mPendingBroadcastTimeoutMessage = false;
@@ -295,16 +341,9 @@ processNextBroadcast执行过程分4步骤：
         long now = SystemClock.uptimeMillis();
         BroadcastRecord r = mOrderedBroadcasts.get(0);
         if (fromMsg) {
-            if (mService.mDidDexOpt) {
-                //延迟timeouts直到dexopt结束
-                mService.mDidDexOpt = false;
-                long timeoutTime = SystemClock.uptimeMillis() + mTimeoutPeriod;
-                setBroadcastTimeoutLocked(timeoutTime);
-                return;
-            }
+            ...
             if (!mService.mProcessesReady) {
-                //当系统还没有准备就绪时，广播处理流程中不存在广播超时
-                return;
+                return; //当系统还没有准备就绪时，广播处理流程中不存在广播超时
             }
 
             long timeoutTime = r.receiverTime + mTimeoutPeriod;
@@ -336,6 +375,7 @@ processNextBroadcast执行过程分4步骤：
         String anrMessage = null;
 
         Object curReceiver = r.receivers.get(r.nextReceiver-1);
+         Slog.w(TAG, "Receiver during timeout: " + curReceiver);
         //根据情况记录广播接收者丢弃的EventLog
         logBroadcastReceiverDiscardLocked(r);
         if (curReceiver instanceof BroadcastFilter) {
@@ -365,79 +405,239 @@ processNextBroadcast执行过程分4步骤：
         scheduleBroadcastsLocked();
 
         if (anrMessage != null) {
-            //【见小节2.2.6】
+            // [见小节3.3.3]
             mHandler.post(new AppNotResponding(app, anrMessage));
         }
     }
 
-#### 2.2.6 AppNotResponding
-
+#### 3.3.3 AppNotResponding
 [-> BroadcastQueue.java]
 
     private final class AppNotResponding implements Runnable {
         ...
         public void run() {
-            //【见小节3.1】
+            // 进入ANR处理流程
             mService.appNotResponding(mApp, null, null, false, mAnnotation);
         }
     }
 
+## 四 ContentProvider
 
-### 2.3 ContentProvider Timeout
+ContentProvider Timeout是位于”ActivityManager”线程中的AMS.MainHandler收到CONTENT_PROVIDER_PUBLISH_TIMEOUT_MSG消息时触发。
 
-#### 2.3.1 AMS.appNotRespondingViaProvider
+ContentProvider 超时为CONTENT_PROVIDER_PUBLISH_TIMEOUT = 10s. 这个跟前面的Service和BroadcastQueue完全不同,
+由Provider[进程启动](http://gityuan.com/2016/10/09/app-process-create-2/)过程相关.
 
-    public void appNotRespondingViaProvider(IBinder connection) {
-        enforceCallingPermission(
-                android.Manifest.permission.REMOVE_TASKS, "appNotRespondingViaProvider()");
+### 4.1 埋炸弹
 
-        final ContentProviderConnection conn = (ContentProviderConnection) connection;
-        if (conn == null) {
-            return;
+文章[理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)详细介绍了Provider启动流程. 埋炸弹的过程
+其实是在进程创建的过程,进程创建后会调用attachApplicationLocked()进入system_server进程.
+
+#### 4.1.1  AMS.attachApplicationLocked
+
+    private final boolean attachApplicationLocked(IApplicationThread thread,
+            int pid) {
+        ProcessRecord app;
+        if (pid != MY_PID && pid >= 0) {
+            synchronized (mPidsSelfLocked) {
+                app = mPidsSelfLocked.get(pid); // 根据pid获取ProcessRecord
+            }
+        } 
+        ...
+        
+        //系统处于ready状态或者该app为FLAG_PERSISTENT进程则为true
+        boolean normalMode = mProcessesReady || isAllowedWhileBooting(app.info);
+        List<ProviderInfo> providers = normalMode ? generateApplicationProvidersLocked(app) : null;
+
+        //app进程存在正在启动中的provider,则超时10s后发送CONTENT_PROVIDER_PUBLISH_TIMEOUT_MSG消息
+        if (providers != null && checkAppInLaunchingProvidersLocked(app)) {
+            Message msg = mHandler.obtainMessage(CONTENT_PROVIDER_PUBLISH_TIMEOUT_MSG);
+            msg.obj = app;
+            mHandler.sendMessageDelayed(msg, CONTENT_PROVIDER_PUBLISH_TIMEOUT);
         }
+        
+        thread.bindApplication(...);
+        ...
+    }
+    
+10s之后引爆该炸弹
 
-        final ProcessRecord host = conn.provider.proc;
-        //无法找到provider所处的进程
-        if (host == null) {
-            return;
-        }
+### 4.2 拆炸弹
 
-        final long token = Binder.clearCallingIdentity();
-        try {
-            //【见小节3.1】
-            appNotResponding(host, null, null, false, "ContentProvider not responding");
-        } finally {
-            Binder.restoreCallingIdentity(token);
+当provider成功publish之后,便会拆除该炸弹.
+
+#### 4.2.1 AMS.publishContentProviders
+
+    public final void publishContentProviders(IApplicationThread caller,
+           List<ContentProviderHolder> providers) {
+       ...
+       
+       synchronized (this) {
+           final ProcessRecord r = getRecordForAppLocked(caller);
+           
+           final int N = providers.size();
+           for (int i = 0; i < N; i++) {
+               ContentProviderHolder src = providers.get(i);
+               ...
+               ContentProviderRecord dst = r.pubProviders.get(src.info.name);
+               if (dst != null) {
+                   ComponentName comp = new ComponentName(dst.info.packageName, dst.info.name);
+                   
+                   mProviderMap.putProviderByClass(comp, dst); //将该provider添加到mProviderMap
+                   String names[] = dst.info.authority.split(";");
+                   for (int j = 0; j < names.length; j++) {
+                       mProviderMap.putProviderByName(names[j], dst);
+                   }
+
+                   int launchingCount = mLaunchingProviders.size();
+                   int j;
+                   boolean wasInLaunchingProviders = false;
+                   for (j = 0; j < launchingCount; j++) {
+                       if (mLaunchingProviders.get(j) == dst) {
+                           //将该provider移除mLaunchingProviders队列
+                           mLaunchingProviders.remove(j);
+                           wasInLaunchingProviders = true;
+                           j--;
+                           launchingCount--;
+                       }
+                   }
+                   //成功pubish则移除该消息
+                   if (wasInLaunchingProviders) {
+                       mHandler.removeMessages(CONTENT_PROVIDER_PUBLISH_TIMEOUT_MSG, r);
+                   }
+                   synchronized (dst) {
+                       dst.provider = src.provider;
+                       dst.proc = r;
+                       //唤醒客户端的wait等待方法
+                       dst.notifyAll();
+                   }
+                   ...
+               }
+           }
+       }    
+    }
+
+### 4.3 引爆炸弹
+
+在system_server进程中有一个Handler线程, 名叫"ActivityManager".当倒计时结束便会向该Handler线程发送
+一条信息`CONTENT_PROVIDER_PUBLISH_TIMEOUT_MSG`, 
+
+#### 4.3.1 MainHandler.handleMessage
+[-> ActivityManagerService.java ::MainHandler]
+
+    final class MainHandler extends Handler {
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case CONTENT_PROVIDER_PUBLISH_TIMEOUT_MSG: {
+                    ...
+                    ProcessRecord app = (ProcessRecord)msg.obj;
+                    synchronized (ActivityManagerService.this) {
+                        //【见小节4.3.2】
+                        processContentProviderPublishTimedOutLocked(app);
+                    }
+                } break;
+                ...
+            }
+            ...
         }
     }
 
-Timeout时间20s
+#### 4.3.2 AMS.processContentProviderPublishTimedOutLocked
 
-调用链：
 
-    ContentProviderClient.NotRespondingRunnable.run
-        ContextImpl.ApplicationContentResolver.appNotRespondingViaProvider
-            ActivityThread.appNotRespondingViaProvider
-                AMP.appNotRespondingViaProvider
-                    AMS.appNotRespondingViaProvider
+    private final void processContentProviderPublishTimedOutLocked(ProcessRecord app) {
+        cleanupAppInLaunchingProvidersLocked(app, true); //[见4.3.3]
+        //[见小节4.3.4]
+        removeProcessLocked(app, false, true, "timeout publishing content providers");
+    }
 
-### 2.4 inputDispatching Timeout
+#### 4.3.3 AMS.cleanupAppInLaunchingProvidersLocked
+
+    boolean cleanupAppInLaunchingProvidersLocked(ProcessRecord app, boolean alwaysBad) {
+        boolean restart = false;
+        for (int i = mLaunchingProviders.size() - 1; i >= 0; i--) {
+            ContentProviderRecord cpr = mLaunchingProviders.get(i);
+            if (cpr.launchingApp == app) {
+                if (!alwaysBad && !app.bad && cpr.hasConnectionOrHandle()) {
+                    restart = true;
+                } else {
+                    //移除死亡的provider
+                    removeDyingProviderLocked(app, cpr, true);
+                }
+            }
+        }
+        return restart;
+    }
+    
+
+
+removeDyingProviderLocked()的功能跟进程的存活息息相关：详见[ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/) []小节4.5]
+
+- 对于stable类型的provider(即conn.stableCount > 0),则会杀掉所有跟该provider建立stable连接的非persistent进程.
+- 对于unstable类的provider(即conn.unstableCount > 0),并不会导致client进程被级联所杀.
+
+#### 4.3.4 AMS.removeProcessLocked
+
+    private final boolean removeProcessLocked(ProcessRecord app,
+            boolean callerWillRestart, boolean allowRestart, String reason) {
+        final String name = app.processName;
+        final int uid = app.uid;
+
+        //移除mProcessNames中的相应对象
+        removeProcessNameLocked(name, uid);
+        if (mHeavyWeightProcess == app) {
+            mHandler.sendMessage(mHandler.obtainMessage(CANCEL_HEAVY_NOTIFICATION_MSG,
+                    mHeavyWeightProcess.userId, 0));
+            mHeavyWeightProcess = null;
+        }
+        boolean needRestart = false;
+        if (app.pid > 0 && app.pid != MY_PID) {
+            int pid = app.pid;
+            synchronized (mPidsSelfLocked) {
+                mPidsSelfLocked.remove(pid);
+                mHandler.removeMessages(PROC_START_TIMEOUT_MSG, app);
+            }
+            
+            ...
+            boolean willRestart = false;
+            if (app.persistent && !app.isolated) {
+                if (!callerWillRestart) {
+                    willRestart = true;
+                } else {
+                    needRestart = true;
+                }
+            }
+            app.kill(reason, true); //杀进程
+            handleAppDiedLocked(app, willRestart, allowRestart);
+            if (willRestart) {
+                removeLruProcessLocked(app);
+                addAppLocked(app.info, false, null /* ABI override */);
+            }
+        } else {
+            mRemovedProcesses.add(app);
+        }
+        return needRestart;
+    }
+    
+## 五. Input
+
+### 5.1 引爆炸弹
 
 在native层InputDispatcher.cpp中经过层层调用，此处先省略过程，后续再展开，从native层com_android_server_input_InputManagerService调用到java层InputManagerService。
 
-#### 2.4.1 IMS.notifyANR
+#### 5.1.1 IMS.notifyANR
 [-> InputManagerService.java]
 
     private long notifyANR(InputApplicationHandle inputApplicationHandle,
             InputWindowHandle inputWindowHandle, String reason) {
-        //【见小节2.4.2】
+        //【见小节5.1.2】
         return mWindowManagerCallbacks.notifyANR(
                 inputApplicationHandle, inputWindowHandle, reason);
     }
 
 mWindowManagerCallbacks为InputMonitor对象
 
-#### 2.4.2 notifyANR
+#### 5.1.2 notifyANR
 [-> InputMonitor.java]
 
     public long notifyANR(InputApplicationHandle inputApplicationHandle,
@@ -491,8 +691,13 @@ mWindowManagerCallbacks为InputMonitor对象
         return 0;
     }
 
+发生input相关的ANR时在main log中能看到:
 
-#### 2.4.3 AMS.inputDispatchingTimedOut
+- Input event dispatching timed out sending to `windowState.mAttrs.getTitle()`.  Reason: + `reason`
+- Input event dispatching timed out sending to application `appWindowToken.stringName`.  Reason: + `reason`
+- Input event dispatching timed out. Reason: + `reason`
+
+###### 5.1.3.1 AMS.inputDispatchingTimedOut
 
     public long inputDispatchingTimedOut(int pid, final boolean aboveSystem, String reason) {
         ...
@@ -504,7 +709,7 @@ mWindowManagerCallbacks为InputMonitor对象
             }
             timeout = getInputDispatchingTimeoutLocked(proc);
         }
-        //【见小节2.4.4】
+        //【见小节5.1.4】
         if (!inputDispatchingTimedOut(proc, null, null, aboveSystem, reason)) {
             return -1;
         }
@@ -514,7 +719,32 @@ mWindowManagerCallbacks为InputMonitor对象
 
 inputDispatching的超时为`KEY_DISPATCHING_TIMEOUT`，即timeout = 5s
 
-#### 2.4.4 AMS.inputDispatchingTimedOut
+
+###### 5.1.3.2 Token.keyDispatchingTimedOut
+[-> ActivityRecord.java :: Token]
+
+    final class ActivityRecord {
+        static class Token extends IApplicationToken.Stub {
+            public boolean keyDispatchingTimedOut(String reason) {
+                ActivityRecord r;
+                ActivityRecord anrActivity;
+                ProcessRecord anrApp;
+                synchronized (mService) {
+                    r = tokenToActivityRecordLocked(this);
+                    if (r == null) {
+                        return false;
+                    }
+                    anrActivity = r.getWaitingHistoryRecordLocked();
+                    anrApp = r != null ? r.app : null;
+                }
+                //[见小节5.1.4]
+                return mService.inputDispatchingTimedOut(anrApp, anrActivity, r, false, reason);
+            }
+            ...
+        }
+    }
+    
+#### 5.1.4 AMS.inputDispatchingTimedOut
 
     public boolean inputDispatchingTimedOut(final ProcessRecord proc,
             final ActivityRecord activity, final ActivityRecord parent,
@@ -531,7 +761,7 @@ inputDispatching的超时为`KEY_DISPATCHING_TIMEOUT`，即timeout = 5s
             ...
             mHandler.post(new Runnable() {
                 public void run() {
-                    //【见小节3.1】
+                    //处理ANR的流程
                     appNotResponding(proc, activity, parent, aboveSystem, annotation);
                 }
             });
@@ -539,72 +769,20 @@ inputDispatching的超时为`KEY_DISPATCHING_TIMEOUT`，即timeout = 5s
         return true;
     }
 
-调用链：
+## 六、总结
 
-    InputManagerService.notifyANR
-        InputMonitor.notifyANR
-            AMP.inputDispatchingTimedOut
-                AMS.inputDispatchingTimedOut
+当出现ANR时，都是调用到AMS.appNotResponding()方法，详细过程见文章[理解Android ANR的处理过程](http://gityuan.com/2016/12/02/app-not-response/). 当然这里介绍的provider例外.
 
-### 2.5 keyDispatching Timeout
+- 对于前台服务，则超时为SERVICE_TIMEOUT = 20s；
+- 对于后台服务，则超时为SERVICE_BACKGROUND_TIMEOUT = 200s
+- 对于前台广播，则超时为BROADCAST_FG_TIMEOUT = 10s；
+- 对于后台广播，则超时为BROADCAST_BG_TIMEOUT = 60s
+- ContentProvider超时为CONTENT_PROVIDER_PUBLISH_TIMEOUT = 10s;
 
-keyDispatching timout与inputDispatching Timeout流畅基本一致。
+说明:
 
-调用链：
-
-    InputManagerService.notifyANR
-        InputMonitor.notifyANR
-            ActivityRecord.Token.keyDispatchingTimedOut
-                AMS.inputDispatchingTimedOut
-
-
-#### Token.keyDispatchingTimedOut
-[-> ActivityRecord.java]
-
-    final class ActivityRecord {
-        static class Token extends IApplicationToken.Stub {
-            public boolean keyDispatchingTimedOut(String reason) {
-                ActivityRecord r;
-                ActivityRecord anrActivity;
-                ProcessRecord anrApp;
-                synchronized (mService) {
-                    r = tokenToActivityRecordLocked(this);
-                    if (r == null) {
-                        return false;
-                    }
-                    anrActivity = r.getWaitingHistoryRecordLocked();
-                    anrApp = r != null ? r.app : null;
-                }
-                return mService.inputDispatchingTimedOut(anrApp, anrActivity, r, false, reason);
-            }
-            ...
-        }
-    }
+- 对于Service和广播发生ANR之后,最终都会调用AMS.appNotResponding
+- 对于provider,在其进程启动时publish过程可能会出现ANR, 则会直接杀进程以及清理相应信息,而不会弹出ANR的对话框.
+当然provider也是可能有走appNotResponding()流程的case,不过超时时间是由用户自定义.
 
 对于keyDispatching Timeout的ANR，当触发该类型ANR时，如果不再有输入事件，则不会弹出ANR对话框；只有在下一次input事件产生后5s才弹出ANR提示框。
-
-## 三、总结
-
-当出现ANR时，都是调用到AMS.appNotResponding()方法，详细过程见文章[理解Android ANR的处理过程](http://gityuan.com/2016/12/02/app-not-response/)
-
-### 导致ANR常见情形：
-
-- I/O阻塞
-- 网络阻塞；
-- onReceiver执行时间超过10s;
-- 多线程死锁
-- ...
-
-### 避免ANR:
-
-- UI线程尽量只做跟UI相关的工作
-- 耗时的工作比如数据库，I/O，网络操作)，放入工作线程处理
-
-UI线程也就是常说的主线程，比如生命周期就是运行在主线程：
-
-- Activity:onCreate(), onResume(), onDestroy(), onKeyDown(), onClick(),etc
-- AsyncTask: onPreExecute(), onProgressUpdate(), onPostExecute(), onCancel,etc
-- Mainthread handler: handleMessage(), post*(runnable r), etc
-- ...
-
-先写到这，本文尚未写完，待续...

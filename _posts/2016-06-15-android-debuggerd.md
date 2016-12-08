@@ -615,6 +615,8 @@ init进程会解析上述rc文件，调用/system/bin/debuggerd文件，进入ma
       return map;
     }
 
+解析/proc/[pid]/maps, 生成BacktraceMap.
+
 #### 3.6.3 activity_manager_connect
 
 [-> debuggerd.cpp]
@@ -1469,7 +1471,7 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
 
 这里是dump_tombstone文件内容的组成：
 
-### 5.1 文件头信息
+#### 5.1 文件头信息
 
     *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
     //【见小节4.3】dump_header_info
@@ -1477,7 +1479,7 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
     Revision: '0'
     ABI: 'arm'
 
-### 5.2 主线程dump_thread
+#### 5.2 主线程dump_thread
 
 
     //【见小节4.4.1】dump_thread_info
@@ -1508,7 +1510,7 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
     memory map:
     //【见小节4.5】dump_logs
 
-###  5.3 兄弟线程dump_thread
+####  5.3 兄弟线程dump_thread
 
     --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
     //【见小节4.4.1】dump_thread_info

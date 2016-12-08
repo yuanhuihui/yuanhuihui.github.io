@@ -336,13 +336,14 @@ dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理]
 
 ## 二. 总结
 
-触发ANR时系统会输出关键信息：
+触发ANR时系统会输出关键信息：(这个较耗时,可能会有10s)
 
-1. ANR reason以及CPU使用情况信息，输出到main log;
+1. 将am_anr信息,输出到EventLog.(ANR开始起点,可以EventLog)
 2. 获取重要进程trace信息，保存到/data/anr/traces.txt；
     - Java进程的traces;
     - Native进程的traces;
-3. 再将CPU使用情况和进程trace文件信息，再保存到/data/system/dropbox；
+3. ANR reason以及CPU使用情况信息，输出到main log;
+4. 再将CPU使用情况和进程trace文件信息，再保存到/data/system/dropbox；
 
 整个过程中进程Trace的输出是最为核心的环节，Java和Native进程采用不同的策略，如下：
 

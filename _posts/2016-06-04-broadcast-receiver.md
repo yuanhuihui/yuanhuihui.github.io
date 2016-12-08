@@ -11,6 +11,22 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析android广播的发送与接收流程。
 
+    framework/base/core/java/android/content/BroadcastReceiver.java
+    framework/base/core/java/android/content/Context.java
+    framework/base/core/java/android/content/IntentFilter.java
+
+    framework/base/core/java/android/app/ContextImpl.java
+    framework/base/core/java/android/app/LoadedApk
+    framework/base/core/java/android/app/ActivityManagerNative.java
+    framework/base/core/java/android/app/ApplicationThreadNative.java
+    framework/base/core/java/android/app/ActivityThread.java
+
+    framework/base/services/core/java/com/android/server/ActivityManagerService.java
+    framework/base/services/core/java/com/android/server/am/BroadcastQueue.java
+    framework/base/services/core/java/com/android/server/am/BroadcastFilter.java
+    framework/base/services/core/java/com/android/server/am/BroadcastRecord.java
+    framework/base/services/core/java/com/android/server/am/ReceiverList.java
+
 ### 一、概述
 
 广播(Broadcast)机制用于进程/线程间通信，广播分为广播发送和广播接收两个过程，其中广播接收者BroadcastReceiver便是Android四大组件之一。
@@ -1405,25 +1421,3 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 ### 五、总结
 
 未完留坑，后续总结以及增加流程图说明...
-
-----------
-
-### 附录
-
-本文所涉及的源码：
-
-    framework/base/core/java/android/content/BroadcastReceiver.java
-    framework/base/core/java/android/content/Context.java
-    framework/base/core/java/android/content/IntentFilter.java
-
-    framework/base/core/java/android/app/ContextImpl.java
-    framework/base/core/java/android/app/LoadedApk
-    framework/base/core/java/android/app/ActivityManagerNative.java
-    framework/base/core/java/android/app/ApplicationThreadNative.java
-    framework/base/core/java/android/app/ActivityThread.java
-
-    framework/base/services/core/java/com/android/server/ActivityManagerService.java
-    framework/base/services/core/java/com/android/server/am/BroadcastQueue.java
-    framework/base/services/core/java/com/android/server/am/BroadcastFilter.java
-    framework/base/services/core/java/com/android/server/am/BroadcastRecord.java
-    framework/base/services/core/java/com/android/server/am/ReceiverList.java

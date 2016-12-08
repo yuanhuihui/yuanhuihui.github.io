@@ -117,3 +117,10 @@ https://android.googlesource.com/platform/system/libhwbinder/+/775608abdd12100e4
 MIUI 需要打的patch:
 
 - https://android.googlesource.com/platform/frameworks/base/+/6a742a38509693f8b39ee9a5ad2803fca12688bf
+
+
+https://android-review.googlesource.com/#/c/245483/
+
+30. binder 构造函数的过程
+
+https://android.googlesource.com/platform/frameworks/base/+/10c3a2838c39bc88875628b49a902144df0f1d6a%5E%21/

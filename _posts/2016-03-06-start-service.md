@@ -332,6 +332,12 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
         return startServiceInnerLocked(smap, service, r, callerFg, addToStarting);
     }
 
+
+有一种重要的标记符callerFg, 用于标记是前台还是后台:
+
+- 当发起方进程不等于Process.THREAD_GROUP_BG_NONINTERACTIVE,或者发起方为空, 则callerFg= true;
+- 否则,callerFg= false;
+
 ### 8. AS.startServiceInnerLocked
 [-> ActiveServices.java]
 

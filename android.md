@@ -224,7 +224,7 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
   - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
 - Android组件-Content Provider
   - [理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)
-  - [ContentProvider引用计数](http://gityuan.com/2016/11/19/content_provider_release/)
+  - [ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/)
 
 #### 4.5 系统分析篇
 Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理流程,才能再进一步分析具体问题. 这里先展开原理篇.

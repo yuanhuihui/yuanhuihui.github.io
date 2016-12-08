@@ -960,10 +960,16 @@ transact主要过程:
                     return -EFAULT;
                 ptr += sizeof(uint32_t);
             }
+            
     retry:
         //binder_transaction()已设置transaction_stack不为空，则wait_for_proc_work为false.
         wait_for_proc_work = thread->transaction_stack == NULL &&
                 list_empty(&thread->todo);
+                
+        thread->looper |= BINDER_LOOPER_STATE_WAITING;
+        if (wait_for_proc_work)
+		      proc->ready_threads++; //进程中空闲binder线程加1
+              
         //只有当前线程todo队列为空，并且transaction_stack也为空，才会开始处于当前进程的事务
         if (wait_for_proc_work) {
             if (non_block) {
@@ -979,9 +985,11 @@ transact主要过程:
                 ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
         }
 
-        if (ret)
-            return ret; //对于非阻塞的调用，直接返回
-
+        if (wait_for_proc_work)
+		      proc->ready_threads--; //退出等待状态, 则进程中空闲binder线程减1
+        thread->looper &= ~BINDER_LOOPER_STATE_WAITING;
+        ...
+        
         while (1) {
 
             uint32_t cmd;
