@@ -251,3 +251,5 @@ PowerManagerService: Waking up from sleep
 输出不包含的log:
 
 adb logcat -b events | egrep -v "am_pss|sysui_|am_broadcast"
+
+logcat -b system -b  main -b events | egrep "Timeline|am_" | egrep  -v "am_pss|auditd"
