@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android Log使用"
+title:  "logcat原理分析"
 date:   2016-12-01 11:30:00
 catalog:  true
 tags:
@@ -17,63 +17,21 @@ tags:
 
 无论是Android系统开发，还是应用开发，都离不开log，Androd采用logcat输出log。
 
-### logcat用法
 
-logcat -b main system events
-logcat -s "ActivityManager"
-logcat -g //缓冲区大小
+### 二. Java Log 
 
-## 二. 输出
-### 1. Java Log
-
-#### 级别
-定义在文件Log.java
-
-|级别|对应值|使用场景|
-|---|---|
-|VERBOSE|2|冗长信息|
-|DEBUG|3|调试信息|
-|INFO|4|普通信息
-|WARN|5|警告信息
-|ERROR|6|错误信息
-|ASSERT|7|普通但重要的信息
-
-当然还有SLOG， RLOG等。
-
-#### buffer ID
-Log.java
-
-   /** @hide */ public static final int LOG_ID_MAIN = 0;
-   /** @hide */ public static final int LOG_ID_RADIO = 1;
-   /** @hide */ public static final int LOG_ID_EVENTS = 2;
-   /** @hide */ public static final int LOG_ID_SYSTEM = 3;
-   /** @hide */ public static final int LOG_ID_CRASH = 4;
-  
-logd_write.c
-
-   static const char *LOG_NAME[LOG_ID_MAX] = {
-       [LOG_ID_MAIN] = "main",
-       [LOG_ID_RADIO] = "radio",
-       [LOG_ID_EVENTS] = "events",
-       [LOG_ID_SYSTEM] = "system",
-       [LOG_ID_CRASH] = "crash",
-       [LOG_ID_KERNEL] = "kernel",
-   };
-    
-#### 实现过程
-
-#### Log.i()
-
+### 2.1 Log.i()
 [-> android/util/Log.java]
 
     public static int i(String tag, String msg) {
+        // [见小节2.2]
         return println_native(LOG_ID_MAIN, INFO, tag, msg);
     }
 
 Log.java中的方法都是输出到main buffer, 其中println_native是Native方法，
 通过JNI调用如下方法。
 
-#### println_native
+### 2.2 println_native
 [-> android_util_Log.cpp]
 
     static jint android_util_Log_println_native(JNIEnv* env, jobject clazz,
@@ -87,7 +45,7 @@ Log.java中的方法都是输出到main buffer, 其中println_native是Native方
         if (tagObj != NULL)
             tag = env->GetStringUTFChars(tagObj, NULL);
         msg = env->GetStringUTFChars(msgObj, NULL);
-        
+        // [见小节2.3]
         int res = __android_log_buf_write(bufID, (android_LogPriority)priority, tag, msg);
 
         if (tag != NULL)
@@ -97,7 +55,7 @@ Log.java中的方法都是输出到main buffer, 其中println_native是Native方
         return res;
     }
 
-#### __android_log_buf_write
+### 2.3 __android_log_buf_write
 [-> logd_write.c]
 
     int __android_log_buf_write(int bufID, int prio, const char *tag, const char *msg)
@@ -131,19 +89,19 @@ Log.java中的方法都是输出到main buffer, 其中println_native是Native方
         vec[1].iov_len    = strlen(tag) + 1;
         vec[2].iov_base   = (void *) msg;
         vec[2].iov_len    = strlen(msg) + 1;
-        //【见小节】
+        // [见小节2.4]
         return write_to_log(bufID, vec, 3);
     }
 
 - 对于满足特殊条件的tag，则会输出到LOG_ID_RADIO缓冲区；
 - vec数组依次记录着log的级别，tag, msg.
 
-#### write_to_log
-write_to_log函数指针指向__write_to_log_init
-
-[-> logd_write.c]
+其中write_to_log函数指针指向__write_to_log_init
 
     static int (*write_to_log)(log_id_t, struct iovec *vec, size_t nr) = __write_to_log_init;
+    
+### 2.4 write_to_log
+[-> logd_write.c]
     
     static int __write_to_log_init(log_id_t log_id, struct iovec *vec, size_t nr)
     {
@@ -153,7 +111,7 @@ write_to_log函数指针指向__write_to_log_init
 
         if (write_to_log == __write_to_log_init) {
             int ret;
-            // 【见小节】
+            //执行log初始化【见小节2.4.1】
             ret = __write_to_log_initialize();
             if (ret < 0) {
     #if !defined(_WIN32)
@@ -161,7 +119,7 @@ write_to_log函数指针指向__write_to_log_init
     #endif
     #if (FAKE_LOG_DEVICE == 0)
                 if (pstore_fd >= 0) {
-                    //【见小节】
+                    //【见小节2.5】
                     __write_to_log_daemon(log_id, vec, nr);
                 }
     #endif
@@ -178,7 +136,7 @@ write_to_log函数指针指向__write_to_log_init
         return write_to_log(log_id, vec, nr);
     }
 
-#### __write_to_log_initialize
+#### 2.4.1 __write_to_log_initialize
 
     static int __write_to_log_initialize()
     {
@@ -195,7 +153,9 @@ write_to_log函数指针指向__write_to_log_init
             pstore_fd = TEMP_FAILURE_RETRY(open("/dev/pmsg0", O_WRONLY));
         }
 
+        //首次执行logd_fd = -1
         if (logd_fd < 0) {
+            // 初始化socket
             i = TEMP_FAILURE_RETRY(socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0));
             if (i < 0) {
                 ret = -errno;
@@ -206,8 +166,9 @@ write_to_log函数指针指向__write_to_log_init
                 struct sockaddr_un un;
                 memset(&un, 0, sizeof(struct sockaddr_un));
                 un.sun_family = AF_UNIX;
+                // socket通道
                 strcpy(un.sun_path, "/dev/socket/logdw");
-
+                // 连接该socket
                 if (TEMP_FAILURE_RETRY(connect(i, (struct sockaddr *)&un,
                                                sizeof(struct sockaddr_un))) < 0) {
                     ret = -errno;
@@ -218,11 +179,12 @@ write_to_log函数指针指向__write_to_log_init
             }
         }
     #endif
-
         return ret;
     }
 
-#### __write_to_log_daemon
+此处socket为"/dev/socket/logdw", 将socket的文件描述符赋予该logd_fd.
+
+### 2.5 __write_to_log_daemon
 
     static int __write_to_log_daemon(log_id_t log_id, struct iovec *vec, size_t nr)
     {
@@ -230,11 +192,10 @@ write_to_log函数指针指向__write_to_log_init
     #if FAKE_LOG_DEVICE
         int log_fd;
 
-        if (/*(int)log_id >= 0 &&*/ (int)log_id < (int)LOG_ID_MAX) {
+        if ((int)log_id < (int)LOG_ID_MAX) {
             log_fd = log_fds[(int)log_id];
-        } else {
-            return -EBADF;
-        }
+        } 
+        ...
         do {
             ret = fakeLogWritev(log_fd, vec, nr);
             if (ret < 0) {
@@ -248,7 +209,7 @@ write_to_log函数指针指向__write_to_log_init
         android_pmsg_log_header_t pmsg_header;
         struct timespec ts;
         size_t i, payload_size;
-        static uid_t last_uid = AID_ROOT; /* logd *always* starts up as AID_ROOT */
+        static uid_t last_uid = AID_ROOT;
         static pid_t last_pid = (pid_t) -1;
         static atomic_int_fast32_t dropped;
 
@@ -256,7 +217,7 @@ write_to_log函数指针指向__write_to_log_init
             return -EINVAL;
         }
 
-        if (last_uid == AID_ROOT) { /* have we called to get the UID yet? */
+        if (last_uid == AID_ROOT) {
             last_uid = getuid();
         }
         if (last_pid == (pid_t) -1) {
@@ -320,14 +281,15 @@ write_to_log函数指针指向__write_to_log_init
             TEMP_FAILURE_RETRY(writev(pstore_fd, newVec, i));
         }
 
-        if (last_uid == AID_LOGD) { /* logd, after initialization and priv drop */
+        if (last_uid == AID_LOGD) { 
             return 0;
         }
 
         if (logd_fd < 0) {
             return -EBADF;
         }
-
+        
+        // [见小节2.6]
         ret = TEMP_FAILURE_RETRY(writev(logd_fd, newVec + 1, i - 1));
         if (ret < 0) {
             ret = -errno;
@@ -363,7 +325,7 @@ write_to_log函数指针指向__write_to_log_init
         return ret;
     }
 
-#### writev
+### 2.6 writev
 [-> uio.c]
 
     int  writev( int  fd, const struct iovec*  vecs, int  count )
@@ -375,6 +337,7 @@ write_to_log函数指针指向__write_to_log_init
             int          len = vecs->iov_len;
 
             while (len > 0) {
+                //将数据写入fd
                 int  ret = write( fd, buf, len );
                 if (ret < 0) {
                     if (total == 0)
@@ -392,36 +355,57 @@ write_to_log函数指针指向__write_to_log_init
     Exit:
         return total;
     }
+    
+### 三. logd 守护进程
+write其实是向logd的socket写入日志信息, 接下来看看logd的过程.
+            
 
-#### 其他
+    LogListener *swl = new LogListener(logBuf, reader);
+    if (swl->startListener(300)) {
+        exit(1);
+    }
 
-6个log级别，5个log缓存区
-      
-http://blog.csdn.net/kc58236582/article/category/6246436
-http://blog.csdn.net/luoshengyang/article/details/6606957
-http://blog.csdn.net/luoshengyang/article/details/6595744
+    
+SocketListener::runListener() 
+    LogListener.onDataAvailable 
+        LogBuffer::log
+            LogBuffer::maybePrune
+        LogReader::notifyNewLog
+            SocketListener::runOnEachSocket 
+            FlushCommand::runSocketCommand
+            
+#### 3.1 logbuf->log
 
-### 2. Native Log
+每一行log,记录为LogBufferElement.
+
+#### 3.2 maybePrune
 
 
-### 3. Kernel Log
+    void LogBuffer::maybePrune(log_id_t id) {
+        size_t sizes = stats.sizes(id); //log占用内存大小
+        unsigned long maxSize = log_buffer_size(id); //最大上限 
+        if (sizes > maxSize) {
+            size_t sizeOver = sizes - ((maxSize * 9) / 10); //超出90%的部分大小
+            size_t elements = stats.realElements(id); // 真实的log行数
+            size_t minElements = elements / 100; // 1%的log行数
+            if (minElements < minPrune) { //保证>=4行数
+                minElements = minPrune;
+            }
+            unsigned long pruneRows = elements * sizeOver / sizes;
+            if (pruneRows < minElements) { //保证>= 1%的log行数
+                pruneRows = minElements;
+            }
+            if (pruneRows > maxPrune) { //保证<=256的log行数
+                pruneRows = maxPrune;
+            }
+            prune(id, pruneRows);
+        }
+    }
 
-Linux Kernel最常使用的是printk，用法如下：
+pruneRows = elements * sizeOver / sizes = elements * (1- 0.9*(maxSize/sizes)).
+这就意味着log行数越多,或者log内存越大,则pruneRows的行数越多, 大致是总行数的10%, 并且满足区间[4, 256]
 
-    //第一个参数是级别， 第二个是具体log内容
-    printk(KERN_INFO x); 
+#### 3.3 prune
 
-日志级别的定义位于kernel/include/linux/printk.h文件，如下：
-
-|级别|对应值|使用场景|
-|---|---|
-|KERN_EMERG|<0>|系统不可用状态|
-|KERN_ALERT|<1>|警报信息，必须立即采取信息|
-|KERN_CRIT|<2>|严重错误信息
-|KERN_ERR|<3>|错误信息
-|KERN_WARNING|<4>|警告信息
-|KERN_NOTICE|<5>|普通但重要的信息
-|KERN_INFO|<6>|普通信息
-|KERN_DEBUG|<7>|调试信息
-
-日志输出到文件/proc/kmsg，可通过`cat /proc/kmsg`来获取内核log信息。
+1. 处理黑名单以及log最多的那个uid的情况, 删除;
+2. 白名单的不删除
