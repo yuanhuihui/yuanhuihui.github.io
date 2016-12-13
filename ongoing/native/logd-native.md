@@ -1,4 +1,12 @@
+---
+layout: post
+title:  "logd守护进程"
+date:   2016-12-01 11:30:00
+catalog:  true
+tags:
+    - android
 
+---
 
 源码
 
