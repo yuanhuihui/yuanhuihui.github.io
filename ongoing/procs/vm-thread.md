@@ -58,3 +58,7 @@ TimedWaiting: Object.wait(timeout)
 Waiting: Object.wait()
 Sleeping:  Thread.sleep()
 Blocked: 等待持有某个锁
+
+### 4.4 其他
+
+signal 3或 GC或 debugger执行attach，就导致进程进入suspend
