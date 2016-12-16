@@ -18,7 +18,7 @@ ANR(Application Not responding)，是指应用程序未响应，Android系统对
 - Service Timeout:比如前台服务在20s内未执行完成；
 - BroadcastQueue Timeout：比如前台广播在10s内未执行完成
 - ContentProvider Timeout：内容提供者执行超时
-- inputDispatching Timeout: 输入事件分发超时5s，包括按键和触摸事件。
+- InputDispatching Timeout: 输入事件分发超时5s，包括按键和触摸事件。
 
 触发ANR的过程可分为三个步骤: 埋炸弹, 拆炸弹, 引爆炸弹
 
@@ -675,13 +675,13 @@ mWindowManagerCallbacks为InputMonitor对象
         }
 
         if (appWindowToken != null && appWindowToken.appToken != null) {
-            //【见小节2.5.1】
+            //【见小节5.1.3.2】
             boolean abort = appWindowToken.appToken.keyDispatchingTimedOut(reason);
             if (! abort) {
                 return appWindowToken.inputDispatchingTimeoutNanos;
             }
         } else if (windowState != null) {
-            //AMP经过binder，最终调用到AMS【见小节2.4.3】
+            //AMP经过binder，最终调用到AMS【见小节5.1.3.1】
             long timeout = ActivityManagerNative.getDefault().inputDispatchingTimedOut(
                     windowState.mSession.mPid, aboveSystem, reason);
             if (timeout >= 0) {
@@ -781,8 +781,7 @@ inputDispatching的超时为`KEY_DISPATCHING_TIMEOUT`，即timeout = 5s
 
 说明:
 
-- 对于Service和广播发生ANR之后,最终都会调用AMS.appNotResponding
+- 对于Service, Broadcast, Input发生ANR之后,最终都会调用AMS.appNotResponding;
 - 对于provider,在其进程启动时publish过程可能会出现ANR, 则会直接杀进程以及清理相应信息,而不会弹出ANR的对话框.
 当然provider也是可能有走appNotResponding()流程的case,不过超时时间是由用户自定义.
 
-对于keyDispatching Timeout的ANR，当触发该类型ANR时，如果不再有输入事件，则不会弹出ANR对话框；只有在下一次input事件产生后5s才弹出ANR提示框。

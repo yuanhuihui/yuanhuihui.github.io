@@ -12,6 +12,7 @@ tags:
 
     frameworks/base/services/core/java/com/android/server/input/InputManagerService.java
     frameworks/base/services/core/jni/com_android_server_input_InputManagerService.cpp
+    frameworks/base/services/core/java/com/android/server/wm/InputMonitor.java
     frameworks/native/services/inputflinger/
       - InputManager.cpp
       - InputReader.cpp
@@ -58,7 +59,9 @@ InputManagerService extends IInputManager.Stub
         inputManager = new InputManagerService(context);
         ServiceManager.addService(Context.INPUT_SERVICE, inputManager);
         ...
+        //将InputMonitor对象保持到IMS对象
         inputManager.setWindowManagerCallbacks(wm.getInputMonitor());
+        //[见小节2.2]
         inputManager.start();
     }
 
@@ -117,6 +120,7 @@ InputManagerService extends IInputManager.Stub
         // 创建InputManager对象【见小节2.1.4】
         mInputManager = new InputManager(eventHub, this, this);
     }
+    
 #### 2.1.3 EventHub
 [-> EventHub.cpp]
 
@@ -210,20 +214,105 @@ InputManagerService extends IInputManager.Stub
         // 创建输入监听对象
         mQueuedListener = new QueuedInputListener(listener);
 
-        { // acquire lock
+        {
             AutoMutex _l(mLock);
-
             refreshConfigurationLocked(0);
             updateGlobalMetaStateLocked();
-        } // release lock
+        } 
     }
 
 #### 2.1.7 initialize
 [-> InputManager.cpp]
 
     void InputManager::initialize() {
-        //创建线程“InputReader”
+        //创建线程“InputReader” []
         mReaderThread = new InputReaderThread(mReader);
         //创建线程”InputDispatcher“
         mDispatcherThread = new InputDispatcherThread(mDispatcher);
     }
+
+
+    InputReaderThread::InputReaderThread(const sp<InputReaderInterface>& reader) :
+            Thread(/*canCallJava*/ true), mReader(reader) {
+    }
+
+    InputDispatcherThread::InputDispatcherThread(const sp<InputDispatcherInterface>& dispatcher) :
+            Thread(/*canCallJava*/ true), mDispatcher(dispatcher) {
+    }
+    
+### 2.2 IMS.start
+[-> InputManagerService.java]
+
+        public void start() {
+            // 启动native对象[见小节2.2.1]
+            nativeStart(mPtr);
+
+            Watchdog.getInstance().addMonitor(this);
+
+            registerPointerSpeedSettingObserver();
+            registerShowTouchesSettingObserver();
+
+            mContext.registerReceiver(new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    updatePointerSpeedFromSettings();
+                    updateShowTouchesFromSettings();
+                }
+            }, new IntentFilter(Intent.ACTION_USER_SWITCHED), null, mHandler);
+
+            updatePointerSpeedFromSettings(); //更新触摸点的速度
+            updateShowTouchesFromSettings(); //是否在屏幕上显示触摸点
+        }
+        
+#### 2.2.1 nativeStart
+[-> com_android_server_input_InputManagerService.cpp]
+
+    static void nativeStart(JNIEnv* env, jclass /* clazz */, jlong ptr) {
+        //此处ptr记录的便是NativeInputManager
+        NativeInputManager* im = reinterpret_cast<NativeInputManager*>(ptr);
+        // [见小节2.2.2]
+        status_t result = im->getInputManager()->start();
+        if (result) {
+            jniThrowRuntimeException(env, "Input manager could not be started.");
+        }
+    }
+    
+#### 2.2.2 InputManager.start
+[InputManager.cpp]
+
+    status_t InputManager::start() {
+        status_t result = mDispatcherThread->run("InputDispatcher", PRIORITY_URGENT_DISPLAY);
+        ...
+        result = mReaderThread->run("InputReader", PRIORITY_URGENT_DISPLAY);
+        ...
+
+        return OK;
+    }
+    
+启动两个线程,分别是"InputDispatcher"和"InputReader"
+
+### 工作线程
+
+InputDispatcher.cpp
+
+
+InputDispatcherThread::threadLoop
+dispatchOnce
+dispatchOnceInnerLocked
+dispatchKeyLocked
+findFocusedWindowTargetsLocked  / 另一个case便会进程findTouchedWindowTargetsLocked()
+handleTargetsNotReadyLocked
+
+
+在InputDispatcher::updateDispatchStatisticsLocked() 可以做点什么呢?
+
+
+InputDispatcher.injectInputEvent,
+
+mInboundQueue
+
+## 其他
+
+inputReader -> inputDispacher,  add in mInboundQueue, add wake up InputDispacher。
+
+好文: http://blog.csdn.net/laisse/article/details/47259485

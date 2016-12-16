@@ -16,9 +16,19 @@ tags:
     frameworks/base/core/jni/android_os_Debug.cpp
     system/core/libcutils/debugger.c
     
-## 一. 处理ANR
+## 一. ANR场景
 
 无论是四大组件或者进程等只要发生ANR，最终都会调用AMS.appNotResponding()方法，下面从这个方法说起。
+
+以下场景都会触发调用AMS.appNotResponding方法:
+
+- Service Timeout:比如前台服务在20s内未执行完成；
+- BroadcastQueue Timeout：比如前台广播在10s内未执行完成
+- InputDispatching Timeout: 输入事件分发超时5s，包括按键和触摸事件。
+
+
+
+## 二. appNotResponding处理流程
 
 ### 1. AMS.appNotResponding
 

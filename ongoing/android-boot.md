@@ -126,6 +126,7 @@
     private static void runSelectLoop(String abiList) throws MethodAndArgsCaller {
         ArrayList<FileDescriptor> fds = new ArrayList<FileDescriptor>();
         ArrayList<ZygoteConnection> peers = new ArrayList<ZygoteConnection>();
+        
         //sServerSocket是socket通信中的服务端，即zygote进程
         fds.add(sServerSocket.getFileDescriptor());
         peers.add(null);
@@ -861,3 +862,86 @@ adb logcat -s Zygote
 adb logcat -s SystemServer
 adb logcat | grep "1359  1359" //system_server情况
 adb logcat -s ActivityManager
+
+
+
+
+
+### 进程相关
+
+进程启动的场景hostingType所对应的值
+
+addAppLocked,  "added application"
+
+attachApplicationLocked,  "link fail"
+cleanUpApplicationRecordLocked, "restart"
+finishBooting,  "on-hold",    这个是在finishBooting()之后处理的
+
+startIsolatedProcess, ""
+
+
+AS.bringUpServiceLocked, "service"
+ASS.startSpecificActivityLocked, "activity"
+getContentProviderImpl "content provider"
+BQ.processNextBroadcast, "broadcast"
+appDiedLocked, "activity"
+bindBackupAgent, "backup"
+
+hostingNameStr值一般地是组件名
+
+#### 创建进程
+
+当执行完fork()则马上输出:
+
+EventLog.writeEvent(EventLogTags.AM_PROC_START,
+                    UserHandle.getUserId(uid), startResult.pid, uid,
+                    app.processName, hostingType,
+                    hostingNameStr != null ? hostingNameStr : "");
+                    
+
+Slog.i(TAG,"Start proc " pid, processName, uid, hostingType,  hostingNameStr);
+
+#### 杀进程
+
+Slog.i(TAG, "Killing " + toShortString() + " (adj " + setAdj + "): " + reason);
+EventLog.writeEvent(EventLogTags.AM_KILL, userId, pid, processName, setAdj, reason);
+
+是binder线程
+12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.checkFinishBootingLocked(ActivityStackSupervisor.java:2608)
+12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.activityIdleInternalLocked(ActivityStackSupervisor.java:2653)
+12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityManagerService.activityIdle(ActivityManagerService.java:6387)
+12-16 10:00:38.503 24654 25606 I ActivityManager: 	at android.app.ActivityManagerNative.onTransact(ActivityManagerNative.java:522)
+12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2519)
+12-16 10:00:38.503 24654 25606 I ActivityManager: 	at android.os.Binder.execTransact(Binder.java:453)
+
+
+
+case 1:
+1294是android.display线程
+
+12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.am.ActivityManagerService.finishBooting(ActivityManagerService.java:6524)
+12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.am.ActivityManagerService.bootAnimationComplete(ActivityManagerService.java:6595)
+12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.wm.WindowManagerService.performEnableScreen(WindowManagerService.java:5912)
+12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.wm.WindowManagerService$H.handleMessage(WindowManagerService.java:8091)
+12-16 10:19:19.102  1275  1294 I ActivityManager: 	at android.os.Handler.dispatchMessage(Handler.java:102)
+12-16 10:19:19.102  1275  1294 I ActivityManager: 	at android.os.Looper.loop(Looper.java:148)
+12-16 10:19:19.102  1275  1294 I ActivityManager: 	at android.os.HandlerThread.run(HandlerThread.java:61)
+12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.ServiceThread.run(ServiceThread.java:46)
+12-16 10:19:19.102  1275  1294 I SystemServiceManager: Starting phase 1000
+
+
+case 2:
+2652是"ActivityManager"线程
+12-16 13:28:36.456  2621  2652 I ActivityManager: 	at com.android.server.am.ActivityManagerService.finishBooting(ActivityManagerService.java:6524)
+12-16 13:28:36.456  2621  2652 I ActivityManager: 	at com.android.server.am.ActivityManagerService$MainHandler.handleMessage(ActivityManagerService.java:1934)
+12-16 13:28:36.456  2621  2652 I ActivityManager: 	at android.os.Handler.dispatchMessage(Handler.java:102)
+12-16 13:28:36.456  2621  2652 I ActivityManager: 	at android.os.Looper.loop(Looper.java:148)
+12-16 13:28:36.456  2621  2652 I ActivityManager: 	at android.os.HandlerThread.run(HandlerThread.java:61)
+12-16 13:28:36.456  2621  2652 I ActivityManager: 	at com.android.server.ServiceThread.run(ServiceThread.java:46)
+12-16 13:28:36.456  2621  2652 I SystemServiceManager: Starting phase 1000
+### 其他
+
+lsof,这是一个重要的命令
+
+
+kill -3, gc都是suspend进程
