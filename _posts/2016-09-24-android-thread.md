@@ -410,7 +410,21 @@ mCanCallJava在Thread对象创建时，在构造函数中默认设置mCanCallJav
                 result = self->threadLoop();
             }
             
-            ...
+            Mutex::Autolock _l(self->mLock);
+            //当result=false则退出该线程
+            if (result == false || self->mExitPending) {
+                self->mExitPending = true;
+                self->mRunning = false;
+                self->mThread = thread_id_t(-1);
+                self->mThreadExitedCondition.broadcast();
+                break;
+            }
+            }
+
+            //释放强引用，让线程有机会退出
+            strong.clear();
+            //再次获取强引用，用于下一轮循环
+            strong = weak.promote();
         } while(strong != 0);
         return 0;
     }

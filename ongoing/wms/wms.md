@@ -2,10 +2,6 @@
 
 PhoneWindowManager extends WindowManagerPolicy
 
-IWindowManager
-IWindowSession
-
-
 
 WindowState
 Window
@@ -37,7 +33,12 @@ TaskRecord <–> Task
 
 ##  如何通信
 
-IWindowSession作为一组Binder通信组
+3组 binder ipc:
+
+- IWindowSession：app进程 --> system_server进程 通信；
+- IWindowManager：app进程 --> system_server进程 通信；
+- IWindow: system_server进程 --> app进程 通信；
+
 
 Session extends IWindowSession.Stub, 作为Binder服务端
 WindowManagerService extends IWindowManager.Stub:   Binder的服务端

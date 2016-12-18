@@ -9,6 +9,12 @@ tags:
 
 ---
 
+> 基于android 6.0, 分析bugreport过程
+
+    framework/native/cmds/bugreport/bugreport.cpp
+    framework/native/cmds/dumpstate/dumpstate.cpp
+    framework/native/cmds/dumpstate/utils.c
+    
 ## 一、概述
 
 通过adb命令可获取bugrepport信息，并输出到文件当前路径的bugreport.txt文件：
@@ -249,7 +255,7 @@ Android系统源码中framework/native/cmds/bugreport目录通过Android.mk定�
 
 接下来就重点说说`dumpstate()`功能：
 
-### 2.3 dumpstate
+### 2.3 dumpstate()
 
 该方法负责整个bugreport内容输出的最为核心的功能。
 
@@ -861,6 +867,7 @@ dump虚拟机和native的stack traces，并返回trace文件位置
                     /* If 3 backtrace dumps fail in a row, consider debuggerd dead. */
                     if (timeout_failures == 3) {
                         dprintf(fd, "too many stack dump failures, skipping...\n");
+                    // 超时时长为20s
                     } else if (dump_backtrace_to_file_timeout(pid, fd, 20) == -1) {
                         dprintf(fd, "dumping failed, likely due to a timeout\n");
                         timeout_failures++;
@@ -895,6 +902,11 @@ dump虚拟机和native的stack traces，并返回trace文件位置
         close(fd);
         return result;
     }
+
+该方法其中两个重要的步骤：
+
+- 输出Java进程的trace是通过发送signal 3来dump相应信息。
+- 输出native进程的trace是通过dump_backtrace_to_file_timeout，并且超时时长为20s;
 
 #### 2.3.5 do_dmesg()
 
@@ -971,9 +983,3 @@ bugreport通过socket与dumpstate服务建立通信，在dumpstate.cpp中的dump
 
 **Tips**： bugreport几乎涵盖整个系统信息，内容非常长，每一个子项都以`------ xxx ------`开头。
 例如APP ACTIVITIES的开头便是 `------ APP ACTIVITIES (dumpsys activity all) ------`，其中括号内的便是输出该信息指令，即`dumpsys activity all`，还有可能是内容所在节点，各个子项目类似的规律，看完前面的源码分析过程，相信你肯定能明白。下面一篇文章再进一步从bugreport内容的角度来说明其寓意。
-
-### 三、相关源码
-
-    framework/native/cmds/bugreport/bugreport.cpp
-    framework/native/cmds/dumpstate/dumpstate.cpp
-    framework/native/cmds/dumpstate/utils.c

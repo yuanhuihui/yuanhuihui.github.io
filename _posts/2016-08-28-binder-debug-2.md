@@ -69,7 +69,7 @@ tags:
 |BINDER_STAT_PROC|binder进程|
 |BINDER_STAT_THREAD|binder线程|
 |BINDER_STAT_NODE|binder节点|
-|BINDER_STAT_REF|binder引用节|
+|BINDER_STAT_REF|binder引用|
 |BINDER_STAT_DEATH|binder死亡|
 |BINDER_STAT_TRANSACTION|binder事务|
 |BINDER_STAT_TRANSACTION_COMPLETE|binder已完成事务|
@@ -195,7 +195,7 @@ tags:
 - 当系统空闲时，一般来说`ready_threads` = `requested_threads_started` + `BC_ENTER_LOOPER`； 当系统繁忙时`ready_threads`可能为0.
 - 例如system_server进程的`ready_threads`线程个数越少，系统可能处于越繁忙的状态；
 - 绝大多数的进程`max_threads` = 15，而surfaceflinger最大线程个数为4，servicemanager最大线程个数为0(只有主线程)；
-
+- `pending transactions`:是指该进程的todo队列事务个数
 
 例如，想查看当前系统所有进程的异步可用内存情况，可执行：
 
