@@ -351,6 +351,8 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
 - 目标provider不存在的情况;
 - 循环等待provider发布完成;
 
+此处name,也就是ComponentName的mClass=`com.gityuan.articles`.
+
 #### 2.7.1  目标provider已存在
 
     private final ContentProviderHolder getContentProviderImpl(IApplicationThread caller,
