@@ -15,6 +15,7 @@ Kernel源代码下载如下：[https://www.kernel.org](https://www.kernel.org)
 - arch: 所有CPU体系结构相关的代码
   - arm64/
 - include：头文件
+  - linux/
   - uapi
   - asm-generic/	
 - drivers: 设备驱动

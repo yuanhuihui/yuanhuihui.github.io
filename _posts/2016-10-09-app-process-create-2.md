@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解Android进程启动之全过程"
+title:  "Android四大组件与进程启动的关系"
 date:   2016-10-09 21:20:00
 catalog:  true
 tags:
@@ -19,9 +19,99 @@ Android系统将进程做得很友好的封装,对于上层app开发者来说进
 
 ## 二. 四大组件与进程
 
-### 2.1 startProcessLocked
+### 2.1 四大组件
 
-在`ActivityManagerService.java`关于启动进程有4个同名不同参数的重载方法, 为了便于说明,以下4个方法依次记为`1(a)`,`1(b)`, `2(a)`, `2(b)` :
+Activity, Service, ContentProvider, BroadcastReceiver这四大组件,在启动的过程,当其所承载的进程不存在时需要调用startProcessLocked先创建进程
+
+![component_process](/images/process/component_process.jpg)
+
+#### 2.1.1 Activity
+
+启动Activity过程: 调用startActivity,该方法经过层层调用,最终会调用ActivityStackSupervisor.java中的`startSpecificActivityLocked`,当activity所属进程还没启动的情况下,则需要创建相应的进程.更多关于Activity, 见[startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
+
+[-> ActivityStackSupervisor.java]
+
+    void startSpecificActivityLocked(...) {
+        ProcessRecord app = mService.getProcessRecordLocked(r.processName,
+                r.info.applicationInfo.uid, true);
+        if (app != null && app.thread != null) {
+            ...  //进程已创建的case
+            return
+        }
+        mService.startProcessLocked(r.processName, r.info.applicationInfo, true, 0,
+                    "activity", r.intent.getComponent(), false, false, true);
+    }
+
+#### 2.1.2 Service
+
+启动服务过程: 调用startService,该方法经过层层调用,最终会调用ActiveServices.java中的`bringUpServiceLocked`,当Service进程没有启动的情况(app==null), 则需要创建相应的进程. 更多关于Service, 见[startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
+
+[-> ActiveServices.java]
+
+    private final String bringUpServiceLocked(...){
+        ...
+        ProcessRecord app = mAm.getProcessRecordLocked(procName, r.appInfo.uid, false);
+        if (app == null) {
+            if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
+                    "service", r.name, false, isolated, false)) == null) {
+                ...
+            }
+        }
+        ...
+    }
+
+
+#### 2.1.3 ContentProvider
+
+ContentProvider处理过程: 调用ContentResolver.query该方法经过层层调用, 最终会调用到AMS.java中的`getContentProviderImpl`,当ContentProvider所对应进程不存在,则需要创建新进程. 更多关于ContentProvider,见[理解ContentProvider原理(一)](http://gityuan.com/2016/07/30/content-provider/)
+
+[-> AMS.java]
+
+    private final ContentProviderHolder getContentProviderImpl(...) {
+        ...
+        ProcessRecord proc = getProcessRecordLocked(cpi.processName, cpr.appInfo.uid, false);
+        if (proc != null && proc.thread != null) {
+            ...  //进程已创建的case
+        } else {
+            proc = startProcessLocked(cpi.processName,
+                        cpr.appInfo, false, 0, "content provider",
+                        new ComponentName(cpi.applicationInfo.packageName,cpi.name),
+                        false, false, false);
+        }
+        ...
+    }
+
+
+
+#### 2.1.4 Broadcast
+
+广播处理过程: 调用sendBroadcast,该方法经过层层调用, 最终会调用到BroadcastQueue.java中的`processNextBroadcast`,当BroadcastReceiver所对应的进程尚未启动，则创建相应进程. 更多关于broadcast, 见[Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/).
+
+[-> BroadcastQueue.java]
+
+    final void processNextBroadcast(boolean fromMsg) {
+        ...
+        ProcessRecord app = mService.getProcessRecordLocked(targetProcess,
+            info.activityInfo.applicationInfo.uid, false);
+        if (app != null && app.thread != null) {
+            ...  //进程已创建的case
+            return
+        }
+
+        if ((r.curApp=mService.startProcessLocked(targetProcess,
+                info.activityInfo.applicationInfo, true,
+                r.intent.getFlags() | Intent.FLAG_FROM_BACKGROUND,
+                "broadcast", r.curComponent,
+                (r.intent.getFlags()&Intent.FLAG_RECEIVER_BOOT_UPGRADE) != 0, false, false))
+                        == null) {
+            ...
+        }
+        ...
+    }
+
+### 2.2 进程启动
+
+在`ActivityManagerService.java`关于启动进程有4个同名不同参数的重载方法StartProcessLocked, 为了便于说明,以下4个方法依次记为`1(a)`,`1(b)`, `2(a)`, `2(b)` :
 
     //方法 1(a)
     final ProcessRecord startProcessLocked(
@@ -75,95 +165,10 @@ Android系统将进程做得很友好的封装,对于上层app开发者来说进
 - 2(a), 2(b)的第一个参数为ProcessRecord类型进程记录信息ProcessRecord;
 - 1系列的方法最终调用到2系列的方法;
 
-### 2.2 四大组件与进程
-
-Activity, Service, ContentProvider, BroadcastReceiver这四大组件,在启动的过程,当其所承载的进程不存在时需要先创建进程. 这个创建进程的过程是调用前面讲到的startProcessLocked方法1(a)，之后再调用流程: 1(a) => 1(b) ==> 2(b).
-
-#### 2.2.1 Activity
-
-启动Activity过程: 调用startActivity,该方法经过层层调用,最终会调用ActivityStackSupervisor.java中的`startSpecificActivityLocked`,当activity所属进程还没启动的情况下,则需要创建相应的进程.更多关于Activity, 见[startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
-
-[-> ActivityStackSupervisor.java]
-
-    void startSpecificActivityLocked(...) {
-        ProcessRecord app = mService.getProcessRecordLocked(r.processName,
-                r.info.applicationInfo.uid, true);
-        if (app != null && app.thread != null) {
-            ...  //进程已创建的case
-            return
-        }
-        mService.startProcessLocked(r.processName, r.info.applicationInfo, true, 0,
-                    "activity", r.intent.getComponent(), false, false, true);
-    }
-
-#### 2.2.2 Service
-
-启动服务过程: 调用startService,该方法经过层层调用,最终会调用ActiveServices.java中的`bringUpServiceLocked`,当Service进程没有启动的情况(app==null), 则需要创建相应的进程. 更多关于Service, 见[startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
-
-[-> ActiveServices.java]
-
-    private final String bringUpServiceLocked(...){
-        ...
-        ProcessRecord app = mAm.getProcessRecordLocked(procName, r.appInfo.uid, false);
-        if (app == null) {
-            if ((app=mAm.startProcessLocked(procName, r.appInfo, true, intentFlags,
-                    "service", r.name, false, isolated, false)) == null) {
-                ...
-            }
-        }
-        ...
-    }
+四大组件所在应用首次启动时, 调用startProcessLocked方法1(a)，之后再调用流程: 1(a) => 1(b) ==> 2(b).
 
 
-#### 2.2.3 ContentProvider
-
-ContentProvider处理过程: 调用ContentResolver.query该方法经过层层调用, 最终会调用到AMS.java中的`getContentProviderImpl`,当ContentProvider所对应进程不存在,则需要创建新进程. 更多关于ContentProvider,见[理解ContentProvider原理(一)](http://gityuan.com/2016/07/30/content-provider/)
-
-[-> AMS.java]
-
-    private final ContentProviderHolder getContentProviderImpl(...) {
-        ...
-        ProcessRecord proc = getProcessRecordLocked(cpi.processName, cpr.appInfo.uid, false);
-        if (proc != null && proc.thread != null) {
-            ...  //进程已创建的case
-        } else {
-            proc = startProcessLocked(cpi.processName,
-                        cpr.appInfo, false, 0, "content provider",
-                        new ComponentName(cpi.applicationInfo.packageName,cpi.name),
-                        false, false, false);
-        }
-        ...
-    }
-
-
-
-#### 2.2.4 Broadcast
-
-广播处理过程: 调用sendBroadcast,该方法经过层层调用, 最终会调用到BroadcastQueue.java中的`processNextBroadcast`,当BroadcastReceiver所对应的进程尚未启动，则创建相应进程. 更多关于broadcast, 见[Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/).
-
-[-> BroadcastQueue.java]
-
-    final void processNextBroadcast(boolean fromMsg) {
-        ...
-        ProcessRecord app = mService.getProcessRecordLocked(targetProcess,
-            info.activityInfo.applicationInfo.uid, false);
-        if (app != null && app.thread != null) {
-            ...  //进程已创建的case
-            return
-        }
-
-        if ((r.curApp=mService.startProcessLocked(targetProcess,
-                info.activityInfo.applicationInfo, true,
-                r.intent.getFlags() | Intent.FLAG_FROM_BACKGROUND,
-                "broadcast", r.curComponent,
-                (r.intent.getFlags()&Intent.FLAG_RECEIVER_BOOT_UPGRADE) != 0, false, false))
-                        == null) {
-            ...
-        }
-        ...
-    }
-
-#### 2.2.5 进程的创建时机
+### 2.3 启动时机
 刚解说了4大组件与进程创建的调用方法，那么接下来再来说说进程创建的触发时机有哪些？如下：
 
 - 单进程App：对于这种情况，那么app首次启动某个组件时，比如通过调用startActivity来启动某个app，则先会触发创建该app进程，然后再启动该Activity。此时该app进程已创建，那么后续再该app中内部启动同一个activity或者其他组件，则都不会再创建新进程（除非该app进程被系统所杀掉）。
@@ -235,9 +240,9 @@ ContentProvider处理过程: 调用ContentResolver.query该方法经过层层调
         }
     }
 
-看完上面的源码，一模了解，对于android:process属性值不以”:“开头的进程名必须至少包含“.”字符。
+看完上面的源码.很显然对于android:process属性值不以”:“开头的进程名必须至少包含“.”字符。
 
-### 2.3 小节
+### 2.4 小节
 
 Activity, Service, ContentProvider, BroadcastReceiver这四大组件在启动时,当所承载的进程不存在时，包括多进程的情况，则都需要创建。
 
