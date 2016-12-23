@@ -631,7 +631,7 @@ SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶�
 1. `PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段等待Display有默认显示
 2. `PHASE_LOCK_SETTINGS_READY=480`，进入该阶段服务能获取锁屏设置的数据
 3. `PHASE_SYSTEM_SERVICES_READY=500`，进入该阶段服务能安全地调用核心系统服务，如PMS;
-4. `PHASE_ACTIVITY_MANAGER_READY=550`，进入该阶段服务能广播Intent;
+4. `PHASE_ACTIVITY_MANAGER_READY=550`， activitymanager已经ready,但是system_server并没有ready. 进入该阶段服务能广播Intent;
 5. `PHASE_THIRD_PARTY_APPS_CAN_START=600`，启动完WebView, systemui, Watchdog,进入该阶段服务能start/bind第三方apps，app能通过Binder调用service;
 6. `PHASE_BOOT_COMPLETED=1000`，该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
 
