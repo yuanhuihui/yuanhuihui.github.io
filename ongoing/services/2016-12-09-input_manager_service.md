@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "输入系统之input启动篇"
-date:   2016-12-10 20:09:12
+title:  "Input输入系统(启动篇)"
+date:   2016-12-09 20:09:12
 catalog:  true
 tags:
     - android
@@ -13,29 +13,13 @@ tags:
     frameworks/base/services/core/java/com/android/server/input/InputManagerService.java
     frameworks/base/services/core/jni/com_android_server_input_InputManagerService.cpp
     
-    frameworks/native/services/inputflinger/ （libinputflinger.so）
+    frameworks/native/services/inputflinger/
       - InputManager.cpp
       - InputDispatcher.cpp （内含InputDispatcherThread）
       - InputReader.cpp （内含InputReaderThread）
       - EventHub.cpp
       - InputListener.cpp
       
-    frameworks/base/libs/input/ （libinputservice.so）
-      - PointerController.cpp
-      - SpriteController.cpp
-      
-    frameworks/native/libs/input/ (libinput.so)
-      - IInputFlinger.cpp
-      - Input.cpp
-      - InputDevice.cpp
-      - InputTransport.cpp
-      - Keyboard.cpp
-      - KeyCharacterMap.cpp
-      - KeyLayoutMap.cpp
-      - VelocityControl.cpp
-      - VelocityTracker.cpp
-      - VirtualKeyMap.cpp
-
       
 ## 一. 概述
 
@@ -47,13 +31,13 @@ Input模块的主要组成：
 
   - Native层的InputReader负责从EventHub取出事件并处理，再交给InputDispatcher；
   - Native层的InputDispatcher接收来自InputReader的输入事件，并记录WMS的窗口信息，用于派发事件到合适的窗口；
-  - Java层的InputManagerService跟WMS交互，WMS记录所有窗口信息，并同步更新到IMS，为InputDispatcher正确派发事件到ViewRootImpl提供保障；
+  - Java层跟WMS交互，WMS记录所有窗口信息，并同步更新到IMS，为InputDispatcher正确派发事件到ViewRootImpl提供保障；
 
 Input相关的动态库：
 
+- libinput.so：frameworks/native/libs/input/
 - libinputflinger.so：frameworks/native/services/inputflinger/
-- libinputservice.so：frameworks/base/libs/input/
-- libinput.so：       frameworks/native/libs/input/
+- libinputservice.so： frameworks/base/libs/input/
 
 ### 1.1 整体框架类图
 
@@ -68,18 +52,8 @@ Input模块所涉及的重要类的关系如下：
 
 ![input_class](/images/input/input_class.jpg)
 
-图解:
-
-- InputManagerService位于Java层的InputManagerService.java文件；
-  - 其成员`mPtr`指向Native层的NativeInputManager对象；
-- NativeInputManager位于Native层的com_android_server_input_InputManagerService.cpp文件；
-  - 其成员`mServiceObj`指向Java层的IMS对象；
-  - 其成员`mLooper`是指“android.display”线程的Looper;
-- InputManager位于libinputflinger中的InputManager.cpp文件；
-  - InputDispatcher和InputReader的成员变量`mPolicy`都是指NativeInputManager对象;
-  - InputReader的成员`mQueuedListener`，数据类型为QueuedInputListener；通过其内部成员变量mInnerListener指向InputDispatcher对象；
-这便是InputReader跟InputDispatcher交互的中间枢纽。
-
+- IMS的成员变量`mPtr`指向Native层的NativeInputManager对象；NativeInputManager的成员变量
+mServiceObj指向Java层的IMS对象；
 
 ### 1.2 启动调用栈
 
@@ -101,11 +75,7 @@ IMS服务是伴随着system_server进程的启动而启动，整个调用过程�
             InputManager.start
                 InputReaderThread->run
                 InputDispatcherThread->run
-
-整个过程首先创建如下对象：NativeInputManager，EventHub，InputManager，
-InputDispatcher，InputReader，InputReaderThread，InputDispatcherThread。
-接着便是启动两个工作线程`InputReader`,`InputDispatcher`。
-      
+                
 ## 二. 启动过程
 
     private void startOtherServices() {
@@ -171,11 +141,7 @@ InputDispatcher，InputReader，InputReaderThread，InputDispatcherThread。
         // 创建InputManager对象【见小节2.5】
         mInputManager = new InputManager(eventHub, this, this);
     }
-
-此处的mLooper是指“android.display”线程的Looper;
-libinputservice.so库中PointerController和SpriteController对象都继承于于MessageHandler，
-这两个Handler采用的便是该mLooper.
-
+    
 ### 2.4 EventHub
 [-> EventHub.cpp]
 
@@ -236,8 +202,6 @@ libinputservice.so库中PointerController和SpriteController对象都继承于�
         initialize();//【见小节2.8】
     }
 
-InputDispatcher和InputReader的mPolicy成员变量都是指NativeInputManager对象。
-
 ### 2.6 InputDispatcher
 [-> InputDispatcher.cpp]
 
@@ -255,11 +219,8 @@ InputDispatcher和InputReader的mPolicy成员变量都是指NativeInputManager�
         //获取分发超时参数
         policy->getDispatcherConfiguration(&mConfig);
     }
-    
-该方法主要工作：
 
-- 创建属于自己线程的Looper对象；
-- 超时参数来自于IMS，参数默认值keyRepeatTimeout = 500，keyRepeatDelay = 50。
+此处超时参数来自于IMS，参数默认值keyRepeatTimeout = 500，keyRepeatDelay = 50
 
 ### 2.7 InputReader
 [-> InputReader.cpp]
@@ -280,10 +241,6 @@ InputDispatcher和InputReader的mPolicy成员变量都是指NativeInputManager�
         } 
     }
 
-此处mQueuedListener的成员变量`mInnerListener`便是InputDispatcher对象。
-前面【小节2.5】InputManager创建完InputDispatcher和InputReader对象，
-接下里便是调用initialize初始化。
-
 ### 2.8 initialize
 [-> InputManager.cpp]
 
@@ -302,8 +259,7 @@ InputDispatcher和InputReader的mPolicy成员变量都是指NativeInputManager�
             Thread(/*canCallJava*/ true), mDispatcher(dispatcher) {
     }
   
-初始化的主要工作：创建线程“InputReader”和”InputDispatcher“都是能访问Java代码的native线程。
-到此[2.1-2.8]整个的InputManagerService对象初始化过程并完成，接下来便是调用其start方法。
+创建线程“InputReader”和”InputDispatcher“都是能访问Java代码的native线程
 
 ### 2.9 IMS.start
 [-> InputManagerService.java]
@@ -354,8 +310,9 @@ InputDispatcher和InputReader的mPolicy成员变量都是指NativeInputManager�
     
 启动两个线程,分别是"InputDispatcher"和"InputReader"
 
-## 三. 总结
+### 2.12 小节
 
+- IMS服务中的InputManagerHandler运行在线程"android.display"
 - IMS服务中的成员变量mPtr记录Native层的NativeInputManager对象；
 - IMS对象的初始化过程的重点在于native初始化，分别创建了以下对象：
   - NativeInputManager；
@@ -368,10 +325,6 @@ InputDispatcher和InputReader的mPolicy成员变量都是指NativeInputManager�
 
 从整个启动过程，可知有system_server进程中有3个线程跟Input输入系统息息相关，分别是`android.display`,
 `InputReader`,`InputDispatcher`。
-
-- InputDispatcher线程：属于Looper线程，会创建属于自己的Looper，循环分发消息；
-- InputReader线程：通过getEvents()调用EventHub读取输入事件，循环读取消息；
-- android.display线程：属于Looper线程，用于处理Java层的IMS.InputManagerHandler和Native层的NativeInputManager中指定的MessageHandler消息;
 
 Input事件流程：Linux Kernel -> IMS(InputReader -> InputDispatcher) -> WMS -> ViewRootImpl，
 后续再进一步介绍。
