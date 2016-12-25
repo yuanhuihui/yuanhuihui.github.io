@@ -1,76 +1,3 @@
-开机过程的进程启动顺序
-
-
-
-## 一. 进程启动
-
-    final ProcessRecord startProcessLocked(String processName,...){
-        if (!mProcessesReady
-                && !isAllowedWhileBooting(info)
-                && !allowWhileBooting) {
-            if (!mProcessesOnHold.contains(app)) {
-                mProcessesOnHold.add(app);
-            }
-            return app;
-        }
-    }
-    
-    final ProcessRecord newProcessRecordLocked(...){
-        if (((!mBooted && !mBooting) ||ProcessPolicyManager.isDelayBootPersistentApp(r.processName))
-                && userId == UserHandle.USER_OWNER
-                && (info.flags & PERSISTENT_MASK) == PERSISTENT_MASK) {
-            r.persistent = true;
-            r.maxAdj = ProcessList.PERSISTENT_PROC_ADJ;
-        }
-    }
-    
-#### goingCallback.run()
-
-    private void startOtherServices() {
-        ...
-        mActivityManagerService.systemReady(new Runnable() {
-            public void run() {
-                
-              //phase550
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_ACTIVITY_MANAGER_READY);
-
-                mActivityManagerService.startObservingNativeCrashes();
-                //启动WebView
-                WebViewFactory.prepareWebViewInSystemServer();
-                //启动系统UI
-                startSystemUi(context);
-
-                // 执行一系列服务的systemReady方法
-                networkScoreF.systemReady();
-                networkManagementF.systemReady();
-                networkStatsF.systemReady();
-                networkPolicyF.systemReady();
-                connectivityF.systemReady();
-                audioServiceF.systemReady();
-                Watchdog.getInstance().start(); //Watchdog开始工作
-                
-              //phase600
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);
-                        
-                // 执行一系列服务的systemRunning方法
-                wallpaper.systemRunning();
-                inputMethodManager.systemRunning(statusBarF);
-                location.systemRunning();
-                countryDetector.systemRunning();
-                networkTimeUpdater.systemRunning();
-                commonTimeMgmtService.systemRunning();
-                textServiceManagerService.systemRunning();
-                assetAtlasService.systemRunning();
-                inputManager.systemRunning();
-                telephonyRegistry.systemRunning();
-                mediaRouter.systemRunning();
-                mmsService.systemRunning();
-            }
-        });
-    }
-
 ### 3.8 AMS.systemReady
 
 #### 3.8.0 deliverPreBootCompleted
@@ -196,7 +123,54 @@ PreBootContinuation.go
 
         return app;
     }
-    
+
+#### 3.8.3 goingCallback.run
+
+    private void startOtherServices() {
+        ...
+        mActivityManagerService.systemReady(new Runnable() {
+            public void run() {
+                
+        //phase550
+                mSystemServiceManager.startBootPhase(
+                        SystemService.PHASE_ACTIVITY_MANAGER_READY);
+
+                mActivityManagerService.startObservingNativeCrashes();
+                //启动WebView
+                WebViewFactory.prepareWebViewInSystemServer();
+                //启动系统UI
+                startSystemUi(context);
+
+                // 执行一系列服务的systemReady方法
+                networkScoreF.systemReady();
+                networkManagementF.systemReady();
+                networkStatsF.systemReady();
+                networkPolicyF.systemReady();
+                connectivityF.systemReady();
+                audioServiceF.systemReady();
+                Watchdog.getInstance().start(); //Watchdog开始工作
+                
+        //phase600
+                mSystemServiceManager.startBootPhase(
+                        SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);
+                        
+                // 执行一系列服务的systemRunning方法
+                wallpaper.systemRunning();
+                inputMethodManager.systemRunning(statusBarF);
+                location.systemRunning();
+                countryDetector.systemRunning();
+                networkTimeUpdater.systemRunning();
+                commonTimeMgmtService.systemRunning();
+                textServiceManagerService.systemRunning();
+                assetAtlasService.systemRunning();
+                inputManager.systemRunning();
+                telephonyRegistry.systemRunning();
+                mediaRouter.systemRunning();
+                mmsService.systemRunning();
+            }
+        });
+    }
+
 #### 3.8.4 startProcessLocked
 
     final ProcessRecord startProcessLocked(String processName, ApplicationInfo info,
@@ -227,9 +201,9 @@ PreBootContinuation.go
 
 只有以下场景会跳过上述检查过程,其他场景非persistent进程必须等待mProcessesReady = true. 可以看出几乎所有进程都需要这个监测.
 
-- addAppLocked()启动persistent进程; //此时已经mProcessesReady
-- finishBooting()启动on-hold进程; //此时才会启动
-- cleanUpApplicationRecordLock() 启动需要restart进程; //前提是进程已创建
+- addAppLocked()启动persistent进程;
+- finishBooting()启动on-hold进程;
+- cleanUpApplicationRecordLock() 启动需要restart进程;
 - attachApplicationLocked() 绑定Bind死亡通告失败,则启动进程;
 
 
@@ -259,7 +233,7 @@ bindBackupAgent, "backup"
 
 hostingNameStr值一般地是组件名
 
-#### 启进程
+#### 创建进程
 
 当执行完fork()则马上输出:
 
@@ -276,9 +250,6 @@ Slog.i(TAG,"Start proc " pid, processName, uid, hostingType,  hostingNameStr);
 Slog.i(TAG, "Killing " + toShortString() + " (adj " + setAdj + "): " + reason);
 EventLog.writeEvent(EventLogTags.AM_KILL, userId, pid, processName, setAdj, reason);
 
-
-#### 其他
-
 是binder线程
 12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.checkFinishBootingLocked(ActivityStackSupervisor.java:2608)
 12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.activityIdleInternalLocked(ActivityStackSupervisor.java:2653)
@@ -290,7 +261,7 @@ EventLog.writeEvent(EventLogTags.AM_KILL, userId, pid, processName, setAdj, reas
 
 
 case 1:
-1294是"android.display"线程
+1294是android.display线程
 
 12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.am.ActivityManagerService.finishBooting(ActivityManagerService.java:6524)
 12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.am.ActivityManagerService.bootAnimationComplete(ActivityManagerService.java:6595)
