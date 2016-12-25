@@ -14,3 +14,6 @@
 类似的道理 http://blog.csdn.net/laisse/article/details/47257385
 
 http://blog.csdn.net/laisse/article/details/47259707
+
+ioctl命令的理解
+http://blog.csdn.net/qq429205464/article/details/7822442
