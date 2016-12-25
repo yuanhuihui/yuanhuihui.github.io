@@ -1423,12 +1423,6 @@ forceStop的功能如下：
 5. BroadcastRecevier: 调用BQ.cleanupDisabledPackageReceiversLocked()清理该package所涉及的广播
 6. 发送广播ACTION_PACKAGE_RESTARTED，用于停止已注册的alarm,notification.
 
-persistent进程的特殊待遇:
-
-- 进程: AMS.killPackageProcessesLocked()不杀进程
-- Service: ActiveServices.collectPackageServicesLocked()不移除不清理service
-- Provider: ProviderMap.collectPackageProvidersLocked()不收集不清理provider. 且不杀该provider所连接的client的persistent进程;
-- 
 
 **功能点归纳：**
 

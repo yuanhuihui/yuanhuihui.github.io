@@ -53,16 +53,16 @@ joinThreadPool
 waitForResponse
 {
     while (1) {
-        binder_thread_write //BC_TRANSACTION
-        binder_thread_read //BR_TRANSACTION_COMPLETE + BR_TRANSACTION
+        binder_thread_write
+        binder_thread_read
         
         switch (cmd)
             case BR_REPLY:  goto finish;            
             default: executeCommand() 
                 BBinder.transact(&reply)
                 sendReply(reply)
-                  writeTransactionData()  //发送BC_REPLY
-                  waitForResponse() //等待BR_TRANSACTION_COMPLETE
+                  writeTransactionData()  //BC_REPLY
+                  waitForResponse()
                 freeBuffer() //BC_FREE_BUFFER
     }
 }  
@@ -70,18 +70,14 @@ waitForResponse
 joinThreadPool
 {
     while (1){
-        processPendingDerefs() 
-            writeTransactionData // BC_TRANSACTION
-            waitForResponse //等待BR_REPLY(非oneway)
-
-        binder_thread_write  // 写入BC_XXX
-        binder_thread_read  // 读取BR_TRANSACTION
-        
+        processPendingDerefs() // BC_XXX
+        binder_thread_write
+        binder_thread_read
         executeCommand
             BBinder.transact(&reply)
             sendReply(reply)
-              writeTransactionData()  //写入BC_REPLY
-              waitForResponse()  //等待BR_TRANSACTION_COMPLETE
-            freeBuffer() //发送BC_FREE_BUFFER, async_todo加入当前thread-todo
+              writeTransactionData()  //BC_REPLY
+              waitForResponse()
+            freeBuffer() //BC_FREE_BUFFER
     }
 }

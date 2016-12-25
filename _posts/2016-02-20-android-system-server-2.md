@@ -24,26 +24,10 @@ tags:
 
 ## 一、 流程分析
 
-上篇文章[Android系统启动-systemServer上篇](http://gityuan.com/2016/02/14/android-system-server/) 从Zygote一路启动到SystemServer的过程。
-简单回顾下，在RuntimeInit.java中invokeStaticMain方法通过创建并抛出异常ZygoteInit.MethodAndArgsCaller，在`ZygoteInit.java`中的main()方法会捕捉该异常，并调用`caller.run()`，再通过反射便会调用到SystemServer.main()方法.
+上一篇文章[Android系统启动-systemServer上篇](http://gityuan.com/2016/02/14/android-system-server/)讲解了从Zygote一路启动到SystemServer的过程。简单回顾下，在`RuntimeInit.java`中invokeStaticMain方法通过创建并抛出异常ZygoteInit.MethodAndArgsCaller，在`ZygoteInit.java`中的main()方法会捕捉该异常，并调用`caller.run()`，再通过反射便会调用到SystemServer.main()方法，那么本文就接着该方法执行流程。
 
-那么本文就接着该方法执行流程,整个方法调用栈:
-
-    SystemServer.main
-        SystemServer.run
-            createSystemContext
-                ActivityThread.systemMain
-                    ActivityThread.attach
-                        LoadedApk.makeApplication
-                ActivityThread.getSystemContext
-                    ContextImpl.createSystemContext
-            startBootstrapServices();
-            startCoreServices();
-            startOtherServices();
-            Looper.loop();
-            
-
-### 1.1 SystemServer.main
+### 1.1 main
+[-->SystemServer.java]
 
     public final class SystemServer {
         ...
@@ -53,7 +37,8 @@ tags:
         }
     }
 
-### 1.2 SystemServer.run
+### 1.2 run
+[-->SystemServer.java]
 
     private void run() {
         //当系统时间比1970年更早，就设置当前系统时间为1970年
@@ -99,7 +84,7 @@ tags:
         //加载android_servers.so库，该库包含的源码在frameworks/base/services/目录下
         System.loadLibrary("android_servers");
 
-        //检测上次关机过程是否失败，该方法可能不会返回[见小节1.2.1]
+        //检测上次关机过程是否失败，该方法可能不会返回
         performPendingShutdown();
 
         //初始化系统上下文 【见小节1.3】
@@ -132,27 +117,8 @@ tags:
 
 LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务类名为key，以具体服务对象为value的Map结构。
 
-#### 1.2.1  performPendingShutdown
-[-->SystemServer.java]
+### 1.3 createSystemContext
 
-    private void performPendingShutdown() {
-        final String shutdownAction = SystemProperties.get(
-                ShutdownThread.SHUTDOWN_ACTION_PROPERTY, "");
-        if (shutdownAction != null && shutdownAction.length() > 0) {
-            boolean reboot = (shutdownAction.charAt(0) == '1');
-
-            final String reason;
-            if (shutdownAction.length() > 1) {
-                reason = shutdownAction.substring(1, shutdownAction.length());
-            } else {
-                reason = null;
-            }
-            // 当"sys.shutdown.requested"值不为空,则会重启或者关机
-            ShutdownThread.rebootOrShutdown(null, reboot, reason);
-        }
-    }
-    
-### 1.3 SS.createSystemContext
 [-->SystemServer.java]
 
     private void createSystemContext() {
@@ -164,8 +130,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
         mSystemContext.setTheme(android.R.style.Theme_DeviceDefault_Light_DarkActionBar);
     }
 
-#### 1.3.1  AT.systemMain
-[-> ActivityThread.java]
+#### 1.3.1  ActivityThread.systemMain
 
     public static ActivityThread systemMain() {
         //对于低内存的设备，禁用硬件加速
@@ -181,8 +146,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
         return thread;
     }
 
-##### 1.3.1.1  AT.attach
-[-> ActivityThread.java]
+##### 1.3.1.1  ActivityThread.attach
 
     private void attach(boolean system) {
         sCurrentActivityThread = this;
@@ -193,16 +157,21 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 
         } else {
             //system=true,进入此分支
-            android.ddm.DdmHandleAppName.setAppName("system_process", UserHandle.myUserId());
-            mInstrumentation = new Instrumentation();
-            // 创建应用上下文
-            ContextImpl context = ContextImpl.createAppContext(
-                    this, getSystemContext().mPackageInfo);
-            //创建Application 【见小节1.3.1.2】
-            mInitialApplication = context.mPackageInfo.makeApplication(true, null);
-            //调用Application.onCreate()方法
-            mInitialApplication.onCreate();
-            ...
+            android.ddm.DdmHandleAppName.setAppName("system_process",
+                    UserHandle.myUserId());
+            try {
+                mInstrumentation = new Instrumentation();
+                // 创建应用上下文
+                ContextImpl context = ContextImpl.createAppContext(
+                        this, getSystemContext().mPackageInfo);
+                //创建Application 【见小节1.3.1.2】
+                mInitialApplication = context.mPackageInfo.makeApplication(true, null);
+                //调用Application.onCreate()方法
+                mInitialApplication.onCreate();
+            } catch (Exception e) {
+                throw new RuntimeException(
+                        "Unable to instantiate Application():" + e.toString(), e);
+            }
         }
 
         //添加dropbox log信息到libcore
@@ -210,16 +179,31 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 
         // 设置回调方法
         ViewRootImpl.addConfigCallback(new ComponentCallbacks2() {
-            public void onConfigurationChanged(Configuration newConfig) {...}
-            public void onLowMemory() {}
-            public void onTrimMemory(int level) {}
+            @Override
+            public void onConfigurationChanged(Configuration newConfig) {
+                synchronized (mResourcesManager) {
+                    if (mResourcesManager.applyConfigurationToResourcesLocked(newConfig, null)) {
+                        if (mPendingConfiguration == null ||
+                                mPendingConfiguration.isOtherSeqNewer(newConfig)) {
+                            mPendingConfiguration = newConfig;
+
+                            sendMessage(H.CONFIGURATION_CHANGED, newConfig);
+                        }
+                    }
+                }
+            }
+            @Override
+            public void onLowMemory() {
+            }
+            @Override
+            public void onTrimMemory(int level) {
+            }
         });
     }
 
 主要工作是创建应用上下文ContextImpl，创建Application以及调用其onCreate()方法，设置DropBox以及ComponentCallbacks2回调方法。
 
-##### 1.3.1.2  makeApplication
-[-> LoadedApk.java]
+##### 1.3.1.2  LoadedApk.makeApplication
 
     public Application makeApplication(boolean forceDefaultAppClass,
             Instrumentation instrumentation) {
@@ -228,20 +212,26 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
         }
 
         Application app = null;
+
         String appClass = mApplicationInfo.className;
         if (forceDefaultAppClass || (appClass == null)) {
             appClass = "android.app.Application"; //设置class名
         }
 
-        java.lang.ClassLoader cl = getClassLoader();
-        if (!mPackageName.equals("android")) {
-            initializeJavaContextClassLoader(); //不进入该分支
+        try {
+            java.lang.ClassLoader cl = getClassLoader();
+            if (!mPackageName.equals("android")) {
+                initializeJavaContextClassLoader(); //不进入该分支
+            }
+            ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
+            // 创建Application
+            app = mActivityThread.mInstrumentation.newApplication(
+                    cl, appClass, appContext);
+            appContext.setOuterContext(app);
+        } catch (Exception e) {
+            ...
         }
-        ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
-        // 创建Application
-        app = mActivityThread.mInstrumentation.newApplication(cl, appClass, appContext);
-        appContext.setOuterContext(app);
-        //Application添加到应用列表。
+        // 将前面创建的app添加到应用列表。
         mActivityThread.mAllApplications.add(app);
         mApplication = app;
         ...
@@ -252,8 +242,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 在该方法调用之前，已经创建了LoadedApk对象，该对象的成员变量mPackageName="android"; mClassLoader = ClassLoader.getSystemClassLoader();
 
 
-#### 1.3.2 AT.getSystemContext
-[-> ActivityThread.java]
+#### 1.3.2 ActivityThread.getSystemContext
 
     public ContextImpl getSystemContext() {
         synchronized (this) {
@@ -265,8 +254,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
         }
     }
 
-##### 1.3.2.1 CI.createSystemContext
-[-> ContextImpl.java]
+##### 1.3.2.1 ContextImpl.createSystemContext
 
     static ContextImpl createSystemContext(ActivityThread mainThread) {
         //创建LoadedApk对象
@@ -282,7 +270,8 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 运行到这里，system_server的准备环境基本完成，接下来开始system_server中最为核心的过程，启动系统服务。
 通过`startBootstrapServices()`, `startCoreServices()`, `startOtherServices()`3个方法。
 
-### 1.4 SS.startBootstrapServices
+### 1.4 startBootstrapServices
+
 [-->SystemServer.java]
 
     private void startBootstrapServices() {
@@ -307,7 +296,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
         //启动服务DisplayManagerService
         mDisplayManagerService = mSystemServiceManager.startService(DisplayManagerService.class);
 
-        //Phase100: 在初始化package manager之前，需要默认的显示.
+        //在初始化package manager之前，需要默认的显示
         mSystemServiceManager.startBootPhase(SystemService.PHASE_WAIT_FOR_DEFAULT_DISPLAY);
 
         //当设备正在加密时，仅运行核心
@@ -339,7 +328,7 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 该方法所创建的服务：ActivityManagerService, PowerManagerService, LightsService, DisplayManagerService， PackageManagerService， UserManagerService， sensor服务.
 
 
-### 1.5 SS.startCoreServices
+### 1.5 startCoreServices
 
     private void startCoreServices() {
         //启动服务BatteryService，用于统计电池电量，需要LightService.
@@ -358,209 +347,25 @@ LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务�
 
 启动服务BatteryService，UsageStatsService，WebViewUpdateService。
 
-### 1.6 SS.startOtherServices
+### 1.6 startOtherServices
 
-该方法比较长，有近千行代码，逻辑很简单，主要是启动一系列的服务，这里就不具体列举源码了，在第四节直接对其中的服务进行一个简单分类。
+该方法比较长，有近千行代码，逻辑很简单，主要是启动一系列的服务，这里就不列举源码了，在第四节直接对其中的服务进行一个简单分类。
 
+## 二、启动系统服务
 
-        private void startOtherServices() {
-            ...
-            SystemConfig.getInstance();
-            mContentResolver = context.getContentResolver(); // resolver
-            ...
-            mActivityManagerService.installSystemProviders(); //provider
-            mSystemServiceManager.startService(AlarmManagerService.class); // alarm
-            // watchdog
-            watchdog.init(context, mActivityManagerService); 
-            inputManager = new InputManagerService(context); // input
-            wm = WindowManagerService.main(...); // window
-            inputManager.start();  //启动input
-            mDisplayManagerService.windowManagerAndInputReady();
-            ...
-            mSystemServiceManager.startService(MOUNT_SERVICE_CLASS); // mount
-            mPackageManagerService.performBootDexOpt();  // dexopt操作
-            ActivityManagerNative.getDefault().showBootMessage(...); //显示启动界面
-            ...
-            statusBar = new StatusBarManagerService(context, wm); //statusBar
-            //dropbox
-            ServiceManager.addService(Context.DROPBOX_SERVICE,
-                        new DropBoxManagerService(context, new File("/data/system/dropbox")));
-             mSystemServiceManager.startService(JobSchedulerService.class); //JobScheduler
-             lockSettings.systemReady(); //lockSettings
+### 2.1 启动阶段
+SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶段从`PHASE_WAIT_FOR_DEFAULT_DISPLAY`到`PHASE_BOOT_COMPLETED`，如下图：
 
-            //phase480 和phase500
-            mSystemServiceManager.startBootPhase(SystemService.PHASE_LOCK_SETTINGS_READY);
-            mSystemServiceManager.startBootPhase(SystemService.PHASE_SYSTEM_SERVICES_READY);
-            ...
-            // 准备好window, power, package, display服务
-            wm.systemReady();
-            mPowerManagerService.systemReady(...);
-            mPackageManagerService.systemReady();
-            mDisplayManagerService.systemReady(...);
-            
-            //[见小节1.6.1]
-            mActivityManagerService.systemReady(new Runnable() {...});
-        }
+![system_server服务启动流程](/images/boot/systemServer/system_server_boot_process.jpg)
 
-#### 1.6.1 AMS.systemReady
-AMS.systemReady()的过程并非立刻执行Runnable中的run()方法, 如下方法:
+**启动阶段顺序：**
 
-    public void systemReady(final Runnable goingCallback) {
-        synchronized(this) {
-            ...
-            mLocalDeviceIdleController
-                    = LocalServices.getService(DeviceIdleController.LocalService.class);
-            if (!mDidUpdate) {
-                ...
-                mWaitingUpdate = deliverPreBootCompleted(new Runnable() {
-                    public void run() {
-                        synchronized (ActivityManagerService.this) {
-                            mDidUpdate = true;
-                        }
-                        showBootMessage(mContext.getText(
-                                R.string.android_upgrading_complete),
-                                false);
-                        writeLastDonePreBootReceivers(doneReceivers);
-                        systemReady(goingCallback);
-                    }
-                }, doneReceivers, UserHandle.USER_OWNER);
-                ...
-                mDidUpdate = true;
-            }
-            
-            mAppOpsService.systemReady();
-            mSystemReady = true; //system处于ready状态
-        }
-
-        ArrayList<ProcessRecord> procsToKill = null;
-        synchronized(mPidsSelfLocked) {
-            for (int i=mPidsSelfLocked.size()-1; i>=0; i--) {
-                ProcessRecord proc = mPidsSelfLocked.valueAt(i);
-                //非persistent进程,加入procsToKill
-                if (!isAllowedWhileBooting(proc.info)){
-                    if (procsToKill == null) {
-                        procsToKill = new ArrayList<ProcessRecord>();
-                    }
-                    procsToKill.add(proc);
-                }
-            }
-        }
-
-        synchronized(this) {
-            if (procsToKill != null) {
-                //杀掉procsToKill中的进程, 杀掉进程且不允许重启
-                for (int i=procsToKill.size()-1; i>=0; i--) {
-                    ProcessRecord proc = procsToKill.get(i);
-                    removeProcessLocked(proc, true, false, "system update done");
-                }
-            }
-            mProcessesReady = true; //process处于ready状态
-        }
-
-        Slog.i(TAG, "System now ready");
-        ...
-
-        //[见小节1.6.2]
-        if (goingCallback != null) goingCallback.run();
-        ...
-
-        mSystemServiceManager.startUser(mCurrentUserId);
-        synchronized (this) {
-            if (mFactoryTest != FactoryTest.FACTORY_TEST_LOW_LEVEL) {
-                //通过pms获取所有的persistent进程
-                List apps = AppGlobals.getPackageManager().
-                    getPersistentApplications(STOCK_PM_FLAGS);
-                if (apps != null) {
-                    int N = apps.size();
-                    int i;
-                    for (i=0; i<N; i++) {
-                        ApplicationInfo info = (ApplicationInfo)apps.get(i);
-                        if (info != null && !info.packageName.equals("android")) {
-                            //启动persistent进程
-                            addAppLocked(info, false, null);
-                        }
-                    }
-                }
-            }
-
-            mBooting = true; // 启动初始Activity
-            startHomeActivityLocked(mCurrentUserId, "systemReady");
-
-            ...
-            long ident = Binder.clearCallingIdentity();
-            try {
-                //system发送广播UUSER_STARTED
-                Intent intent = new Intent(Intent.ACTION_USER_STARTED);
-                intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY
-                        | Intent.FLAG_RECEIVER_FOREGROUND);
-                intent.putExtra(Intent.EXTRA_USER_HANDLE, mCurrentUserId);
-                broadcastIntentLocked(...);  
-
-                //system发送广播USER_STARTING
-                intent = new Intent(Intent.ACTION_USER_STARTING);
-                intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
-                intent.putExtra(Intent.EXTRA_USER_HANDLE, mCurrentUserId);
-                broadcastIntentLocked(...); 
-            } finally {
-                Binder.restoreCallingIdentity(ident);
-            }
-            
-            mStackSupervisor.resumeTopActivitiesLocked();
-            sendUserSwitchBroadcastsLocked(-1, mCurrentUserId);
-        }
-    }
-
-#### 1.6.2 goingCallback.run()
-此处的goingCallback,便是在startOtherServices()过程中传递进来的参数
-
-    private void startOtherServices() {
-        ...
-        mActivityManagerService.systemReady(new Runnable() {
-            public void run() {
-                
-              //phase550
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_ACTIVITY_MANAGER_READY);
-
-                mActivityManagerService.startObservingNativeCrashes();
-                //启动WebView
-                WebViewFactory.prepareWebViewInSystemServer();
-                //启动系统UI
-                startSystemUi(context);
-
-                // 执行一系列服务的systemReady方法
-                networkScoreF.systemReady();
-                networkManagementF.systemReady();
-                networkStatsF.systemReady();
-                networkPolicyF.systemReady();
-                connectivityF.systemReady();
-                audioServiceF.systemReady();
-                Watchdog.getInstance().start(); //Watchdog开始工作
-                
-              //phase600
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);
-                        
-                // 执行一系列服务的systemRunning方法
-                wallpaper.systemRunning();
-                inputMethodManager.systemRunning(statusBarF);
-                location.systemRunning();
-                countryDetector.systemRunning();
-                networkTimeUpdater.systemRunning();
-                commonTimeMgmtService.systemRunning();
-                textServiceManagerService.systemRunning();
-                assetAtlasService.systemRunning();
-                inputManager.systemRunning();
-                telephonyRegistry.systemRunning();
-                mediaRouter.systemRunning();
-                mmsService.systemRunning();
-            }
-        });
-    }
-
-到此, System_server主线程的启动工作,总算完成, 进入Looper.loop()状态,等待其他线程通过handler发送消息再处理.
-
-### 1.7 小结
+1. `PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段等待Display有默认显示
+2. `PHASE_LOCK_SETTINGS_READY=480`，进入该阶段服务能获取锁屏设置的数据
+3. `PHASE_SYSTEM_SERVICES_READY=500`，进入该阶段服务能安全地调用核心系统服务，如PMS;
+4. `PHASE_ACTIVITY_MANAGER_READY=550`，进入该阶段服务能广播Intent;
+5. `PHASE_THIRD_PARTY_APPS_CAN_START=600`，进入该阶段服务能start/bind第三方apps，app能通过BInder调用service;
+6. `PHASE_BOOT_COMPLETED=1000`，该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
 
 **各个启动阶段所在源码位置：**
 
@@ -593,48 +398,6 @@ AMS.systemReady()的过程并非立刻执行Runnable中的run()方法, 如下方
             }
         }
     }
-    
-其中AMS.systemReady()的大致过程如下:
-
-    public final class ActivityManagerService extends ActivityManagerNative
-        implements Watchdog.Monitor, BatteryStatsImpl.BatteryCallback {
-            
-        public void systemReady(final Runnable goingCallback) {
-            ... //update相关
-            mSystemReady = true;
-            
-            //杀掉所有非persistent进程
-            removeProcessLocked(proc, true, false, "system update done");
-            mProcessesReady = true; 
-
-            goingCallback.run();  //[见小节1.6.2]
-            
-            addAppLocked(info, false, null); //启动所有的persistent进程
-            mBooting = true; 
-            
-            //启动home
-            startHomeActivityLocked(mCurrentUserId, "systemReady"); 
-            //恢复栈顶的Activity
-            mStackSupervisor.resumeTopActivitiesLocked();
-        }
-    }
-    
-## 二、启动系统服务
-
-### 2.1 启动阶段
-SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶段从`PHASE_WAIT_FOR_DEFAULT_DISPLAY`到`PHASE_BOOT_COMPLETED`，如下图：
-
-![system_server服务启动流程](/images/boot/systemServer/system_server_boot_process.jpg)
-
-**启动阶段顺序：**
-
-1. `PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段等待Display有默认显示
-2. `PHASE_LOCK_SETTINGS_READY=480`，进入该阶段服务能获取锁屏设置的数据
-3. `PHASE_SYSTEM_SERVICES_READY=500`，进入该阶段服务能安全地调用核心系统服务，如PMS;
-4. `PHASE_ACTIVITY_MANAGER_READY=550`，进入该阶段服务能广播Intent;
-5. `PHASE_THIRD_PARTY_APPS_CAN_START=600`，启动完WebView, systemui, Watchdog,进入该阶段服务能start/bind第三方apps，app能通过Binder调用service;
-6. `PHASE_BOOT_COMPLETED=1000`，该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
-
 
 接下来再说说简单每个阶段的大概完成的工作：
 
@@ -689,6 +452,23 @@ system_server进程中的服务启动方式有两种，分别是SystemServiceMan
 - 将该服务向Native层的[serviceManager注册服务](http://gityuan.com/2015/11/14/binder-add-service/#addservice)。
 
 例如：`ServiceManager.addService(Context.WINDOW_SERVICE, wm);`
+
+### 2.3 小结
+
+System_server启动函数调用类的栈关系：
+
+    SystemServer.main
+        SystemServer.run
+            createSystemContext
+                ActivityThread.systemMain
+                    ActivityThread.attach
+                        LoadedApk.makeApplication
+                ActivityThread.getSystemContext
+                    ContextImpl.createSystemContext
+            startBootstrapServices();
+            startCoreServices();
+            startOtherServices();
+            Looper.loop();
 
 
 ### 三、服务类别
