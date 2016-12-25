@@ -75,11 +75,7 @@ IMS服务是伴随着system_server进程的启动而启动，整个调用过程�
             InputManager.start
                 InputReaderThread->run
                 InputDispatcherThread->run
-
-整个过程首先创建如下对象：NativeInputManager，EventHub，InputManager，
-InputDispatcher，InputReader，InputReaderThread，InputDispatcherThread。
-接着便是启动两个工作线程`InputReader`,`InputDispatcher`。
-      
+                
 ## 二. 启动过程
 
     private void startOtherServices() {
