@@ -15,16 +15,15 @@ tags:
 **相关源码**
 
     framework/base/core/java/andorid/os/MessageQueue.java
-
-    framework/base/core/jni/android_os_MessageQueue.h
     framework/base/core/jni/android_os_MessageQueue.cpp
+    framework/base/core/java/andorid/os/Looper.java （Java层）
 
+    system/core/libutils/Looper.cpp （Native层）
     system/core/include/utils/Looper.h
-    system/core/libutils/Looper.cpp
     system/core/libutils/RefBase.cpp
 
+    framework/base/native/android/looper.cpp （ALoop对象）
     framework/native/include/android/looper.h
-    framework/base/native/android/looper.cpp
 
 
 ## 一、概述
