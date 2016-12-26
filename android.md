@@ -169,7 +169,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 进程对于系统非常之重要，系统运转，各种服务、组件的载体都依托于进程，对进程理解越深刻，越能掌握系统整体架构。那么先来看看进程相关：
 
 - [理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/)
-- [理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/)
+- [Android四大组件与进程启动的关系](http://gityuan.com/2016/10/09/app-process-create-2/)
 - [理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/)
 - [Android进程绝杀技--forceStop](http://gityuan.com/2016/10/22/force-stop/)
 - [理解Android线程创建流程](http://gityuan.com/2016/09/24/android-thread/)
@@ -181,6 +181,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 - [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
 
 #### 4.2 系统启动篇
+[Android系统启动-概述](http://gityuan.com/2016/02/01/android-booting/)):
 Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote`、`system_server`进程:
 
 - [Android系统启动—init篇](http://gityuan.com/2016/02/05/android-init/)
