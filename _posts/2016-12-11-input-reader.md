@@ -32,9 +32,7 @@ tags:
     }
 
 threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外，如果当返回值为false则会
-退出循环。
-
-整个过程是不断循环的地调用InputReader的loopOnce()方法，先来回顾一下InputReader对象构造方法。
+退出循环。整个过程是不断循环的地调用InputReader的loopOnce()方法，先来回顾一下InputReader对象构造方法。
 
 #### 1.2 InputReader实例化
 
@@ -52,6 +50,7 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
             updateGlobalMetaStateLocked();
         } 
     }
+
 此处mQueuedListener的成员变量`mInnerListener`便是InputDispatcher对象
 
 #### 1.3 loopOnce
@@ -96,9 +95,9 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
 
 该方法主要功能：
 
-1. 调用getEvents()从EventHub读取事件
-2. 调用processEventsLocked()来处理事件；
-2. 调用QueuedListener->flush()，发送事件到InputDispatcher线程；
+1. 从EventHub读取事件; [见小节2.1]getEvents()
+2. 对事件进行加工； [见小节3.1]processEventsLocked()
+2. 将发送事件到InputDispatcher线程； [见小节4.1] QueuedListener->flush()
 
 另外，整个过程还会检测配置是否改变，输出设备是否改变，如果改变则调用policy来通知。
 
@@ -382,10 +381,10 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的备节点�
 
 事件处理总共哟以下几类类型：
 
-- DEVICE_ADDED(设备增加)
+- DEVICE_ADDED(设备增加), [见小节3.2]
 - DEVICE_REMOVED(设备移除)
 - FINISHED_DEVICE_SCAN(设备扫描完成)
-- 数据事件
+- 数据事件, [见小节3.4]
 
 先来说说DEVICE_ADDED设备增加的过程。
 
@@ -394,8 +393,7 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的备节点�
     void InputReader::addDeviceLocked(nsecs_t when, int32_t deviceId) {
         ssize_t deviceIndex = mDevices.indexOfKey(deviceId);
         if (deviceIndex >= 0) {
-            //已添加的相同设备则不再添加
-            return;
+            return; //已添加的相同设备则不再添加
         }
 
         InputDeviceIdentifier identifier = mEventHub->getDeviceIdentifier(deviceId);
@@ -406,8 +404,7 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的备节点�
         device->configure(when, &mConfig, 0);
         device->reset(when);
 
-        mDevices.add(deviceId, device);
-        bumpGenerationLocked();
+        mDevices.add(deviceId, device); //添加设备到mDevices
         ...
     }
 
@@ -563,6 +560,8 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
         return status;
     }
 
+将事件的扫描码(scanCode)转换成键盘码(Keycode)
+
 #### 3.8 KeyCharacterMap::mapKey
     
     status_t KeyCharacterMap::mapKey(int32_t scanCode, int32_t usageCode, int32_t* outKeyCode) const {
@@ -581,6 +580,7 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
         return NAME_NOT_FOUND;
     }
     
+
 #### 3.9 InputMapper.processKey
 
     void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t keyCode,
@@ -631,7 +631,7 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
 - mKeyDowns记录着所有按下的键
 - mDownTime记录按下时间点
 - 此处KeyboardInputMapper的mContext指向InputReader，getListener()获取的便是mQueuedListener。
-接下来，调用该对象的notifyKey.
+接下来调用该对象的notifyKey.
 
 #### 3.10 notifyKey
 
@@ -639,7 +639,8 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
         mArgsQueue.push(new NotifyKeyArgs(*args));
     }
 
-mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶。
+mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶。 到此,整个事件加工完成,
+再然后就是将事件发送给InputDispatcher线程.
 
 ## 四. QueuedListener
 
@@ -750,7 +751,7 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
 
 1. 调用NativeInputManager.interceptKeyBeforeQueueing，加入队列前执行拦截动作；
 2. 调用NativeInputManager.filterInputEvent，过滤输入事件；
-3. 生成KeyEvent，并调用enqueueInboundEventLocked，将该事件加入到
+3. 生成KeyEvent，并调用enqueueInboundEventLocked，将该事件加入到mInboundQueue
 
 #### 4.4 interceptKeyBeforeQueueing
 

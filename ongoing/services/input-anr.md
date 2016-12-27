@@ -8,8 +8,8 @@
     InputDispatcherThread::threadLoop
     dispatchOnce
     dispatchOnceInnerLocked
-    dispatchKeyLocked
-    findFocusedWindowTargetsLocked  / 另一个case便会进程findTouchedWindowTargetsLocked()
+    dispatchKeyLocked // dispatchMotionLocked
+    findFocusedWindowTargetsLocked  //findTouchedWindowTargetsLocked
     handleTargetsNotReadyLocked
 
 
