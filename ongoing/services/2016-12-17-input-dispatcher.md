@@ -359,7 +359,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
 
         if (mFocusedWindowHandle == NULL) {
             if (mFocusedApplicationHandle != NULL) {
-                //【见小节2.4】
+                //【见小节2.3.2】
                 injectionResult = handleTargetsNotReadyLocked(currentTime, entry,
                         mFocusedApplicationHandle, NULL, nextWakeupTime,
                         "Waiting because no window has focus but there is a "
@@ -571,19 +571,218 @@ InputDispatcher，同样从threadLoop为起点开始分析。
 
     void InputDispatcher::dispatchEventLocked(nsecs_t currentTime,
             EventEntry* eventEntry, const Vector<InputTarget>& inputTargets) {
+        //向mCommandQueue队列添加doPokeUserActivityLockedInterruptible命令
         pokeUserActivityLocked(eventEntry);
 
         for (size_t i = 0; i < inputTargets.size(); i++) {
             const InputTarget& inputTarget = inputTargets.itemAt(i);
-
+            //[见小节2.5.1]
             ssize_t connectionIndex = getConnectionIndexLocked(inputTarget.inputChannel);
             if (connectionIndex >= 0) {
                 sp<Connection> connection = mConnectionsByFd.valueAt(connectionIndex);
+                //找到目标连接[见小节２.6]
                 prepareDispatchCycleLocked(currentTime, connection, eventEntry, &inputTarget);
             }
         }
     }
+
+该方法主要功能是将eventEntry发送到目标inputTargets．
+
+其中pokeUserActivityLocked(eventEntry)方法最终会调用到Ｊava层的ＰowerManagerService.ｊava中的userActivityFromNative()方法．
+这也是PMS中唯一的ｎative call方法．
+
+#### 2.5.1 getConnectionIndexLocked
+
+    ssize_t InputDispatcher::getConnectionIndexLocked(const sp<InputChannel>& inputChannel) {
+        ssize_t connectionIndex = mConnectionsByFd.indexOfKey(inputChannel->getFd());
+        if (connectionIndex >= 0) {
+            sp<Connection> connection = mConnectionsByFd.valueAt(connectionIndex);
+            if (connection->inputChannel.get() == inputChannel.get()) {
+                return connectionIndex;
+            }
+        }
+
+        return -1;
+    }
+
+根据inputChannel的fd，从mConnectionsByFd队列中查询目标ｃonnection，
+
+### 2.6 prepareDispatchCycleLocked
+
+    void InputDispatcher::prepareDispatchCycleLocked(nsecs_t currentTime,
+            const sp<Connection>& connection, EventEntry* eventEntry, const InputTarget* inputTarget) {
+
+        if (connection->status != Connection::STATUS_NORMAL) {
+            return;　//当连接已破坏,则直接返回
+        }
+
+        //如果需要,则分割motion事件
+        if (inputTarget->flags & InputTarget::FLAG_SPLIT) {
+
+            MotionEntry* originalMotionEntry = static_cast<MotionEntry*>(eventEntry);
+            if (inputTarget->pointerIds.count() != originalMotionEntry->pointerCount) {
+                MotionEntry* splitMotionEntry = splitMotionEvent(
+                        originalMotionEntry, inputTarget->pointerIds);
+                if (!splitMotionEntry) {
+                    return; // split event was dropped
+                }
+                //[见小节2.7]
+                enqueueDispatchEntriesLocked(currentTime, connection,
+                        splitMotionEntry, inputTarget);
+                splitMotionEntry->release();
+                return;
+            }
+        }
+
+        //没有分割的情况 [//[见小节2.7]] 
+        enqueueDispatchEntriesLocked(currentTime, connection, eventEntry, inputTarget);
+    }
+
+
+### 2.7 enqueueDispatchEntriesLocked
+
+    void InputDispatcher::enqueueDispatchEntriesLocked(nsecs_t currentTime,
+            const sp<Connection>& connection, EventEntry* eventEntry, const InputTarget* inputTarget) {
+        bool wasEmpty = connection->outboundQueue.isEmpty();
+
+        //[见小节2.8]
+        enqueueDispatchEntryLocked(connection, eventEntry, inputTarget,
+                InputTarget::FLAG_DISPATCH_AS_HOVER_EXIT);
+        enqueueDispatchEntryLocked(connection, eventEntry, inputTarget,
+                InputTarget::FLAG_DISPATCH_AS_OUTSIDE);
+        enqueueDispatchEntryLocked(connection, eventEntry, inputTarget,
+                InputTarget::FLAG_DISPATCH_AS_HOVER_ENTER);
+        enqueueDispatchEntryLocked(connection, eventEntry, inputTarget,
+                InputTarget::FLAG_DISPATCH_AS_IS);
+        enqueueDispatchEntryLocked(connection, eventEntry, inputTarget,
+                InputTarget::FLAG_DISPATCH_AS_SLIPPERY_EXIT);
+        enqueueDispatchEntryLocked(connection, eventEntry, inputTarget,
+                InputTarget::FLAG_DISPATCH_AS_SLIPPERY_ENTER);
+
+        if (wasEmpty && !connection->outboundQueue.isEmpty()) {
+            //当原先的outbound队列为空, 且当前outbound不为空的情况执行.[见小节2.9]
+            startDispatchCycleLocked(currentTime, connection);
+        }
+    }
     
+### 2.8 enqueueDispatchEntryLocked
+
+    void InputDispatcher::enqueueDispatchEntryLocked(
+            const sp<Connection>& connection, EventEntry* eventEntry, const InputTarget* inputTarget,
+            int32_t dispatchMode) {
+        int32_t inputTargetFlags = inputTarget->flags;
+        if (!(inputTargetFlags & dispatchMode)) {
+            return; //分发模式不匹配,则直接返回
+        }
+        inputTargetFlags = (inputTargetFlags & ~InputTarget::FLAG_DISPATCH_MASK) | dispatchMode;
+
+        //生成新的事件, 加入connection的outbound队列
+        DispatchEntry* dispatchEntry = new DispatchEntry(eventEntry, 
+                inputTargetFlags, inputTarget->xOffset, inputTarget->yOffset,
+                inputTarget->scaleFactor);
+
+        switch (eventEntry->type) {
+            case EventEntry::TYPE_KEY: {
+                KeyEntry* keyEntry = static_cast<KeyEntry*>(eventEntry);
+                dispatchEntry->resolvedAction = keyEntry->action;
+                dispatchEntry->resolvedFlags = keyEntry->flags;
+
+                if (!connection->inputState.trackKey(keyEntry,
+                        dispatchEntry->resolvedAction, dispatchEntry->resolvedFlags)) {
+                    delete dispatchEntry;
+                    return; //忽略不连续的事件
+                }
+                break;
+            }
+
+            case EventEntry::TYPE_MOTION: ...
+        }
+
+        //记录当前正在等待分发完成
+        if (dispatchEntry->hasForegroundTarget()) {
+            incrementPendingForegroundDispatchesLocked(eventEntry);
+        }
+
+        //添加到outboundQueue队尾
+        connection->outboundQueue.enqueueAtTail(dispatchEntry);
+    }
+    
+该方法主要功能:
+
+- 根据dispatchMode来决定是否需要加入outboundQueue队列;
+- 根据EventEntry,来生成DispatchEntry事件;
+- 将dispatchEntry加入到connection的outbound队列.
+
+执行到这里,其实等于由做了一次搬运的工作,将InputDispatcher中mInboundQueue中的事件取出后, 
+找到目标window后,封装dispatchEntry加入到connection的outbound队列. 
+
+如果当connection原先的outbound队列为空, 经过enqueueDispatchEntryLocked处理后, 该outbound不为空的情况下,
+则执行startDispatchCycleLocked()方法.
+
+### 2.9 startDispatchCycleLocked
+
+    void InputDispatcher::startDispatchCycleLocked(nsecs_t currentTime,
+            const sp<Connection>& connection) {
+
+        //当Connection状态正常,且outboundQueue不为空
+        while (connection->status == Connection::STATUS_NORMAL
+                && !connection->outboundQueue.isEmpty()) {
+            DispatchEntry* dispatchEntry = connection->outboundQueue.head;
+            dispatchEntry->deliveryTime = currentTime; //设置deliveryTime时间
+
+            status_t status;
+            EventEntry* eventEntry = dispatchEntry->eventEntry;
+            switch (eventEntry->type) {
+            case EventEntry::TYPE_KEY: {
+                KeyEntry* keyEntry = static_cast<KeyEntry*>(eventEntry);
+
+                //发布按键时间 [见小节2.10]
+                status = connection->inputPublisher.publishKeyEvent(dispatchEntry->seq,
+                        keyEntry->deviceId, keyEntry->source,
+                        dispatchEntry->resolvedAction, dispatchEntry->resolvedFlags,
+                        keyEntry->keyCode, keyEntry->scanCode,
+                        keyEntry->metaState, keyEntry->repeatCount, keyEntry->downTime,
+                        keyEntry->eventTime);
+                break;
+            }
+
+            case EventEntry::TYPE_MOTION: {
+                ...
+                status = connection->inputPublisher.publishMotionEvent(...);
+                break;
+            }
+
+            default:
+                return;
+            }
+
+            //发布结果分析
+            if (status) {
+                if (status == WOULD_BLOCK) {
+                    if (connection->waitQueue.isEmpty()) {
+                        //pipe已满,但waitQueue为空. 不正常的行为
+                        abortBrokenDispatchCycleLocked(currentTime, connection, true /*notify*/);
+                    } else {
+                        // 处于阻塞状态
+                        connection->inputPublisherBlocked = true;
+                    }
+                } else {
+                    //不不正常的行为
+                    abortBrokenDispatchCycleLocked(currentTime, connection, true /*notify*/);
+                }
+                return;
+            }
+
+            // Re-enqueue the event on the wait queue.
+            connection->outboundQueue.dequeue(dispatchEntry);
+            connection->waitQueue.enqueueAtTail(dispatchEntry);
+
+        }
+    }
+
+abortBrokenDispatchCycleLocked()方法最终会调用到Java层的IMS.notifyInputChannelBroken().
+
+
 ## 三. command
 
 #### 3.1 runCommandsLockedInterruptible
@@ -922,4 +1121,51 @@ mPolicy是指NativeInputManager
     private:
         String8 mName;
         int mFd;
+    };
+
+#### InputTarget
+
+    struct InputTarget {
+        enum {
+            FLAG_FOREGROUND = 1 << 0, //事件分发到前台app
+
+            FLAG_WINDOW_IS_OBSCURED = 1 << 1,
+
+            FLAG_SPLIT = 1 << 2, //MotionEvent被拆分成多窗口
+
+            FLAG_ZERO_COORDS = 1 << 3,
+
+            FLAG_DISPATCH_AS_IS = 1 << 8, //
+
+            FLAG_DISPATCH_AS_OUTSIDE = 1 << 9, //
+
+            FLAG_DISPATCH_AS_HOVER_ENTER = 1 << 10, //
+
+            FLAG_DISPATCH_AS_HOVER_EXIT = 1 << 11, //
+
+            FLAG_DISPATCH_AS_SLIPPERY_EXIT = 1 << 12, //
+
+            FLAG_DISPATCH_AS_SLIPPERY_ENTER = 1 << 13, //
+
+            FLAG_WINDOW_IS_PARTIALLY_OBSCURED = 1 << 14,
+            
+            //所有分发模式的掩码
+            FLAG_DISPATCH_MASK = FLAG_DISPATCH_AS_IS
+                    | FLAG_DISPATCH_AS_OUTSIDE
+                    | FLAG_DISPATCH_AS_HOVER_ENTER
+                    | FLAG_DISPATCH_AS_HOVER_EXIT
+                    | FLAG_DISPATCH_AS_SLIPPERY_EXIT
+                    | FLAG_DISPATCH_AS_SLIPPERY_ENTER,
+
+        };
+
+        sp<InputChannel> inputChannel; //目标的inputChannel
+
+        int32_t flags; 
+
+        float xOffset, yOffset; //用于MotionEvent
+
+        float scaleFactor; //用于MotionEvent
+
+        BitSet32 pointerIds;
     };

@@ -622,49 +622,131 @@ AMS.systemReady()的过程并非立刻执行Runnable中的run()方法, 如下方
 ## 二、启动系统服务
 
 ### 2.1 启动阶段
-SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶段从`PHASE_WAIT_FOR_DEFAULT_DISPLAY`到`PHASE_BOOT_COMPLETED`，如下图：
+SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶段从`PHASE_WAIT_FOR_DEFAULT_DISPLAY`到`PHASE_BOOT_COMPLETED`，启动阶段顺序如下图：
 
 ![system_server服务启动流程](/images/boot/systemServer/system_server_boot_process.jpg)
 
-**启动阶段顺序：**
 
-1. `PHASE_WAIT_FOR_DEFAULT_DISPLAY=100`，该阶段等待Display有默认显示
-2. `PHASE_LOCK_SETTINGS_READY=480`，进入该阶段服务能获取锁屏设置的数据
-3. `PHASE_SYSTEM_SERVICES_READY=500`，进入该阶段服务能安全地调用核心系统服务，如PMS;
-4. `PHASE_ACTIVITY_MANAGER_READY=550`， activitymanager已经ready,但是system_server并没有ready. 进入该阶段服务能广播Intent;
-5. `PHASE_THIRD_PARTY_APPS_CAN_START=600`，启动完WebView, systemui, Watchdog,进入该阶段服务能start/bind第三方apps，app能通过Binder调用service;
+
 6. `PHASE_BOOT_COMPLETED=1000`，该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
-
 
 接下来再说说简单每个阶段的大概完成的工作：
 
-#### 2.1.1 Phase100
+#### 2.1.1 Phase0
 
-创建ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService共4项服务；
-接着则进入阶段`Phase100`，该阶段调用DisplayManagerService的`onBootPhase()`方法。
+创建四大引导服务
 
-#### 2.1.2 Phase480
+- ActivityManagerService
+- PowerManagerService
+- LightsService
+- DisplayManagerService共4项服务
 
-创建PackageManagerService、WindowManagerService、InputManagerService、NetworkManagerService、DropBoxManagerService/FingerprintService等服务
-接着则进入阶段`Phase480`，该阶段调用DevicePolicyManagerService的`onBootPhase()`方法；
+#### 2.1.2 Phase100
+进入阶段`PHASE_WAIT_FOR_DEFAULT_DISPLAY`=100回调服务
 
-#### 2.1.3 Phase500
+onBootPhase(100)
 
-阶段480后,紧接着进入阶段500，中间并没有等待,实现该阶段的回调方法的服务较多，此处先省略。
+- DisplayManagerService
 
-#### 2.1.4 Phase550
+然后创建大量服务下面列举部分:
 
-WindowManagerService、PowerManagerService、PackageManagerService、DisplayManagerService分别依次执行`systemReady()`方法；然后ActivityManagerService进入`systemReady()`方法;
-接着则进入阶段`Phase550`，实现该阶段的回调方法的服务较多，此处先省略
+- PackageManagerService
+- WindowManagerService
+- InputManagerService
+- NetworkManagerService
+- DropBoxManagerService
+- FingerprintService
+- LauncherAppsService
+- ...
 
-#### 2.1.5 Phase600
+#### 2.1.3 Phase480
+进入阶段`PHASE_LOCK_SETTINGS_READY`=480回调服务
 
-AMS启动native crash监控,，加载WebView，启动SystemUi；然后是NetworkScoreService、NetworkManagementService、NetworkStatsService、NetworkPolicyManagerService、ConnectivityService、AudioService分别依次执行`systemReady()`方法，然后是启动Watchdog。
-接着则进入阶段`Phase600`，实现该阶段的回调方法的服务较多。
+onBootPhase(480)
 
-#### 2.1.6 Phase1000
+- DevicePolicyManagerService
+
+阶段480后马上就进入阶段500.
+
+#### 2.1.4 Phase500
+
+`PHASE_SYSTEM_SERVICES_READY`=500，进入该阶段服务能安全地调用核心系统服务.
+
+onBootPhase(500)
+
+- AlarmManagerService
+- JobSchedulerService
+- NotificationManagerService
+- BackupManagerService
+- UsageStatsService
+- DeviceIdleController
+- TrustManagerService
+- UiModeManagerService
+
+- BluetoothService
+- BluetoothManagerService
+- EthernetService
+- WifiP2pService
+- WifiScanningService
+- WifiService
+- RttService
+
+各大服务执行systemReady():
+
+- WindowManagerService.systemReady():
+- PowerManagerService.systemReady():
+- PackageManagerService.systemReady():
+- DisplayManagerService.systemReady():
+
+接下来就绪AMS.systemReady方法.
+
+#### 2.1.5 Phase550
+
+`PHASE_ACTIVITY_MANAGER_READY`=550， AMS.mSystemReady=true, 
+已准备就绪,进入该阶段服务能广播Intent;但是system_server主线程并没有就绪.
+
+onBootPhase(550)
+
+- MountService
+- TelecomLoaderService
+- UsbService
+- WebViewUpdateService
+- DockObserver
+- BatteryService
+
+接下来执行: (AMS启动native crash监控,，加载WebView，启动SystemUi等),如下
+
+- mActivityManagerService.startObservingNativeCrashes();
+- WebViewFactory.prepareWebViewInSystemServer();
+- startSystemUi(context);
+
+- networkScoreF.systemReady();
+- networkManagementF.systemReady();
+- networkStatsF.systemReady();
+- networkPolicyF.systemReady();
+- connectivityF.systemReady();
+- audioServiceF.systemReady();
+- Watchdog.getInstance().start();
+            
+#### 2.1.6 Phase600
+`PHASE_THIRD_PARTY_APPS_CAN_START`=600
+
+onBootPhase(600)
+
+- JobSchedulerService
+- NotificationManagerService
+- BackupManagerService
+- AppWidgetService
+- GestureLauncherService
+- DreamManagerService
+- TrustManagerService
+- VoiceInteractionManagerService
+
+接下来,各种服务的systemRunning过程:
 
 WallpaperManagerService、InputMethodManagerService、LocationManagerService、CountryDetectorService、NetworkTimeUpdateService、CommonTimeManagementService、TextServicesManagerService、AssetAtlasService、InputManagerService、TelephonyRegistry、MediaRouterService、MmsServiceBroker这些服务依次执行其`systemRunning()`方法。
+
+#### 2.1.6 Phase1000
 在经过一系列流程，再调用`AMS.finishBooting()`时，则进入阶段`Phase1000`。
 
 到此，系统服务启动阶段完成就绪，system_server进程启动完成则进入`Looper.loop()`状态，随时待命，等待消息队列MessageQueue中的消息到来，则马上进入执行状态。

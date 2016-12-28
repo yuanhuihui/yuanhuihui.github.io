@@ -554,3 +554,10 @@ Zygote启动过程的调用流程图：
 最后，介绍给通过cmd命令，来fork新进程来执行类中main方法的方式：
 
      app_process [可选参数] 命令所在路径 启动的类名 [可选参数]
+     
+Zygote进程能够重启的地方: 
+
+- servicemanager进程被杀; (onresart)
+- surfaceflinger进程被杀; (onresart)
+- Zygote进程自己被杀; (oneshot=false)
+- system_server进程被杀; (waitpid)

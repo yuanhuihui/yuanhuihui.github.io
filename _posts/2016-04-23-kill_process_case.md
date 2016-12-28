@@ -34,34 +34,50 @@ tags:
         }
     }
 
+
+reason对于分析问题很重要, 实例说明:
+
+    am_kill : [0,26328,com.gityuan.app,0,stop com.gityuan.app]
+
+这是Eventlog,可知最后一个参数**stop com.gityuan.app**, 代表的是reason = stop `packageName`, 那么显然这个app是由于调用forceStopPackageLocked而被杀.
+
+
 其中杀进程的原因(reason)有很多种形式, 如下表:
 
-#### 表1
+#### 异常杀进程
 
 |方法|reason|含义|
 |---|---|---|
-|appNotResponding|anr||
-|appNotResponding|bg anr||
-|handleAppCrashLocked|crash||
-|crashApplication|crash||
+
+|appNotResponding|anr|ANR|
+|appNotResponding|bg anr|ANR|
+|handleAppCrashLocked|crash|CRASH|
+|crashApplication|crash|CRASH|
 |processStartTimedOutLocked|start timeout||
 |processContentProviderPublishTimedOutLocked|timeout publishing content providers||
 |removeDyingProviderLocked|depends on provider `cpr.name` in dying proc `processName`||
 
-#### 表2
+
+#### 主动杀进程
+
+||finished inst|
 
 |方法|reason|含义|
 |---|---|---|
-|forceStopPackageLocked|stop user `userId`||
-|forceStopPackageLocked|stop `packageName`||
+|forceStopPackageLocked|stop user `userId`|
+|forceStopPackageLocked|stop `packageName`|
 |killBackgroundProcesses|kill background||
 |killAllBackgroundProcesses|kill all background||
-|killUid|kill uid||
-|killUid|Permission related app op changed||
-|killAppAtUsersRequest|user request after error||
+|killAppAtUsersRequest|user request after error|FORCE_CLOSE|
+|killUid|kill uid|PERMISSION|
+|killUid|Permission related app op changed|PERMISSION|
 |killProcessesBelowAdj|setPermissionEnforcement||
+|killApplicationProcess|-|直接杀|
+|killPids|Free memory||
+|killPids|Unknown||
+|killPids|自定义|调用者自定义|
 
-#### 表3
+#### 调度杀进程
 
 |方法|reason|含义|
 |---|---|---|
@@ -73,7 +89,7 @@ tags:
 |updateOomAdjLocked|isolated not needed||
 
 
-#### 表4
+#### 其他杀进程
 
 |方法|reason|含义|
 |---|---|---|
@@ -87,12 +103,57 @@ tags:
 
 
 
-### 二.用法
+### 二. force-stop
 
-reason对于分析问题很重要, 比如
+对于force-stop系统这把杀进程的利器, 还会额外出现一个reason来更详细的说明触发force-stop的原因.
 
-    am_kill : [0,26328,com.gityuan.app,0,stop com.gityuan.app]
+    Slog.i(TAG, "Force stopping " + packageName + " appid=" + appId + " user=" + userId + ": " + reason);
 
-这是Eventlog,可知最后一个参数**stop com.gityuan.app**, 代表的是reason = stop `packageName`, 那么显然这个app是由于调用forceStopPackageLocked而被杀.
+以下场景都会调用force-stop, 输出reason表格如下:
 
-未完....
+|方法|reason|含义|
+|---|---|---|
+|AMS.forceStopPackage|from pid `callingPid`||
+|AMS.finishUserStop|finish user||
+|AMS.clearApplicationUserData|clear data||
+|AMS.broadcastIntentLocked|storage unmount||
+|AMS.finishBooting|query restart||
+|AMS.finishInstrumentationLocked|finished inst|evenPersistent|
+|AMS.setDebugApp|set debug app|evenPersistent|
+|AMS.startInstrumentation|start instrevenPersistent|
+|PKMS.deletePackageLI|uninstall pkg||
+|PKMS.movePackageInternal|move pkg||
+|PKMS.replaceSystemPackageLI|replace sys pkg||
+|PKMS.scanPackageDirtyLI|replace pkg||
+|PKMS.scanPackageDirtyLI|update lib||
+|PKMS.setApplicationHiddenSettingAsUser|hiding pkg||
+|MountService.killMediaProvider|vold reset||
+
+PKMS服务往往是调用killApplication从而间接调用forceStopPackage方法.
+
+### 三. 小结
+
+杀进程log举例:
+
+    am_kill : [0,3226,com.android.quicksearchbox,13,empty #13]
+    Force stopping com.android.providers.media appid=10010 user=-1: vold reset
+    Killing 5769:com.android.mms/u0a21 (adj 15): empty #13
+    processes xxx at adjustment 1 //杀adj=1的进程
+
+
+进程记录信息:
+
+|进程结构体|数据类型|说明|
+|---|---|---|
+|mProcessNames| ProcessMap<ProcessRecord>|根据进程名和uid查询|
+|mPidsSelfLocked|SparseArray<ProcessRecord>|根据pid查询|
+|mLruProcesses| ArrayList<ProcessRecord>|foreach调用|
+
+评估:
+
+- killPids: 这个比较灵活,只需要指定pid即可杀进程, 也可定制kill reason.
+- forceStopPackage: 杀进程最为彻底;
+- killBackgroundProcesses: 只杀adj > SERVICE_ADJ(5)的进程;
+
+
+未完待续...
