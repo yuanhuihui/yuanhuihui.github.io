@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "输入系统之InputReader"
+title:  "输入系统之InputReader线程"
 date:   2016-12-11 22:19:12
 catalog:  true
 tags:

@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "输入系统之InputDispatcher"
+title:  "输入系统之InputDispatcher线程"
 date:   2016-12-17 22:19:12
 catalog:  true
 tags:
@@ -14,6 +14,7 @@ tags:
     frameworks/base/services/core/jni/com_android_server_input_InputManagerService.cpp
     frameworks/native/include/android/input.h
     frameworks/native/include/input/InputTransport.h
+    frameworks/native/libs/input/InputTransport.cpp
     
 ## 一. InputDispatcher起点
 
@@ -343,7 +344,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
     
 在以下场景下，有可能无法分发事件：
 
-- 当前时间小于唤醒时间的情况；
+- 当前时间小于唤醒时间(nextWakeupTime)的情况；
 - policy需要提前拦截事件的情况；
 - 需要drop事件的情况；
 - 寻找聚焦窗口失败的情况；
@@ -466,10 +467,10 @@ InputDispatcher，同样从threadLoop为起点开始分析。
     
 该方法的返回值代表的是NotReady的原因，主要如下：
 
-- 窗口连接已死亡：Waiting because the [targetType] window's input connection is [Connection.Status]. The window may be in the process of being removed.
-- 窗口连接已满：Waiting because the [targetType] window's input channel is full.  Outbound queue length: [outboundQueue长度].  Wait queue length: [waitQueue长度].
-- 按键事件，输出队列或事件等待队列不为空：Waiting to send key event because the [targetType] window has not finished processing all of the input events that were previously delivered to it.  Outbound queue length: [outboundQueue长度].  Wait queue length: [waitQueue长度].
-- 非按键事件，事件等待队列不为空且头事件分发超时500ms：Waiting to send non-key event because the [targetType] window has not finished processing certain input events that were delivered to it over 500ms ago.  Wait queue length: [waitQueue长度].  Wait queue head age: [等待时长].
+- **窗口连接已死亡**：Waiting because the [targetType] window's input connection is [Connection.Status]. The window may be in the process of being removed.
+- **窗口连接已满**：Waiting because the [targetType] window's input channel is full.  Outbound queue length: [outboundQueue长度].  Wait queue length: [waitQueue长度].
+- **按键事件，输出队列或事件等待队列不为空**：Waiting to send key event because the [targetType] window has not finished processing all of the input events that were previously delivered to it.  Outbound queue length: [outboundQueue长度].  Wait queue length: [waitQueue长度].
+- **非按键事件，事件等待队列不为空且头事件分发超时500ms**：Waiting to send non-key event because the [targetType] window has not finished processing certain input events that were delivered to it over 500ms ago.  Wait queue length: [waitQueue长度].  Wait queue head age: [等待时长].
 
 其中
 
@@ -518,7 +519,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         }
 
         if (mInputTargetWaitTimeoutExpired) {
-            return INPUT_EVENT_INJECTION_TIMED_OUT; //等待超时已过期
+            return INPUT_EVENT_INJECTION_TIMED_OUT; //等待超时已过期,则直接返回
         }
         
         //当超时5s则进入ANR流程
@@ -547,7 +548,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
     - 设置TimeoutExpired= false
     - 清空等待队列;
 
-关于ANR先说到这，后文再展开。 继续回到[小节2.3]findFocusedWindowTargetsLocked，如果没有发生ANR，则将该事件添加到inputTargets。
+关于ANR先说到这，后文再展开。 继续回到[小节2.3]findFocusedWindowTargetsLocked，如果没有发生ANR，则addWindowTargetLocked()将该事件添加到inputTargets。
 
 ### 2.4 addWindowTargetLocked
 
@@ -588,8 +589,8 @@ InputDispatcher，同样从threadLoop为起点开始分析。
 
 该方法主要功能是将eventEntry发送到目标inputTargets．
 
-其中pokeUserActivityLocked(eventEntry)方法最终会调用到Ｊava层的ＰowerManagerService.ｊava中的userActivityFromNative()方法．
-这也是PMS中唯一的ｎative call方法．
+其中pokeUserActivityLocked(eventEntry)方法最终会调用到Java层的PowerManagerService.jva中的`userActivityFromNative()`方法．
+这也是PMS中唯一的native all方法．
 
 #### 2.5.1 getConnectionIndexLocked
 
@@ -605,7 +606,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         return -1;
     }
 
-根据inputChannel的fd，从mConnectionsByFd队列中查询目标ｃonnection，
+根据inputChannel的fd，从mConnectionsByFd队列中查询目标connection，
 
 ### 2.6 prepareDispatchCycleLocked
 
@@ -618,7 +619,6 @@ InputDispatcher，同样从threadLoop为起点开始分析。
 
         //如果需要,则分割motion事件
         if (inputTarget->flags & InputTarget::FLAG_SPLIT) {
-
             MotionEntry* originalMotionEntry = static_cast<MotionEntry*>(eventEntry);
             if (inputTarget->pointerIds.count() != originalMotionEntry->pointerCount) {
                 MotionEntry* splitMotionEntry = splitMotionEvent(
@@ -773,16 +773,215 @@ InputDispatcher，同样从threadLoop为起点开始分析。
                 return;
             }
 
-            // Re-enqueue the event on the wait queue.
+            //从outboundQueue中取出事件,重新放入waitQueue队列
             connection->outboundQueue.dequeue(dispatchEntry);
             connection->waitQueue.enqueueAtTail(dispatchEntry);
 
         }
     }
 
-abortBrokenDispatchCycleLocked()方法最终会调用到Java层的IMS.notifyInputChannelBroken().
+startDispatchCycleLocked的主要功能: 从outboundQueue中取出事件,重新放入waitQueue队列
+
+- abortBrokenDispatchCycleLocked()方法最终会调用到Java层的IMS.notifyInputChannelBroken().
+
+    
+### 2.10  inputPublisher.publishKeyEvent
+[-> InputTransport.cpp]
+
+    status_t InputPublisher::publishKeyEvent(...) {
+        if (!seq) {
+            return BAD_VALUE;
+        }
+
+        InputMessage msg;
+        msg.header.type = InputMessage::TYPE_KEY;
+        msg.body.key.seq = seq;
+        msg.body.key.deviceId = deviceId;
+        msg.body.key.source = source;
+        msg.body.key.action = action;
+        msg.body.key.flags = flags;
+        msg.body.key.keyCode = keyCode;
+        msg.body.key.scanCode = scanCode;
+        msg.body.key.metaState = metaState;
+        msg.body.key.repeatCount = repeatCount;
+        msg.body.key.downTime = downTime;
+        msg.body.key.eventTime = eventTime;
+        //通过InputChannel来发送消息[见小节2.11]
+        return mChannel->sendMessage(&msg);
+    }
+    
+
+### 2.111 doDispatchCycleFinishedLockedInterruptible
+
+    void InputDispatcher::doDispatchCycleFinishedLockedInterruptible(
+            CommandEntry* commandEntry) {
+        sp<Connection> connection = commandEntry->connection;
+        nsecs_t finishTime = commandEntry->eventTime;
+        uint32_t seq = commandEntry->seq;
+        bool handled = commandEntry->handled;
+
+        DispatchEntry* dispatchEntry = connection->findWaitQueueEntry(seq);
+        if (dispatchEntry) {
+            nsecs_t eventDuration = finishTime - dispatchEntry->deliveryTime;
+            if (eventDuration > SLOW_EVENT_PROCESSING_WARNING_TIMEOUT) {
+                String8 msg;
+                msg.appendFormat("Window '%s' spent %0.1fms processing the last input event: ",
+                        connection->getWindowName(), eventDuration * 0.000001f);
+                dispatchEntry->eventEntry->appendDescription(msg);
+                ALOGI("%s", msg.string());
+            }
+
+            bool restartEvent;
+            if (dispatchEntry->eventEntry->type == EventEntry::TYPE_KEY) {
+                KeyEntry* keyEntry = static_cast<KeyEntry*>(dispatchEntry->eventEntry);
+                restartEvent = afterKeyEventLockedInterruptible(connection,
+                        dispatchEntry, keyEntry, handled);
+            } else if (dispatchEntry->eventEntry->type == EventEntry::TYPE_MOTION) {
+                MotionEntry* motionEntry = static_cast<MotionEntry*>(dispatchEntry->eventEntry);
+                restartEvent = afterMotionEventLockedInterruptible(connection,
+                        dispatchEntry, motionEntry, handled);
+            } else {
+                restartEvent = false;
+            }
+
+            if (dispatchEntry == connection->findWaitQueueEntry(seq)) {
+                //从等待队列移除
+                connection->waitQueue.dequeue(dispatchEntry);
+                traceWaitQueueLengthLocked(connection);
+                if (restartEvent && connection->status == Connection::STATUS_NORMAL) {
+                    connection->outboundQueue.enqueueAtHead(dispatchEntry);
+                    traceOutboundQueueLengthLocked(connection);
+                } else {
+                    releaseDispatchEntryLocked(dispatchEntry);
+                }
+            }
+
+            // Start the next dispatch cycle for this connection.
+            startDispatchCycleLocked(now(), connection);
+        }
+    }
+    
+## InputChannel
 
 
+Activity对应一个应用窗口, 每一个窗口对应一个ViewRootImpl.
+
+
+### 1. setContentView
+[-> Activity.java]
+
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_account_bind);
+        ...
+    }
+
+1. handleLaunchActivity()会调用Activity.onCreate(), 该方法内再调用setContentView(),经过AMS与WMS的各种交互;层层调用后, 
+2. handleResumeActivity()会调用Activity.makeVisible(),该方法继续调用便会执行到WindowManagerImpl.addView(); 再往下调用,进入3
+3. WindowManagerGlobal.addView()
+
+### 2. addView
+[-> WindowManagerGlobal.java]
+
+    public void addView(View view, ViewGroup.LayoutParams params,
+            Display display, Window parentWindow) {
+        ...
+        //[见小节]
+        ViewRootImpl root = new ViewRootImpl(view.getContext(), display);
+        root.setView(view, wparams, panelParentView);
+        ...
+    }
+
+### 3. ViewRootImpl
+[-> ViewRootImpl.java]
+
+    public ViewRootImpl(Context context, Display display) {
+        mContext = context;
+        mWindowSession = WindowManagerGlobal.getWindowSession();
+        mDisplay = display;
+        mThread = Thread.currentThread();
+        mWindow = new W(this);
+        mChoreographer = Choreographer.getInstance();
+        ...
+    }
+    
+    public void setView(View view, WindowManager.LayoutParams attrs, View panelParentView) {
+        synchronized (this) {
+        ...
+            if ((mWindowAttributes.inputFeatures
+                & WindowManager.LayoutParams.INPUT_FEATURE_NO_INPUT_CHANNEL) == 0) {
+                mInputChannel = new InputChannel(); //创建InputChannel对象
+            }
+            //将mInputChannel添加到 WMS
+            res = mWindowSession.addToDisplay(mWindow, mSeq, mWindowAttributes,
+                        getHostVisibility(), mDisplay.getDisplayId(),
+                        mAttachInfo.mContentInsets, mAttachInfo.mStableInsets,
+                        mAttachInfo.mOutsets, mInputChannel);
+            ...
+            if (mInputChannel != null) {
+                if (mInputQueueCallback != null) {
+                    mInputQueue = new InputQueue();
+                    mInputQueueCallback.onInputQueueCreated(mInputQueue);
+                }
+                mInputEventReceiver = new WindowInputEventReceiver(mInputChannel,
+                        Looper.myLooper());
+            }
+        }
+    }
+
+
+
+### 2.11 mChannel哪里来?
+
+#### registerInputChannel
+
+    status_t InputDispatcher::registerInputChannel(const sp<InputChannel>& inputChannel,
+            const sp<InputWindowHandle>& inputWindowHandle, bool monitor) {
+        { 
+            AutoMutex _l(mLock);
+            if (getConnectionIndexLocked(inputChannel) >= 0) {
+                return BAD_VALUE;
+            }
+
+            sp<Connection> connection = new Connection(inputChannel, inputWindowHandle, monitor);
+
+            int fd = inputChannel->getFd();
+            mConnectionsByFd.add(fd, connection);
+
+            if (monitor) {
+                mMonitoringChannels.push(inputChannel);
+            }
+
+            mLooper->addFd(fd, 0, ALOOPER_EVENT_INPUT, handleReceiveCallback, this);
+        }
+
+        mLooper->wake(); //connection改变, 则唤醒looper
+        return OK;
+    }
+
+将新创建的connection保存到mConnectionsByFd成员变量.
+
+####２.11.
+[-> InputDispatcher.cpp]
+
+    InputDispatcher::Connection::Connection(const sp<InputChannel>& inputChannel,
+            const sp<InputWindowHandle>& inputWindowHandle, bool monitor) :
+            status(STATUS_NORMAL), inputChannel(inputChannel), inputWindowHandle(inputWindowHandle),
+            monitor(monitor),
+            inputPublisher(inputChannel), inputPublisherBlocked(false) {
+    }
+
+
+#### 2.11.2 InputPublisher初始化
+
+[-> InputTransport.cpp]
+
+    InputPublisher:: InputPublisher(const sp<InputChannel>& channel) :
+            mChannel(channel) {
+    }
+    
+    
+    
 ## 三. command
 
 #### 3.1 runCommandsLockedInterruptible
@@ -1090,32 +1289,11 @@ mPolicy是指NativeInputManager
         static status_t openInputChannelPair(const String8& name,
                 sp<InputChannel>& outServerChannel, sp<InputChannel>& outClientChannel);
 
-        /* Sends a message to the other endpoint.
-         *
-         * If the channel is full then the message is guaranteed not to have been sent at all.
-         * Try again after the consumer has sent a finished signal indicating that it has
-         * consumed some of the pending messages from the channel.
-         *
-         * Returns OK on success.
-         * Returns WOULD_BLOCK if the channel is full.
-         * Returns DEAD_OBJECT if the channel's peer has been closed.
-         * Other errors probably indicate that the channel is broken.
-         */
-        status_t sendMessage(const InputMessage* msg);
+        status_t sendMessage(const InputMessage* msg); //发送消息
 
-        /* Receives a message sent by the other endpoint.
-         *
-         * If there is no message present, try again after poll() indicates that the fd
-         * is readable.
-         *
-         * Returns OK on success.
-         * Returns WOULD_BLOCK if there is no message present.
-         * Returns DEAD_OBJECT if the channel's peer has been closed.
-         * Other errors probably indicate that the channel is broken.
-         */
-        status_t receiveMessage(InputMessage* msg);
+        status_t receiveMessage(InputMessage* msg); //接收消息
 
-        /* Returns a new object that has a duplicate of this channel's fd. */
+        //获取InputChannel的fd的拷贝
         sp<InputChannel> dup() const;
 
     private:
@@ -1123,7 +1301,21 @@ mPolicy是指NativeInputManager
         int mFd;
     };
 
+sendMessage的返回值:
+
+- OK: 代表成功;
+- WOULD_BLOCK: 代表Channel已满;
+- DEAD_OBJECT: 代表Channel已关闭;
+
+receiveMessage的返回值:
+
+- OK: 代表成功;
+- WOULD_BLOCK: 代表Channel为空;
+- DEAD_OBJECT: 代表Channel已关闭;
+
+
 #### InputTarget
+[-> InputTransport.h]
 
     struct InputTarget {
         enum {
@@ -1169,3 +1361,52 @@ mPolicy是指NativeInputManager
 
         BitSet32 pointerIds;
     };
+
+#### InputPublisher
+[-> InputTransport.h]
+
+    class InputPublisher {
+    public:
+        //获取输入通道
+        inline sp<InputChannel> getChannel() { return mChannel; }
+
+        status_t publishKeyEvent(...); //将key event发送到input channel
+
+        status_t publishMotionEvent(...); //将motion event发送到input channel
+
+        //接收来自InputConsumer发送的完成信号
+        status_t receiveFinishedSignal(uint32_t* outSeq, bool* outHandled);
+
+    private:
+        sp<InputChannel> mChannel;
+    };
+    
+#### InputConsumer
+[-> InputTransport.h]
+
+    class InputConsumer {
+    public:
+         inline sp<InputChannel> getChannel() { return mChannel; }
+         
+          status_t consume(...); //消费input channel的事件
+          
+         //向InputPublisher发送完成信号
+         status_t sendFinishedSignal(uint32_t seq, bool handled);
+         
+          bool hasDeferredEvent() const;
+           bool hasPendingBatch() const;
+    private:
+         sp<InputChannel> mChannel;
+         InputMessage mMsg; //当前input消息
+         bool mMsgDeferred; 
+         
+         Vector<Batch> mBatches; //input批量消息
+         Vector<TouchState> mTouchStates; 
+         Vector<SeqChain> mSeqChains;
+         
+         status_t consumeBatch(...);
+         status_t consumeSamples(...);
+           
+         static void initializeKeyEvent(KeyEvent* event, const InputMessage* msg);
+         static void initializeMotionEvent(MotionEvent* event, const InputMessage* msg);
+    }

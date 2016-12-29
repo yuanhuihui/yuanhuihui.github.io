@@ -114,3 +114,16 @@ setprop persist.sys.binder.vmsize  1040384
 实验2:
 setprop persist.sys.binder.max 31
 setprop persist.sys.binder.vmsize 2088960
+
+
+
+#### 可能需要修改
+
+ViewRootImpl.java 中如下代码的合理性:
+
+    // MIUI ADD: START
+    // Creates input channel whatever WindowManager.LayoutParams.inputFlags is.
+    if (mInputChannel == null) {
+        mInputChannel = new InputChannel();
+    }
+    // END

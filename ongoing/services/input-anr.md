@@ -28,5 +28,8 @@ Linux Kernel -> IMS(InputReader -> InputDispatcher) -> WMS -> ViewRootImpl
 
 
 好文: 
-http://blog.csdn.net/laisse/article/details/47259485
+
 http://blog.csdn.net/u012719256/article/details/52945534
+http://blog.csdn.net/laisse/article/details/47259485
+http://blog.csdn.net/zjq2008wd/article/details/39225539
+http://blog.csdn.net/myarrow/article/details/8158585

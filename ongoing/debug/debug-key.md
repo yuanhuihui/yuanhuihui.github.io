@@ -253,3 +253,9 @@ PowerManagerService: Waking up from sleep
 adb logcat -b events | egrep -v "am_pss|sysui_|am_broadcast"
 
 logcat -b system -b  main -b events | egrep "Timeline|am_" | egrep  -v "am_pss|auditd"
+
+
+##  AMS
+
+Activity启动
+ActivityManager: START u0
