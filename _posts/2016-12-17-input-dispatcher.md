@@ -18,7 +18,7 @@ tags:
     
 ## 一. InputDispatcher起点
 
-上篇文章，介绍InputReader利用EventHub获取数据后生成EventEntry事件，加入到InputDispatcher的mInboundQueue队列，再唤醒InputDispatcher线程。本文将介绍
+上篇文章[输入系统之InputReader线程](http://gityuan.com/2016/12/11/input-reader/)，介绍InputReader利用EventHub获取数据后生成EventEntry事件，加入到InputDispatcher的mInboundQueue队列，再唤醒InputDispatcher线程。本文将介绍
 InputDispatcher，同样从threadLoop为起点开始分析。
 
 #### 1.1 threadLoop
@@ -861,13 +861,13 @@ startDispatchCycleLocked的主要功能: 从outboundQueue中取出事件,重新�
         }
     }
     
-## InputChannel
-
+    
+## 三. InputChannel
 
 Activity对应一个应用窗口, 每一个窗口对应一个ViewRootImpl.
 
 
-### 1. setContentView
+### 3.1 setContentView
 [-> Activity.java]
 
     protected void onCreate(Bundle savedInstanceState) {
@@ -876,30 +876,30 @@ Activity对应一个应用窗口, 每一个窗口对应一个ViewRootImpl.
         ...
     }
 
-1. handleLaunchActivity()会调用Activity.onCreate(), 该方法内再调用setContentView(),经过AMS与WMS的各种交互;层层调用后, 
-2. handleResumeActivity()会调用Activity.makeVisible(),该方法继续调用便会执行到WindowManagerImpl.addView(); 再往下调用,进入3
-3. WindowManagerGlobal.addView()
+1. handleLaunchActivity()会调用Activity.onCreate(), 该方法内再调用setContentView(),经过AMS与WMS的各种交互,层层调用后,进入step2
+2. handleResumeActivity()会调用Activity.makeVisible(),该方法继续调用便会执行到WindowManagerImpl.addView(),之后调用step 3;
+3. WindowManagerGlobal.addView(),那么就从这里开始说起.
 
-### 2. addView
+### 3.2 addView
 [-> WindowManagerGlobal.java]
 
     public void addView(View view, ViewGroup.LayoutParams params,
             Display display, Window parentWindow) {
         ...
-        //[见小节]
+        //[见小节3.3]
         ViewRootImpl root = new ViewRootImpl(view.getContext(), display);
         root.setView(view, wparams, panelParentView);
         ...
     }
 
-### 3. ViewRootImpl
+### 3.3 ViewRootImpl.setView
 [-> ViewRootImpl.java]
 
     public ViewRootImpl(Context context, Display display) {
         mContext = context;
         mWindowSession = WindowManagerGlobal.getWindowSession();
         mDisplay = display;
-        mThread = Thread.currentThread();
+        mThread = Thread.currentThread(); //主线程
         mWindow = new W(this);
         mChoreographer = Choreographer.getInstance();
         ...
@@ -912,7 +912,7 @@ Activity对应一个应用窗口, 每一个窗口对应一个ViewRootImpl.
                 & WindowManager.LayoutParams.INPUT_FEATURE_NO_INPUT_CHANNEL) == 0) {
                 mInputChannel = new InputChannel(); //创建InputChannel对象
             }
-            //将mInputChannel添加到 WMS
+            //将mInputChannel添加到WMS[见小节3.4]
             res = mWindowSession.addToDisplay(mWindow, mSeq, mWindowAttributes,
                         getHostVisibility(), mDisplay.getDisplayId(),
                         mAttachInfo.mContentInsets, mAttachInfo.mStableInsets,
@@ -923,35 +923,310 @@ Activity对应一个应用窗口, 每一个窗口对应一个ViewRootImpl.
                     mInputQueue = new InputQueue();
                     mInputQueueCallback.onInputQueueCreated(mInputQueue);
                 }
+                //创建WindowInputEventReceiver对象[见]
                 mInputEventReceiver = new WindowInputEventReceiver(mInputChannel,
                         Looper.myLooper());
             }
         }
     }
 
+该方法主要功能:
+
+1. 创建Java InputChannel对象
+2. 将mInputChannel添加到WMS
+3. 创建WindowInputEventReceiver对象
+
+### 3.4 Session.addToDisplay
+[-> Session.java]
+
+    final class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
+
+        public int add(IWindow window, int seq, WindowManager.LayoutParams attrs,
+                int viewVisibility, Rect outContentInsets, Rect outStableInsets,
+                InputChannel outInputChannel) {
+            //[见小节3.5]
+            return addToDisplay(window, seq, attrs, viewVisibility, Display.DEFAULT_DISPLAY,
+                    outContentInsets, outStableInsets, null /* outOutsets */, outInputChannel);
+        }
+    }
+
+### 3.5 WMS.addToDisplay
+[-> WindowManagerService.java]
+
+    public int addWindow(Session session, IWindow client, int seq,
+               WindowManager.LayoutParams attrs, int viewVisibility, int displayId,
+               Rect outContentInsets, Rect outStableInsets, Rect outOutsets,
+               InputChannel outInputChannel) {
+        ...
+        //创建WindowState
+        WindowState win = new WindowState(this, session, client, token,
+                    attachedWindow, appOp[0], seq, attrs, viewVisibility, displayContent);
+        if (outInputChannel != null && (attrs.inputFeatures
+                & WindowManager.LayoutParams.INPUT_FEATURE_NO_INPUT_CHANNEL) == 0) {
+             //根据WindowState的HashCode以及title来生成input管道名
+            String name = win.makeInputChannelName();
+            
+            //创建一对InputChannel[见小节3.6]
+            InputChannel[] inputChannels = InputChannel.openInputChannelPair(name);
+            //将socket服务端保存到WindowState的mInputChannel
+            win.setInputChannel(inputChannels[0]);
+            //socket客户端传递给outInputChannel [见小节3.7]
+            inputChannels[1].transferTo(outInputChannel);
+            //[见小节3.8]
+            mInputManager.registerInputChannel(win.mInputChannel, win.mInputWindowHandle);
+        }
+    }
+
+#### 3.5.1 创建WindowState
+[-> WindowState.java]
+
+    WindowState(WindowManagerService service, Session s, IWindow c, WindowToken token,
+           WindowState attachedWindow, int appOp, int seq, WindowManager.LayoutParams a,
+           int viewVisibility, final DisplayContent displayContent) {
+        ...
+        WindowState appWin = this;
+        while (appWin.mAttachedWindow != null) {
+           appWin = appWin.mAttachedWindow;
+        }
+        WindowToken appToken = appWin.mToken;
+        while (appToken.appWindowToken == null) {
+           WindowToken parent = mService.mTokenMap.get(appToken.token);
+           if (parent == null || appToken == parent) {
+               break;
+           }
+           appToken = parent;
+        }
+        mAppToken = appToken.appWindowToken;
+        mInputWindowHandle = new InputWindowHandle(
+                mAppToken != null ? mAppToken.mInputApplicationHandle : null, this,
+                displayContent.getDisplayId());
+    }
+    
+### 3.6 创建socket pair
+
+### 3.6.1  openInputChannelPair
+[-> InputChannel.java]
+
+    public static InputChannel[] openInputChannelPair(String name) {
+        return nativeOpenInputChannelPair(name);
+    }
+    
+这个过程的主要功能
+
+1. 创建两个socket通道(非阻塞, buffer上限32KB)
+2. 创建两个InputChannel对象;
+3. 创建两个NativeInputChannel对象;
+4. 将nativeInputChannel保存到Java层的InputChannel的成员变量mPtr
+    
+#### 3.6.2 nativeOpenInputChannelPair
+[-> android_view_InputChannel.cpp]
+
+    static jobjectArray android_view_InputChannel_nativeOpenInputChannelPair(JNIEnv* env,
+            jclass clazz, jstring nameObj) {
+        const char* nameChars = env->GetStringUTFChars(nameObj, NULL);
+        String8 name(nameChars);
+        env->ReleaseStringUTFChars(nameObj, nameChars);
+
+        sp<InputChannel> serverChannel;
+        sp<InputChannel> clientChannel;
+        //创建一对socket[见小节3.6.3]
+        status_t result = InputChannel::openInputChannelPair(name, serverChannel, clientChannel);
+
+        //创建Java数组
+        jobjectArray channelPair = env->NewObjectArray(2, gInputChannelClassInfo.clazz, NULL);
+        ...
+
+        //创建NativeInputChannel对象[见小节3.6.5]
+        jobject serverChannelObj = android_view_InputChannel_createInputChannel(env,
+                new NativeInputChannel(serverChannel));
+        ...
+
+        jobject clientChannelObj = android_view_InputChannel_createInputChannel(env,
+                new NativeInputChannel(clientChannel));
+        ...
+        
+        //将client和server 两个插入到channelPair
+        env->SetObjectArrayElement(channelPair, 0, serverChannelObj);
+        env->SetObjectArrayElement(channelPair, 1, clientChannelObj);
+        return channelPair;
+    }
+
+#### 3.6.3 openInputChannelPair
+[-> InputTransport.cpp]
+
+    status_t InputChannel::openInputChannelPair(const String8& name,
+            sp<InputChannel>& outServerChannel, sp<InputChannel>& outClientChannel) {
+        int sockets[2];
+        //真正创建socket对的地方
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, sockets)) {
+            ...
+            return result;
+        }
+
+        int bufferSize = SOCKET_BUFFER_SIZE; //32k
+        setsockopt(sockets[0], SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize));
+        setsockopt(sockets[0], SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize));
+        setsockopt(sockets[1], SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize));
+        setsockopt(sockets[1], SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize));
+
+        String8 serverChannelName = name;
+        serverChannelName.append(" (server)");
+        //[见小节3.6.4]
+        outServerChannel = new InputChannel(serverChannelName, sockets[0]);
+
+        String8 clientChannelName = name;
+        clientChannelName.append(" (client)");
+        //[见小节3.6.4]
+        outClientChannel = new InputChannel(clientChannelName, sockets[1]);
+        return OK;
+    }
+
+该方法主要功能:
+
+1. 创建socket pair; (非阻塞式的socket)
+2. 设置两个socket的接收和发送的buffer上限为32KB;
+3. 创建client和server的Native层InputChannel对象;
 
 
-### 2.11 mChannel哪里来?
+#### 3.6.4 InputChannel
+[-> InputTransport.cpp]
 
-#### registerInputChannel
+    InputChannel::InputChannel(const String8& name, int fd) :
+            mName(name), mFd(fd) {
+        //将socket设置成非阻塞方式
+        int result = fcntl(mFd, F_SETFL, O_NONBLOCK);
+    }
+
+
+#### 3.6.5 android_view_InputChannel_createInputChannel
+[-> android_view_InputChannel.cpp]
+
+    static jobject android_view_InputChannel_createInputChannel(JNIEnv* env,
+            NativeInputChannel* nativeInputChannel) {
+        //创建Java的InputChannel
+        jobject inputChannelObj = env->NewObject(gInputChannelClassInfo.clazz,
+                gInputChannelClassInfo.ctor);
+        if (inputChannelObj) {
+            //将nativeInputChannel保存到Java层的InputChannel的成员变量mPtr
+            android_view_InputChannel_setNativeInputChannel(env, inputChannelObj, nativeInputChannel);
+        }
+        return inputChannelObj;
+    }
+
+    static void android_view_InputChannel_setNativeInputChannel(JNIEnv* env, jobject inputChannelObj,
+            NativeInputChannel* nativeInputChannel) {
+        env->SetLongField(inputChannelObj, gInputChannelClassInfo.mPtr,
+                 reinterpret_cast<jlong>(nativeInputChannel));
+    }
+    
+此处: 
+
+- gInputChannelClassInfo.clazz是指Java层的InputChannel类
+- gInputChannelClassInfo.ctor是指Java层的InputChannel构造方法;
+- gInputChannelClassInfo.mPtr是指Java层的InputChannel的成员变量mPtr;
+
+### 3.7 input通道转移
+
+inputChannels[1].transferTo(outInputChannel)主要功能:
+
+1. 当outInputChannel.mPtr不为空,则直接返回;否则进入step2;
+2. 将inputChannels[1].mPtr的值赋给outInputChannel..mPtr;
+3. 清空inputChannels[1].mPtr值;
+
+#### 3.7.1 transferTo
+[-> InputChannel.java]
+
+    public void transferTo(InputChannel outParameter) {    
+        nativeTransferTo(outParameter);
+    }
+
+#### 3.7.2 nativeTransferTo
+[-> android_view_InputChannel.cpp]
+
+    static void android_view_InputChannel_nativeTransferTo(JNIEnv* env, jobject obj,
+            jobject otherObj) {
+        
+        if (android_view_InputChannel_getNativeInputChannel(env, otherObj) != NULL) {
+            return; //当Java层的InputChannel.mPtr不为空,则返回
+        }
+        
+        //将当前inputChannels[1]的mPtr赋值给nativeInputChannel
+        NativeInputChannel* nativeInputChannel =
+                android_view_InputChannel_getNativeInputChannel(env, obj);
+        // 将该nativeInputChannel保存到outInputChannel的参数
+        android_view_InputChannel_setNativeInputChannel(env, otherObj, nativeInputChannel);
+        android_view_InputChannel_setNativeInputChannel(env, obj, NULL);
+    }
+    
+    
+    
+### 3.8 注册inputChannel
+
+
+#### 3.8.1 IMS.registerInputChannel
+[-> InputManagerService.java]
+
+    public void registerInputChannel(InputChannel inputChannel,
+            InputWindowHandle inputWindowHandle) {
+        nativeRegisterInputChannel(mPtr, inputChannel, inputWindowHandle, false);
+    }
+
+- inputChannel是指inputChannels[0],即
+- inputWindowHandle是指WindowState.mInputWindowHandle;
+
+#### 3.8.2 nativeRegisterInputChannel
+[-> com_android_server_input_InputManagerService.cpp]
+
+    static void nativeRegisterInputChannel(JNIEnv* env, jclass /* clazz */,
+            jlong ptr, jobject inputChannelObj, jobject inputWindowHandleObj, jboolean monitor) {
+        NativeInputManager* im = reinterpret_cast<NativeInputManager*>(ptr);
+
+        sp<InputChannel> inputChannel = android_view_InputChannel_getInputChannel(env,
+                inputChannelObj);
+
+        sp<InputWindowHandle> inputWindowHandle =
+                android_server_InputWindowHandle_getHandle(env, inputWindowHandleObj);
+        
+        //[见小节3.8.3]
+        status_t status = im->registerInputChannel(
+                env, inputChannel, inputWindowHandle, monitor);
+        ...
+
+        if (! monitor) {
+            android_view_InputChannel_setDisposeCallback(env, inputChannelObj,
+                    handleInputChannelDisposed, im);
+        }
+    }
+    
+#### 3.8.3 registerInputChannel
+[-> com_android_server_input_InputManagerService.cpp]
+
+    status_t NativeInputManager::registerInputChannel(JNIEnv* /* env */,
+            const sp<InputChannel>& inputChannel,
+            const sp<InputWindowHandle>& inputWindowHandle, bool monitor) {
+        //[见小节3.8.4]
+        return mInputManager->getDispatcher()->registerInputChannel(
+                inputChannel, inputWindowHandle, monitor);
+    }
+    
+mInputManager是指[NativeInputManager](http://gityuan.com/2016/12/10/input-manager/)初始化过程创建的InputManager对象.
+
+#### 3.8.4 registerInputChannel
+[-> InputDispatcher.cpp]
 
     status_t InputDispatcher::registerInputChannel(const sp<InputChannel>& inputChannel,
             const sp<InputWindowHandle>& inputWindowHandle, bool monitor) {
         { 
             AutoMutex _l(mLock);
-            if (getConnectionIndexLocked(inputChannel) >= 0) {
-                return BAD_VALUE;
-            }
-
+            ...
+            
+            //创建Connection[见小节3.8.5]
             sp<Connection> connection = new Connection(inputChannel, inputWindowHandle, monitor);
 
             int fd = inputChannel->getFd();
             mConnectionsByFd.add(fd, connection);
-
-            if (monitor) {
-                mMonitoringChannels.push(inputChannel);
-            }
-
+            ...
+            //将该fd添加到Looper监听[见小节3.8.6]
             mLooper->addFd(fd, 0, ALOOPER_EVENT_INPUT, handleReceiveCallback, this);
         }
 
@@ -961,7 +1236,7 @@ Activity对应一个应用窗口, 每一个窗口对应一个ViewRootImpl.
 
 将新创建的connection保存到mConnectionsByFd成员变量.
 
-####２.11.
+#### 3.8.5 Connection初始化
 [-> InputDispatcher.cpp]
 
     InputDispatcher::Connection::Connection(const sp<InputChannel>& inputChannel,
@@ -972,441 +1247,57 @@ Activity对应一个应用窗口, 每一个窗口对应一个ViewRootImpl.
     }
 
 
-#### 2.11.2 InputPublisher初始化
-
-[-> InputTransport.cpp]
+其中InputPublisher初始化位于文件InputTransport.cpp
 
     InputPublisher:: InputPublisher(const sp<InputChannel>& channel) :
             mChannel(channel) {
     }
     
-    
-    
-## 三. command
+#### 3.8.6 Looper.addFd
+[-> system/core/libutils/Looper.cpp]
 
-#### 3.1 runCommandsLockedInterruptible
-
-    bool InputDispatcher::runCommandsLockedInterruptible() {
-        if (mCommandQueue.isEmpty()) {
-            return false;
-        }
-
-        do {
-            //从mCommandQueue队列的头部取出第一个元素
-            CommandEntry* commandEntry = mCommandQueue.dequeueAtHead();
-
-            Command command = commandEntry->command; // & InputDispatcher::doNotifyANRLockedInterruptible
-            //此处调用的命令隐式地包含'LockedInterruptible' 
-            (this->*command)(commandEntry); 
-
-            commandEntry->connection.clear();
-            delete commandEntry;
-        } while (! mCommandQueue.isEmpty());
-        return true;
+    int Looper::addFd(int fd, int ident, int events, Looper_callbackFunc callback, void* data) {
+        // 此处的callback为handleReceiveCallback 
+        return addFd(fd, ident, events, callback ? new SimpleLooperCallback(callback) : NULL, data);
     }
 
-通过循环方式,处理完mCommandQueue队列的所有命令. 处理过程从mCommandQueue中取出CommandEntry,在
+    int Looper::addFd(int fd, int ident, int events, const sp<LooperCallback>& callback, void* data) {
+        {
+            AutoMutex _l(mLock);
+            Request request;
+            request.fd = fd;
+            request.ident = ident;
+            request.events = events;
+            request.seq = mNextRequestSeq++;
+            request.callback = callback; //是指handleReceiveCallback 
+            request.data = data;
+            if (mNextRequestSeq == -1) mNextRequestSeq = 0; // reserve sequence number -1
 
-#### 3.2  onANRLocked
+            struct epoll_event eventItem;
+            request.initEventItem(&eventItem);
 
-    void InputDispatcher::onANRLocked(
-            nsecs_t currentTime, const sp<InputApplicationHandle>& applicationHandle,
-            const sp<InputWindowHandle>& windowHandle,
-            nsecs_t eventTime, nsecs_t waitStartTime, const char* reason) {
-        float dispatchLatency = (currentTime - eventTime) * 0.000001f;
-        float waitDuration = (currentTime - waitStartTime) * 0.000001f;
-        
-        ALOGI("Application is not responding: %s.  "
-                "It has been %0.1fms since event, %0.1fms since wait started.  Reason: %s",
-                getApplicationWindowLabelLocked(applicationHandle, windowHandle).string(),
-                dispatchLatency, waitDuration, reason);
-
-        // Capture a record of the InputDispatcher state at the time of the ANR.
-        time_t t = time(NULL);
-        struct tm tm;
-        localtime_r(&t, &tm);
-        char timestr[64];
-        strftime(timestr, sizeof(timestr), "%F %T", &tm);
-        mLastANRState.clear();
-        mLastANRState.append(INDENT "ANR:\n");
-        mLastANRState.appendFormat(INDENT2 "Time: %s\n", timestr);
-        mLastANRState.appendFormat(INDENT2 "Window: %s\n",
-                getApplicationWindowLabelLocked(applicationHandle, windowHandle).string());
-        mLastANRState.appendFormat(INDENT2 "DispatchLatency: %0.1fms\n", dispatchLatency);
-        mLastANRState.appendFormat(INDENT2 "WaitDuration: %0.1fms\n", waitDuration);
-        mLastANRState.appendFormat(INDENT2 "Reason: %s\n", reason);
-        dumpDispatchStateLocked(mLastANRState);
-
-        //[见小节3.3]
-        CommandEntry* commandEntry = postCommandLocked(
-                & InputDispatcher::doNotifyANRLockedInterruptible);
-        commandEntry->inputApplicationHandle = applicationHandle;
-        commandEntry->inputWindowHandle = windowHandle;
-        commandEntry->reason = reason;
-    }
-
-
-#### 3.3 postCommandLocked
-
-    InputDispatcher::CommandEntry* InputDispatcher::postCommandLocked(Command command) {
-        CommandEntry* commandEntry = new CommandEntry(command);
-        mCommandQueue.enqueueAtTail(commandEntry); // 将命令实体加入mCommandQueue队列的尾部
-        return commandEntry;
-    }
-    
-#### 3.4 doNotifyANRLockedInterruptible
-
-    void InputDispatcher::doNotifyANRLockedInterruptible(
-            CommandEntry* commandEntry) {
-        mLock.unlock();
-
-        //[见小节3.5]
-        nsecs_t newTimeout = mPolicy->notifyANR(
-                commandEntry->inputApplicationHandle, commandEntry->inputWindowHandle,
-                commandEntry->reason);
-
-        mLock.lock();
-        // [见小节3.7]
-        resumeAfterTargetsNotReadyTimeoutLocked(newTimeout,
-                commandEntry->inputWindowHandle != NULL
-                        ? commandEntry->inputWindowHandle->getInputChannel() : NULL);
-    }
-
-mPolicy是指NativeInputManager
-
-#### 3.5 notifyANR
-[-> com_android_server_input_InputManagerService.cpp]
-
-    nsecs_t NativeInputManager::notifyANR(const sp<InputApplicationHandle>& inputApplicationHandle,
-            const sp<InputWindowHandle>& inputWindowHandle, const String8& reason) {
-        JNIEnv* env = jniEnv();
-
-        jobject inputApplicationHandleObj =
-                getInputApplicationHandleObjLocalRef(env, inputApplicationHandle);
-        jobject inputWindowHandleObj =
-                getInputWindowHandleObjLocalRef(env, inputWindowHandle);
-        jstring reasonObj = env->NewStringUTF(reason.string());
-
-        //调用Java方法[见小节3.6]
-        jlong newTimeout = env->CallLongMethod(mServiceObj,
-                    gServiceClassInfo.notifyANR, inputApplicationHandleObj, inputWindowHandleObj,
-                    reasonObj);
-        if (checkAndClearExceptionFromCallback(env, "notifyANR")) {
-            newTimeout = 0; //抛出异常,则清理并重置timeout
-        } else {
-            assert(newTimeout >= 0);
-        }
-
-        env->DeleteLocalRef(reasonObj);
-        env->DeleteLocalRef(inputWindowHandleObj);
-        env->DeleteLocalRef(inputApplicationHandleObj);
-        return newTimeout;
-    }
-    
-    int register_android_server_InputManager(JNIEnv* env) {
-        int res = jniRegisterNativeMethods(env, "com/android/server/input/InputManagerService",
-                gInputManagerMethods, NELEM(gInputManagerMethods));
-
-        jclass clazz;
-        FIND_CLASS(clazz, "com/android/server/input/InputManagerService");
-        ...
-        GET_METHOD_ID(gServiceClassInfo.notifyANR, clazz,
-                "notifyANR",
-                "(Lcom/android/server/input/InputApplicationHandle;Lcom/android/server/input/InputWindowHandle;Ljava/lang/String;)J");
-        ...
-    }
-    
-    #define FIND_CLASS(var, className) \
-        var = env->FindClass(className); \
-        LOG_FATAL_IF(! var, "Unable to find class " className);
-
-    #define GET_METHOD_ID(var, clazz, methodName, methodDescriptor) \
-        var = env->GetMethodID(clazz, methodName, methodDescriptor); \
-        LOG_FATAL_IF(! var, "Unable to find method " methodName);
-        
-
-可知,gServiceClassInfo.notifyANR是指IMS.notifyANR
-
-### 3.6  IMS.notifyANR
-[-> InputManagerService.java]
-
-    private long notifyANR(InputApplicationHandle inputApplicationHandle,
-            InputWindowHandle inputWindowHandle, String reason) {
-        //[见小节3.7]
-        return mWindowManagerCallbacks.notifyANR(
-                inputApplicationHandle, inputWindowHandle, reason);
-    }
-    
-此处mWindowManagerCallbacks是指InputMonitor
-
-
-    inputManager.setWindowManagerCallbacks(wm.getInputMonitor());
-
-    public void setWindowManagerCallbacks(WindowManagerCallbacks callbacks) {
-        mWindowManagerCallbacks = callbacks;
-    }
-
-### resumeAfterTargetsNotReadyTimeoutLocked
-
-    void InputDispatcher::resumeAfterTargetsNotReadyTimeoutLocked(nsecs_t newTimeout,
-            const sp<InputChannel>& inputChannel) {
-        if (newTimeout > 0) {
-            mInputTargetWaitTimeoutTime = now() + newTimeout; //扩展超时时长
-        } else {
-            mInputTargetWaitTimeoutExpired = true; //放弃
-
-            //输入状态不真实.
-            if (inputChannel.get()) {
-                ssize_t connectionIndex = getConnectionIndexLocked(inputChannel);
-                if (connectionIndex >= 0) {
-                    sp<Connection> connection = mConnectionsByFd.valueAt(connectionIndex);
-                    sp<InputWindowHandle> windowHandle = connection->inputWindowHandle;
-
-                    if (windowHandle != NULL) {
-                        const InputWindowInfo* info = windowHandle->getInfo();
-                        if (info) {
-                            ssize_t stateIndex = mTouchStatesByDisplay.indexOfKey(info->displayId);
-                            if (stateIndex >= 0) {
-                                mTouchStatesByDisplay.editValueAt(stateIndex).removeWindow(
-                                        windowHandle);
-                            }
-                        }
-                    }
-
-                    if (connection->status == Connection::STATUS_NORMAL) {
-                        CancelationOptions options(CancelationOptions::CANCEL_ALL_EVENTS,
-                                "application not responding");
-                        synthesizeCancelationEventsForConnectionLocked(connection, options);
-                    }
-                }
+            ssize_t requestIndex = mRequests.indexOfKey(fd);
+            if (requestIndex < 0) {
+                //通过epoll监听fd
+                int epollResult = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, fd, & eventItem);
+                ...
+                mRequests.add(fd, request); //该fd的request加入到mRequests队列
+            } else {
+                int epollResult = epoll_ctl(mEpollFd, EPOLL_CTL_MOD, fd, & eventItem);
+                ...
+                mRequests.replaceValueAt(requestIndex, request);
             }
-        }
+        } 
+        return 1;
     }
-    
-//
-#### 2.1 haveCommandsLocked
 
-    bool InputDispatcher::haveCommandsLocked() const {
-        return !mCommandQueue.isEmpty();
-    }
-## 其他
-
-    InputDispatcherThread::threadLoop
-    dispatchOnce
-    dispatchOnceInnerLocked
-    dispatchKeyLocked // dispatchMotionLocked
-    findFocusedWindowTargetsLocked  //findTouchedWindowTargetsLocked
-    handleTargetsNotReadyLocked
-
-## 重要结构体
-
-#### InputDispatcher
-[-> InputDispatcher.h]
-
-    enum DropReason {
-       DROP_REASON_NOT_DROPPED = 0, //不丢弃
-       DROP_REASON_POLICY = 1, //策略
-       DROP_REASON_APP_SWITCH = 2, //应用切换
-       DROP_REASON_DISABLED = 3, //disable
-       DROP_REASON_BLOCKED = 4, //阻塞
-       DROP_REASON_STALE = 5, //过时
-    };
-    
-    enum InputTargetWaitCause {
-        INPUT_TARGET_WAIT_CAUSE_NONE,
-        INPUT_TARGET_WAIT_CAUSE_SYSTEM_NOT_READY, //系统没有准备就绪
-        INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY, //应用没有准备就绪
-    };
-    
-    EventEntry* mPendingEvent;
-    Queue<EventEntry> mInboundQueue; //需要InputDispatcher分发的事件队列
-    Queue<EventEntry> mRecentQueue;
-    Queue<CommandEntry> mCommandQueue;
-    
-    Vector<sp<InputWindowHandle> > mWindowHandles;
-    sp<InputWindowHandle> mFocusedWindowHandle; //聚焦窗口
-    sp<InputApplicationHandle> mFocusedApplicationHandle; //聚焦应用
-    String8 mLastANRState; //上一次ANR时的分发状态
-    
-    InputTargetWaitCause mInputTargetWaitCause;
-    nsecs_t mInputTargetWaitStartTime;
-    nsecs_t mInputTargetWaitTimeoutTime;
-    bool mInputTargetWaitTimeoutExpired;
-    //目标等待的应用
-    sp<InputApplicationHandle> mInputTargetWaitApplicationHandle;
-    
-#### Connection
-[-> InputDispatcher.h]
-
-    class Connection : public RefBase {
-        enum Status {
-            STATUS_NORMAL, //正常状态
-            STATUS_BROKEN, //发生无法恢复的错误
-            STATUS_ZOMBIE  //input channel被注销掉
-        };
-        Status status; //状态
-        sp<InputChannel> inputChannel; //永不为空
-        sp<InputWindowHandle> inputWindowHandle; //可能为空
-        bool monitor;
-        InputPublisher inputPublisher;
-        InputState inputState;
-        
-        //当socket占满的同时，应用消费某些输入事件之前无法发布事件，则值为true.
-        bool inputPublisherBlocked; 
-        
-        //需要被发布到connection的事件队列
-        Queue<DispatchEntry> outboundQueue;
-        
-        //已发布到connection，但还没有收到来自应用的“finished”响应的事件队列
-        Queue<DispatchEntry> waitQueue;
-    }
-    
-#### EventEntry
-[-> InputDispatcher.h]
-
-    struct EventEntry : Link<EventEntry> {
-         enum {
-             TYPE_CONFIGURATION_CHANGED,
-             TYPE_DEVICE_RESET,
-             TYPE_KEY,
-             TYPE_MOTION
-         };
-
-         mutable int32_t refCount;
-         int32_t type;
-         nsecs_t eventTime; //事件时间
-         uint32_t policyFlags;
-         InjectionState* injectionState;
-
-         bool dispatchInProgress; //初始值为false, 分发过程则设置成true
-     };
-     
-#### InputChannel
-[-> InputTransport.h]
-
-    class InputChannel : public RefBase {
-        // 创建一对input channels
-        static status_t openInputChannelPair(const String8& name,
-                sp<InputChannel>& outServerChannel, sp<InputChannel>& outClientChannel);
-
-        status_t sendMessage(const InputMessage* msg); //发送消息
-
-        status_t receiveMessage(InputMessage* msg); //接收消息
-
-        //获取InputChannel的fd的拷贝
-        sp<InputChannel> dup() const;
-
-    private:
-        String8 mName;
-        int mFd;
-    };
-
-sendMessage的返回值:
-
-- OK: 代表成功;
-- WOULD_BLOCK: 代表Channel已满;
-- DEAD_OBJECT: 代表Channel已关闭;
-
-receiveMessage的返回值:
-
-- OK: 代表成功;
-- WOULD_BLOCK: 代表Channel为空;
-- DEAD_OBJECT: 代表Channel已关闭;
+[Android消息机制](http://gityuan.com/2015/12/27/handler-message-native/)在获取下一条消息的时候,会调用lnativePollOnce(),最终进入到Looper::pollInner()过程.
 
 
-#### InputTarget
-[-> InputTransport.h]
 
-    struct InputTarget {
-        enum {
-            FLAG_FOREGROUND = 1 << 0, //事件分发到前台app
+## 四. 总结
 
-            FLAG_WINDOW_IS_OBSCURED = 1 << 1,
+Server端的InputChannel注册到InputDispatcher
+Client端的InputChannel返回给ViewRootImpl
 
-            FLAG_SPLIT = 1 << 2, //MotionEvent被拆分成多窗口
-
-            FLAG_ZERO_COORDS = 1 << 3,
-
-            FLAG_DISPATCH_AS_IS = 1 << 8, //
-
-            FLAG_DISPATCH_AS_OUTSIDE = 1 << 9, //
-
-            FLAG_DISPATCH_AS_HOVER_ENTER = 1 << 10, //
-
-            FLAG_DISPATCH_AS_HOVER_EXIT = 1 << 11, //
-
-            FLAG_DISPATCH_AS_SLIPPERY_EXIT = 1 << 12, //
-
-            FLAG_DISPATCH_AS_SLIPPERY_ENTER = 1 << 13, //
-
-            FLAG_WINDOW_IS_PARTIALLY_OBSCURED = 1 << 14,
-            
-            //所有分发模式的掩码
-            FLAG_DISPATCH_MASK = FLAG_DISPATCH_AS_IS
-                    | FLAG_DISPATCH_AS_OUTSIDE
-                    | FLAG_DISPATCH_AS_HOVER_ENTER
-                    | FLAG_DISPATCH_AS_HOVER_EXIT
-                    | FLAG_DISPATCH_AS_SLIPPERY_EXIT
-                    | FLAG_DISPATCH_AS_SLIPPERY_ENTER,
-
-        };
-
-        sp<InputChannel> inputChannel; //目标的inputChannel
-
-        int32_t flags; 
-
-        float xOffset, yOffset; //用于MotionEvent
-
-        float scaleFactor; //用于MotionEvent
-
-        BitSet32 pointerIds;
-    };
-
-#### InputPublisher
-[-> InputTransport.h]
-
-    class InputPublisher {
-    public:
-        //获取输入通道
-        inline sp<InputChannel> getChannel() { return mChannel; }
-
-        status_t publishKeyEvent(...); //将key event发送到input channel
-
-        status_t publishMotionEvent(...); //将motion event发送到input channel
-
-        //接收来自InputConsumer发送的完成信号
-        status_t receiveFinishedSignal(uint32_t* outSeq, bool* outHandled);
-
-    private:
-        sp<InputChannel> mChannel;
-    };
-    
-#### InputConsumer
-[-> InputTransport.h]
-
-    class InputConsumer {
-    public:
-         inline sp<InputChannel> getChannel() { return mChannel; }
-         
-          status_t consume(...); //消费input channel的事件
-          
-         //向InputPublisher发送完成信号
-         status_t sendFinishedSignal(uint32_t seq, bool handled);
-         
-          bool hasDeferredEvent() const;
-           bool hasPendingBatch() const;
-    private:
-         sp<InputChannel> mChannel;
-         InputMessage mMsg; //当前input消息
-         bool mMsgDeferred; 
-         
-         Vector<Batch> mBatches; //input批量消息
-         Vector<TouchState> mTouchStates; 
-         Vector<SeqChain> mSeqChains;
-         
-         status_t consumeBatch(...);
-         status_t consumeSamples(...);
-           
-         static void initializeKeyEvent(KeyEvent* event, const InputMessage* msg);
-         static void initializeMotionEvent(MotionEvent* event, const InputMessage* msg);
-    }
+未整理完成...
