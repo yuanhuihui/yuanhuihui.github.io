@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "输入系统之InputReader线程"
+title:  "Input系统—InputReader线程"
 date:   2016-12-11 22:19:12
 catalog:  true
 tags:
@@ -20,10 +20,39 @@ tags:
       
 ## 一. InputReader起点
 
-上一篇文章[]()，介绍IMS服务的启动过程会创建两个native线程，分别是InputReader,InputDispatcher，并且是可以调用Java代码的native线程。
-接下来，介绍InputReader线程的执行过程，从threadLoop为起点开始分析。
+上一篇文章[Input系统—启动篇](http://gityuan.com/2016/12/10/input-manager/)，介绍IMS服务的启动过程会创建两个native线程，分别是InputReader,InputDispatcher，并且是可以调用Java代码的native线程。
 
-#### 1.1 threadLoop
+#### 1.1 InputReader执行流
+整体调用链：
+
+    InputReaderThread.threadLoop
+      InputReader.loopOnce
+        EventHub.getEvents
+        InputReader.processEventsLocked
+        QueuedListener.flush
+
+先来回顾一下InputReader对象的初始化过程:
+
+    InputReader::InputReader(const sp<EventHubInterface>& eventHub,
+            const sp<InputReaderPolicyInterface>& policy,
+            const sp<InputListenerInterface>& listener) :
+            mContext(this), mEventHub(eventHub), mPolicy(policy),
+            mGlobalMetaState(0), mGeneration(1),
+            mDisableVirtualKeysTimeout(LLONG_MIN), mNextTimeout(LLONG_MAX),
+            mConfigurationChangesToRefresh(0) {
+        //此处mQueuedListener的成员变量`mInnerListener`便是InputDispatcher对象
+        mQueuedListener = new QueuedInputListener(listener);
+        {
+            AutoMutex _l(mLock);
+            refreshConfigurationLocked(0);
+            updateGlobalMetaStateLocked();
+        } 
+    }
+
+
+接下来介绍InputReader线程的执行过程，从threadLoop为起点开始分析。
+
+#### 1.2 threadLoop
 [-> InputReader.cpp]
 
     bool InputReaderThread::threadLoop() {
@@ -34,24 +63,6 @@ tags:
 threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外，如果当返回值为false则会
 退出循环。整个过程是不断循环的地调用InputReader的loopOnce()方法，先来回顾一下InputReader对象构造方法。
 
-#### 1.2 InputReader实例化
-
-    InputReader::InputReader(const sp<EventHubInterface>& eventHub,
-            const sp<InputReaderPolicyInterface>& policy,
-            const sp<InputListenerInterface>& listener) :
-            mContext(this), mEventHub(eventHub), mPolicy(policy),
-            mGlobalMetaState(0), mGeneration(1),
-            mDisableVirtualKeysTimeout(LLONG_MIN), mNextTimeout(LLONG_MAX),
-            mConfigurationChangesToRefresh(0) {
-        mQueuedListener = new QueuedInputListener(listener);
-        {
-            AutoMutex _l(mLock);
-            refreshConfigurationLocked(0);
-            updateGlobalMetaStateLocked();
-        } 
-    }
-
-此处mQueuedListener的成员变量`mInnerListener`便是InputDispatcher对象
 
 #### 1.3 loopOnce
 [-> InputReader.cpp]
@@ -100,7 +111,7 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
 2. 将发送事件到InputDispatcher线程； [见小节4.1] QueuedListener->flush()
 
 另外，整个过程还会检测配置是否改变，输出设备是否改变，如果改变则调用policy来通知。
-
+    
 ## 二. EventHub
 
 #### 2.1 getEvents
@@ -226,7 +237,24 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
         return event - buffer;
     }
     
-EventHub采用INotify + epoll机制实现监听目录/dev/input下的备节点，从而获取输入事件RawEvent
+EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节点，经过EventHub将input_event结构体 + deviceId 转换成RawEvent结构体，如下：
+
+    struct input_event {
+     struct timeval time; //事件发生的时间点
+     __u16 type;
+     __u16 code;
+     __s32 value;
+    };
+
+    struct RawEvent {
+        nsecs_t when; //事件发生的时间店
+        int32_t deviceId; //产生事件的设备Id
+        int32_t type; // 事件类型
+        int32_t code;
+        int32_t value;
+    };
+
+此处事件类型有DEVICE_ADDED(添加)，DEVICE_REMOVED(删除)，FINISHED_DEVICE_SCAN(扫描完成)，以及(type<FIRST_SYNTHETIC_EVENT)其他事件。
 
 #### 2.2 scanDevicesLocked
 
@@ -563,6 +591,7 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
 将事件的扫描码(scanCode)转换成键盘码(Keycode)
 
 #### 3.8 KeyCharacterMap::mapKey
+[-> KeyCharacterMap.cpp]
     
     status_t KeyCharacterMap::mapKey(int32_t scanCode, int32_t usageCode, int32_t* outKeyCode) const {
         if (usageCode) { 
@@ -582,6 +611,7 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
     
 
 #### 3.9 InputMapper.processKey
+[-> InputReader.cpp]
 
     void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t keyCode,
             int32_t scanCode, uint32_t policyFlags) {
@@ -618,7 +648,7 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
         nsecs_t downTime = mDownTime;
         ...
         
-        //创建NotifyKeyArgs对象
+        //创建NotifyKeyArgs对象, when记录eventTime, downTime记录按下时间；
         NotifyKeyArgs args(when, getDeviceId(), mSource, policyFlags,
                 down ? AKEY_EVENT_ACTION_DOWN : AKEY_EVENT_ACTION_UP,
                 AKEY_EVENT_FLAG_FROM_SYSTEM, keyCode, scanCode, newMetaState, downTime);
@@ -627,13 +657,14 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
     }
     
 其中：
-  
+
 - mKeyDowns记录着所有按下的键
 - mDownTime记录按下时间点
 - 此处KeyboardInputMapper的mContext指向InputReader，getListener()获取的便是mQueuedListener。
 接下来调用该对象的notifyKey.
 
 #### 3.10 notifyKey
+[-> InputListener.cpp]
 
     void QueuedInputListener::notifyKey(const NotifyKeyArgs* args) {
         mArgsQueue.push(new NotifyKeyArgs(*args));
@@ -644,7 +675,7 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
 
 ## 四. QueuedListener
 
-#### 4.1 QueuedListener->flush
+### 4.1 QueuedInputListener.flush
 [-> InputListener.cpp]
 
     void QueuedInputListener::flush() {
@@ -660,14 +691,15 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
 
 从InputManager对象初始化的过程可知，`mInnerListener`便是InputDispatcher对象。
 
-#### 4.2 NotifyKeyArgs.notify
+### 4.2 NotifyKeyArgs.notify
 [-> InputListener.cpp]
 
     void NotifyKeyArgs::notify(const sp<InputListenerInterface>& listener) const {
-        listener->notifyKey(this); //【见小节4.3】
+        listener->notifyKey(this); // this是指NotifyKeyArgs【见小节4.3】
     }
 
-#### 4.3 InputDispatcher.notifyKey
+### 4.3 InputDispatcher.notifyKey
+[-> InputDispatcher.cpp]
 
     void InputDispatcher::notifyKey(const NotifyKeyArgs* args) {
         if (!validateKeyEvent(args->action)) {
@@ -714,7 +746,7 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
         event.initialize(args->deviceId, args->source, args->action,
                 flags, keyCode, args->scanCode, metaState, 0,
                 args->downTime, args->eventTime);
-        //mPolicy是指NativeInputManager对象。【小节4.4】
+        //mPolicy是指NativeInputManager对象。【小节4.3.1】
         mPolicy->interceptKeyBeforeQueueing(&event, /*byref*/ policyFlags);
 
         bool needWake;
@@ -723,7 +755,7 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
             if (shouldSendKeyToInputFilterLocked(args)) {
                 mLock.unlock();
                 policyFlags |= POLICY_FLAG_FILTERED;
-                //【见小节4.5】
+                //【见小节4.3.2】
                 if (!mPolicy->filterInputEvent(&event, policyFlags)) {
                     return; //事件被filter所消费掉
                 }
@@ -736,24 +768,30 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
                     args->deviceId, args->source, policyFlags,
                     args->action, flags, keyCode, args->scanCode,
                     metaState, repeatCount, args->downTime);
-            //将KeyEntry放入队列【见小节4.6】
+            //将KeyEntry放入队列【见小节4.3.3】
             needWake = enqueueInboundEventLocked(newEntry);
             mLock.unlock();
         }
 
         if (needWake) {
-            //唤醒InputDispatcher线程【见小节4.8】
+            //唤醒InputDispatcher线程【见小节4.3.5】
             mLooper->wake();
         }
     }
 
 该方法的主要功能：
 
-1. 调用NativeInputManager.interceptKeyBeforeQueueing，加入队列前执行拦截动作；
-2. 调用NativeInputManager.filterInputEvent，过滤输入事件；
-3. 生成KeyEvent，并调用enqueueInboundEventLocked，将该事件加入到mInboundQueue
+1. 调用NativeInputManager.interceptKeyBeforeQueueing，加入队列前执行拦截动作，但并不改变流程，调用链：
+  - IMS.interceptKeyBeforeQueueing
+  - InputMonitor.interceptKeyBeforeQueueing (继承IMS.WindowManagerCallbacks)
+  - PhoneWindowManager.interceptKeyBeforeQueueing (继承WindowManagerPolicy)
+2. 当mInputFilterEnabled=true(该值默认为false,可通过setInputFilterEnabled设置),则调用NativeInputManager.filterInputEvent过滤输入事件；
+  - 当返回值为false则过滤该事件，不再往下分发；
+3. 生成KeyEvent，并调用enqueueInboundEventLocked，将该事件加入到mInboundQueue。
 
-#### 4.4 interceptKeyBeforeQueueing
+
+      
+#### 4.3.1 interceptKeyBeforeQueueing
 
     void NativeInputManager::interceptKeyBeforeQueueing(const KeyEvent* keyEvent,
             uint32_t& policyFlags) {
@@ -779,7 +817,7 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
 
 该方法会调用Java层的InputManagerService的interceptKeyBeforeQueueing()方法。
 
-#### 4.5 filterInputEvent
+#### 4.3.2 filterInputEvent
 
     bool NativeInputManager::filterInputEvent(const InputEvent* inputEvent, uint32_t policyFlags) {
         jobject inputEventObj;
@@ -813,8 +851,9 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
     }
   
 该方法会调用Java层的InputManagerService的filterInputEvent()方法。
+再回到【小节4.3】可知，接下来执行enqueueInboundEventLocked。
 
-#### 4.6 enqueueInboundEventLocked
+#### 4.3.3 enqueueInboundEventLocked
 
     bool InputDispatcher::enqueueInboundEventLocked(EventEntry* entry) {
         bool needWake = mInboundQueue.isEmpty();
@@ -852,7 +891,7 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
                         getAxisValue(AMOTION_EVENT_AXIS_X));
                 int32_t y = int32_t(motionEntry->pointerCoords[0].
                         getAxisValue(AMOTION_EVENT_AXIS_Y));
-                //查询可触摸的窗口【见小节4.7】
+                //查询可触摸的窗口【见小节4.3.4】
                 sp<InputWindowHandle> touchedWindowHandle = findTouchedWindowAtLocked(displayId, x, y);
                 if (touchedWindowHandle != NULL
                         && touchedWindowHandle->inputApplicationHandle
@@ -875,7 +914,8 @@ AppSwitchKeyEvent是指keyCode等于以下值：
 - AKEYCODE_APP_SWITCH
 
 
-#### 4.7 findTouchedWindowAtLocked
+#### 4.3.4 findTouchedWindowAtLocked
+[-> InputDispatcher.cpp]
 
     sp<InputWindowHandle> InputDispatcher::findTouchedWindowAtLocked(int32_t displayId,
             int32_t x, int32_t y) {
@@ -901,7 +941,7 @@ AppSwitchKeyEvent是指keyCode等于以下值：
         return NULL;
     }
     
-#### 4.8 Looper.wake
+#### 4.3.5 Looper.wake
 [-> system/core/libutils/Looper.cpp]
 
     void Looper::wake() {
@@ -917,16 +957,26 @@ AppSwitchKeyEvent是指keyCode等于以下值：
     
 将数字1写入句柄mWakeEventFd，唤醒InputDispatcher线程
 
-## 五. 小节
+## 五. 总结
 
-小技巧，IMS.filterInputEvent可以过滤无需上报的事件，当该方法返回值为false则代表是需要被过滤掉的事件，无机会交给InputDispatcher来分发。
+用一张图来整体概况InputReader线程的主要工作：
+
+![input_reader](/images/input/input_reader.jpg)
+
+小技巧IMS.filterInputEvent可以过滤无需上报的事件，当该方法返回值为false则代表是需要被过滤掉的事件，无机会交给InputDispatcher来分发。
 
 InputReader的核心工作就是从EventHub获取数据后生成EventEntry事件，加入到InputDispatcher的mInboundQueue队列，再唤醒InputDispatcher线程。
+EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节点，经过EventHub将input_event结构体 + deviceId 转换成RawEvent结构体。
+对于/dev/input节点的event事件所对应的输入设备信息位于`/proc/bus/input/devices`，也可以通过`getevent`来获取事件. 不同的input事件所对应的物理input节点，比如常见的情形：
+
+- 屏幕触摸和(MENU,HOME,BACK)3按键：对应一个input设备节点；
+- power键和音量(下)键：对应一个input设备节点；
+- 音量(上)键：对应一个input设备节点；
 
 InputReader整个过程涉及多次事件封装转换，如下：
 
-- getEvents：转换/dev/input -> RawEvent
-- processEventsLocked: 转换RawEvent -> NotifyKeyArgs
-- QueuedListener->flush：转换NotifyKeyArgs -> KeyEvent
+- getEvents：读取/dev/input节点，转换 input_event -> RawEvent
+- processEventsLocked: 转换RawEvent -> NotifyKeyArgs(NotifyArgs)
+- QueuedListener->flush：转换NotifyKeyArgs -> KeyEntry(EventEntry)
 
-InputReader线程完成后，接下来的工作就交给InputDispatcher线程。
+InputReader线程处理完生成的是EventEntry(比如KeyEntry, MotionEntry), 接下来的工作就交给InputDispatcher线程。

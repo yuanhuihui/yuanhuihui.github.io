@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "输入系统之input启动篇"
+title:  "Input系统—启动篇"
 date:   2016-12-10 20:09:12
 catalog:  true
 tags:
@@ -10,33 +10,33 @@ tags:
 
 > 基于Android 6.0源码， 分析InputManagerService的启动过程
 
-    frameworks/base/services/core/java/com/android/server/input/InputManagerService.java
-    frameworks/base/services/core/jni/com_android_server_input_InputManagerService.cpp
+    frameworks/base/services/core/
+      - java/com/android/server/input/InputManagerService.java
+      - jni/com_android_server_input_InputManagerService.cpp
     
     frameworks/native/services/inputflinger/ （libinputflinger.so）
       - InputManager.cpp
       - InputDispatcher.cpp （内含InputDispatcherThread）
-      - InputReader.cpp （内含InputReaderThread）
+      - InputReader.cpp （内含InputReaderThread, InputMapper）
       - EventHub.cpp
       - InputListener.cpp
+      
+    frameworks/native/libs/input/ (libinput.so)
+      - InputTransport.cpp
+      - Input.cpp
+      - InputDevice.cpp
+      - Keyboard.cpp
+      - KeyCharacterMap.cpp
+      - KeyLayoutMap.cpp
+      - VirtualKeyMap.cpp
+      - IInputFlinger.cpp
+      - VelocityControl.cpp
+      - VelocityTracker.cpp
       
     frameworks/base/libs/input/ （libinputservice.so）
       - PointerController.cpp
       - SpriteController.cpp
-      
-    frameworks/native/libs/input/ (libinput.so)
-      - IInputFlinger.cpp
-      - Input.cpp
-      - InputDevice.cpp
-      - InputTransport.cpp
-      - Keyboard.cpp
-      - KeyCharacterMap.cpp
-      - KeyLayoutMap.cpp
-      - VelocityControl.cpp
-      - VelocityTracker.cpp
-      - VirtualKeyMap.cpp
-
-      
+    
 ## 一. 概述
 
 当用户触摸屏幕或者按键操作，首次触发的是硬件驱动，驱动收到事件后，将该相应事件写入到输入设备节点，
@@ -371,7 +371,326 @@ InputDispatcher和InputReader的mPolicy成员变量都是指NativeInputManager�
 
 - InputDispatcher线程：属于Looper线程，会创建属于自己的Looper，循环分发消息；
 - InputReader线程：通过getEvents()调用EventHub读取输入事件，循环读取消息；
-- android.display线程：属于Looper线程，用于处理Java层的IMS.InputManagerHandler和Native层的NativeInputManager中指定的MessageHandler消息;
+- android.display线程：属于Looper线程，用于处理Java层的IMS.InputManagerHandler和JNI层的NativeInputManager中指定的MessageHandler消息;
 
 Input事件流程：Linux Kernel -> IMS(InputReader -> InputDispatcher) -> WMS -> ViewRootImpl，
 后续再进一步介绍。
+
+
+
+## 四. 附录
+
+最后在列举整个input处理流程中常见的重要对象或结构体,后续input系列文章直接使用以上结构体，可回过来查看。
+
+### 4.1 InputReader.h
+
+#### 4.1.1 InputDevice
+
+    class InputDevice {
+      ...
+      private:
+          InputReaderContext* mContext;
+          int32_t mId;
+          int32_t mGeneration;
+          int32_t mControllerNumber;
+          InputDeviceIdentifier mIdentifier;
+          String8 mAlias;
+          uint32_t mClasses;
+
+          Vector<InputMapper*> mMappers;
+
+          uint32_t mSources;
+          bool mIsExternal;
+          bool mHasMic;
+          bool mDropUntilNextSync;
+
+          typedef int32_t (InputMapper::*GetStateFunc)(uint32_t sourceMask, int32_t code);
+          int32_t getState(uint32_t sourceMask, int32_t code, GetStateFunc getStateFunc);
+
+          PropertyMap mConfiguration;
+    };
+    
+### 4.2 InputDispatcher.h
+
+#### 4.2.1 DropReason
+
+    enum DropReason {
+       DROP_REASON_NOT_DROPPED = 0, //不丢弃
+       DROP_REASON_POLICY = 1, //策略
+       DROP_REASON_APP_SWITCH = 2, //应用切换
+       DROP_REASON_DISABLED = 3, //disable
+       DROP_REASON_BLOCKED = 4, //阻塞
+       DROP_REASON_STALE = 5, //过时
+    };
+    
+    enum InputTargetWaitCause {
+        INPUT_TARGET_WAIT_CAUSE_NONE,
+        INPUT_TARGET_WAIT_CAUSE_SYSTEM_NOT_READY, //系统没有准备就绪
+        INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY, //应用没有准备就绪
+    };
+    
+    EventEntry* mPendingEvent;
+    Queue<EventEntry> mInboundQueue; //需要InputDispatcher分发的事件队列
+    Queue<EventEntry> mRecentQueue;
+    Queue<CommandEntry> mCommandQueue;
+    
+    Vector<sp<InputWindowHandle> > mWindowHandles;
+    sp<InputWindowHandle> mFocusedWindowHandle; //聚焦窗口
+    sp<InputApplicationHandle> mFocusedApplicationHandle; //聚焦应用
+    String8 mLastANRState; //上一次ANR时的分发状态
+    
+    InputTargetWaitCause mInputTargetWaitCause;
+    nsecs_t mInputTargetWaitStartTime;
+    nsecs_t mInputTargetWaitTimeoutTime;
+    bool mInputTargetWaitTimeoutExpired;
+    //目标等待的应用
+    sp<InputApplicationHandle> mInputTargetWaitApplicationHandle;
+    
+#### 4.2.2 Connection
+
+    class Connection : public RefBase {
+        enum Status {
+            STATUS_NORMAL, //正常状态
+            STATUS_BROKEN, //发生无法恢复的错误
+            STATUS_ZOMBIE  //input channel被注销掉
+        };
+        Status status; //状态
+        sp<InputChannel> inputChannel; //永不为空
+        sp<InputWindowHandle> inputWindowHandle; //可能为空
+        bool monitor;
+        InputPublisher inputPublisher;
+        InputState inputState;
+        
+        //当socket占满的同时，应用消费某些输入事件之前无法发布事件，则值为true.
+        bool inputPublisherBlocked; 
+        
+        //需要被发布到connection的事件队列
+        Queue<DispatchEntry> outboundQueue;
+        
+        //已发布到connection，但还没有收到来自应用的“finished”响应的事件队列
+        Queue<DispatchEntry> waitQueue;
+    }
+    
+#### 4.2.3 EventEntry
+
+    struct EventEntry : Link<EventEntry> {
+         enum {
+             TYPE_CONFIGURATION_CHANGED,
+             TYPE_DEVICE_RESET,
+             TYPE_KEY,
+             TYPE_MOTION
+         };
+
+         mutable int32_t refCount;
+         int32_t type;
+         nsecs_t eventTime; //事件时间
+         uint32_t policyFlags;
+         InjectionState* injectionState;
+
+         bool dispatchInProgress; //初始值为false, 分发过程则设置成true
+     };
+     
+#### 4.2.4 INPUT_EVENT_INJECTION
+
+    enum {
+        // 内部使用, 正在执行注入操作
+        INPUT_EVENT_INJECTION_PENDING = -1,
+
+        // 事件注入成功
+        INPUT_EVENT_INJECTION_SUCCEEDED = 0,
+
+        // 事件注入失败, 由于injector没有权限将聚焦的input事件注入到应用
+        INPUT_EVENT_INJECTION_PERMISSION_DENIED = 1,
+
+        // 事件注入失败, 由于没有可用的input target
+        INPUT_EVENT_INJECTION_FAILED = 2,
+
+        // 事件注入失败, 由于超时
+        INPUT_EVENT_INJECTION_TIMED_OUT = 3
+    };
+
+### 4.3 InputTransport.h
+
+#### 4.3.1 InputChannel
+
+    class InputChannel : public RefBase {
+        // 创建一对input channels
+        static status_t openInputChannelPair(const String8& name,
+                sp<InputChannel>& outServerChannel, sp<InputChannel>& outClientChannel);
+
+        status_t sendMessage(const InputMessage* msg); //发送消息
+
+        status_t receiveMessage(InputMessage* msg); //接收消息
+
+        //获取InputChannel的fd的拷贝
+        sp<InputChannel> dup() const;
+
+    private:
+        String8 mName;
+        int mFd;
+    };
+
+sendMessage的返回值:
+
+- OK: 代表成功;
+- WOULD_BLOCK: 代表Channel已满;
+- DEAD_OBJECT: 代表Channel已关闭;
+
+receiveMessage的返回值:
+
+- OK: 代表成功;
+- WOULD_BLOCK: 代表Channel为空;
+- DEAD_OBJECT: 代表Channel已关闭;
+
+
+#### 4.3.2 InputTarget
+
+    struct InputTarget {
+        enum {
+            FLAG_FOREGROUND = 1 << 0, //事件分发到前台app
+
+            FLAG_WINDOW_IS_OBSCURED = 1 << 1,
+
+            FLAG_SPLIT = 1 << 2, //MotionEvent被拆分成多窗口
+
+            FLAG_ZERO_COORDS = 1 << 3,
+
+            FLAG_DISPATCH_AS_IS = 1 << 8, //
+
+            FLAG_DISPATCH_AS_OUTSIDE = 1 << 9, //
+
+            FLAG_DISPATCH_AS_HOVER_ENTER = 1 << 10, //
+
+            FLAG_DISPATCH_AS_HOVER_EXIT = 1 << 11, //
+
+            FLAG_DISPATCH_AS_SLIPPERY_EXIT = 1 << 12, //
+
+            FLAG_DISPATCH_AS_SLIPPERY_ENTER = 1 << 13, //
+
+            FLAG_WINDOW_IS_PARTIALLY_OBSCURED = 1 << 14,
+            
+            //所有分发模式的掩码
+            FLAG_DISPATCH_MASK = FLAG_DISPATCH_AS_IS
+                    | FLAG_DISPATCH_AS_OUTSIDE
+                    | FLAG_DISPATCH_AS_HOVER_ENTER
+                    | FLAG_DISPATCH_AS_HOVER_EXIT
+                    | FLAG_DISPATCH_AS_SLIPPERY_EXIT
+                    | FLAG_DISPATCH_AS_SLIPPERY_ENTER,
+
+        };
+
+        sp<InputChannel> inputChannel; //目标的inputChannel
+
+        int32_t flags; 
+
+        float xOffset, yOffset; //用于MotionEvent
+
+        float scaleFactor; //用于MotionEvent
+
+        BitSet32 pointerIds;
+    };
+
+#### 4.3.3 InputPublisher
+
+    class InputPublisher {
+    public:
+        //获取输入通道
+        inline sp<InputChannel> getChannel() { return mChannel; }
+
+        status_t publishKeyEvent(...); //将key event发送到input channel
+
+        status_t publishMotionEvent(...); //将motion event发送到input channel
+
+        //接收来自InputConsumer发送的完成信号
+        status_t receiveFinishedSignal(uint32_t* outSeq, bool* outHandled);
+
+    private:
+        sp<InputChannel> mChannel;
+    };
+    
+#### 4.3.4 InputConsumer
+
+    class InputConsumer {
+    public:
+         inline sp<InputChannel> getChannel() { return mChannel; }
+         
+          status_t consume(...); //消费input channel的事件
+          
+         //向InputPublisher发送完成信号
+         status_t sendFinishedSignal(uint32_t seq, bool handled);
+         
+          bool hasDeferredEvent() const;
+           bool hasPendingBatch() const;
+    private:
+         sp<InputChannel> mChannel;
+         InputMessage mMsg; //当前input消息
+         bool mMsgDeferred; 
+         
+         Vector<Batch> mBatches; //input批量消息
+         Vector<TouchState> mTouchStates; 
+         Vector<SeqChain> mSeqChains;
+         
+         status_t consumeBatch(...);
+         status_t consumeSamples(...);
+           
+         static void initializeKeyEvent(KeyEvent* event, const InputMessage* msg);
+         static void initializeMotionEvent(MotionEvent* event, const InputMessage* msg);
+    }
+
+### 4.4 input.h
+
+#### 4.4.1 KeyEvent
+
+    class KeyEvent : public InputEvent {
+        ...
+        protected:
+            int32_t mAction;
+            int32_t mFlags;
+            int32_t mKeyCode;
+            int32_t mScanCode;
+            int32_t mMetaState;
+            int32_t mRepeatCount;
+            nsecs_t mDownTime; //专指按下时间
+            nsecs_t mEventTime; //事件发生时间(包括down/up等事件)
+    }
+
+#### 4.4.2 MotionEvent
+
+    class MotionEvent : public InputEvent {
+        ...
+        protected:
+            int32_t mAction;
+            int32_t mActionButton;
+            int32_t mFlags;
+            int32_t mEdgeFlags;
+            int32_t mMetaState;
+            int32_t mButtonState;
+            float mXOffset;
+            float mYOffset;
+            float mXPrecision;
+            float mYPrecision;
+            nsecs_t mDownTime; //按下时间
+            Vector<PointerProperties> mPointerProperties;
+            Vector<nsecs_t> mSampleEventTimes;
+            Vector<PointerCoords> mSamplePointerCoords;
+        };
+    }
+
+###  4.5  InputListener.h
+
+#### 4.5.1 NotifyKeyArgs
+
+    struct NotifyKeyArgs : public NotifyArgs {
+        nsecs_t eventTime; //事件发生时间
+        int32_t deviceId;
+        uint32_t source;
+        uint32_t policyFlags;
+        int32_t action;
+        int32_t flags;
+        int32_t keyCode;
+        int32_t scanCode;
+        int32_t metaState;
+        nsecs_t downTime; //按下时间
+        
+        ...
+    };
