@@ -160,9 +160,22 @@ InputDispatcher，同样从threadLoop为起点开始分析。
     bool InputDispatcher::dispatchKeyLocked(nsecs_t currentTime, KeyEntry* entry,
             DropReason* dropReason, nsecs_t* nextWakeupTime) {
         ...
-
+        if (entry->interceptKeyResult == KeyEntry::INTERCEPT_KEY_RESULT_UNKNOWN) {
+            //让policy有机会执行拦截操作
+            if (entry->policyFlags & POLICY_FLAG_PASS_TO_USER) {
+                CommandEntry* commandEntry = postCommandLocked(
+                        & InputDispatcher::doInterceptKeyBeforeDispatchingLockedInterruptible);
+                if (mFocusedWindowHandle != NULL) {
+                    commandEntry->inputWindowHandle = mFocusedWindowHandle;
+                }
+                commandEntry->keyEntry = entry;
+                entry->refCount += 1;
+                return false; //直接返回
+            }
+        }
+        ...
+        //获取目标聚焦窗口【见小节2.3】
         Vector<InputTarget> inputTargets;
-        // 【见小节2.3】
         int32_t injectionResult = findFocusedWindowTargetsLocked(currentTime,
                 entry, inputTargets, nextWakeupTime);
                 
@@ -564,7 +577,8 @@ runCommandsLockedInterruptible是不断地从mCommandQueue队列取出命令，�
 ![input_dispatcher](/images/input/input_dispatcher.jpg)
 
 1. dispatchOnceInnerLocked(): 从InputDispatcher的`mInboundQueue`队列，取出事件EventEntry。另外该方法开始执行的时间点(currentTime)便是后续事件dispatchEntry的分发时间(deliveryTime）
-2. enqueueDispatchEntryLocked()：生成事件DispatchEntry并加入connection的`outbound`队列
-3. startDispatchCycleLocked()：从outboundQueue中取出事件DispatchEntry, 重新放入connection的`waitQueue`队列；
-4. InputChannel.sendMessage通过socket方式将消息发送给远程进程；
-5. runCommandsLockedInterruptible()：通过循环遍历地方式，依次处理mCommandQueue队列中的所有命令。而mCommandQueue队列中的命令是通过postCommandLocked()方式向该队列添加的。
+2. dispatchKeyLocked()：满足一定条件时会添加命令doInterceptKeyBeforeDispatchingLockedInterruptible；
+3. enqueueDispatchEntryLocked()：生成事件DispatchEntry并加入connection的`outbound`队列
+4. startDispatchCycleLocked()：从outboundQueue中取出事件DispatchEntry, 重新放入connection的`waitQueue`队列；
+5. InputChannel.sendMessage通过socket方式将消息发送给远程进程；
+6. runCommandsLockedInterruptible()：通过循环遍历地方式，依次处理mCommandQueue队列中的所有命令。而mCommandQueue队列中的命令是通过postCommandLocked()方式向该队列添加的。

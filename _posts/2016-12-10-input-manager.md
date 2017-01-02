@@ -612,29 +612,29 @@ receiveMessage的返回值:
 
     class InputConsumer {
     public:
-         inline sp<InputChannel> getChannel() { return mChannel; }
-         
-          status_t consume(...); //消费input channel的事件
-          
-         //向InputPublisher发送完成信号
-         status_t sendFinishedSignal(uint32_t seq, bool handled);
-         
-          bool hasDeferredEvent() const;
-           bool hasPendingBatch() const;
+        inline sp<InputChannel> getChannel() { return mChannel; }
+
+        status_t consume(...); //消费input channel的事件
+
+        //向InputPublisher发送完成信号
+        status_t sendFinishedSignal(uint32_t seq, bool handled);
+
+        bool hasDeferredEvent() const;
+        bool hasPendingBatch() const;
     private:
-         sp<InputChannel> mChannel;
-         InputMessage mMsg; //当前input消息
-         bool mMsgDeferred; 
-         
-         Vector<Batch> mBatches; //input批量消息
-         Vector<TouchState> mTouchStates; 
-         Vector<SeqChain> mSeqChains;
-         
-         status_t consumeBatch(...);
-         status_t consumeSamples(...);
-           
-         static void initializeKeyEvent(KeyEvent* event, const InputMessage* msg);
-         static void initializeMotionEvent(MotionEvent* event, const InputMessage* msg);
+        sp<InputChannel> mChannel;
+        InputMessage mMsg; //当前input消息
+        bool mMsgDeferred; 
+
+        Vector<Batch> mBatches; //input批量消息
+        Vector<TouchState> mTouchStates; 
+        Vector<SeqChain> mSeqChains;
+
+        status_t consumeBatch(...);
+        status_t consumeSamples(...);
+
+        static void initializeKeyEvent(KeyEvent* event, const InputMessage* msg);
+        static void initializeMotionEvent(MotionEvent* event, const InputMessage* msg);
     }
 
 ### 4.4 input.h
