@@ -196,9 +196,18 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
   
 #### 4.3 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
+
+
 - Android服务篇-ActivityManagerService
   - [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
   - [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
+- Input系统
+  - [Input系统—启动篇](http://gityuan.com/2016/12/10/input-manager/)
+  - [Input系统—InputReader线程](http://gityuan.com/2016/12/11/input-reader/)
+  - [Input系统—InputDispatcher线程](http://gityuan.com/2016/12/17/input-dispatcher/)
+  - [Input系统—UI线程](http://gityuan.com/2016/12/24/input-ui/)
+  - [Input系统—进程交互](http://gityuan.com/2016/12/31/input-ipc/)
+  - [Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)
 - Android服务篇-PackageManagerService
   - [PackageManager启动篇](http://gityuan.com/2016/11/06/packagemanagerservice)
   - [Installd守护进程](http://gityuan.com/2016/11/13/android-installd)
@@ -208,13 +217,6 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Android服务篇-PowerManagerService
 - Android服务篇-DropBoxManagerService
   - [DropBoxManager启动篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
-- Input系统
-  - [Input系统—启动篇](http://gityuan.com/2016/12/10/input-manager/)
-  - [Input系统—InputReader线程](http://gityuan.com/2016/12/11/input-reader/)
-  - [Input系统—InputDispatcher线程](http://gityuan.com/2016/12/17/input-dispatcher/)
-  - [Input系统—UI线程](http://gityuan.com/2016/12/24/input-ui/)
-  - [Input系统—进程交互](http://gityuan.com/2016/12/31/input-ipc/)
-  - [Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)
 - 更多服务介绍, 敬请期待...
 
 
