@@ -29,3 +29,8 @@ notifyShowInputEventSwitchChanged();
 void switchTouchCaptouchMode(in boolean modeOn);
 notifyLedSwitchChanged();
 2. 增加直接录屏的广播，并且带录屏参数，尤其是是否input事件；
+
+#### input两次问题
+
+1. 超时提前统计的功能；
+2. 有地方的MIUI ADD，修改input flags可能存在问题。
