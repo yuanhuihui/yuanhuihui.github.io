@@ -196,7 +196,6 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
   
 #### 4.3 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
-
 - Android服务篇-ActivityManagerService
   - [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
   - [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
@@ -209,7 +208,15 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Android服务篇-PowerManagerService
 - Android服务篇-DropBoxManagerService
   - [DropBoxManager启动篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
+- Input系统
+  - [Input系统—启动篇](http://gityuan.com/2016/12/10/input-manager/)
+  - [Input系统—InputReader线程](http://gityuan.com/2016/12/11/input-reader/)
+  - [Input系统—InputDispatcher线程](http://gityuan.com/2016/12/17/input-dispatcher/)
+  - [Input系统—UI线程](http://gityuan.com/2016/12/24/input-ui/)
+  - [Input系统—进程交互](http://gityuan.com/2016/12/31/input-ipc/)
+  - [Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)
 - 更多服务介绍, 敬请期待...
+
 
 #### 4.4 四大组件篇
 对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：
@@ -272,7 +279,7 @@ Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理�
 ---
 
 **计划：** 后续不断持续得新增和完善整个大纲，不限于进程、内存、IO知识，系统各个服务框架，整体架构，以及各种系统分析实战文章。
-博客会持续更新，各个击破。 本文会持续更新，`最近更新时间点: `2016.12.03`.
+博客会持续更新，各个击破。 本文会持续更新，`最近更新时间点: `2017.01.02`.
 
 ---
 
