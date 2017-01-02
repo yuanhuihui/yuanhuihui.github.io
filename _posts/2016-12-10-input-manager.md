@@ -356,6 +356,14 @@ InputDispatcher和InputReader的mPolicy成员变量都是指NativeInputManager�
 
 ## 三. 总结
 
+**分层视角：**
+
+1. Java层InputManagerService：采用android.display线程处理Message.
+2. JNI的NativeInputManager：采用android.display线程处理Message,以及创建EventHub。
+3. Native的InputManager：创建InputReaderThread和InputDispatcherThread两个线程
+
+**主要功能：**
+
 - IMS服务中的成员变量mPtr记录Native层的NativeInputManager对象；
 - IMS对象的初始化过程的重点在于native初始化，分别创建了以下对象：
   - NativeInputManager；

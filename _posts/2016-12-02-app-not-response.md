@@ -344,7 +344,7 @@ Debug.dumpNativeBacktraceToFile(pid, tracesPath)经过JNI调用如下方法：
 可见，这个过程主要是通过向debuggerd守护进程发送命令DEBUGGER_ACTION_DUMP_BACKTRACE， debuggerd收到该命令，在子进程中调用
 dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)。
 
-## 二. 总结
+## 三. 总结
 
 触发ANR时系统会输出关键信息：(这个较耗时,可能会有10s)
 
