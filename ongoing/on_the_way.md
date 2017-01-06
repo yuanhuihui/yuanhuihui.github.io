@@ -28,6 +28,7 @@ http://blog.csdn.net/qq429205464/article/details/7822442
 notifyShowInputEventSwitchChanged();
 void switchTouchCaptouchMode(in boolean modeOn);
 notifyLedSwitchChanged();
+
 2. 增加直接录屏的广播，并且带录屏参数，尤其是是否input事件；
 
 #### input两次问题
