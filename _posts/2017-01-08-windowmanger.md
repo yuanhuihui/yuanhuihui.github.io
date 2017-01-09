@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "WindowManagerService启动篇"
-date:   2015-05-31 20:30:00
+date:   2017-01-08 20:32:00
 catalog:  true
 tags:
     - android
@@ -13,6 +13,23 @@ tags:
 - Surface:代表画布
 - WMS: 添加window的过程主要功能是添加Surface,管理所有的Surface布局,以及Z轴排序问题;
 - SurfaceFinger: 将Surface按次序混合并显示到物理屏幕上;
+
+### 1.1 类图
+
+![wms_relation](/images/wms/wms_relation.jpg)
+
+说明:
+
+- WMS继承于`IWindowManager.Stub`, 作为Binder服务端;
+- WMS的成员变量mSessions保存着所有的Session对象,Session继承于`IWindowSession.Stub`, 作为Binder服务端;
+- 成员变量mPolicy: 实例对象为PhoneWindowManager,用于实现各种窗口相关的策略;
+- 成员变量mChoreographer: 用于控制窗口动画,屏幕旋转等操作;
+- 成员变量mDisplayContents: 记录一组DisplayContent对象,这个跟多屏输出相关;
+- 成员变量mTokenMap: 保存所有的WindowToken对象; 以IBinder为key,可以是IAppWindowToken或者其他Binder的Bp端;
+    - 另一端情况:ActivityRecord.Token extends IApplicationToken.Stub
+- 成员变量mWindowMap: 保存所有的WindowState对象;以IBinder为key, 是IWindow的Bp端;
+    - 另一端情况: ViewRootImpl.W extends IWindow.Stub
+- 一般地,每一个窗口都对应一个WindowState对象, 该对象的成员变量mClient用于跟应用端交互,成员变量mToken用于跟AMS交互.
 
 ## 二. 启动过程
 
@@ -40,7 +57,7 @@ tags:
         final WindowManagerService[] holder = new WindowManagerService[1];
         
         DisplayThread.getHandler().runWithScissors(new Runnable() {
-            @Override
+
             public void run() {
                 //运行在"android.display"线程[见小节2.2]
                 holder[0] = new WindowManagerService(context, im,
@@ -126,7 +143,6 @@ tags:
     private void initPolicy() {
         //运行在"android.ui"线程
         UiThread.getHandler().runWithScissors(new Runnable() {
-            @Override
             public void run() {
                 WindowManagerPolicyThread.set(Thread.currentThread(), Looper.myLooper());
                 //此处mPolicy为PhoneWindowManager.[见小节2.4]
@@ -139,7 +155,7 @@ tags:
 [-> Handler.java]
 
     public final boolean runWithScissors(final Runnable r, long timeout) {
-        //当前线程跟当前Handler都指向同一个Looper, 则直接运行
+        //当前线程跟当前Handler都指向同一个Looper,则直接运行
         if (Looper.myLooper() == mLooper) {
             r.run();
             return true;
@@ -246,7 +262,7 @@ tags:
                 mStatusBarController.getAppTransitionListener());
     }
 
-执行完[2.1]WMS.main()方法,接下来便是开始执行WMS.systemReady().
+前面小节[2.1 ~ 2.4]介绍了WMS.main()方法, 接下来便是开始执行WMS.displayReady().
 
 ### 2.5 WMS.displayReady
 
@@ -310,3 +326,10 @@ tags:
         }
         mSystemGestures.systemReady();
     }
+    
+## 三. 总结
+
+整个启动过程涉及3个线程: system_server主线程, "android.display", "android.ui", 整个过程是采用阻塞方式(利用Handler.runWithScissors)执行的.
+流程如下:
+
+![wms_startup](/images/wms/wms_startup.jpg)

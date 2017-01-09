@@ -5,6 +5,18 @@
 
 
 ### 一 基本对象
+
+#### 重要变量:
+
+mBooted: 默认false, startHomeActivityLocked的时候则认为是true;
+
+
+boolean mProcessesReady = false;    AMS.systemReady()
+boolean mSystemReady = false;    AMS.systemReady()
+boolean mBooting = false;  AMS.systemReady()桌面启动时为true,  ASS.checkFinishBootingLocked()为false, AMS.ensureBootCompleted为false
+boolean mBooted = false;  ASS.checkFinishBootingLocked()为true, AMS.ensureBootCompleted为true.
+
+
 #### 1. ActivityRecord
 - Activity的信息记录在ActivityRecord对象, 并通过通过成员变量task指向TaskRecord
 
