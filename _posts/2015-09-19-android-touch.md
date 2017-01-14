@@ -559,7 +559,6 @@ ViewGroup.dispatchTouchEvent()方法。为了精简篇幅，有些中间函数�
                             postDelayed(mUnsetPressedState,
                                     ViewConfiguration.getPressedStateDuration());
                         } else if (!post(mUnsetPressedState)) {
-                            // If the post failed, unpress right now
                             mUnsetPressedState.run();
                         }
 
@@ -602,12 +601,9 @@ ViewGroup.dispatchTouchEvent()方法。为了精简篇幅，有些中间函数�
                 case MotionEvent.ACTION_MOVE:
                     drawableHotspotChanged(x, y);
 
-                    // Be lenient about moving outside of buttons
                     if (!pointInView(x, y, mTouchSlop)) {
-                        // Outside button
                         removeTapCallback();
                         if ((mPrivateFlags & PFLAG_PRESSED) != 0) {
-                            // Remove any future long press/tap checks
                             removeLongPressCallback();
                             setPressed(false);
                         }
