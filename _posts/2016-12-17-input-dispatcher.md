@@ -28,7 +28,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
     InputDispatcherThread.threadLoop
       InputDispatcher.dispatchOnce
         InputDispatcher.dispatchOnceInnerLocked
-          dispatchKeyLocked
+        runCommandsLockedInterruptible
         Looper->pollOnce
         
 先来回顾一下InputDispatcher对象的初始化过程:
@@ -138,7 +138,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         
         if (done) { //分发操作完成，则进入该分支
             ...
-            releasePendingEventLocked(); //释放pending事件
+            releasePendingEventLocked(); //释放pending事件[2.10]
             *nextWakeupTime = LONG_LONG_MIN; //强制立刻执行轮询
         }
     }
@@ -148,7 +148,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
 -  mDispatchFrozen: 决定是否冻结事件分发工作不再往下执行;
   - 当mDispatchFrozen == true，则不再分发；
 -  mPendingEvent：决定是否需要再取一次事件，从mInboundQueue头部取出事件,放入mPendingEvent变量;并重置ANR时间;
-  - 当mPendingEvent == false，则不再分发；
+  - 当mPendingEvent为空，则不再分发；
 - 根据EventEntry的type类型分别处理:
     - TYPE_KEY: 则调用dispatchKeyLocked分发事件;
     - TYPE_MOTION: 则调用dispatchMotionLocked分发事件;
@@ -180,6 +180,15 @@ InputDispatcher，同样从threadLoop为起点开始分析。
                 entry, inputTargets, nextWakeupTime);
                 
         ...
+        if (injectionResult == INPUT_EVENT_INJECTION_PENDING) {
+            return false;
+        }
+
+        setInjectionResultLocked(entry, injectionResult);
+        if (injectionResult != INPUT_EVENT_INJECTION_SUCCEEDED) {
+            return true;
+        }
+        
         //只有injectionResult成功，才有机会执行分发事件【见小节2.4】
         dispatchEventLocked(currentTime, entry, inputTargets);
         return true;
@@ -397,7 +406,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
               case EventEntry::TYPE_KEY: {
                   KeyEntry* keyEntry = static_cast<KeyEntry*>(eventEntry);
 
-                  //发布Key事件 [见小节2.10]
+                  //发布Key事件 [见小节2.9]
                   status = connection->inputPublisher.publishKeyEvent(dispatchEntry->seq,
                           keyEntry->deviceId, keyEntry->source,
                           dispatchEntry->resolvedAction, dispatchEntry->resolvedFlags,
@@ -409,7 +418,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
               ...
             }
 
-            if (status) { //发布结果分析
+            if (status) { //publishKeyEvent失败情况
                 if (status == WOULD_BLOCK) {
                     if (connection->waitQueue.isEmpty()) {
                         //pipe已满,但waitQueue为空. 不正常的行为
@@ -439,7 +448,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
   - WOULD_BLOCK，且waitQueue不等于空，则处于阻塞状态，即inputPublisherBlocked=true
   - 其他情况，则调用abortBrokenDispatchCycleLocked
     
-### 2.10  inputPublisher.publishKeyEvent
+### 2.9  inputPublisher.publishKeyEvent
 [-> InputTransport.cpp]
 
     status_t InputPublisher::publishKeyEvent(...) {
@@ -466,6 +475,16 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
     
 InputChannel通过socket向远端的socket发送消息。socket通道是如何建立的呢？
 InputDispatcher又是如何与前台的window通信的呢？ 见下一篇文章[]()
+
+### 2.10 releasePendingEventLocked
+
+    void InputDispatcher::releasePendingEventLocked() {
+        if (mPendingEvent) {
+            resetANRTimeoutsLocked(); //重置ANR超时时间
+            releaseInboundEventLocked(mPendingEvent); //释放mPendingEvent对象,并记录到mRecentQueue队列
+            mPendingEvent = NULL; //置空mPendingEvent变量.
+        }
+    }
 
 ## 三. 处理Comand
 

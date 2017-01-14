@@ -41,10 +41,13 @@ TaskRecord <–> Task
 - IWindowManager：app进程 --> system_server进程 通信；
 - IWindowSession：app进程 --> system_server进程 通信；
 - IApplicationToken: app进程 --> system_server进程 通信；
+
 - IWindow: system_server进程 --> app进程 通信；
+
 
 Session extends IWindowSession.Stub, 作为Binder服务端
 WindowManagerService extends IWindowManager.Stub:   Binder的服务端
+
 ActivityRecord.Token extends IApplicationToken.Stub (服务端,)
 
 BaseIWindow extends IWindow.Stub: Binder服务端 (运行在app这边)

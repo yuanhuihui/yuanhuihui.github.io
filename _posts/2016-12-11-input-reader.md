@@ -86,6 +86,7 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
         
         { // acquire lock
             AutoMutex _l(mLock);
+             mReaderIsAliveCondition.broadcast();
             if (count) { //处理事件【见小节3.1】
                 processEventsLocked(mEventBuffer, count);
             }
@@ -238,6 +239,8 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
     }
     
 EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节点，经过EventHub将input_event结构体 + deviceId 转换成RawEvent结构体，如下：
+
+[-> InputEventReader.h]
 
     struct input_event {
      struct timeval time; //事件发生的时间点
@@ -779,6 +782,7 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
         }
     }
 
+
 该方法的主要功能：
 
 1. 调用NativeInputManager.interceptKeyBeforeQueueing，加入队列前执行拦截动作，但并不改变流程，调用链：
@@ -787,7 +791,7 @@ mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈�
   - PhoneWindowManager.interceptKeyBeforeQueueing (继承WindowManagerPolicy)
 2. 当mInputFilterEnabled=true(该值默认为false,可通过setInputFilterEnabled设置),则调用NativeInputManager.filterInputEvent过滤输入事件；
   - 当返回值为false则过滤该事件，不再往下分发；
-3. 生成KeyEvent，并调用enqueueInboundEventLocked，将该事件加入到mInboundQueue。
+3. 生成KeyEvent，并调用enqueueInboundEventLocked，将该事件加入到InputDispatcherd的成员变量mInboundQueue。
 
 
       
@@ -955,7 +959,12 @@ AppSwitchKeyEvent是指keyCode等于以下值：
         }
     }
     
-将数字1写入句柄mWakeEventFd，唤醒InputDispatcher线程
+[小节4.3]的过程会调用enqueueInboundEventLocked()方法来决定是否需要将数字1写入句柄mWakeEventFd来唤醒InputDispatcher线程.
+满足唤醒的条件:
+
+1. 执行enqueueInboundEventLocked方法前,mInboundQueue队列为空,执行完必然不再为空,则需要唤醒分发线程;
+2. 当事件类型为key事件,且发生一对按下和抬起操作,则需要唤醒;
+3. 当事件类型为motion事件,且当前可触摸的窗口属于另一个应用,则需要唤醒.
 
 ## 五. 总结
 
@@ -979,4 +988,4 @@ InputReader整个过程涉及多次事件封装转换，如下：
 - processEventsLocked: 转换RawEvent -> NotifyKeyArgs(NotifyArgs)
 - QueuedListener->flush：转换NotifyKeyArgs -> KeyEntry(EventEntry)
 
-InputReader线程处理完生成的是EventEntry(比如KeyEntry, MotionEntry), 接下来的工作就交给InputDispatcher线程。
+InputReader线程不断循环地执行InputReader.loopOnce(), 每次处理完生成的是EventEntry(比如KeyEntry, MotionEntry), 接下来的工作就交给InputDispatcher线程。
