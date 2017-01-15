@@ -162,6 +162,22 @@ UserInfo代表的是一个用户的信息，涉及到的flags及其含义，如�
 |FLAG_MANAGED_PROFILE|表明该用户是另一个用户的轮廓|
 |FLAG_DISABLED|表明该用户处于不可用状态|
 
+
+#### 1.5 UserState 
+
+    //用户启动中
+    public final static int STATE_BOOTING = 0;
+    //用户正常运行状态
+    public final static int STATE_RUNNING = 1;
+    //用户正在停止中
+    public final static int STATE_STOPPING = 2;
+    //用户处于关闭状态
+    public final static int STATE_SHUTDOWN = 3;
+    
+用户生命周期线： STATE_BOOTING -> STATE_RUNNING -> STATE_STOPPING -> STATE_SHUTDOWN.
+可通过AMS.switchUser()来切换用户，并更新mCurrentUserId为新切换的用户。
+
+
 ## 二. 流程
 
 ### 2.1 启动阶段
@@ -174,7 +190,7 @@ UserInfo代表的是一个用户的信息，涉及到的flags及其含义，如�
         ...
     }
 
-UMS是在PackageManagerService对象初始化的过程中创建
+UMS是在PackageManagerService对象初始化的过程中创建。
 
 ### 2.2 UserManagerService
 [-> UserManagerService.java]

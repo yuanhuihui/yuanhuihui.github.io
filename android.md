@@ -197,7 +197,6 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 #### 4.3 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
-
 - Android服务篇-ActivityManagerService
   - [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
   - [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
@@ -212,11 +211,14 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
   - [PackageManager启动篇](http://gityuan.com/2016/11/06/packagemanagerservice)
   - [Installd守护进程](http://gityuan.com/2016/11/13/android-installd)
 - Android服务篇-WindowManagerService
+  - [WindowManagerService启动篇](http://gityuan.com/2017/01/08/windowmanger/)
 - Android服务篇-BatteryService
   - [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
 - Android服务篇-PowerManagerService
 - Android服务篇-DropBoxManagerService
   - [DropBoxManager启动篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
+- Android多用户服务-UserManagerService
+  - [多用户管理UserManager](http://gityuan.com/2016/11/20/user_manager/)
 - 更多服务介绍, 敬请期待...
 
 
@@ -281,7 +283,7 @@ Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理�
 ---
 
 **计划：** 后续不断持续得新增和完善整个大纲，不限于进程、内存、IO知识，系统各个服务框架，整体架构，以及各种系统分析实战文章。
-博客会持续更新，各个击破。 本文会持续更新，`最近更新时间点: `2017.01.02`.
+博客会持续更新，各个击破。 本文会持续更新，`最近更新时间点: `2017.01.15`.
 
 ---
 
