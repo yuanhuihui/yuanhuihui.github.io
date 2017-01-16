@@ -144,7 +144,7 @@ ActivityManagerNative.getDefault()返回的是ActivityManagerProxy对象，简�
 
 不妨令 以BroadcastReceiver(广播接收者)为key，LoadedApk.ReceiverDispatcher(分发者)为value的ArrayMap 记为`A`。此处`mReceivers`是一个以`Context`为key，以`A`为value的ArrayMap。对于ReceiverDispatcher(广播分发者)，当不存在时则创建一个。
 
-**2.3.1 创建ReceiverDispatcher**
+##### 2.3.1 创建ReceiverDispatcher
 
     ReceiverDispatcher(BroadcastReceiver receiver, Context context,
             Handler activityThread, Instrumentation instrumentation,
@@ -160,7 +160,9 @@ ActivityManagerNative.getDefault()返回的是ActivityManagerProxy对象，简�
         mLocation.fillInStackTrace();
     }
 
-**2.3.2 创建InnerReceiver**
+此处mActivityThread便是前面传递过来的当前主线程的Handler.
+
+##### 2.3.2 创建InnerReceiver
 
     final static class InnerReceiver extends IIntentReceiver.Stub {
         final WeakReference<LoadedApk.ReceiverDispatcher> mDispatcher;
@@ -599,7 +601,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 主要功能：
 
 - 对于callingAppId为SYSTEM_UID，PHONE_UID，SHELL_UID，BLUETOOTH_UID，NFC_UID之一或者callingUid == 0时都畅通无阻；
-- 否则对于调用者进程为空并且不是persistent进程的情况下：
+- 否则当调用者进程为空 或者非persistent进程的情况下：
     - 当发送的是受保护广播`mProtectedBroadcasts`(只允许系统使用)，则抛出异常；
     - 当action为ACTION_APPWIDGET_CONFIGURE时，虽然不希望该应用发送这种广播，处于兼容性考虑，限制该广播只允许发送给自己，否则抛出异常。
 
@@ -931,7 +933,22 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 - 发送广播的[step 6]阶段, 会处理并行广播;
 - 发送广播的[step 8]阶段, 会处理串行广播;
 
-上述3个处理过程都是通过调用scheduleBroadcastsLocked()方法来完成的,接下来再来看看这个方法.
+
+并行广播,加入mParallelBroadcasts队列
+
+    public void enqueueParallelBroadcastLocked(BroadcastRecord r) {
+        mParallelBroadcasts.add(r);
+        r.enqueueClockTime = System.currentTimeMillis();
+    }
+    
+串行广播,加入mOrderedBroadcasts队列
+
+    public void enqueueOrderedBroadcastLocked(BroadcastRecord r) {
+        mOrderedBroadcasts.add(r);
+        r.enqueueClockTime = System.currentTimeMillis();
+    }
+
+上述3个处理过程都是通过调用BroadcastQueue.`scheduleBroadcastsLocked`()方法来完成的,接下来再来看看这个方法.
 
 ### 四、 处理广播
 
@@ -953,12 +970,38 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 在BroadcastQueue对象创建时，mHandler=new BroadcastHandler(handler.getLooper());那么此处交由mHandler的handleMessage来处理：
 
-    private final class BroadcastHandler extends Handler {
-        public BroadcastHandler(Looper looper) {
-            super(looper, null, true);
-        }
+##### 4.1.1 BroadcastHandler
 
-        @Override
+    public ActivityManagerService(Context systemContext) {
+        //名为"ActivityManager"的线程
+        mHandlerThread = new ServiceThread(TAG,
+                android.os.Process.THREAD_PRIORITY_FOREGROUND, false);
+        mHandlerThread.start();
+        mHandler = new MainHandler(mHandlerThread.getLooper());
+        ...
+        //创建BroadcastQueue对象
+        mFgBroadcastQueue = new BroadcastQueue(this, mHandler,
+                "foreground", BROADCAST_FG_TIMEOUT, false);
+        mBgBroadcastQueue = new BroadcastQueue(this, mHandler,
+                "background", BROADCAST_BG_TIMEOUT, true);
+        ...
+    }
+    
+
+    BroadcastQueue(ActivityManagerService service, Handler handler,
+            String name, long timeoutPeriod, boolean allowDelayBehindServices) {
+        mService = service;
+        //创建BroadcastHandler
+        mHandler = new BroadcastHandler(handler.getLooper());
+        mQueueName = name;
+        mTimeoutPeriod = timeoutPeriod;
+        mDelayBehindServices = allowDelayBehindServices;
+    }
+    
+由此可见BroadcastHandler采用的是"ActivityManager"线程的Looper
+
+    private final class BroadcastHandler extends Handler {
+
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case BROADCAST_INTENT_MSG: {
@@ -967,7 +1010,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
                 ...
         }
     }
-
+    
 #### 4.2 processNextBroadcast
 
 [-> BroadcastQueue.java]
@@ -1238,6 +1281,7 @@ mTimeoutPeriod，对于前台广播则为10s，对于后台广播则为60s。广
     }
 
 #### 4.5 ATP.scheduleRegisteredReceiver
+[-> ApplicationThreadNative.java  ::ApplicationThreadProxy]
 
     public void scheduleRegisteredReceiver(IIntentReceiver receiver, Intent intent,
             int resultCode, String dataStr, Bundle extras, boolean ordered,
@@ -1260,7 +1304,7 @@ mTimeoutPeriod，对于前台广播则为10s，对于后台广播则为60s。广
         data.recycle();
     }
 
-ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端发送消息, ATP所对应的Bn端位于发送广播调用端所在进程的ApplicationThread，即进入AT.scheduleRegisteredReceiver， 接下来说明该方法。
+ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端发送消息(oneway调用方式), ATP所对应的Bn端位于发送广播调用端所在进程的ApplicationThread，即进入AT.scheduleRegisteredReceiver， 接下来说明该方法。
 
 #### 4.6 AT.scheduleRegisteredReceiver
 
@@ -1279,7 +1323,6 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 此处receiver是注册广播时创建的，见小节[2.3]，可知该`receiver`=`LoadedApk.ReceiverDispatcher.InnerReceiver`。
 
 #### 4.7 InnerReceiver.performReceive
-
 [-> LoadedApk.java]
 
     public void performReceive(Intent intent, int resultCode, String data,
@@ -1292,9 +1335,10 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
            ...
         }
     }
+    
+此处方法LoadedApk()属于LoadedApk.ReceiverDispatcher.InnerReceiver, 也就是LoadedApk内部类的内部类InnerReceiver.
 
 #### 4.8 ReceiverDispatcher.performReceive
-
 [-> LoadedApk.java]
 
     public void performReceive(Intent intent, int resultCode, String data,
@@ -1310,7 +1354,9 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
         }
     }
 
-其中`Args`继承于`BroadcastReceiver.PendingResult`，实现了接口`Runnable`。这里mActivityThread.post(args)
+其中`Args`继承于`BroadcastReceiver.PendingResult`，实现了接口`Runnable`; 其中mActivityThread是当前进程的主线程, 是由[小节2.3.1]完成赋值过程.
+
+这里mActivityThread.post(args)
 消息机制，关于Handler消息机制，见[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)，把消息放入MessageQueue，再调用Args的run()方法。
 
 
@@ -1355,7 +1401,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
           }
         }
 
-最终调用`BroadcastReceiver`具体实现类的`onReceive()`方法。
+接下来,便进入主线程,最终调用`BroadcastReceiver`具体实现类的`onReceive()`方法。
 
 #### 4.10 PendingResult.finish
 
@@ -1418,6 +1464,109 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
         }
     }
 
+#### 4.12 finishReceiverLocked
+[-> BroadcastQueue.java]
+
+    public boolean finishReceiverLocked(BroadcastRecord r, int resultCode,
+            String resultData, Bundle resultExtras, boolean resultAbort, boolean waitForServices) {
+        final int state = r.state;
+        final ActivityInfo receiver = r.curReceiver;
+        r.state = BroadcastRecord.IDLE;
+
+        r.receiver = null;
+        r.intent.setComponent(null);
+        if (r.curApp != null && r.curApp.curReceiver == r) {
+            r.curApp.curReceiver = null;
+        }
+        if (r.curFilter != null) {
+            r.curFilter.receiverList.curBroadcast = null;
+        }
+        r.curFilter = null;
+        r.curReceiver = null;
+        r.curApp = null;
+        mPendingBroadcast = null;
+
+        r.resultCode = resultCode;
+        r.resultData = resultData;
+        r.resultExtras = resultExtras;
+        if (resultAbort && (r.intent.getFlags()&Intent.FLAG_RECEIVER_NO_ABORT) == 0) {
+            r.resultAbort = resultAbort;
+        } else {
+            r.resultAbort = false;
+        }
+
+        if (waitForServices && r.curComponent != null && r.queue.mDelayBehindServices
+                && r.queue.mOrderedBroadcasts.size() > 0
+                && r.queue.mOrderedBroadcasts.get(0) == r) {
+            ActivityInfo nextReceiver;
+            if (r.nextReceiver < r.receivers.size()) {
+                Object obj = r.receivers.get(r.nextReceiver);
+                nextReceiver = (obj instanceof ActivityInfo) ? (ActivityInfo)obj : null;
+            } else {
+                nextReceiver = null;
+            }
+
+            if (receiver == null || nextReceiver == null
+                    || receiver.applicationInfo.uid != nextReceiver.applicationInfo.uid
+                    || !receiver.processName.equals(nextReceiver.processName)) {
+                if (mService.mServices.hasBackgroundServices(r.userId)) {
+                    r.state = BroadcastRecord.WAITING_SERVICES;
+                    return false;
+                }
+            }
+        }
+        r.curComponent = null;
+
+        return state == BroadcastRecord.APP_RECEIVE
+                || state == BroadcastRecord.CALL_DONE_RECEIVE;
+    }
+ 
 ### 五、总结
 
-未完留坑，后续总结以及增加流程图说明...
+1.BroadcastReceiver分为两类：
+
+- 静态广播接收者：通过AndroidManifest.xml的标签来申明的BroadcastReceiver;
+- 动态广播接收者：通过AMS.registerReceiver()方式注册的BroadcastReceiver, 不需要时记得调用unregisterReceiver();
+
+2.广播发送方式可分为三类: 
+
+|类型|方法|serialized|sticky|
+|---|---|---|
+|普通广播|sendBroadcast|false|false|
+|有序广播|sendOrderedBroadcast|true|false|
+|Sticky广播|sendStickyBroadcast|false|true|
+
+3.广播注册registerReceiver():默认将当前进程的主线程设置为scheuler. 再向AMS注册该广播相应信息, 根据类型选择加入mParallelBroadcasts或mOrderedBroadcasts队列.
+
+4.广播发送processNextBroadcast():根据不同情况调用不同的处理过程:
+
+- 如果是动态广播接收者，则调用deliverToRegisteredReceiverLocked处理；
+- 如果是静态广播接收者，且对应进程已经创建，则调用processCurBroadcastLocked处理；
+- 如果是静态广播接收者，且对应进程尚未创建，则调用startProcessLocked创建进程。
+
+
+最后,通过一幅图来总结整个广播处理过程. 点击查看[大图](http://gityuan.com//images/ams/send_broadcast.jpg)
+
+![send_broadcast](/images/ams/send_broadcast.jpg)
+
+
+图解: 
+
+
+整个过程涉及过程进程间通信, 先来说说并行广播处理过程:
+
+1. 广播发送端所在进程: 步骤1~2;
+2. system_server的binder线程: 步骤3~5;
+3. system_server的ActivityManager线程: 步骤6~11;
+4. 广播接收端所在进程的binder线程: 步骤12~13;
+5. 广播接收端所在进程的主线程: 步骤14~15,以及23;
+6. system_server的binder线程: 步骤24~25.
+
+可以看出整个流程中,步骤8~15是并行广播, 而步骤16~22则是串行广播.那么再来说说串行广播的处理过程.
+
+1. 广播发送端所在进程: 步骤1~2;
+2. system_server的binder线程: 步骤3~5;
+3. system_server的ActivityManager线程:步骤6以及16~18;
+4. 广播接收端所在进程的binder线程: 步骤19;
+5. 广播接收端所在进程的主线程: 步骤20~22;
+6. system_server的binder线程: 步骤24~25.

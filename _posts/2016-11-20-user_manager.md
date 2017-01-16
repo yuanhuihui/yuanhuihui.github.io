@@ -322,3 +322,8 @@ dataDir一般为`/data`，baseUserPath则为`/data/user`，紧接着进入如下
 1. 当调用者userId等于userId时，则直接返回该userId；否则往下执行；
 2. 当USER_CURRENT或USER_CURRENT_OR_SELF类型的userId，则返回mCurrentUserId；否则继续采用userId；
 3. 对于非system uid，则会进行各种权限检查。
+
+
+### 3.3 调试相关
+
+`dumpsys user`可查看用户情况
