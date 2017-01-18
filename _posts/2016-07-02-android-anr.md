@@ -275,7 +275,7 @@ processNextBroadcast来处理广播.其流程为先处理并行广播,再处理�
 1. 首先在part3的过程中setBroadcastTimeoutLocked(timeoutTime) 设置超时广播消息；
 2. 然后在part2根据广播处理情况来处理：
     - 当广播接收者等待时间过长，则调用broadcastTimeoutLocked(false);
-    - 当广播处理时间过长，cancelBroadcastTimeoutLocked
+    - 当执行完广播,则调用cancelBroadcastTimeoutLocked;
 
 #### 3.1.2 setBroadcastTimeoutLocked
 

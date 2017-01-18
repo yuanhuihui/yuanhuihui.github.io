@@ -30,7 +30,7 @@ PKMS injector.initExtraGuard,会启动服务DefaultContainerService
 
 goingCallback.run()
 
-ddAppLocked(info, false, null); //启动所有的persistent进程
+addAppLocked(info, false, null); //启动所有的persistent进程
 
 也就是说persistent之前启动的进程,都是在goingCallback.run()过程
 

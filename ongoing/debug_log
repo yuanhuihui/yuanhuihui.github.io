@@ -1,0 +1,68 @@
+
+### 1. process
+Start proc 
+Killing 
+Force stopping 
+am_proc_start [Event]
+am_kill [Event]
+
+
+### 2. activity
+ActivityManager: START u0
+
+
+### 3. service
+am_create_service [Event]
+am_destroy_service [Event]
+
+
+### 4. broadcast
+
+
+### 5. provider
+cann't getContentProviderImpl
+force acquire UnstableProvider for pkg
+Existing provider 
+
+
+### 6. binder 
+starved for
+system_server maxThreads
+binder_sample [Event]
+
+
+### 7. Boot
+Entered the Android system server
+Starting phase
+Entered the Android system server main thread loop
+
+
+### 8. stablity
+FATAL EXCEPTION IN SYSTEM PROCESS
+WATCHDOG KILLING SYSTEM PROCESS
+ANR in
+am_crash [Event]
+
+
+### 9. 休眠与唤醒
+PowerManagerService: Going to sleep
+PowerManagerService: Waking up from sleep
+
+
+### 10. key event
+ keyCode:
+ 
+
+### 11. phone 
+up time:
+ro.product.mod_device
+ro.product.model
+
+
+## 其他
+
+调试技巧:
+
+输出不包含的log:
+logcat -b events | egrep -v "am_pss|sysui_|am_broadcast"
+logcat -b system -b  main -b events | egrep "Timeline|am_" | egrep  -v "am_pss|auditd"

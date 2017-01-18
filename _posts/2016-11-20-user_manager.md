@@ -326,4 +326,4 @@ dataDir一般为`/data`，baseUserPath则为`/data/user`，紧接着进入如下
 
 ### 3.3 调试相关
 
-`dumpsys user`可查看用户情况
+`dumpsys user`可查看用户情况.

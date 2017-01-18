@@ -44,11 +44,10 @@ reason对于分析问题很重要, 实例说明:
 
 其中杀进程的原因(reason)有很多种形式, 如下表:
 
-#### 异常杀进程
+#### 1.1 异常杀进程
 
 |方法|reason|含义|
 |---|---|---|
-
 |appNotResponding|anr|ANR|
 |appNotResponding|bg anr|ANR|
 |handleAppCrashLocked|crash|CRASH|
@@ -58,9 +57,7 @@ reason对于分析问题很重要, 实例说明:
 |removeDyingProviderLocked|depends on provider `cpr.name` in dying proc `processName`||
 
 
-#### 主动杀进程
-
-||finished inst|
+#### 1.2 主动杀进程
 
 |方法|reason|含义|
 |---|---|---|
@@ -77,7 +74,7 @@ reason对于分析问题很重要, 实例说明:
 |killPids|Unknown||
 |killPids|自定义|调用者自定义|
 
-#### 调度杀进程
+#### 1.3 调度杀进程
 
 |方法|reason|含义|
 |---|---|---|
@@ -89,7 +86,7 @@ reason对于分析问题很重要, 实例说明:
 |updateOomAdjLocked|isolated not needed||
 
 
-#### 其他杀进程
+#### 1.4 其他杀进程
 
 |方法|reason|含义|
 |---|---|---|
@@ -102,6 +99,7 @@ reason对于分析问题很重要, 实例说明:
 |checkExcessivePowerUsageLocked|excessive cpu ||
 
 
+另外, 关于force-stop再多说一点:
 
 ### 二. force-stop
 
