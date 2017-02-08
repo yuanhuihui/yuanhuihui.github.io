@@ -20,10 +20,15 @@ am_destroy_service [Event]
 
 
 ### 5. provider
-cann't getContentProviderImpl
-force acquire UnstableProvider for pkg
-Existing provider 
 
+force acquire UnstableProvider for pkg
+is crashing; detaching
+
+
+Failed to find provider info
+cann't getContentProviderImpl
+Unable to launch app
+No package info for content provider
 
 ### 6. binder 
 starved for
@@ -42,7 +47,7 @@ FATAL EXCEPTION IN SYSTEM PROCESS
 WATCHDOG KILLING SYSTEM PROCESS
 ANR in
 am_crash [Event]
-
+watchdog: [Event]
 
 ### 9. 休眠与唤醒
 PowerManagerService: Going to sleep
@@ -58,6 +63,34 @@ up time:
 ro.product.mod_device
 ro.product.model
 
+### 12. fork进程
+System server process
+System server process %d has been created
+System server process %d has died. Restarting Zygote
+
+
+### 13. lock
+
+dvm_lock_sample
+
+dvm_lock_sample: [system_server,1,Binder:2755_8,612,ActivityManagerService.java,16670,-,16423,61]
+
+Binder:2755_8线程位于16670行代码612ms,等待AMS.java的16423行代码持有锁
+
+process, main, thread, time,   file, line, ownerfile,ownerline,  sample_percent
+
+格式定义在system/core/logcat/event.logtags
+20003 dvm_lock_sample (process|3),(main|1|5),(thread|3),(time|1|3),(file|3),(line|1|5),(ownerfile|3),(ownerline|1|5),(sample_percent|1|6)
+从中可以看出,dvm_lock_sample的几个参数包括:
+process:进程名
+main:是否是敏感线程(被设置了strictmode policy的线程),取值0或1
+thread:线程名
+time:等待锁的时间,毫秒为单位
+file:请求的lock在哪个文件
+line:请求的锁在代码哪一行
+ownerfile:这个锁被哪个文件占用
+ownerline:这个锁被占用的行数
+sample_percent:以500ms为准,如果等待时间为250ms,那么这个值为50,表示50%
 
 ## 其他
 

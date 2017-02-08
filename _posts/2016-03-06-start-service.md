@@ -588,7 +588,7 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
             r.pendingStarts.add(new ServiceRecord.StartItem(r, false, r.makeNextStartId(),
                     null, null));
         }
-        //服务 进入onStartCommand() 【见流程16】
+        //服务 进入onStartCommand() 【见流程17】
         sendServiceArgsLocked(r, execInFg, true);
         if (r.delayed) {
             getServiceMap(r.userId).mDelayedStartList.remove(r);
@@ -837,7 +837,9 @@ mRemote.transact()是binder通信的客户端发起方法，经过binder驱动�
 
 handleCreateService()执行后便会移除服务启动超时的消息SERVICE_TIMEOUT_MSG。
 Service启动过程出现ANR，”executing service [发送超时serviceRecord信息]”，
-这往往是service的onCreate()回调方法执行时间过长。
+这往往是service的onCreate()回调方法执行时间过长。 
+
+前面小节[10]realStartServiceLocked方法在完成onCreate操作,解析来便是进入onStartCommand方法. 见下文.
 
 ### 17. AS.sendServiceArgsLocked
 [-> ActiveServices.java]
@@ -902,6 +904,8 @@ Service启动过程出现ANR，”executing service [发送超时serviceRecord�
 
 ## 五、总结
 
+### 5.1 流程说明
+
 在整个startService过程，从进程角度看服务启动过程
 
 - **Process A进程：**是指调用startService命令所在的进程，也就是启动服务的发起端进程，比如点击桌面App图标，此处Process A便是Launcher所在进程。
@@ -925,3 +929,15 @@ Service启动过程出现ANR，”executing service [发送超时serviceRecord�
 7. 主线程在收到Message后，通过发射机制创建目标Service，并回调Service.onCreate()方法。
 
 到此，服务便正式启动完成。当创建的是本地服务或者服务所属进程已创建时，则无需经过上述步骤2、3，直接创建服务即可。
+
+### 5.2 生命周期
+
+startService的生命周期为onCreate, onStartCommand, onDestroy,流程如下图: [点击查看大图](http://www.gityuan.com/images/ams/service_lifeline.jpg)
+
+![service_lifeline](/images/ams/service_lifeline.jpg)
+
+由上图可见,造成ANR可能的原因有Binder full{step 7, 12}, MessageQueue(step 10), AMS Lock (step 13).
+
+当进程启动Service其所在进程还没有启动时, 需要先启动其目标进程,流程如下图: [点击查看大图](http://www.gityuan.com/images/ams/start_service_process.jpg)
+
+![start_service_process](/images/ams/start_service_process.jpg)

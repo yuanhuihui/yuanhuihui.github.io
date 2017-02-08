@@ -78,3 +78,7 @@ vmstat
 ### process
 
 dumpsys procstats
+
+### 重要图
+
+![ams_binder_class](/images/ams/ams_binder_class.jpg)

@@ -1037,6 +1037,25 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
         addBroadcastToHistoryLocked(r);//将广播添加历史统计
     }
 
+通过while循环, 一次性分发完所有的并发广播后,则分发完成后则添加到历史广播队列.
+fromMsg是指processNextBroadcast()是否由BroadcastHandler所调用的.
+
+    private final void addBroadcastToHistoryLocked(BroadcastRecord r) {
+        if (r.callingUid < 0) {
+            return;
+        }
+        r.finishTime = SystemClock.uptimeMillis(); //记录分发完成时间
+
+        mBroadcastHistory[mHistoryNext] = r;
+        mHistoryNext = ringAdvance(mHistoryNext, 1, MAX_BROADCAST_HISTORY);
+
+        mBroadcastSummaryHistory[mSummaryHistoryNext] = r.intent;
+        mSummaryHistoryEnqueueTime[mSummaryHistoryNext] = r.enqueueClockTime;
+        mSummaryHistoryDispatchTime[mSummaryHistoryNext] = r.dispatchClockTime;
+        mSummaryHistoryFinishTime[mSummaryHistoryNext] = System.currentTimeMillis();
+        mSummaryHistoryNext = ringAdvance(mSummaryHistoryNext, 1, MAX_BROADCAST_SUMMARY_HISTORY);
+    }
+
 #### 4.2.2 处理有序广播
 
     if (mPendingBroadcast != null) {
@@ -1047,8 +1066,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
             isDead = proc == null || proc.crashing;
         }
         if (!isDead) {
-            //正在处理广播的进程保持活跃状态，则继续等待其执行完成
-            return;
+            return; //正在处理广播的进程保持活跃状态，则继续等待其执行完成
         } else {
             mPendingBroadcast.state = BroadcastRecord.IDLE;
             mPendingBroadcast.nextReceiver = mPendingBroadcastRecvIndex;
@@ -1569,6 +1587,6 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 
 再来说说几个关键的时间点:
 
-- enqueueClockTime: 位于步骤4 scheduleBroadcastsLocked()
-- dispatchClockTime: 位于步骤8 deliverToRegisteredReceiverLocked()
-- finishTime : 位于步骤11 addBroadcastToHistoryLocked()之后
+- enqueueClockTime: 位于步骤4 scheduleBroadcastsLocked(), 这是在system_server的binder线程.
+- dispatchClockTime: 位于步骤8 deliverToRegisteredReceiverLocked(),这是在system_server的ActivityManager线程.
+- finishTime : 位于步骤11 addBroadcastToHistoryLocked()之后, 这是在并行广播向所有receivers发送完成后的时间点,而串行广播则是一个一个发送完成才会继续.
