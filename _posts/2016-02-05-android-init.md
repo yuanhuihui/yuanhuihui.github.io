@@ -12,12 +12,10 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程进程号为1的init进程的工作内容
 
-    /system/core/init/Init.h
-    /system/core/init/Init.cpp
-    /system/core/init/Init_parser.h
-    /system/core/init/Init_parser.cpp
-    /system/core/init/Signal_handler.h
-    /system/core/init/Signal_handler.cpp
+    /system/core/init/
+      - init.cpp
+      - init_parser.cpp
+      - signal_handler.cpp
 
 ## 一、概述
 
@@ -28,17 +26,18 @@ init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启�
 - 处理子进程的终止(signal方式);
 - 提供属性服务。
 
-### 1.1 main()
+接下来从main()方法说起。
 
-下面展示main()方法的骨干逻辑：
+### 1.1 main
+[-> init.cpp]
 
     int main(int argc, char** argv) {
         ...
         klog_init();  //初始化kernel log
         property_init(); //创建一块共享的内存空间，用于属性服务
-        signal_handler_init();  //初始化子进程退出的信号处理过程
+        signal_handler_init();  //初始化子进程退出的信号处理过程【见小节2.1】
 
-        property_load_boot_defaults(); //加载/default.prop文件
+        property_load_boot_defaults(); //加载default.prop文件
         start_property_service();   //启动属性服务器(通过socket通信)
         init_parse_config_file("/init.rc"); //解析init.rc文件
 
@@ -80,18 +79,20 @@ init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启�
 
 在init.cpp的main()方法中，通过signal_handler_init()来初始化信号处理过程。
 
-### 1. 初始化signal句柄
+主要工作：
 
-signal_handler.cpp
+- 初始化signal句柄；
+- 循环处理子进程；
+- 注册epoll句柄；
+- 处理子进程的终止；
 
-**【1-1】signal_handler_init**
+### 2.1 signal_handler_init
+[-> signal_handler.cpp]
 
     void signal_handler_init() {
-        //创建信号SIGCHLD的机制
         int s[2];
-        // 调用一对已连接好的socket（socketpair是syscall命令）
+        // 创建socket pair
         if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, s) == -1) {
-            ERROR("socketpair failed: %s\n", strerror(errno));
             exit(1);
         }
         signal_write_fd = s[0];
@@ -99,28 +100,27 @@ signal_handler.cpp
         //当捕获信号SIGCHLD，则写入signal_write_fd
         struct sigaction act;
         memset(&act, 0, sizeof(act));
-        act.sa_handler = SIGCHLD_handler; 【见流程1-2】
+        act.sa_handler = SIGCHLD_handler;
         //SA_NOCLDSTOP使init进程只有在其子进程终止时才会受到SIGCHLD信号
         act.sa_flags = SA_NOCLDSTOP;
         sigaction(SIGCHLD, &act, 0);
-        reap_any_outstanding_children(); 【见流程2-1】
-        //对于handle_signal 【见流程2-3】
-        register_epoll_handler(signal_read_fd, handle_signal);  //【见流程4】
+        reap_any_outstanding_children(); 【见小节2.2】
+        register_epoll_handler(signal_read_fd, handle_signal);  //【见小节2.3】
     }
 
 每个进程在处理其他进程发送的signal信号时都需要先注册，当进程的运行状态改变或终止时会产生某种signal信号，init进程是所有用户空间进程的父进程，当其子进程终止时产生SIGCHLD信号，init进程调用信号安装函数sigaction()，传递参数给sigaction结构体，便完成信号处理的过程。
 
-**【1-2】SIGCHLD_handler**
+这里有两个重要的函数：SIGCHLD_handler和handle_signal，如下：
 
+    //写入数据
     static void SIGCHLD_handler(int) {
         //向signal_write_fd写入1，直到成功为止
         if (TEMP_FAILURE_RETRY(write(signal_write_fd, "1", 1)) == -1) {
             ERROR("write(signal_write_fd) failed: %s\n", strerror(errno));
         }
     }
-
-**【1-3】handle_signal**
-
+    
+    //读取数据
     static void handle_signal() {
         char buf[32];
         //读取signal_read_fd数据，放入buf
@@ -128,22 +128,12 @@ signal_handler.cpp
         reap_any_outstanding_children(); 【见流程3-1】
     }
 
-
-- SIGCHLD_handler：向signal_write_fd写入1；
-- handle_signal：读取signal_read_fd数据，放入buf；
-
-### 2. 循环处理子进程
-
-signal_handler.cpp
-
-**【2-1】reap_any_outstanding_children**
+### 2.2 reap_any_outstanding_children
+[-> signal_handler.cpp]
 
     static void reap_any_outstanding_children() {
-        while (wait_for_one_process()) { 【见流程2-2】
-        }
+        while (wait_for_one_process()) { }
     }
-
-**【2-2】wait_for_one_process**
 
     static bool wait_for_one_process() {
         int status;
@@ -176,7 +166,6 @@ signal_handler.cpp
 
         //当flags为EXEC时，释放相应的服务
         if (svc->flags & SVC_EXEC) {
-            INFO("SVC_EXEC pid %d finished...\n", svc->pid);
             waiting_for_exec = false;
             list_remove(&svc->slist);
             free(svc->name);
@@ -223,12 +212,10 @@ signal_handler.cpp
         return true;
     }
 
-
 另外：通过`getprop | grep init.svc` 可查看所有的service运行状态。状态总共分为：running, stopped, restarting
 
-### 3. 注册epoll句柄
-
-signal_handler.cpp
+### 2.3 register_epoll_handler
+[-> signal_handler.cpp]
 
     void register_epoll_handler(int fd, void (*fn)()) {
         epoll_event ev;
@@ -240,17 +227,11 @@ signal_handler.cpp
         }
     }
 
-### 4. 处理子进程的终止
-
-![init_oneshot](/images/boot/init/init_oneshot.jpg)
-
-当init子进程退出时，会产生SIGCHLD信号，并发送给init进程，通过socket套接字传递数据，调用到wait_for_one_process()方法，根据是否是oneshot，来决定是重启子进程，还是放弃启动。
-
 ## 三、rc文件语法
 
 rc文件语法是以行尾单位，以空格间隔的语法，以#开始代表注释行。rc文件主要包含Action、Service、Command、Options，其中对于Action和Service的名称都是唯一的，对于重复的命名视为无效。
 
-### 1. 动作Action
+### 3.1 Action
 
 Action： 通过trigger，即以 on开头的语句，决定何时执行相应的service。
 
@@ -260,12 +241,12 @@ Action： 通过trigger，即以 on开头的语句，决定何时执行相应的
 - on boot/charger： 当系统启动/充电时触发，还包含其他情况，此处不一一列举；
 - on property:\<key\>=\<value\>: 当属性值满足条件时触发；
 
-### 2. 服务Service
+### 3.2 Service
 服务Service，以 service开头，由init进程启动，一般运行于另外一个init的子进程，所以启动service前需要判断对应的可执行文件是否存在。init生成的子进程，定义在rc文件，其中每一个service，在启动时会通过fork方式生成子进程。
 
 例如： `service servicemanager /system/bin/servicemanager`代表的是服务名为servicemanager，服务的路径，也就是服务执行操作时运行/system/bin/servicemanager。
 
-### 3. 命令Command
+### 3.3 Command
 下面列举常用的命令
 
 - class_start \<service_class_name\>： 启动属于同一个class的所有服务；
@@ -279,8 +260,7 @@ Action： 通过trigger，即以 on开头的语句，决定何时执行相应的
 - exprot \<name\> \<name\>：设定环境变量；
 - loglevel \<level\>：设置log级别
 
-### 4. 可选操作Options
-
+### 3.4 Options
 Options是Services的可选项，与service配合使用
 
 - disabled: 不随class自动启动，只有根据service名才启动；
@@ -291,10 +271,87 @@ Options是Services的可选项，与service配合使用
 - socket: 创建名为`/dev/socket/<name>`的socket
 - critical: 在规定时间内该service不断重启，则系统会重启并进入恢复模式
 
-
 **default:** 意味着disabled=false，oneshot=false，critical=false。
 
-所有的Service里面只有servicemanager ，zygote ，surfaceflinger这3个service有`onrestart`关键字来触发其他service启动过程。
+## 四、启动服务
+
+### 4.1 启动顺序
+
+    on early-init
+    on init
+    on late-init //挂载文件系统，启动核心服务
+        trigger post-fs
+        trigger load_system_props_action 
+        trigger post-fs-data //挂载data
+        trigger load_persist_props_action
+        trigger firmware_mounts_complete
+        trigger boot
+        
+    on post-fs
+        start logd
+        mount rootfs rootfs / ro remount
+        mount rootfs rootfs / shared rec 
+        mount none /mnt/runtime/default /storage slave bind rec
+        ...
+         
+    on post-fs-data
+        start logd
+        start vold
+        ...
+        
+    on boot
+        ...
+        class_start core
+        
+由early-init -> init -> late-init -> on boot。接下里便开始启动core class.
+
+    on nonencrypted
+        class_start main
+        class_start late_start
+        
+    on property:vold.decrypt=trigger_restart_min_framework
+        class_start main
+
+    on property:vold.decrypt=trigger_restart_framework
+        class_start main
+        class_start late_start
+
+    on property:vold.decrypt=trigger_reset_main
+        class_reset main
+            
+    on property:vold.decrypt=trigger_shutdown_framework
+        class_reset late_start
+        class_reset main
+
+vold.decrypt的以上4个值的设置过程位于system/vold/cryptfs.c文件。
+      
+### 4.2 服务启动(Zygote)
+在init.zygote.rc文件中，zygote服务定义如下：
+
+    service zygote /system/bin/app_process -Xzygote /system/bin --zygote --start-system-server
+        class main
+        socket zygote stream 660 root system
+        onrestart write /sys/android_power/request_state wake
+        onrestart write /sys/power/state on
+        onrestart restart media
+        onrestart restart netd
+
+通过`init_parser.cpp`完成整个service解析工作，此处就不详细展开讲解析过程，该过程主要是创建一个名"zygote"的service结构体，一个socketinfo结构体(用于socket通信)，以及一个包含4个onrestart的action结构体。
+
+Zygote服务会随着main class的启动而启动，退出后会由init重启zygote，即使多次重启也不会进入recovery模式。zygote所对应的可执行文件是/system/bin/app_process，通过调用`pid =fork()`创建子进程，通过`execve(svc->args[0], (char**)svc->args, (char**) ENV)`，进入App_main.cpp的main()函数。故zygote是通过fork和execv共同创建的。
+
+流程如下：
+
+![zygote_init](/images/boot/init/zygote_init.jpg)
+
+而关于Zygote重启在前面的信号处理过程中讲过，是处理SIGCHLD信号，init进程重启zygote进程，更多关于Zygote内容见[Zygote篇](http://gityuan.com/2016/02/13/android-zygote/)。
+
+### 4.3 服务重启
+![init_oneshot](/images/boot/init/init_oneshot.jpg)
+
+当init子进程退出时，会产生SIGCHLD信号，并发送给init进程，通过socket套接字传递数据，调用到wait_for_one_process()方法，根据是否是oneshot，来决定是重启子进程，还是放弃启动。
+
+所有的Service里面只有servicemanager ，zygote ，surfaceflinger这3个服务有`onrestart`关键字来触发其他service启动过程。
 
     //zygote可触发media、netd重启
     service zygote /system/bin/app_process -Xzygote /system/bin --zygote --start-system-server
@@ -323,36 +380,13 @@ Options是Services的可选项，与service配合使用
         user system
         group graphics drmrpc
         onrestart restart zygote
-
-## 四、创建Zygote
-
-在init.zygote.rc文件中，zygote服务定义如下：
-
-    service zygote /system/bin/app_process -Xzygote /system/bin --zygote --start-system-server
-        class main
-        socket zygote stream 660 root system
-        onrestart write /sys/android_power/request_state wake
-        onrestart write /sys/power/state on
-        onrestart restart media
-        onrestart restart netd
-
-通过`Init_parser.cpp`完成整个service解析工作，此处就不详细展开讲解析过程，该过程主要是创建一个名"zygote"的service结构体，一个socketinfo结构体(用于socket通信)，以及一个包含4个onrestart的action结构体。
-
-Zygote服务会随着main class的启动而启动，退出后会由init重启zygote，即使多次重启也不会进入recovery模式。zygote所对应的可执行文件是/system/bin/app_process，通过调用`pid =fork()`创建子进程，通过`execve(svc->args[0], (char**)svc->args, (char**) ENV)`，进入App_main.cpp的main()函数。故zygote是通过fork和execv共同创建的。
-
-流程如下：
-
-![zygote_init](/images/boot/init/zygote_init.jpg)
-
-而关于Zygote重启在前面的信号处理过程中讲过，是处理SIGCHLD信号，init进程重启zygote进程，更多关于Zygote内容见[Zygote篇](http://gityuan.com/2016/02/13/android-zygote/)。
-
-
+        
 ## 五、属性服务
 
 当某个进程A，通过property_set()修改属性值后，init进程会检查访问权限，当权限满足要求后，则更改相应的属性值，属性值一旦改变则会触发相应的触发器（即rc文件中的on开头的语句)，在Android Shared Memmory（共享内存区域）中有一个_system_property_area_区域，里面记录着所有的属性值。对于进程A通过property_get（）方法，获取的也是该共享内存区域的属性值。
 
-
-property_service.cpp
+### 5.1 初始化
+[-> property_service.cpp]
 
     void property_init() {
         //用于保证只初始化_system_property_area_区域一次
@@ -371,8 +405,8 @@ property_service.cpp
         }
     }
 
-
 在properyty_init函数中，先调用init_property_area函数，创建一块用于存储属性的共享内存，而共享内存是可以跨进程的。
+
 
 **关于加载的prop文件**
 
@@ -384,11 +418,11 @@ property_service.cpp
 4. /data/local.prop；
 5. /data/property路径下的persist属性
 
-**对于属性**：
+### 5.2 属性类别
 
 1. 属性名以`ctl.`开头，则表示是控制消息，控制消息用来执行一些命令。例如：
     - setprop ctl.start bootanim 查看开机动画；
     - setprop ctl.stop bootanim 关闭开机动画；
     - setprop ctl.start pre-recovery 进入recovery模式。
-2. 属性名以`ro.``开头，则表示是只读的，不能设置，所以直接返回。
-3. 属性名以`persist.``开头，则需要把这些值写到对应文件中去。
+2. 属性名以`ro.`开头，则表示是只读的，不能设置，所以直接返回。
+3. 属性名以`persist.`开头，则需要把这些值写到对应文件中去。

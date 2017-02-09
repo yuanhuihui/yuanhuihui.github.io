@@ -1,0 +1,35 @@
+
+1. 指针
+
+int *point = &address; //指针
+int &alias = k; //引用
+
+void* ptr = nullptr //空指针
+
+2. 头文件写法
+
+防止重复包含
+
+#ifndef _TYPE_A
+#define _TYPE_A
+#endif
+
+3. namespace
+
+namespace gityuan{
+  void methodA();
+}
+
+使用：
+
+gityuan::methodA();
+
+4. 构造函数
+
+普通构造函数
+拷贝构造函数 （深拷贝、浅拷贝）
+拷贝赋值函数
+
+5. 虚函数
+虚函数
+纯虚函数

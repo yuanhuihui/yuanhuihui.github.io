@@ -1,0 +1,43 @@
+开机过程的画面：
+
+http://blog.csdn.net/luoshengyang/article/details/7691321
+
+1. Linux内核的启动画面，这是静态画面，默认关闭，需配置如下参数
+CONFIG_FRAMEBUFFER_CONSOLE
+CONFIG_LOGO
+
+/dev/graphics/fb0, fb1, ... ，用户空间程序通过操作该设备节点，即可控制需要输出的渲染画面。
+
+2. init进程启动过程出现的，这是静态画面
+
+system/core/init/init.c
+
+    int main(int argc, char **argv)  
+    { 
+      ...
+      queue_builtin_action(console_init_action, "console_init"); 
+      ...
+    }
+
+接下来，看console_init_action()方法：通过load_565rle_image
+
+    static int console_init_action(int nargs, char **args)  
+    { 
+        //开机画面的显示
+        if( load_565rle_image(INIT_IMAGE_FILE) ) { 
+          fd = open("/dev/tty0", O_WRONLY);  
+          ... //画面无法显示，则直接向tty0输入文字。
+        }
+    }
+ 
+3. 系统服务启动过程出现的，由bootanimation来负责显示的，这是动态画面
+
+    service bootanim /system/bin/bootanimation  
+        user graphics  
+        group graphics  
+        disabled  
+        oneshot  
+        
+SurfaceFlinger来通过修改ctl.start和ctl.stop值来控制这个动画。
+
+具体停止显示这个动画的时机？ 是在home空闲的时候吗？
