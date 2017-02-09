@@ -38,7 +38,7 @@ init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启�
         signal_handler_init();  //初始化子进程退出的信号处理过程【见小节2.1】
 
         property_load_boot_defaults(); //加载default.prop文件
-        start_property_service();   //启动属性服务器(通过socket通信)
+        start_property_service();   //启动属性服务器(通过socket通信)【5.1】
         init_parse_config_file("/init.rc"); //解析init.rc文件
 
         //执行rc文件中触发器为 on early-init的语句
