@@ -547,7 +547,7 @@ Zygote启动过程的调用流程图：
 2. 调用AndroidRuntime的startVM()方法创建虚拟机，再调用startReg()注册JNI函数；
 3. 通过JNI方式调用ZygoteInit.main()，第一次进入Java世界；
 4. registerZygoteSocket()建立socket通道，zygote作为通信的服务端，用于响应客户端请求；
-5. preload()预加载通用类、drawable和color资源、openGL以及共享库以及WebView，用于提高ap启动效率；
+5. preload()预加载通用类、drawable和color资源、openGL以及共享库以及WebView，用于提高app启动效率；
 6. zygote完毕大部分工作，接下来再通过startSystemServer()，fork得力帮手system_server进程，也是上层framework的运行载体。
 7. zygote功成身退，调用runSelectLoop()，随时待命，当接收到请求创建新进程请求时立即唤醒并执行相应工作。
 

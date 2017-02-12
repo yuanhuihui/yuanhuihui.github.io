@@ -33,7 +33,13 @@ init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启�
 
     int main(int argc, char** argv) {
         ...
-        klog_init();  //初始化kernel log
+        umask(0); //设置文件属性0777
+        
+        klog_init();  //初始化kernel log，位于设备节点/dev/kmsg【见小节1.2】
+        klog_set_level(KLOG_NOTICE_LEVEL); //设置输出的log级别
+        // 输出init启动阶段的log
+        NOTICE("init%s started!\n", is_first_stage ? "" : " second stage");
+        
         property_init(); //创建一块共享的内存空间，用于属性服务
         signal_handler_init();  //初始化子进程退出的信号处理过程【见小节2.1】
 
@@ -43,15 +49,32 @@ init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启�
 
         //执行rc文件中触发器为 on early-init的语句
         action_for_each_trigger("early-init", action_add_queue_tail);
+        //等冷插拔设备初始化完成
+        queue_builtin_action(wait_for_coldboot_done_action, "wait_for_coldboot_done");
+        queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
+        //设备组合键的初始化操作
+        queue_builtin_action(keychord_init_action, "keychord_init");
+        // 屏幕上显示Android静态Logo 【见小节1.3】
+        queue_builtin_action(console_init_action, "console_init");
+        
         //执行rc文件中触发器为 on init的语句
         action_for_each_trigger("init", action_add_queue_tail);
-        //执行rc文件中触发器为 on late-init的语句
-        action_for_each_trigger("late-init", action_add_queue_tail);
-
+        queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
+        
+        char bootmode[PROP_VALUE_MAX];
+        //当处于充电模式，则charger加入执行队列；否则late-init加入队列。
+        if (property_get("ro.bootmode", bootmode) > 0 && strcmp(bootmode, "charger") == 0) {
+           action_for_each_trigger("charger", action_add_queue_tail);
+        } else {
+           action_for_each_trigger("late-init", action_add_queue_tail);
+        }
+        //触发器为属性是否设置
+        queue_builtin_action(queue_property_triggers_action, "queue_property_triggers");
+         
         while (true) {
             if (!waiting_for_exec) {
                 execute_one_command();
-                restart_processes();
+                restart_processes(); //【见小节1.4】
             }
             int timeout = -1;
             if (process_needs_restart) {
@@ -74,6 +97,93 @@ init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启�
         }
         return 0;
     }
+
+### 1.2 log系统
+
+此时android的log系统还没有启动，采用kernel的log系统，打开的设备节点/dev/kmsg，
+那么可通过`cat /dev/kmsg`来获取内核log。
+
+接下来，设置log的输出级别为KLOG_NOTICE_LEVEL(5)，当log级别小于5时则会输出到kernel log，
+默认值为3.
+
+    #define KLOG_ERROR_LEVEL   3
+    #define KLOG_WARNING_LEVEL 4
+    #define KLOG_NOTICE_LEVEL  5
+    #define KLOG_INFO_LEVEL    6
+    #define KLOG_DEBUG_LEVEL   7
+    #define KLOG_DEFAULT_LEVEL  3 //默认为3
+
+### 1.3 console_init_action
+[-> init.cpp]
+
+    static int console_init_action(int nargs, char **args)
+    {
+        char console[PROP_VALUE_MAX];
+        if (property_get("ro.boot.console", console) > 0) {
+            snprintf(console_name, sizeof(console_name), "/dev/%s", console);
+        }
+
+        int fd = open(console_name, O_RDWR | O_CLOEXEC);
+        if (fd >= 0)
+            have_console = 1;
+        close(fd);
+
+        fd = open("/dev/tty0", O_WRONLY | O_CLOEXEC);
+        if (fd >= 0) {
+            const char *msg;
+                msg = "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"  // console is 40 cols x 30 lines
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "\n"
+            "             A N D R O I D ";
+            write(fd, msg, strlen(msg));
+            close(fd);
+        }
+
+        return 0;
+    }
+
+这便是开机显示的底部带ANDROID字样的画面。
+
+### 1.4 restart_processes
+[-> init.cpp]
+
+    static void restart_processes()
+    {
+        process_needs_restart = 0;
+        service_for_each_flags(SVC_RESTARTING,
+                               restart_service_if_needed);
+    }
+
+检查service_list中的所有服务，对于带有SVC_RESTARTING标志的服务，则都会调用其相应的restart_service_if_needed。
+
+    static void restart_service_if_needed(struct service *svc)
+    {
+        time_t next_start_time = svc->time_started + 5;
+
+        if (next_start_time <= gettime()) {
+            svc->flags &= (~SVC_RESTARTING);
+            service_start(svc, NULL); 
+            return;
+        }
+
+        if ((next_start_time < process_needs_restart) ||
+            (process_needs_restart == 0)) {
+            process_needs_restart = next_start_time;
+        }
+    }
+
+之后再调用service_start来启动服务。
 
 ## 二、信号处理
 
@@ -347,6 +457,7 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
 而关于Zygote重启在前面的信号处理过程中讲过，是处理SIGCHLD信号，init进程重启zygote进程，更多关于Zygote内容见[Zygote篇](http://gityuan.com/2016/02/13/android-zygote/)。
 
 ### 4.3 服务重启
+
 ![init_oneshot](/images/boot/init/init_oneshot.jpg)
 
 当init子进程退出时，会产生SIGCHLD信号，并发送给init进程，通过socket套接字传递数据，调用到wait_for_one_process()方法，根据是否是oneshot，来决定是重启子进程，还是放弃启动。
@@ -380,7 +491,15 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
         user system
         group graphics drmrpc
         onrestart restart zygote
-        
+    
+由上可知：
+
+- zygote：触发media、netd以及子进程重启；
+- surfaceflinger：触发zygote重启;
+- servicemanager: 触发healthd、zygote、media、surfaceflinger、drm重启
+
+所以，surfaceflinger,servicemanager,zygote自身以及system_server进程被杀都会触发Zygote重启。
+
 ## 五、属性服务
 
 当某个进程A，通过property_set()修改属性值后，init进程会检查访问权限，当权限满足要求后，则更改相应的属性值，属性值一旦改变则会触发相应的触发器（即rc文件中的on开头的语句)，在Android Shared Memmory（共享内存区域）中有一个_system_property_area_区域，里面记录着所有的属性值。对于进程A通过property_get（）方法，获取的也是该共享内存区域的属性值。

@@ -26,6 +26,8 @@ RefBase有一个成员变量mRefs为weakref_impl指针，weakref_impl对象便�
 - 强引用为0时，实际对象被delete；
 - 弱引用为0时，weakref_impl对象被delete;
 
+注意：首次调用对象incStrong()，则会调用该对象的onFirstRef().
+
 ### 3. promote
 弱引用不能直接操作目标对象，根本原因是在于弱指针类没有重载*和->操作符号，而强指针重载了这两个操作符号。可通过promote()函数，将弱引用提升为强引用对象
 
@@ -39,3 +41,6 @@ RefBase有一个成员变量mRefs为weakref_impl指针，weakref_impl对象便�
 - flags为LIFETIME_WEAK，强引用计数为0，弱引用计数不为0时，实际对象不会被delete。
     - 当弱引用计数减为0时，实际对象和weakref_impl对象会同时被delete。
 - flags为LIFETIME_FOREVER，对象不受强弱引用计数的控制，用不会被回收。
+
+### 5. 
+首次调用这个对象的incStrong函数，就会调用一个这个对象的onFirstRef函数
