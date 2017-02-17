@@ -1,11 +1,13 @@
 ---
 layout: post
-title:  "SurfaceFlinger的启动过程"
-date:   2017-05-31 20:30:00
+title:  "SurfaceFlinger原理(一)"
+date:   2017-02-11 20:30:00
 catalog:  true
 tags:
     - android
 ---
+
+> 基于Android 6.0源码， 分析SurfaceFlinger原理
 
     frameworks/native/services/surfaceflinger/
       - main_surfaceflinger.cpp
@@ -29,10 +31,10 @@ Android系统的图形处理相关的模块，就不得不提surfaceflinger，�
         onrestart restart zygote
         writepid /dev/cpuset/system-background/tasks
 
-属于core class组别，当surfaceflinger重启时会触发zygote的重启。surfaceflinger服务启动的起点
-便是如下的main()函数。
+surfaceflinger服务属于核心类(core class)，另外，当surfaceflinger重启时会触发zygote的重启。
+surfaceflinger服务启动的起点便是如下的main()函数。
 
-## 二. 流程
+## 二. 启动过程
 
 ### 2.1 main
 [-> main_surfaceflinger.cpp]
@@ -65,10 +67,11 @@ Android系统的图形处理相关的模块，就不得不提surfaceflinger，�
 该方法的主要功能：
 
 - 设定surfaceflinger进程的binder线程池个数上限为4，并启动binder线程池；
-- 创建SurfaceFlinger对象；
+- 创建SurfaceFlinger对象；【见小节2.1】
 - 设置surfaceflinger进程为高优先级以及前台调度策略；
-- 初始化SurfaceFlinger，并将"SurfaceFlinger"注册到Service Manager;
-- 在当前主线程执行SurfaceFlinger的run方法。
+- 初始化SurfaceFlinger；【见小节2.3】
+- 将"SurfaceFlinger"服务注册到Service Manager;
+- 在当前主线程执行SurfaceFlinger的run方法。【见小节2.11】
 
 ### 2.2 创建SurfaceFlinger
 [-> SurfaceFlinger.cpp]
@@ -137,6 +140,8 @@ flinger的数据类型为sp<SurfaceFlinger>强指针类型，当首次被强指�
         mLooper = new Looper(true);
         mHandler = new Handler(*this); //【见小节2.2.3】
     }
+
+这个Handler是MessageQueue的内部类Handler。
 
 #### 2.2.3 MQ.Handler
 [-> MessageQueue.cpp]
@@ -220,7 +225,7 @@ flinger的数据类型为sp<SurfaceFlinger>强指针类型，当首次被强指�
                 sfVsyncPhaseOffsetNs, true, "sf");
         mSFEventThread = new EventThread(sfVsyncSrc);
         
-        //创建线程EventThread 【见小节2.8】
+        //设置EventThread 【见小节2.8】
         mEventQueue.setEventThread(mSFEventThread);
 
         //【见小节2.9】
@@ -299,7 +304,10 @@ flinger的数据类型为sp<SurfaceFlinger>强指针类型，当首次被强指�
             mVSyncThread = new VSyncThread(*this);
         }
     }
-    
+
+HWComposer代表着硬件显示设备，注册了VSYNC信号的回调。VSYNC信号本身是由显示驱动产生的，
+在不支持硬件的VSYNC，则会创建“VSyncThread”线程来模拟定时VSYNC信号。
+
 ### 2.5 显示设备
 [-> SurfaceFlinger.cpp]
 
@@ -341,8 +349,7 @@ flinger的数据类型为sp<SurfaceFlinger>强指针类型，当首次被强指�
 ### 2.6 DispSyncSource
 [-> SurfaceFlinger.cpp]
 
-  class DispSyncSource : public VSyncSource, private DispSync::Callback {
-
+    class DispSyncSource : public VSyncSource, private DispSync::Callback {
       DispSyncSource(DispSync* dispSync, nsecs_t phaseOffset, bool traceVsync,
           const char* label) :
               mValue(0),
@@ -405,7 +412,7 @@ EventThread继承于Thread和VSyncSource::Callback两个类。
         const size_t count = signalConnections.size();
         for (size_t i=0 ; i<count ; i++) {
             const sp<Connection>& conn(signalConnections[i]);
-            //传递事件
+            //传递事件【见小节3.10】
             status_t err = conn->postEvent(event);
             if (err == -EAGAIN || err == -EWOULDBLOCK) {
                 //可能此时connection已满，则直接抛弃事件
@@ -533,35 +540,6 @@ EventThread线程，进入mCondition的wait()方法，等待唤醒。
                 MessageQueue::cb_eventReceiver, this);
     }
 
-#### 2.8.1 MQ.cb_eventReceiver
-[-> MessageQueue.cpp]
-
-    int MessageQueue::cb_eventReceiver(int fd, int events, void* data) {
-        MessageQueue* queue = reinterpret_cast<MessageQueue *>(data);
-        return queue->eventReceiver(fd, events);
-    }
-
-#### 2.8.2 MQ.eventReceiver
-[-> MessageQueue.cpp]
-
-    int MessageQueue::eventReceiver(int /*fd*/, int /*events*/) {
-        ssize_t n;
-        DisplayEventReceiver::Event buffer[8];
-        while ((n = DisplayEventReceiver::getEvents(mEventTube, buffer, 8)) > 0) {
-            for (int i=0 ; i<n ; i++) {
-                if (buffer[i].header.type == DisplayEventReceiver::DISPLAY_EVENT_VSYNC) {
-    #if INVALIDATE_ON_VSYNC
-                    mHandler->dispatchInvalidate();
-    #else
-                    mHandler->dispatchRefresh();
-    #endif
-                    break;
-                }
-            }
-        }
-        return 1;
-    }
-
 ### 2.9 EventControlThread线程
 [-> EventControlThread.cpp]
 
@@ -610,19 +588,21 @@ EventControlThread也是继承于Thread。
 
     void SurfaceFlinger::run() {
         do {
-            //不断循环地等待事件【见小节2.11】
+            //不断循环地等待事件【见小节2.12】
             waitForEvent(); 
         } while (true);
     }
 
-### 2.11 SF.waitForEvent
+### 2.12 SF.waitForEvent
 [-> SurfaceFlinger.cpp]
 
     void SurfaceFlinger::waitForEvent() {
-        mEventQueue.waitMessage(); //【2.12】
+        mEventQueue.waitMessage(); //【2.13】
     }
 
-### 2.12 MQ.waitMessage
+mEventQueue的数据类型为MessageQueue。
+ 
+### 2.13 MQ.waitMessage
 [-> MessageQueue.cpp]
 
     void MessageQueue::waitMessage() {
@@ -632,6 +612,8 @@ EventControlThread也是继承于Thread。
             ...
         } while (true);
     }
+
+可见SurfaceFlinger主线程进入waitMessage来等待消息的到来。
 
 ## 三. Vsync信号
 
@@ -803,8 +785,8 @@ HWComposer对象创建过程，会注册一些回调方法，当硬件产生VSYN
         mThread->updateModel(mPeriod, mPhase);
     }
     
-### 3.6 DS.updateModel
-[-> DispSync.cpp]
+### 3.6 DST.updateModel
+[-> DispSyncThread.cpp]
 
     class DispSyncThread: public Thread {
         void updateModel(nsecs_t period, nsecs_t phase) {
@@ -817,7 +799,7 @@ HWComposer对象创建过程，会注册一些回调方法，当硬件产生VSYN
 
 唤醒DispSyncThread线程，接下里进入DispSyncThread线程。
 
-### 3.7 DispSyncThread
+### 3.7 DispSyncThread线程
 [-> DispSync.cpp]
 
     virtual bool threadLoop() {
@@ -839,7 +821,7 @@ HWComposer对象创建过程，会注册一些回调方法，当硬件产生VSYN
              }
 
              if (callbackInvocations.size() > 0) {
-                 //回调所有对象的onDispSyncEvent方法
+                 //回调所有对象的onDispSyncEvent方法 【见小节3.7.1】
                  fireCallbackInvocations(callbackInvocations);
              }
          }
@@ -847,7 +829,7 @@ HWComposer对象创建过程，会注册一些回调方法，当硬件产生VSYN
          return false;
      } 
  
- #### 3.7.1 fireCallbackInvocations
+#### 3.7.1 fireCallbackInvocations
  
     void fireCallbackInvocations(const Vector<CallbackInvocation>& callbacks) {
         for (size_t i = 0; i < callbacks.size(); i++) {
@@ -859,7 +841,7 @@ HWComposer对象创建过程，会注册一些回调方法，当硬件产生VSYN
 在前面小节SurfaceFlinger调用init()的过程，创建了两个DispSyncSource对象。接下里便是回调该对象的
 onDispSyncEvent。
 
-### 3.8 DS.onDispSyncEvent
+### 3.8 DSS.onDispSyncEvent
 [-> SurfaceFlinger.cpp  ::DispSyncSource]
 
     virtual void onDispSyncEvent(nsecs_t when) {
@@ -886,9 +868,9 @@ onDispSyncEvent。
         mCondition.broadcast(); //唤醒EventThread线程
     }
 
-mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread，并往下执行conn的postEvent().
+mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread【见小节2.7.2】，并往下执行conn的postEvent().
 
-### 3.10 postEvent
+### 3.10 ET.postEvent
 [-> EventThread.java]
 
     status_t EventThread::Connection::postEvent(
@@ -906,9 +888,38 @@ mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread，并�
         return BitTube::sendObjects(dataChannel, events, count);
     }
   
-通过BitTube，则进入前面小节2.8.2的 MQ.eventReceiver过程。接下来进入 mHandler->dispatchRefresh
+根据小节【2.8】可知监听BitTube，此处调用BitTube来sendObjects。一旦收到数据，则调用MQ.cb_eventReceiver()方法。
+  
+#### 3.11.1 MQ.cb_eventReceiver
+[-> MessageQueue.cpp]
 
-### 3.12 dispatchRefresh
+    int MessageQueue::cb_eventReceiver(int fd, int events, void* data) {
+        MessageQueue* queue = reinterpret_cast<MessageQueue *>(data);
+        return queue->eventReceiver(fd, events);
+    }
+
+#### 3.11.2 MQ.eventReceiver
+[-> MessageQueue.cpp]
+
+    int MessageQueue::eventReceiver(int /*fd*/, int /*events*/) {
+        ssize_t n;
+        DisplayEventReceiver::Event buffer[8];
+        while ((n = DisplayEventReceiver::getEvents(mEventTube, buffer, 8)) > 0) {
+            for (int i=0 ; i<n ; i++) {
+                if (buffer[i].header.type == DisplayEventReceiver::DISPLAY_EVENT_VSYNC) {
+    #if INVALIDATE_ON_VSYNC
+                    mHandler->dispatchInvalidate();
+    #else
+                    mHandler->dispatchRefresh(); //【见小节3.12】
+    #endif
+                    break;
+                }
+            }
+        }
+        return 1;
+    }
+
+### 3.12 MQ.dispatchRefresh
 
     void MessageQueue::Handler::dispatchRefresh() {
         if ((android_atomic_or(eventMaskRefresh, &mEventMask) & eventMaskRefresh) == 0) {
@@ -917,7 +928,7 @@ mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread，并�
         }
     }
 
-### 3.13 handleMessage
+### 3.13 MQ.handleMessage
 
     void MessageQueue::Handler::handleMessage(const Message& message) {
         switch (message.what) {
@@ -927,8 +938,7 @@ mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread，并�
                 break;
             case REFRESH:
                 android_atomic_and(~eventMaskRefresh, &mEventMask);
-                //【见小节3.14】
-                mQueue.mFlinger->onMessageReceived(message.what);
+                mQueue.mFlinger->onMessageReceived(message.what);//【见小节3.14】
                 break;
             case TRANSACTION:
                 android_atomic_and(~eventMaskTransaction, &mEventMask);
@@ -969,49 +979,26 @@ mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread，并�
 [-> SurfaceFlinger.cpp]
 
     void SurfaceFlinger::handleMessageRefresh() {
-
-        static nsecs_t previousExpectedPresent = 0;
-        nsecs_t expectedPresent = mPrimaryDispSync.computeNextRefresh(0);
-        static bool previousFrameMissed = false;
-        bool frameMissed = (expectedPresent == previousExpectedPresent);
-        previousFrameMissed = frameMissed;
-
-        if (CC_UNLIKELY(mDropMissedFrames && frameMissed)) {
-            preComposition();
-            repaintEverything();
-        } else {
-            preComposition();
-            rebuildLayerStacks();
-            setUpHWComposer();
-            doDebugFlashRegions();
-            doComposition();
-            postComposition();
-        }
-
-        previousExpectedPresent = mPrimaryDispSync.computeNextRefresh(0);
+        ATRACE_CALL();
+        preComposition();
+        rebuildLayerStacks();
+        setUpHWComposer();
+        doDebugFlashRegions();
+        doComposition();
+        postComposition();
     }
-    
+
+下一篇文章，再来介绍图形输出过程。
+
 ## 四 总结
 
-- 线程"EventThread"：EventThread （2个）
+前面讲述过程中所涉及到的线程情况：
+
+- 主线程“/system/bin/surfaceflinger”: 主线程
+- 线程"EventThread"：EventThread
 - 线程"EventControl"： EventControlThread
 - 线程"DispSync"：DispSyncThread
 
+Vsync处理流程图：点击查看[大图](http://gityuan.com/images/surfaceFlinger/vsync.jpg)
 
-  HWComposer.hook_vsync
-    HWComposer.vsync
-      SurfaceFlinger.onVSyncReceived
-        DispSync.addResyncSample
-          DispSync.updateModelLocked
-            DispSyncThread.updateModel
-              DispSyncThread.threadLoop (换线程"DispSync")
-                DispSyncSource.onDispSyncEvent
-                  EventThread.onVSyncEvent
-                     EventThread.waitForEvent(换线程"EventThread")
-                      EventThread.Connection.postEvent
-                        DisplayEventReceiver.sendEvents
-                          MessageQueue::eventReceiver
-                            MessageQueue::Handler::dispatchRefresh
-                              MessageQueue::Handler::handleMessage
-                                SurfaceFlinger.onMessageReceived
-                                  SurfaceFlinger.handleMessageRefresh
+![vsync](/images/surfaceFlinger/vsync.jpg)
