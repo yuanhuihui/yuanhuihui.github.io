@@ -17,6 +17,7 @@ tags:
 上一篇文章，介绍了SurfaceFlinger和VSync的处理流程。当SurfaceFlinger进程收到VSync信号后经层层调用，
 最终调用到该对象的handleMessageRefresh()方法。接下来，从该方法说起。
 
+
 ### 1.1 SF.handleMessageRefresh
 [-> SurfaceFlinger.cpp]
 
@@ -29,6 +30,10 @@ tags:
         doComposition(); //【见小节5.1】
         postComposition(); //【见小节6.1】
     }
+
+先来看看SurfaceFlinger主线程绘制的systrace图
+
+![systrace_sf](/images/surfaceFlinger/systrace_sf.png)
 
 ## 二. preComposition
 
