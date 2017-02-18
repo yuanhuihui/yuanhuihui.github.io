@@ -33,3 +33,29 @@ tags:
 - 进程死亡;
 - 执行trimApplications操作;
 - 其他异常情况等.
+
+
+## restart
+
+## delay start
+
+ServiceRecord.java
+
+    Runnable restarter; //用于调度service的重启
+    boolean delayed; //等待service在后台启动
+    boolean delayedStop; // service已停止, 但还位于delay队列
+    long startingBgTimeout;  //延迟启动的的调度时间点
+    boolean startRequested; // 显示调用start service
+
+    long restartDelay;      //直到下一次执行重启操作的延时时长
+    long restartTime;       //上一次重启时间
+    long nextRestartTime;   // time when restartDelay will expire.
+
+ActiveServices.java
+
+    ServiceMap.mDelayedStartList
+    ServiceMap.mStartingBackground
+    mRestartingServices
+
+
+延迟启动与重启之间的问题
