@@ -16,8 +16,9 @@ tags:
       - MessageQueue.cpp
       - DisplayHardware/HWComposer.cpp
       
-    frameworks/native/libs/gui/DisplayEventReceiver.cpp
-    frameworks/native/libs/gui/BitTube.cpp
+    frameworks/native/libs/gui/
+      - DisplayEventReceiver.cpp
+      - BitTube.cpp
     
 ## 一. 概述
 

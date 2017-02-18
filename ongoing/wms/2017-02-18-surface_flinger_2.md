@@ -117,6 +117,7 @@ SurfaceFlinger可以控制某些Layer不参与绘制过程，比如需要将悬�
             }
         }
     }
+    
 ## 四. setUpHWComposer
 
     void SurfaceFlinger::setUpHWComposer() {
