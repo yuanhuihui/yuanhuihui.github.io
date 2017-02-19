@@ -12,6 +12,10 @@ MonitoredProducer ->  IGraphicBufferProducer
 
 
 
-IGraphicBufferConsumer 和 IGraphicBufferProducer
-BufferQueueConsumer -->  BnGraphicBufferConsumer --> BnInterface<IGraphicBufferConsumer> --> IInterface
-BufferQueueProducer --> BnGraphicBufferProducer,IBinder::DeathRecipient --> BnInterface<IGraphicBufferProducer>
+frameworks/native/libs/gui/
+    - BufferQueueConsumer.h
+    - BufferQueueProducer.h
+    - IGraphicBufferConsumer.h
+    - IGraphicBufferProducer.h
+
+frameworks/native/include/binder/IInterface.h
