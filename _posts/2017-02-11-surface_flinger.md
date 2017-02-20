@@ -142,7 +142,7 @@ flinger的数据类型为sp<SurfaceFlinger>强指针类型，当首次被强指�
         mHandler = new Handler(*this); //【见小节2.2.3】
     }
 
-这个Handler是MessageQueue的内部类Handler。
+这个Handler是MessageQueue的内部类Handler，此处传递的*this便是MessageQueue本身。
 
 #### 2.2.3 MQ.Handler
 [-> MessageQueue.cpp]
