@@ -42,6 +42,9 @@ AS.bringUpServiceLocked
 AT.scheduleCreateService
     sendMessage H.CREATE_SERVICE
         
+        
 AT.handleCreateService
     service.onCreate
     AMP.serviceDoneExecuting
+    
+AMS.serviceDoneExecuting

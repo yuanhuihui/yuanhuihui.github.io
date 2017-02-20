@@ -210,7 +210,7 @@ Android系统源码中framework/native/cmds/bugreport目录通过Android.mk定�
             strlcat(tmp_path, ".tmp", sizeof(tmp_path));
             redirect_to_file(stdout, tmp_path);
         }
-        //这里是真正干活的地方 【见小节 3.3】
+        //这里是真正干活的地方 【见小节 2.3】
         dumpstate();
         //通过震动提醒已完成所有dump操作
         if (vibrator) {
@@ -742,65 +742,42 @@ dump虚拟机和native的stack traces，并返回trace文件位置
         if (!traces_path[0]) return NULL;
 
         char anr_traces_path[PATH_MAX];
+        将traces_path文件名拷贝到anr_traces_path
         strlcpy(anr_traces_path, traces_path, sizeof(anr_traces_path));
+        //连接后,anr_traces_path变成了/data/anr/traces.txt.anr
         strlcat(anr_traces_path, ".anr", sizeof(anr_traces_path));
-        //文件重命名
+        
+        //文件重命名, 将/data/anr/traces.txt文件重命名为/data/anr/traces.txt.anr
         if (rename(traces_path, anr_traces_path) && errno != ENOENT) {
-            fprintf(stderr, "rename(%s, %s): %s\n", traces_path, anr_traces_path, strerror(errno));
             return NULL; //没有权限重命令
         }
 
         char anr_traces_dir[PATH_MAX];
         strlcpy(anr_traces_dir, traces_path, sizeof(anr_traces_dir));
+        // *slash为/traces.txt
         char *slash = strrchr(anr_traces_dir, '/');
         if (slash != NULL) {
             *slash = '\0';
-            //创建文件夹
+            //创建文件夹/data/anr/traces.txt/
             if (!mkdir(anr_traces_dir, 0775)) {
                 chown(anr_traces_dir, AID_SYSTEM, AID_SYSTEM);
                 chmod(anr_traces_dir, 0775);
                 if (selinux_android_restorecon(anr_traces_dir, 0) == -1) {
                     fprintf(stderr, "restorecon failed for %s: %s\n", anr_traces_dir, strerror(errno));
                 }
-            } else if (errno != EEXIST) {
-                fprintf(stderr, "mkdir(%s): %s\n", anr_traces_dir, strerror(errno));
-                return NULL;
-            }
+            } 
         }
 
-        //创建一个新的空文件traces.txt
+        //创建一个新的空文件/data/anr/traces.txt
         int fd = TEMP_FAILURE_RETRY(open(traces_path, O_CREAT | O_WRONLY | O_TRUNC | O_NOFOLLOW | O_CLOEXEC,
                                          0666));  /* -rw-rw-rw- */
-        if (fd < 0) {
-            fprintf(stderr, "%s: %s\n", traces_path, strerror(errno));
-            return NULL;
-        }
-        int chmod_ret = fchmod(fd, 0666);
-        if (chmod_ret < 0) {
-            fprintf(stderr, "fchmod on %s failed: %s\n", traces_path, strerror(errno));
-            close(fd);
-            return NULL;
-        }
 
-        // * walk /proc and kill -QUIT all Dalvik processes */
+        int chmod_ret = fchmod(fd, 0666);
         DIR *proc = opendir("/proc");
-        if (proc == NULL) {
-            fprintf(stderr, "/proc: %s\n", strerror(errno));
-            goto error_close_fd;
-        }
 
         //当进程完成dump操作时，通过inotify来通知
         int ifd = inotify_init();
-        if (ifd < 0) {
-            fprintf(stderr, "inotify_init: %s\n", strerror(errno));
-            goto error_close_fd;
-        }
-
         int wfd = inotify_add_watch(ifd, traces_path, IN_CLOSE_WRITE);
-        if (wfd < 0) {
-            fprintf(stderr, "inotify_add_watch(%s): %s\n", traces_path, strerror(errno));
-            goto error_close_ifd;
-        }
 
         struct dirent *d;
         int dalvik_found = 0;
@@ -838,7 +815,7 @@ dump虚拟机和native的stack traces，并返回trace文件位置
                     continue;
                 }
 
-                /* wait for the writable-close notification from inotify */
+                //等待来自inotify的可写关闭的通知
                 struct pollfd pfd = { ifd, POLLIN, 0 };
                 int ret = poll(&pfd, 1, 5000);  /* 5s超时*/
                 if (ret < 0) {
@@ -880,30 +857,33 @@ dump虚拟机和native的stack traces，并返回trace文件位置
             }
         }
 
-        if (dalvik_found == 0) {
-            fprintf(stderr, "Warning: no Dalvik processes found to dump stacks\n");
-        }
-
         static char dump_traces_path[PATH_MAX];
+        //将/data/anr/tracex.txt字节拷贝到dump_traces_path
         strlcpy(dump_traces_path, traces_path, sizeof(dump_traces_path));
+        //此时dump_traces_path就变成了/data/anr/tracex.txt.bugreport
         strlcat(dump_traces_path, ".bugreport", sizeof(dump_traces_path));
         if (rename(traces_path, dump_traces_path)) {
-            fprintf(stderr, "rename(%s, %s): %s\n", traces_path, dump_traces_path, strerror(errno));
             goto error_close_ifd;
         }
         result = dump_traces_path;
 
-        /* replace the saved [ANR] traces.txt file */
+        //再将/data/anr/traces.txt.anr 重命名回到/data/anr/traces.txt
         rename(anr_traces_path, traces_path);
 
-    error_close_ifd:
-        close(ifd);
-    error_close_fd:
-        close(fd);
+        ...
         return result;
     }
 
-该方法其中两个重要的步骤：
+此处有多次文件名的拷贝/连接/重命名操作, 主要逻辑如下:
+
+1. 首先,/data/anr/tracex.txt文件重命名为/data/anr/traces.txt.anr, 这样可以保护上次anr信息;
+2. 然后,bugreport输出的trace内容输出到/data/anr/tracex.txt文件, 然后再把该文件重命名为/data/anr/tracex.txt.bugreport;
+3. 最后,将/data/anr/traces.txt.anr文件名改为/data/anr/tracex.txt.
+
+其中,整个过程的效果就等价于将bugreport过程抓取的traces输出到/data/anr/tracex.txt.bugreport文件.
+
+
+dump_traces主要完成如下两个功能的输出:
 
 - 输出Java进程的trace是通过发送signal 3来dump相应信息。
 - 输出native进程的trace是通过dump_backtrace_to_file_timeout，并且超时时长为20s;

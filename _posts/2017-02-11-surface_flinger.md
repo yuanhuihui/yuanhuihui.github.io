@@ -256,6 +256,8 @@ flinger的数据类型为sp<SurfaceFlinger>强指针类型，当首次被强指�
 - 启动app和sf两个EventThread线程；
 - 启动开机动画；
 
+另外，此处会创建两个DispSyncSource对象，分别是用于绘制(app)和合成(SurfaceFlinger)，唯一的区别在于offset.
+
 ### 2.4 创建HWComposer
 [-> HWComposer.cpp]
 
