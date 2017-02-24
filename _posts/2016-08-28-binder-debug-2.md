@@ -8,11 +8,20 @@ tags:
     - binder
 ---
 
-## 一. 概述
+## 一. 节点创建
 
 上一篇文章已经介绍了binder子系统调试的一些手段,这篇文章再来挑选系统几个核心服务进程来进行分析.
 
-### 1.1 创建debugfs
+#### 1.1 内核编译选项
+
+如果系统关闭了debugfs，则通过编辑`kernel/arch/arm/configs/×××_defconfig`
+
+    //开启debugfs
+    CONFIG_DEBUG_FS=y
+    //有时，可能还需要配置fs的白名单列表，例如：
+    CONFIG_DEBUG_FS_WHITE_LIST=":/tracing:/binder:/wakeup_sources:"
+    
+#### 1.2 创建debugfs
 
 首先debugfs文件系统默认挂载在节点`/sys/kernel/debug`，binder驱动初始化的过程会在该节点下先创建`/binder`目录，然后在该目录下创建下面文件和目录：
 
@@ -27,67 +36,30 @@ tags:
 
 	//创建目录 /sys/kernel/debug/binder
 	binder_debugfs_dir_entry_root = debugfs_create_dir("binder", NULL);
-
 	//创建目录 /sys/kernel/debug/binder/proc
 	binder_debugfs_dir_entry_proc = debugfs_create_dir("proc", binder_debugfs_dir_entry_root);
-
 	//创建文件/sys/kernel/debug/binder/state
 	debugfs_create_file("state",S_IRUGO, binder_debugfs_dir_entry_root, NULL, &binder_state_fops);
+
 
 另外，`/d`其实是指向`/sys/kernel/debug`的链接，也可以通过节点`/d/binder`来访问.
 
 
-### 1.2 内核编译选项
 
-如果系统关闭了debugfs，则通过编辑`kernel/arch/arm/configs/×××_defconfig`
+## 二. 节点分析
 
-    //开启debugfs
-    CONFIG_DEBUG_FS=y
-    //有时，可能还需要配置fs的白名单列表，例如：
-    CONFIG_DEBUG_FS_WHITE_LIST=":/tracing:/binder:/wakeup_sources:"
+接下来,看看系统创建的以下5个节点:
 
-## 二. stats
-
-### 2.1 binder_stats
-
-	struct binder_stats {
-		int br[_IOC_NR(BR_FAILED_REPLY) + 1]; //统计各个binder响应码的个数
-		int bc[_IOC_NR(BC_DEAD_BINDER_DONE) + 1]; //统计各个binder请求码的个数
-		int obj_created[BINDER_STAT_COUNT]; //统计各种obj的创建个数
-		int obj_deleted[BINDER_STAT_COUNT]; //统计各种obj的删除个数
-	};
-
-其中obj的个数由一个枚举变量`binder_stat_types`定义。
+    /d/binder/stats (整体以及各个进程的线程数,事务个数等的统计信息)
+    /d/binder/state (整体以及各个进程的thread/node/ref/buffer的状态信息)
+    /d/binder/failed_transaction_log (记录32条最近的传输失败事件)
+    /d/binder/transaction_log (记录32条最近的传输事件)
+    /d/binder/transactions (遍历所有进程的buffer分配情况)
 
 
-统计创建与删除的对象
+每个节点所相应的Binder驱动中的输出函数为binder_xxx_show. 例如/d/binder/stats的节点信息,所对应的输出函数binder_stats_show.
 
-`binder_stat_types`中定义的量：
-
-|类型|含义|
-|---|---|
-|BINDER_STAT_PROC|binder进程|
-|BINDER_STAT_THREAD|binder线程|
-|BINDER_STAT_NODE|binder节点|
-|BINDER_STAT_REF|binder引用|
-|BINDER_STAT_DEATH|binder死亡|
-|BINDER_STAT_TRANSACTION|binder事务|
-|BINDER_STAT_TRANSACTION_COMPLETE|binder已完成事务|
-
-
-每个类型相应的调用方法：
-
-|类型|创建调用|删除调用|
-|---|---|
-|BINDER_STAT_PROC|binder_open|binder_deferred_release
-|BINDER_STAT_THREAD|binder_get_thread|binder_free_thread
-|BINDER_STAT_NODE|binder_new_node|binder_thread_read/ binder_node_release/  binder_dec_node
-|BINDER_STAT_REF|binder_get_ref_for_node|binder_delete_ref|
-|BINDER_STAT_DEATH|binder_thread_write|binder_thread_read/ binder_release_work/  binder_delete_ref|
-|BINDER_STAT_TRANSACTION|binder_transaction|binder_thread_read/ binder_transaction/ binder_release_work/  binder_pop_transaction|
-|BINDER_STAT_TRANSACTION_COMPLETE|binder_transaction|binder_thread_read/ binder_transaction/ binder_release_work|
-
-### 2.2 stats分析
+### 2.1 stats
 
     cat /d/binder/stats
 
@@ -104,7 +76,7 @@ tags:
 
 其中active是指当前系统存活的个数，total是指系统从开机到现在总共创建过的个数。下面举例来说明输出结果的含义：
 
-#### 2.2.1 整体统计信息
+#### 2.1.1 整体信息
 
     binder stats:
     BC_TRANSACTION: 235258
@@ -152,7 +124,7 @@ tags:
 
 为什么是会是这样呢,因为每次BC_TRANSACTION或着BC_REPLY,都是有相应的BR_TRANSACTION_COMPLETE,在传输不出异常的情况下这个次数是相等,有时候并能transaction成功, 所以还需要加上BR_DEAD_REPLY和BR_FAILED_REPLY的情况.
 
-#### 2.2.2 进程统计信息
+#### 2.1.2 各进程信息
 
     proc 14328
       threads: 3 //binder_thread个数
@@ -201,29 +173,85 @@ tags:
 
     adb shell cat /d/binder/stats | egrep "proc |free async space"
 
-### 2.3 其他
+#### 相关说明
 
-#### 2.3.1 transactions
+	struct binder_stats {
+		int br[_IOC_NR(BR_FAILED_REPLY) + 1]; //统计各个binder响应码的个数
+		int bc[_IOC_NR(BC_DEAD_BINDER_DONE) + 1]; //统计各个binder请求码的个数
+		int obj_created[BINDER_STAT_COUNT]; //统计各种obj的创建个数
+		int obj_deleted[BINDER_STAT_COUNT]; //统计各种obj的删除个数
+	};
 
-命令：
+其中obj的个数由一个枚举变量`binder_stat_types`定义。
 
-    cat /d/binder/transactions
 
-输出结果：
+统计创建与删除的对象
 
-    binder transactions:
-    proc 20256
-      buffer 348035: ffffff800a280050 size 212:0 delivered
-    ...
+`binder_stat_types`中定义的量：
 
-解释：
+|类型|含义|
+|---|---|
+|BINDER_STAT_PROC|binder进程|
+|BINDER_STAT_THREAD|binder线程|
+|BINDER_STAT_NODE|binder节点|
+|BINDER_STAT_REF|binder引用|
+|BINDER_STAT_DEATH|binder死亡|
+|BINDER_STAT_TRANSACTION|binder事务|
+|BINDER_STAT_TRANSACTION_COMPLETE|binder已完成事务|
 
-- pid=20256进程，buffer的data_size=212，offsets_size=0，delivered代表已分发的内存块
-- 该命令遍历输出所有进程的情况，可以看出每个进程buffer的分发情况。
 
-#### 2.3.2 transaction_log
+每个类型相应的调用方法：
 
-命令：
+|类型|创建调用|删除调用|
+|---|---|
+|BINDER_STAT_PROC|binder_open|binder_deferred_release
+|BINDER_STAT_THREAD|binder_get_thread|binder_free_thread
+|BINDER_STAT_NODE|binder_new_node|binder_thread_read/ binder_node_release/  binder_dec_node
+|BINDER_STAT_REF|binder_get_ref_for_node|binder_delete_ref|
+|BINDER_STAT_DEATH|binder_thread_write|binder_thread_read/ binder_release_work/  binder_delete_ref|
+|BINDER_STAT_TRANSACTION|binder_transaction|binder_thread_read/ binder_transaction/ binder_release_work/  binder_pop_transaction|
+|BINDER_STAT_TRANSACTION_COMPLETE|binder_transaction|binder_thread_read/ binder_transaction/ binder_release_work|
+
+
+### 2.2 state
+
+    cat /d/binder/state
+
+执行上述语句，所对应的函数`binder_state_show`，输出当前系统binder_proc, binder_node等信息；
+
+#### 2.2.1 整体信息
+输出所有死亡节点的信息
+
+    dead nodes:
+      node 24713573: u0000007f9fe0c6c0 c0000007f9fe63700 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
+      node 24712275: u0000007f9d5f0a80 c0000007fa82d1880 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
+  
+
+#### 2.2.2 各进程信息
+
+    proc 18650
+      thread 18650: l 00
+      thread 18658: l 00
+      thread 18663: l 12
+      thread 18665: l 11
+      node 24805986: u00000000e153f070 c00000000e197dd80 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
+      node 24805990: u00000000e153f090 c00000000e197dda0 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
+      ref 24804528: desc 0 node 1 s 1 w 1 d 0000000000000000
+      ref 24804531: desc 1 node 24532956 s 1 w 1 d 0000000000000000
+      buffer 24805817: ffffff8018e00050 size 1896:0 delivered
+      buffer 24806788: ffffff8018e00808 size 152:0 delivered
+
+遍历进程的thread/node/ref/buffer信息.  当然如果存在,还会有pending transaction信息.
+
+
+
+### 相关说明
+
+    cat /d/binder/proc/<pid>
+
+可查看单独每个进程更为详细的信息，锁对应的函数`binder_proc_show`. 这个等价于小节[2.2.2]的内容.
+
+### 2.3 transaction_log
 
     cat /d/binder/transaction_log
 
@@ -243,43 +271,22 @@ call_type：有3种，分别为async, call, reply.
 
 `transaction_log`以及还有`binder_transaction_log_failed`会只会记录最近的32次的transaction过程.
 
-#### 2.3.3 state
+### 2.4 failed_transaction_log
 
-    cat /d/binder/state
+    24423418: async from 713:713 to 1731:0 node 1809 handle 1 size 156:0
+    24423419: reply from 733:5038 to 1731:4738 node 0 handle -1 size 0:0
+    0: async from 782:1138 to 0:0 node 974 handle 8 size 88:8
 
-执行上述语句，所对应的函数`binder_state_show`，输出当前系统binder_proc, binder_node等信息；
+解释: 跟transaction_log是一个原理, 不同的时此处有时候to_proc=0,代表着远程进程已挂.
 
+### 2.5 transactions
 
-#### 2.3.4 proc
+    binder transactions:
+    proc 20256
+      buffer 348035: ffffff800a280050 size 212:0 delivered
+    ...
 
-    cat /d/binder/proc/<pid>
+解释：
 
-可查看单独每个进程更为详细的信息，锁对应的函数`binder_proc_show`
-
-
-## 三、 trace_pipe
-
-    cd /d/tracing/events/binder
-
-进入该目录，会看到有很多binder相关的节点，需要通过开关来控制是否开启相应的调试开关。例如，要开启binder_buffer内存分配过程的log：
-
-    echo 1 > /d/tracing/events/binder/binder_transaction_alloc_buf/enable
-
-查看信息：
-
-    cat /d/tracing/trace_pipe
-
-要关闭该信息：
-
-    echo 0 > /d/tracing/events/binder/binder_transaction_alloc_buf/enable
-
-当然也可以直接输出到文件：
-
-    adb shell cat /d/tracing/trace_pipe > trace_binder
-
-
-这里可以开启的信息有很多，再比如：
-
-    echo 1 > /d/tracing/events/binder/enable
-
-更多开关与功能，可自行探索。
+- pid=20256进程，buffer的data_size=212，offsets_size=0，delivered代表已分发的内存块
+- 该命令遍历输出所有进程的情况，可以看出每个进程buffer的分发情况。

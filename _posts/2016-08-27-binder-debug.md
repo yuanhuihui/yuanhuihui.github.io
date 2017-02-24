@@ -18,7 +18,7 @@ tags:
 
 看过Binder系列文章的同学，会发现Binder IPC过程最终都交给Binder Driver来完成，这是真正干跨进程通信活的地方，那么意味着这里会有各种核心的通信log，比如binder open, mmap, ioctl等操作都可以通过某种方式来打开相应调试信息来分析。对于binder driver存在16类调试log开关，如下:
 
-### 2.1 debug_mask
+#### 2.1 debug_mask
 
 |Log类型|mask值|解释|
 |---|---|---|
@@ -41,7 +41,7 @@ tags:
 
 每一项mask值通过将1左移N位，也就是等于2的倍数
 
-### 2.2 调试开关
+#### 2.2 调试开关
 
 通过节点`/sys/module/binder/parameters/debug_mask`来动态控制选择开启上表中的debug log.
 
@@ -56,7 +56,7 @@ tags:
 (3)要打开多个开关，只需将各个开关的mask值相加写入debug_mask即可。打开调试开关后，可通过adb shell，执行`cat /proc/kmsg | grep binder`，即可查看相应的binder log信息。
 
 
-### 2.3 原理
+#### 2.3 原理
 
 mask相加，其实现其实是利用或运算，通过一个变量控制16个开关，而不是采用16个变量，这是比较经典的设计方案。在binder Driver中通过下面语句完成节点控制debug的功能：
 
@@ -91,6 +91,8 @@ binder_debug宏定义，如下：
 
 ### 3.1 BINDER_DEBUG_OPEN_CLOSE
 
+#### 3.1.1 log信息
+
 当打开调试开关`BINDER_DEBUG_OPEN_CLOSE`时，主要输出binder的open, mmap, close, flush, release方法中的log信息
 
 具体kernel log，如下：
@@ -102,8 +104,7 @@ binder_debug宏定义，如下：
 5. **binder_release:** 4681 threads 1, nodes 0 (ref 0), refs 2, active transactions 0, buffers 1, pages 1
 
 
-
-### 3.2 解析
+#### 3.1.2 解析
 
 上面各行log所对应的信息项：
 
@@ -125,7 +126,7 @@ binder_debug宏定义，如下：
 - `buffers`是指当前进程已分配的buffer个数；
 - `page_count`是指当前进程已分配的物理page个数。
 
-### 3.3 对应函数
+#### 3.1.3 对应函数
 
 上述log每一行相对应的函数：
 
@@ -156,9 +157,7 @@ binder_debug宏定义，如下：
 
 但并不是每个close系统调用都会触发调用release()方法. 只有真正释放设备数据结构才调用release(),内核维持一个文件结构被使用多少次的计数，即便是应用程序没有明显地关闭它打开的文件也适用: 内核在进程exit()时会释放所有内存和关闭相应的文件资源, 通过使用close系统调用最终也会release binder.
 
-## 四. 其他实例
-
-### 4.1 BINDER_DEBUG_DEAD_BINDER
+### 3.2 BINDER_DEBUG_DEAD_BINDER
 
 //debug_id, node的引用次数，死亡通知个数    
 binder: node `1078337` now dead, refs `1`, death `0`
@@ -170,7 +169,7 @@ binder: `13839` delete ref `1078335` desc `1` has death notification
 binder: `1788`:`1805` BC_DEAD_BINDER_DONE `9ce308c0` found `f10a5400`
 
 
-### 4.2 BINDER_DEBUG_FREE_BUFFER
+### 3.3 BINDER_DEBUG_FREE_BUFFER
 
 **查询可用buffer：**
 
@@ -182,7 +181,7 @@ binder: `277`:`2771` BC_FREE_BUFFER u`b6c58028` found buffer `1183806` for `acti
 
 位于方法`binder_thread_write()`
 
-### 4.3 BINDER_DEBUG_BUFFER_ALLOC_ASYNC(异步)
+### 3.4 BINDER_DEBUG_BUFFER_ALLOC_ASYNC(异步)
 
 **申请和释放异步buffer:**
 
@@ -207,7 +206,7 @@ free_async_space = 520004 Bytes，再释放148 Bytes后，则可用大小应该�
 proc->free_async_space = proc->buffer_size / 2 = (1M-8K)/2 = 520192 Bytes。当进程刚打开binder驱动，执行完binder_mmap方法后，异步可用空间总大小为 520192 Bytes.
 
 
-### 4.4 BINDER_DEBUG_BUFFER_ALLOC(同步)
+### 3.5 BINDER_DEBUG_BUFFER_ALLOC(同步)
 
 // 参数：proc->pid, size, buffer, buffer_size    
 binder: `1788`: binder_alloc_buf size `76` got buffer `c7800128` size `208`    
@@ -225,6 +224,35 @@ binder: `1788`: merge free, buffer `c780019c` share page with `c7800128`
 - binder_insert_free_buffer: 将空闲buffer添加到proc->free_buffers；
 - binder_update_page_range：释放一个page大小的物理内存，地址为`c7801000-c7800000`。
 - binder_delete_free_buffer：在执行binder_free_buf()过程，合并释放的buffer，由于该buffer跟上一个buffer共享同一page，则无需释放。
+
+## 四、 trace_pipe
+还有另一个方式也能调试Binder
+
+    cd /d/tracing/events/binder
+
+进入该目录，会看到有很多binder相关的节点，需要通过开关来控制是否开启相应的调试开关。例如，要开启binder_buffer内存分配过程的log：
+
+    echo 1 > /d/tracing/events/binder/binder_transaction_alloc_buf/enable
+
+查看信息：
+
+    cat /d/tracing/trace_pipe
+
+要关闭该信息：
+
+    echo 0 > /d/tracing/events/binder/binder_transaction_alloc_buf/enable
+
+当然也可以直接输出到文件：
+
+    adb shell cat /d/tracing/trace_pipe > trace_binder
+
+
+这里可以开启的信息有很多，再比如：
+
+    echo 1 > /d/tracing/events/binder/enable
+
+更多开关与功能，可自行探索。
+
 
 ## 五. 小结
 

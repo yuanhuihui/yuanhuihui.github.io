@@ -32,6 +32,11 @@ No package info for content provider
 
 resolve content provider: 
 
+//应该是新加的log
+acquire killed Provider
+Existing provider
+force acquire UnstableProvider
+
 ### 6. binder 
 starved for
 system_server maxThreads
@@ -39,7 +44,9 @@ binder_sample [Event]
 
 
 ### 7. 开机启动过程
-
+Zygote  :
+SystemServer:
+ 
 #### 7.1 init
 
 init: init started!

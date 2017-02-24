@@ -22,29 +22,3 @@ DESTROY_TIMEOUT = 10*1000;
 IDLE_TIMEOUT = 10 * 1000;
 SLEEP_TIMEOUT = 5 * 1000;
 LAUNCH_TIMEOUT = 10 * 1000;
-
-
-###
-
-
-ContextImpl.startService
-AMP.startService
-
-AMS.startService
-AS.startServiceLocked
-AS.startServiceInnerLocked
-AS.bringUpServiceLocked
-    AMS.startProcessLocked
-    AS.realStartServiceLocked
-        bumpServiceExecutingLocked
-        ATP.scheduleCreateService
-        
-AT.scheduleCreateService
-    sendMessage H.CREATE_SERVICE
-        
-        
-AT.handleCreateService
-    service.onCreate
-    AMP.serviceDoneExecuting
-    
-AMS.serviceDoneExecuting
