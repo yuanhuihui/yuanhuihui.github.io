@@ -114,6 +114,11 @@ sample_percent:以500ms为准,如果等待时间为250ms,那么这个值为50,�
 343    return state && state->getStrictModePolicy() != 0;
 344}
 
+### 14. 卡顿情况
+
+//输出当前掉帧个数
+android.util.EventLog.writeEvent(30089,skippedFrames);
+
 ## 其他
 
 调试技巧:

@@ -216,18 +216,24 @@ flinger的数据类型为sp<SurfaceFlinger>强指针类型，当首次被强指�
 
         getDefaultDisplayDevice()->makeCurrent(mEGLDisplay, mEGLContext);
 
-        //创建DispSyncSource对象【2.6】
-        sp<VSyncSource> vsyncSrc = new DispSyncSource(&mPrimaryDispSync,
-                vsyncPhaseOffsetNs, true, "app");
-        //创建线程EventThread 【见小节2.7】
-        mEventThread = new EventThread(vsyncSrc); 
-        
-        sp<VSyncSource> sfVsyncSrc = new DispSyncSource(&mPrimaryDispSync,
-                sfVsyncPhaseOffsetNs, true, "sf");
-        mSFEventThread = new EventThread(sfVsyncSrc);
-        
-        //设置EventThread 【见小节2.8】
-        mEventQueue.setEventThread(mSFEventThread);
+        //当应用和sf的vsync偏移量一致时，则只创建一个EventThread线程
+        if (vsyncPhaseOffsetNs != sfVsyncPhaseOffsetNs) {
+            sp<VSyncSource> vsyncSrc = new DispSyncSource(&mPrimaryDispSync,
+                    vsyncPhaseOffsetNs, true, "app");
+            mEventThread = new EventThread(vsyncSrc);
+            sp<VSyncSource> sfVsyncSrc = new DispSyncSource(&mPrimaryDispSync,
+                    sfVsyncPhaseOffsetNs, true, "sf");
+            mSFEventThread = new EventThread(sfVsyncSrc);
+            mEventQueue.setEventThread(mSFEventThread);
+        } else {
+            //创建DispSyncSource对象【2.6】
+            sp<VSyncSource> vsyncSrc = new DispSyncSource(&mPrimaryDispSync,
+                    vsyncPhaseOffsetNs, true, "sf-app");
+            //创建线程EventThread 【见小节2.7】
+            mEventThread = new EventThread(vsyncSrc);
+            //设置EventThread 【见小节2.8】
+            mEventQueue.setEventThread(mEventThread);
+        }
 
         //【见小节2.9】
         mEventControlThread = new EventControlThread(this);
@@ -256,7 +262,7 @@ flinger的数据类型为sp<SurfaceFlinger>强指针类型，当首次被强指�
 - 启动app和sf两个EventThread线程；
 - 启动开机动画；
 
-另外，此处会创建两个DispSyncSource对象，分别是用于绘制(app)和合成(SurfaceFlinger)，唯一的区别在于offset.
+另外，当应用和sf的vsync偏移量一致时，则只创建一个EventThread线程；否则会创建两个DispSyncSource对象，分别是用于绘制(app)和合成(SurfaceFlinger)。
 
 ### 2.4 创建HWComposer
 [-> HWComposer.cpp]
@@ -538,10 +544,12 @@ EventThread线程，进入mCondition的wait()方法，等待唤醒。
         mEvents = eventThread->createEventConnection();
         //获取BitTube对象
         mEventTube = mEvents->getDataChannel();
-        //监听BitTube，一旦有数据，则调用cb_eventReceiver
+        //监听BitTube，一旦有数据到来则调用cb_eventReceiver()
         mLooper->addFd(mEventTube->getFd(), 0, Looper::EVENT_INPUT,
                 MessageQueue::cb_eventReceiver, this);
     }
+
+此处mEvents的数据类型为sp<IDisplayEventConnection>，mEventTube的数据类型为sp<BitTube>。
 
 ### 2.9 EventControlThread线程
 [-> EventControlThread.cpp]
@@ -841,7 +849,7 @@ HWComposer对象创建过程，会注册一些回调方法，当硬件产生VSYN
         }
     }
 
-在前面小节SurfaceFlinger调用init()的过程，创建了两个DispSyncSource对象。接下里便是回调该对象的
+在前面小节【2.3】SurfaceFlinger调用init()的过程，创建过DispSyncSource对象。接下里便是回调该对象的
 onDispSyncEvent。
 
 ### 3.8 DSS.onDispSyncEvent
@@ -1005,3 +1013,11 @@ mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread【见�
 Vsync处理流程图：点击查看[大图](http://gityuan.com/images/surfaceFlinger/vsync.jpg)
 
 ![vsync](/images/surfaceFlinger/vsync.jpg)
+
+1. 底层vsync信号发送过来，一路执行到【小节3.6】DispSyncThread.updateModel()方法中调用mCond.signal()
+来唤醒DispSyncThread线程；
+2. DispSyncThread线程：执行到【小节3.9】EventThread::onVSyncEvent()方法中调用mCondition.broadcast()
+唤醒EventThread线程；
+3. EventThread线程：执行到【小节3.11】DisplayEventReceiver::sendEvents()方法中调用BitTube::sendObjects()；
+由【小节2.8】可知当收到数据则调用MQ.cb_eventReceiver()，然后再经过handler消息机制，进入SurfaceFlinger主线程；
+4.SurfaceFlinger主线程：【小节3.13】进入到MesageQueue的handleMessage()，最终调用SurfaceFlinger的handleMessageRefresh()。

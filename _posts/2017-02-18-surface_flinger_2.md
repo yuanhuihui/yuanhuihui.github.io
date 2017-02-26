@@ -15,7 +15,7 @@ tags:
 
 ## 一. 图形显示输出
 
-上一篇文章，介绍了SurfaceFlinger和VSync的处理流程。当SurfaceFlinger进程收到VSync信号后经层层调用，
+上一篇文章[SurfaceFlinger原理(一)](http://gityuan.com/2017/02/11/surface_flinger/)，介绍了SurfaceFlinger和VSync的处理流程。当SurfaceFlinger进程收到VSync信号后经层层调用，
 最终调用到该对象的handleMessageRefresh()方法。接下来，从该方法说起。
 
 

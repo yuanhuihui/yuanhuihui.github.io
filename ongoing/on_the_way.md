@@ -12,6 +12,7 @@
 
 创建DebugManager.java, 多利用现有的android/os/Debug
 
+
 ### binder问题
 
 类似的道理 http://blog.csdn.net/laisse/article/details/47257385
@@ -20,16 +21,6 @@ http://blog.csdn.net/laisse/article/details/47259707
 
 ioctl命令的理解
 http://blog.csdn.net/qq429205464/article/details/7822442
-
-
-#### 录屏
-
-1. input事件的展示； mShowInputEventForScreenRecorder；
-notifyShowInputEventSwitchChanged();
-void switchTouchCaptouchMode(in boolean modeOn);
-notifyLedSwitchChanged();
-
-2. 增加直接录屏的广播，并且带录屏参数，尤其是是否input事件；
 
 #### input两次问题
 
