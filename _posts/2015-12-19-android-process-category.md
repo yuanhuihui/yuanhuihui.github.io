@@ -164,19 +164,23 @@ Java Framework中的service都运行在system_server进程中，system_server内
 |FinalizerWatchd|用于GC|
 |HeapTrimmerDaem|用于GC|
 |GCDaemon|用于GC|
+|android.fg|前台的Looper线程|
+|android.ui|UI的Looper线程|
+|android.io|IO的Looper线程|
+|android.display|display的Looper线程|
+|ActivityManager|AMS线程|
+|PowerManagerSer|PMS线程|
+|PackageManager|PKMS线程|
+|watchdog|看门狗线程|
+|RenderThread|渲染线程|
 |Binder_|IPC线程， 包含16个|
-|Thread_|普通线程，包含若干个|
-|AsyncTask #|异步任务，包含若干个|
-|RenderThread|渲染线程，可以包含若干个|
-|ActivityManager|ActivityManagerService线程|
+|CpuTracker|统计进程CPU信息|
 |PerformanaceCont|system_server专有|
 |FileObserver|system_server专有|
-|CpuTracker|统计进程CPU信息|
-|PowerManagerSer|system_server专有|
-|PackageManager|system_server专有|
-|watchdog|system_server专有|
 |WifiMonitor|system_server专有|
 |UEventObserver|system_server专有|
+|Thread_|普通线程，包含若干个|
+|AsyncTask #|异步任务，包含若干个|
 |...|...|
 
 ActivityManagerService线程是一个ServerThread线程。进程结构体task_struct的comm字段是一个长度为16的char型，故进程名最长为15个字符。
@@ -220,8 +224,8 @@ mediaserver 子线程，如下：
 |Binder_1|用于IPC|
 |Binder_2|用于IPC|
 |pool-m-thread-n|线程池m中的第n个线程,包含若干个|
-|AsyncTask #1|异常任务|
-|RenderThread|会有若干个|
+|AsyncTask #1|异步任务|
+|RenderThread|渲染线程|
 |WifiManager|管理wifi的线程|
 
 一般地，每个apk都会产生2或3个Binder线程，Apk运行的Activity或service都会产生2个Binder线程。

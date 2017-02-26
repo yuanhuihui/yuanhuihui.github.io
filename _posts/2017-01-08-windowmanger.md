@@ -5,7 +5,7 @@ date:   2017-01-08 20:32:00
 catalog:  true
 tags:
     - android
-    - 组件
+
 ---
 
 > 基于Android 6.0源码， 分析WMS的启动过程。
@@ -337,3 +337,5 @@ tags:
 流程如下:
 
 ![wms_startup](/images/wms/wms_startup.jpg)
+
+其中WindowManagerService.mH的Looper运行在 "android.display"进程，也就意味着WMS.H.handleMessage()在该进程执行。
