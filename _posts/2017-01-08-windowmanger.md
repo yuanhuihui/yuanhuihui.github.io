@@ -126,6 +126,9 @@ tags:
         updateCircularDisplayMaskIfNeeded();
         showEmulatorDisplayOverlayIfNeeded();
     }
+    
+在“android.display”线程中执行WindowManagerService对象的初始化过程，其中`final H mH = new H();`此处H继承于Handler，无参初始化的过程，便会采用当前所在线程
+的Looper。那就是说WindowManagerService.H.handleMessage()方法运行在“android.display”线程。 
 
 #### 2.2.1  WMS.createDisplayContentLocked
 

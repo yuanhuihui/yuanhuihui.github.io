@@ -1161,7 +1161,6 @@ ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并
                         mService.compatibilityInfoForPackageLocked(
                                  r.info.applicationInfo), r.nonLocalizedLabel,
                         r.labelRes, r.icon, r.logo, r.windowFlags,
-
                         prev != null ? prev.appToken : null, showStartingIcon);
                 r.mStartingWindowShown = true;
             }
