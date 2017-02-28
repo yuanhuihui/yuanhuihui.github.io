@@ -1,4 +1,14 @@
+---
+layout: post
+title:  "WMS之启动窗口过程"
+date:   2017-01-15 20:32:00
+catalog:  true
+tags:
+    - android
 
+---
+
+> 基于Android 6.0源码， 分析启动窗口的启动和结束过程。
 
 ## 一. 概述
 
@@ -7,7 +17,7 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
 [startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)介绍了Activity
 的启动过程，那么本文将从window角度再来说说这个过程。
 
-## 二. 启动过程
+## 二. 启动startingWindow
 
     AMS.startActivity 
       ASS.startActivityMayWait
@@ -107,7 +117,7 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
                 ensureActivitiesVisibleLocked(null, 0);
             } else if (SHOW_APP_STARTING_PREVIEW && doShow) {
                 ...
-                //【见小节1.2】
+                //【见小节2.2】
                 mWindowManager.setAppStartingWindow(
                         r.appToken, r.packageName, r.theme,
                         mService.compatibilityInfoForPackageLocked(
@@ -134,7 +144,7 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
 5. 设置启动窗口(StartingWindow);
 6. 恢复栈顶部的Activity;
 
-### 1.2  WMS.setAppStartingWindow
+### 2.2  WMS.setAppStartingWindow
 [-> WindowManagerService.java]
 
     public void setAppStartingWindow(IBinder token, String pkg,
@@ -264,7 +274,7 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
                     }
                 }
             }
-            //创建启动数据，并发送消息到"android.display"线程来处理ADD_STARTING消息；【见小节1.3】
+            //创建启动数据，并发送消息到"android.display"线程来处理ADD_STARTING消息；【见小节2.3】
             wtoken.startingData = new StartingData(pkg, theme, compatInfo, nonLocalizedLabel,
                     labelRes, icon, logo, windowFlags);
             Message m = mH.obtainMessage(H.ADD_STARTING, wtoken);
@@ -288,7 +298,7 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
 
 也就是说最核心的过程便是向"android.display"线程来处理ADD_STARTING消息。接下来，进入“android.display”线程中WindowManagerService.H.handleMessage().
 
-### 1.3 WMS.H.handleMessage
+### 2.3 WMS.H.handleMessage
 [-> WindowManagerService.java ::H]
 
     final class H extends Handler {
@@ -301,7 +311,7 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
                   return; //动画被取消则返回
               }
               
-              //【见小节1.4】
+              //【见小节2.4】
               View view = mPolicy.addStartingWindow(
                     wtoken.token, sd.pkg, sd.theme, sd.compatInfo,
                     sd.nonLocalizedLabel, sd.labelRes, sd.icon, sd.logo, sd.windowFlags);
@@ -332,7 +342,7 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
     
 此处mPolicy为PhoneWindowManager
 
-### 1.4  PWM.addStartingWindow
+### 2.4  PWM.addStartingWindow
 [-> PhoneWindowManager.java]
 
     public View addStartingWindow(IBinder appToken, String packageName, int theme,
@@ -407,14 +417,14 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
             }
 
             params.setTitle("Starting " + packageName);
-            //获取WindowManager对象
+            //获取WindowManager对象 [见小节2.4.1]
             wm = (WindowManager)context.getSystemService(Context.WINDOW_SERVICE);
             view = win.getDecorView();
 
             if (win.isFloating()) {
                 return null; //浮动窗口，则不允许作为启动窗口
             }
-            //【见小节1.5】
+            //【见小节2.5】
             wm.addView(view, params);
             // 当窗口成功添加到WMS，则返回该对象
             return view.getParent() != null ? view : null;
@@ -429,7 +439,477 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
         return null;
     }
 
+#### 2.4.1 getSystemService
+[-> ContextImpl.java]
+
+    class ContextImpl extends Context {
+        public Object getSystemService(String name) {
+            //[见下方]
+            return SystemServiceRegistry.getSystemService(this, name);
+        }
+    }
+
+[-> SystemServiceRegistry.java]
+
+    final class SystemServiceRegistry {
+        public static Object getSystemService(ContextImpl ctx, String name) {
+            ServiceFetcher<?> fetcher = SYSTEM_SERVICE_FETCHERS.get(name);
+            return fetcher != null ? fetcher.getService(ctx) : null;
+        }
+    }
+
+#### 2.4.2 SystemServiceRegistry
+[-> SystemServiceRegistry.java]
+
+    final class SystemServiceRegistry {
+        static {
+            registerService(Context.WINDOW_SERVICE, WindowManager.class,
+                new CachedServiceFetcher<WindowManager>() {
+
+                public WindowManager createService(ContextImpl ctx) {
+                    //创建WindowManagerImpl对象
+                    return new WindowManagerImpl(ctx.getDisplay());
+                }});
+        }
+        
+        static <T> void registerService(String serviceName, Class<T> serviceClass,
+                ServiceFetcher<T> serviceFetcher) {
+            SYSTEM_SERVICE_NAMES.put(serviceClass, serviceName);
+            SYSTEM_SERVICE_FETCHERS.put(serviceName, serviceFetcher);
+        }
+
+        static abstract class CachedServiceFetcher<T> implements ServiceFetcher<T> {
+            private final int mCacheIndex;
+
+            public CachedServiceFetcher() {
+                mCacheIndex = sServiceCacheSize++;
+            }
+
+            public final T getService(ContextImpl ctx) {
+                //缓存Service的地方
+                final Object[] cache = ctx.mServiceCache;
+                synchronized (cache) {
+                    Object service = cache[mCacheIndex];
+                    if (service == null) {
+                        service = createService(ctx);
+                        cache[mCacheIndex] = service;
+                    }
+                    return (T)service;
+                }
+            }
+
+            public abstract T createService(ContextImpl ctx);
+        }
+    }
+
+此处ctx.mServiceCache的创建方法:
+
+        public static Object[] createServiceCache() {
+            return new Object[sServiceCacheSize];
+        }
+
+这样设计的好处后面再需要同一个服务则可以直接从cache中取出,而无需每次都去创建对象.
+
 接下来，进入WindowManagerImpl对象的addView()方法
 
-### 1.5 WM.addView
-http://blog.csdn.net/luoshengyang/article/details/8577789
+### 2.5 WMI.addView
+[-> WindowManagerImpl.java]
+
+    public void addView(View view,  ViewGroup.LayoutParams params) {
+        applyDefaultToken(params);
+        mGlobal.addView(view, params, mDisplay, mParentWindow);
+    }
+
+先不往下写了,后续再展开. 这个过程就是增加视图.
+
+## 三. 结束startingWindow
+
+组件启动之后, 需要先把startingWindow去掉,再显示真正的窗口. window更新的过程都会调用WMS.performLayoutAndPlaceSurfacesLocked方法,
+接下来,从这个方法说起.
+
+### 3.1 performLayoutAndPlaceSurfacesLocked
+[-> WindowManagerService.java]
+
+    private final void performLayoutAndPlaceSurfacesLocked() {
+        int loopCount = 6;
+        do {
+            mTraversalScheduled = false;
+            // [见小节3.2]
+            performLayoutAndPlaceSurfacesLockedLoop();
+            mH.removeMessages(H.DO_TRAVERSAL);
+            loopCount--;
+        } while (mTraversalScheduled && loopCount > 0);
+        mInnerFields.mWallpaperActionPending = false;
+    }
+
+### 3.2 performLayoutAndPlaceSurfacesLockedLoop
+
+    private final void performLayoutAndPlaceSurfacesLockedLoop() {
+        if (mInLayout) {
+            return;
+        }
+
+        if (mWaitingForConfig) {
+            return; //configuration已改变,但没有完成,则直接返回
+        }
+
+        if (!mDisplayReady) {
+            return; //初始化未完成,则直接返回
+        }
+        mInLayout = true;
+        ...
+
+        try {
+            // [见小节3.3]
+            performLayoutAndPlaceSurfacesLockedInner(recoveringMemory);
+
+            mInLayout = false;
+            if (needsLayout()) {
+                if (++mLayoutRepeatCount < 6) {
+                    requestTraversalLocked();
+                } else {
+                    mLayoutRepeatCount = 0;
+                }
+            } else {
+                mLayoutRepeatCount = 0;
+            }
+
+            if (mWindowsChanged && !mWindowChangeListeners.isEmpty()) {
+                mH.removeMessages(H.REPORT_WINDOWS_CHANGE);
+                mH.sendEmptyMessage(H.REPORT_WINDOWS_CHANGE);
+            }
+        } catch (RuntimeException e) {
+            mInLayout = false;
+        }
+    }
+
+### 3.3 performLayoutAndPlaceSurfacesLockedInner
+
+    private final void performLayoutAndPlaceSurfacesLockedInner(boolean recoveringMemory) {
+        ...
+        
+        SurfaceControl.openTransaction();
+        try {
+            ...
+            boolean focusDisplayed = false;
+
+            for (int displayNdx = 0; displayNdx < numDisplays; ++displayNdx) {
+                final DisplayContent displayContent = mDisplayContents.valueAt(displayNdx);
+                 WindowList windows = displayContent.getWindowList();
+                ...
+                
+                int repeats = 0;
+                do {
+                    repeats++;
+                    if (repeats > 6) {
+                        displayContent.layoutNeeded = false; //迭代次数过多,则跳出循环
+                        break;
+                    }
+                    if (repeats < 4) {
+                        //执行layout操作[]
+                        performLayoutLockedInner(displayContent, repeats == 1,
+                                false /*updateInputWindows*/);
+                    } 
+                    ...
+                } while (displayContent.pendingLayoutChanges != 0);
+
+                ...
+                final int N = windows.size();
+                for (i=N-1; i>=0; i--) {
+                    WindowState w = windows.get(i);
+                    final TaskStack stack = w.getStack();
+                    ...
+                    if (w.mHasSurface) {
+                         //[见小节3.4]
+                         final boolean committed =  winAnimator.commitFinishDrawingLocked();
+                         if (isDefaultDisplay && committed) {
+                             if (w.mAttrs.type == TYPE_DREAM) {
+                                 displayContent.pendingLayoutChanges |=
+                                         WindowManagerPolicy.FINISH_LAYOUT_REDO_LAYOUT;
+                             }
+                             if ((w.mAttrs.flags & FLAG_SHOW_WALLPAPER) != 0) {
+                                 mInnerFields.mWallpaperMayChange = true;
+                                 displayContent.pendingLayoutChanges |=
+                                         WindowManagerPolicy.FINISH_LAYOUT_REDO_WALLPAPER;
+                                 }
+                             }
+                         }
+                         winAnimator.setSurfaceBoundariesLocked(recoveringMemory);
+                     }
+                }
+                ..
+            }
+
+            if (focusDisplayed) {
+                mH.sendEmptyMessage(H.REPORT_LOSING_FOCUS);
+            }
+            
+            mDisplayManagerInternal.performTraversalInTransactionFromWindowManager();
+
+        } catch (RuntimeException e) {
+            ...
+        } finally {
+            SurfaceControl.closeTransaction();
+        }
+
+        final WindowList defaultWindows = defaultDisplay.getWindowList();
+        //app transition准备就绪
+        if (mAppTransition.isReady()) {
+            defaultDisplay.pendingLayoutChanges |= handleAppTransitionReadyLocked(defaultWindows);
+        }
+        //app transition已完成
+        if (!mAnimator.mAppWindowAnimating && mAppTransition.isRunning()) {
+            defaultDisplay.pendingLayoutChanges |= handleAnimatingStoppedAndTransitionLocked();
+        }
+        ...
+        
+        if (mFocusMayChange) {
+            mFocusMayChange = false;
+            if (updateFocusedWindowLocked(UPDATE_FOCUS_PLACING_SURFACES,
+                    false /*updateInputWindows*/)) {
+                updateInputWindowsNeeded = true;
+                defaultDisplay.pendingLayoutChanges |= WindowManagerPolicy.FINISH_LAYOUT_REDO_ANIM;
+            }
+        }
+        ...
+        if (mInnerFields.mOrientationChangeComplete) {
+            if (mWindowsFreezingScreen != WINDOWS_FREEZING_SCREENS_NONE) {
+                mWindowsFreezingScreen = WINDOWS_FREEZING_SCREENS_NONE;
+                mLastFinishedFreezeSource = mInnerFields.mLastWindowFreezeSource;
+                mH.removeMessages(H.WINDOW_FREEZE_TIMEOUT);
+            }
+            stopFreezingDisplayLocked();
+        }
+
+        // 销毁所有不再可见窗口的surface
+        boolean wallpaperDestroyed = false;
+        i = mDestroySurface.size();
+        if (i > 0) {
+            do {
+                i--;
+                WindowState win = mDestroySurface.get(i);
+                win.mDestroying = false;
+                if (mInputMethodWindow == win) {
+                    mInputMethodWindow = null;
+                }
+                if (win == mWallpaperTarget) {
+                    wallpaperDestroyed = true;
+                }
+                win.mWinAnimator.destroySurfaceLocked();
+            } while (i > 0);
+            mDestroySurface.clear();
+        }
+
+        // 移除所有正在退出的token
+        for (int displayNdx = 0; displayNdx < numDisplays; ++displayNdx) {
+            final DisplayContent displayContent = mDisplayContents.valueAt(displayNdx);
+            ArrayList<WindowToken> exitingTokens = displayContent.mExitingTokens;
+            for (i = exitingTokens.size() - 1; i >= 0; i--) {
+                WindowToken token = exitingTokens.get(i);
+                if (!token.hasVisible) {
+                    exitingTokens.remove(i);
+                    if (token.windowType == TYPE_WALLPAPER) {
+                        mWallpaperTokens.remove(token);
+                    }
+                }
+            }
+        }
+        
+        // 移除所有正在退出的applicatin
+        for (int stackNdx = mStackIdToStack.size() - 1; stackNdx >= 0; --stackNdx) {
+            final AppTokenList exitingAppTokens =
+                    mStackIdToStack.valueAt(stackNdx).mExitingAppTokens;
+            for (i = exitingAppTokens.size() - 1; i >= 0; i--) {
+                AppWindowToken token = exitingAppTokens.get(i);
+                if (!token.hasVisible && !mClosingApps.contains(token) &&
+                        (!token.mIsExiting || token.allAppWindows.isEmpty())) {
+                    token.mAppAnimator.clearAnimation();
+                    token.mAppAnimator.animating = false;
+                    token.removeAppFromTaskLocked();
+                }
+            }
+        }
+        ...
+
+        mInputMonitor.updateInputWindowsLw(true /*force*/);
+        ...
+        
+        if (mTurnOnScreen) {
+            if (mAllowTheaterModeWakeFromLayout
+                    || Settings.Global.getInt(mContext.getContentResolver(),
+                        Settings.Global.THEATER_MODE_ON, 0) == 0) {
+                mPowerManager.wakeUp(SystemClock.uptimeMillis(), "android.server.wm:TURN_ON");
+            }
+            mTurnOnScreen = false;
+        }
+
+        if (mInnerFields.mUpdateRotation) {
+            if (DEBUG_ORIENTATION) Slog.d(TAG, "Performing post-rotate rotation");
+            if (updateRotationUncheckedLocked(false)) {
+                mH.sendEmptyMessage(H.SEND_NEW_CONFIGURATION);
+            } else {
+                mInnerFields.mUpdateRotation = false;
+            }
+        }
+
+        if (mWaitingForDrawnCallback != null ||
+                (mInnerFields.mOrientationChangeComplete && !defaultDisplay.layoutNeeded &&
+                        !mInnerFields.mUpdateRotation)) {
+            checkDrawnWindowsLocked();
+        }
+        ...
+
+        for (int displayNdx = mDisplayContents.size() - 1; displayNdx >= 0; --displayNdx) {
+            mDisplayContents.valueAt(displayNdx).checkForDeferredActions();
+        }
+
+        if (updateInputWindowsNeeded) {
+            mInputMonitor.updateInputWindowsLw(false /*force*/);
+        }
+        setFocusedStackFrame();
+        
+        enableScreenIfNeededLocked();//确定屏幕处于使能状态
+        scheduleAnimationLocked(); //调度动画
+    }
+
+### 3.4 commitFinishDrawingLocked
+[-> WindowStateAnimator.java]
+
+    boolean commitFinishDrawingLocked() {
+
+        if (mDrawState != COMMIT_DRAW_PENDING && mDrawState != READY_TO_SHOW) {
+            return false;
+        }
+
+        mDrawState = READY_TO_SHOW;
+        final AppWindowToken atoken = mWin.mAppToken;
+        if (atoken == null || atoken.allDrawn || mWin.mAttrs.type == TYPE_APPLICATION_STARTING) {
+            //[见小节3.5]
+            return performShowLocked();
+        }
+        return false;
+    }
+    
+### 3.5 performShowLocked
+[-> WindowStateAnimator.java]
+
+    boolean performShowLocked() {
+        if (mWin.isHiddenFromUserLocked()) {
+            mWin.hideLw(false); //隐藏该layer
+            return false;
+        }
+
+        if (mDrawState == READY_TO_SHOW && mWin.isReadyForDisplayIgnoringKeyguard()) {
+            mService.enableScreenIfNeededLocked();
+            applyEnterAnimationLocked(); //动画进入
+
+            mDrawState = HAS_DRAWN;
+            mService.scheduleAnimationLocked(); //调度动画
+
+            int i = mWin.mChildWindows.size();
+            while (i > 0) {
+                i--;
+                WindowState c = mWin.mChildWindows.get(i);
+                if (c.mAttachedHidden) {
+                    c.mAttachedHidden = false;
+                    if (c.mWinAnimator.mSurfaceControl != null) {
+                        c.mWinAnimator.performShowLocked();
+                        final DisplayContent displayContent = c.getDisplayContent();
+                        if (displayContent != null) {
+                            displayContent.layoutNeeded = true;
+                        }
+                    }
+                }
+            }
+
+            if (mWin.mAttrs.type != TYPE_APPLICATION_STARTING
+                    && mWin.mAppToken != null) {
+                mWin.mAppToken.firstWindowDrawn = true;
+
+                if (mWin.mAppToken.startingData != null) {
+                    clearAnimation();
+                    mService.mFinishedStarting.add(mWin.mAppToken);
+                    // 结束StartingWindow
+                    mService.mH.sendEmptyMessage(H.FINISHED_STARTING);
+                }
+                mWin.mAppToken.updateReportedVisibilityLocked();
+            }
+            return true;
+        }
+        return false;
+    }
+
+通过向"android.display"线程的mH发送FINISHED_STARTING消息.接下来进入handleMessage方法.
+
+### 3.6 H.FINISHED_STARTING
+[-> WindowManagerService.java ::H]
+
+    final class H extends Handler {
+        public void handleMessage(Message msg) {
+            case FINISHED_STARTING: {
+                IBinder token = null;
+                View view = null;
+                while (true) {
+                    synchronized (mWindowMap) {
+                        final int N = mFinishedStarting.size();
+                        if (N <= 0) {
+                            break;
+                        }
+                        AppWindowToken wtoken = mFinishedStarting.remove(N-1);
+
+                        view = wtoken.startingView;
+                        token = wtoken.token;
+                        wtoken.startingData = null;
+                        wtoken.startingView = null;
+                        wtoken.startingWindow = null;
+                        wtoken.startingDisplayed = false;
+                    }
+                    //[见小节3.7]
+                    mPolicy.removeStartingWindow(token, view);
+                    
+                }
+            } break;
+            ...
+        }
+    }
+
+此处mPolicy为PhoneWindowManager对象.
+
+### 3.7 removeStartingWindow
+[-> PhoneWindowManager.java]
+
+    public void removeStartingWindow(IBinder appToken, View window) {
+
+        if (window != null) {
+            WindowManager wm = (WindowManager)mContext.getSystemService(Context.WINDOW_SERVICE);
+            wm.removeView(window);
+        }
+    }
+
+### 3.8 WMI.removeView
+[-> WindowManagerImpl.java]
+
+    public void removeView(View view) {
+        mGlobal.removeView(view, false);
+    }
+
+## 四. 总结
+
+可见,startingWindow的整个启动和结束过程, 主要发送在"android.display"这个Looper线程, 其中启动和结束最终分别调用了WindowManagerGlobal对象的addView()和removeView()操作,其间还有动画调度操作.
+流程如下:
+
+    AS.startActivityLocked
+        WMS.setAppStartingWindow
+            PhoneWindowManager.addStartingWindow
+                WindowManagerImpl.addView
+
+
+    WMS.performLayoutAndPlaceSurfacesLocked
+        WMS.performLayoutAndPlaceSurfacesLockedLoop
+            WMS.performLayoutAndPlaceSurfacesLockedInner
+                WindowStateAnimator.commitFinishDrawingLocked
+                    WindowStateAnimator.performShowLocked
+                        PhoneWindowManager.removeStartingWindow
+                            WindowManagerImpl.removeView
+
+关于窗口的添加和删除,后续再进一步展开.
