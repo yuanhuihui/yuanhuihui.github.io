@@ -227,8 +227,8 @@ tags:
     }
 
 由此可见, BlockingRunnable.postAndWait()方法是阻塞操作,就是先将消息放入Handler所指向的线程,
-此处是指"android.ui"线程, 由于该方法本身运行在system_server主线程. 也就意味着system_server线程会进入等待状态,
-直到handler线程执行完成后再唤醒system_server主线程. 那么PWM.init()便是运行在"android.ui"线程,属于同步阻塞操作.
+此处是指"android.ui"线程, 由于该方法本身运行在"android.display"线程. 也就意味着"android.display"线程会进入等待状态,
+直到handler线程执行完成后再唤醒"android.display"线程. 那么PWM.init()便是运行在"android.ui"线程,属于同步阻塞操作.
 
 ### 2.4 PWM.init
 [-> PhoneWindowManager.java]

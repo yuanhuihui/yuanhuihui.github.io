@@ -1,37 +1,3 @@
-ANR一般有三种类型：
-
-1：KeyDispatchTimeout(5 seconds) --主要类型
-按键或触摸事件在特定时间内无响应
-
-staticfinal int KEY_DISPATCHING_TIMEOUT = 5*1000
-
-2：BroadcastTimeout(10 seconds)
-BroadcastReceiver在特定时间内无法处理完成
-
-3：ServiceTimeout(20 seconds) --小概率类型
-Service在特定的时间内无法处理完成
-
-
-四：为什么会超时呢？
-超时时间的计数一般是从按键分发给app开始。超时的原因一般有两种：
-(1)当前的事件没有机会得到处理（即UI线程正在处理前一个事件，没有及时的完成或者looper被某种原因阻塞住了）
-(2)当前的事件正在处理，但没有及时完成
-
-五：如何避免KeyDispatchTimeout
-1：UI线程尽量只做跟UI相关的工作
-2：耗时的工作（比如数据库操作，I/O，连接网络或者别的有可能阻碍UI线程的操作）把它放入单独的线程处理
-3：尽量用Handler来处理UIthread和别的thread之间的交互
-
-UI线程主要包括如下：
-Activity:onCreate(), onResume(), onDestroy(), onKeyDown(), onClick(),etc
-AsyncTask: onPreExecute(), onProgressUpdate(), onPostExecute(), onCancel,etc
-Mainthread handler: handleMessage(), post*(runnable r), etc
-
-## Tips
-
-- 当前发生ANR的应用进程被第一个添加进firstPids集合中，所以会第一个向traces文件中写入信息。
-那么traces文件中出现的第一个进程正常情况下就是发生ANR的那个进程。
-- 偶尔，发生ANR的进程还没有来得及输出trace信息，就由于某种原因退出了，所以偶尔会遇到traces文件中找不到发生ANR的进程信息的情况。
 
 ## 可疑点
 
@@ -71,31 +37,7 @@ Mainthread handler: handleMessage(), post*(runnable r), etc
 |TIMED_WAITING||等待(带超时参数)|
 |TERMINATED||终止|
 
-TIMED_WAITING可以是wait、sleep或join函数
-
-### trace分析
-
-    线程名、（如果带有daemon说明是守护线程）、优先级、线程创建时的序号、线程当前状态
-    "main" prio=5 tid=1 Blocked
-        线程组名称、suspendCount、debugSuspendCount、线程的Java对象地址、线程的Native对象地址
-      | group="main" sCount=1 dsCount=0 obj=0x76231de0 self=0x7f885fba00
-         线程号（主线程的线程号和进程号相同）
-      | sysTid=1723 nice=-2 cgrp=default sched=0/0 handle=0x7f8bbd5fe8
-      | state=S schedstat=( 50771665889 26782378685 134348 ) utm=2791 stm=2286 core=1 HZ=100
-      | stack=0x7fc6c1b000-0x7fc6c1d000 stackSize=8MB
-      | held mutexes=
-      at com.android.server.am.ActivityManagerService.onWakefulnessChanged(ActivityManagerService.java:10503)
-      - waiting to lock <0x072bbeb5> (a com.android.server.am.ActivityManagerService) held by thread 90
-      at com.android.server.am.ActivityManagerService$LocalService.onWakefulnessChanged(ActivityManagerService.java:20944)
-      at com.android.server.power.Notifier$1.run(Notifier.java:306)
-      at android.os.Handler.handleCallback(Handler.java:739)
-      at android.os.Handler.dispatchMessage(Handler.java:95)
-      at android.os.Looper.loop(Looper.java:148)
-      at com.android.server.SystemServer.run(SystemServer.java:293)
-      at com.android.server.SystemServer.main(SystemServer.java:178)
-      at java.lang.reflect.Method.invoke!(Native method)
-      at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:738)
-      at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:628)
+TIMED_WAITING可以是wait、sleep或join
 
 ### cpu usage
 

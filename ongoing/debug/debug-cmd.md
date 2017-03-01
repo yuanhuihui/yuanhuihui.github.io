@@ -14,6 +14,9 @@ showmap
 
 dumpsys gfxinfo com.miui.home
 
+### stack
+
+development/scripts/stack 等等, 需要研究这个目录下的功能;
 
 ### logcat
 

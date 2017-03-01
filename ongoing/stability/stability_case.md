@@ -2,7 +2,7 @@
 
 ### 问题描述
 
- 一插上wall charger(强冲)冻结屏幕，辉出现系统冻屏，拔掉wall charger后立即恢复。
+ 一插上wall charger(强冲)冻结屏幕，出现系统冻屏，拔掉wall charger后立即恢复。
 
 ### 分析结论
 

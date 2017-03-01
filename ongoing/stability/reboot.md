@@ -112,31 +112,3 @@ static const char * const reset_reasons[RS_REASON_MAX] = {
 3. 硬件或者cpu问题
 4. native crash: double free
 5. 数组越界
-
-二、 死机
-
-三 boot
-
-07-10 11:12:39.158   317   317 I boot_progress_start: 21357
-07-10 11:12:41.302   317   317 I boot_progress_preload_start: 23501
-07-10 11:12:46.550   317   317 I boot_progress_preload_end: 28749
-
-//SystemServer.run()  //对应log:  Entered the Android system server!
-07-10 11:12:46.961  1756  1756 I boot_progress_system_run: 29152
-
-//下面5行 都位于PMS构造函数
-07-10 11:12:48.255  1756  1756 I boot_progress_pms_start: 30454
-07-10 11:12:50.757  1756  1756 I boot_progress_pms_system_scan_start: 32956
-07-10 11:12:59.829  1756  1756 I boot_progress_pms_data_scan_start: 42028
-07-10 11:13:11.252  1756  1756 I boot_progress_pms_scan_end: 53451
-07-10 11:13:11.728  1756  1756 I boot_progress_pms_ready: 53927
-
-// AMS.systemReady //对应log: System now ready, 还没开始执行goingCallback.run()
-07-10 11:15:31.889  1756  1756 I boot_progress_ams_ready: 194088
-// AMS.enableScreenAfterBoot
-07-10 11:16:12.068  1756  1806 I boot_progress_enable_screen: 234267
-
-//聚焦home界面
-07-10 11:15:50.385  1756  1756 I am_focused_activity: [0,com.miui.home/.launcher.Launcher]
-
-07-10 11:13:12.740  1756  1756 I UsageStatsService: User[0] Rollover scheduled @ 2016-07-11 08:00:00(1468195200000)
