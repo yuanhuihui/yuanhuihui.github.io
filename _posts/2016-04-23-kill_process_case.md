@@ -14,7 +14,7 @@ tags:
 
 
 
-### 一.场景汇总表
+### 一. 杀进程场景
 
 [理解杀进程的实现原理](http://gityuan.com/2016/04/16/kill-signal/), 介绍了杀进程的过程, 接下来本文介绍系统framework层, ActivityManagerService在哪些场景会调用ProcessRecord.java中的kill()方法来杀进程.
 
@@ -40,68 +40,9 @@ reason对于分析问题很重要, 实例说明:
     am_kill : [0,26328,com.gityuan.app,0,stop com.gityuan.app]
 
 这是Eventlog,可知最后一个参数**stop com.gityuan.app**, 代表的是reason = stop `packageName`, 那么显然这个app是由于调用forceStopPackageLocked而被杀.
+先看重点说说force-stop
 
-
-其中杀进程的原因(reason)有很多种形式, 如下表:
-
-#### 1.1 异常杀进程
-
-|方法|reason|含义|
-|---|---|---|
-|appNotResponding|anr|ANR|
-|appNotResponding|bg anr|ANR|
-|handleAppCrashLocked|crash|CRASH|
-|crashApplication|crash|CRASH|
-|processStartTimedOutLocked|start timeout||
-|processContentProviderPublishTimedOutLocked|timeout publishing content providers||
-|removeDyingProviderLocked|depends on provider `cpr.name` in dying proc `processName`||
-
-
-#### 1.2 主动杀进程
-
-|方法|reason|含义|
-|---|---|---|
-|forceStopPackageLocked|stop user `userId`|
-|forceStopPackageLocked|stop `packageName`|
-|killBackgroundProcesses|kill background||
-|killAllBackgroundProcesses|kill all background||
-|killAppAtUsersRequest|user request after error|FORCE_CLOSE|
-|killUid|kill uid|PERMISSION|
-|killUid|Permission related app op changed|PERMISSION|
-|killProcessesBelowAdj|setPermissionEnforcement||
-|killApplicationProcess|-|直接杀|
-|killPids|Free memory||
-|killPids|Unknown||
-|killPids|自定义|调用者自定义|
-
-#### 1.3 调度杀进程
-
-|方法|reason|含义|
-|---|---|---|
-|trimApplications|empty||
-|applyOomAdjLocked|remove task||
-|updateOomAdjLocked|cached #`numCached`||
-|updateOomAdjLocked|empty #`numEmpty`||
-|updateOomAdjLocked|empty for `tableime`s||
-|updateOomAdjLocked|isolated not needed||
-
-
-#### 1.4 其他杀进程
-
-|方法|reason|含义|
-|---|---|---|
-|cleanUpRemovedTaskLocked|remove task||
-|attachApplicationLocked|error during init||
-|systemReady|system update done||
-|getProcessRecordLocked|`lastCachedPss`k from cached||
-|performIdleMaintenance|idle maint (pss `lastPss`  from `initialIdlePss`)||
-|checkExcessivePowerUsageLocked|excessive wake held ||
-|checkExcessivePowerUsageLocked|excessive cpu ||
-
-
-另外, 关于force-stop再多说一点:
-
-### 二. force-stop
+#### 1.1 force-stop
 
 对于force-stop系统这把杀进程的利器, 还会额外出现一个reason来更详细的说明触发force-stop的原因.
 
@@ -129,6 +70,75 @@ reason对于分析问题很重要, 实例说明:
 
 PKMS服务往往是调用killApplication从而间接调用forceStopPackage方法.
 
+当然除了force-stop, 杀进程的原因(reason)有很多种形式, 如下:
+
+#### 1.2 异常杀进程
+
+|方法|reason|含义|
+|---|---|---|
+|appNotResponding|anr|ANR|
+|appNotResponding|bg anr|ANR|
+|handleAppCrashLocked|crash|CRASH|
+|crashApplication|crash|CRASH|
+|processStartTimedOutLocked|start timeout||
+|processContentProviderPublishTimedOutLocked|timeout publishing content providers||
+|removeDyingProviderLocked|depends on provider `cpr.name` in dying proc `processName`||
+
+
+#### 1.3 主动杀进程
+
+|方法|reason|含义|
+|---|---|---|
+|forceStopPackageLocked|stop user `userId`|
+|forceStopPackageLocked|stop `packageName`|
+|killBackgroundProcesses|kill background||
+|killAllBackgroundProcesses|kill all background||
+|killAppAtUsersRequest|user request after error|FORCE_CLOSE|
+|killUid|kill uid|PERMISSION|
+|killUid|Permission related app op changed|PERMISSION|
+|killProcessesBelowAdj|setPermissionEnforcement||
+|killApplicationProcess|-|直接杀|
+|killPids|Free memory||
+|killPids|Unknown||
+|killPids|自定义|调用者自定义|
+
+#### 1.4 调度杀进程
+
+|方法|reason|含义|
+|---|---|---|
+|trimApplications|empty||
+|applyOomAdjLocked|remove task||
+|updateOomAdjLocked|cached #`numCached`||
+|updateOomAdjLocked|empty #`numEmpty`||
+|updateOomAdjLocked|empty for `tableime`s||
+|updateOomAdjLocked|isolated not needed||
+
+
+#### 1.5 其他杀进程
+
+|方法|reason|含义|
+|---|---|---|
+|cleanUpRemovedTaskLocked|remove task||
+|attachApplicationLocked|error during init||
+|systemReady|system update done||
+|getProcessRecordLocked|`lastCachedPss`k from cached||
+|performIdleMaintenance|idle maint (pss `lastPss`  from `initialIdlePss`)||
+|checkExcessivePowerUsageLocked|excessive wake held ||
+|checkExcessivePowerUsageLocked|excessive cpu ||
+
+
+### 二. 杀进程手段
+
+
+以上介绍的所有杀进程都是调用ProcessRecord.kill()方法, 必然会输出相应的EventLog.那么还有哪些场景的杀进程不会输出log呢:
+
+	Process.killProcess(int pid) //可杀任何指定进程
+    Process.sendSignal(pid, SIGNAL_KILL) //直接发送信号
+	adb shell kill -9 <pid>  //可杀任何指定的进程  
+    直接lmk杀进程
+
+也就是说进程被杀而无log输出,那么可能是通过直接调用kill或许发信号, 再或许是lmk所杀.
+ 
 ### 三. 小结
 
 杀进程log举例:

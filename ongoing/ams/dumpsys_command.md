@@ -58,6 +58,9 @@ cmd可取值：
 - pushService:packageManager.setComponentEnabledSetting();
 - Daemon Process
 
+
+想要知道对应客户端的信息, 则必须执行dumpsys activity -c 或许 -p [package]
+
 ## activity
 
 
@@ -228,4 +231,24 @@ AMS.updateCpuStatsNow，只会在
 
 
 
-8：27
+### 组件的发起端
+
+BroadcastRecord
+    final ProcessRecord callerApp; // process that sent this
+    final String callerPackage; // who sent this
+    final int callingPid;   // the pid of who sent this
+    final int callingUid;   // the uid of who sent this
+
+	
+	
+ActivityRecord
+	final int launchedFromUid; // always the uid who started the activity.
+	final String launchedFromPackage; // always the package who started the activity.
+	
+service和provider由谁拉起的,并不知道.
+
+
+
+Activity
+provider
+service (start/bind/startServiceInPackage)

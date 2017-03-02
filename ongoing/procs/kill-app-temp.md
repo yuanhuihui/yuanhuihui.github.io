@@ -4,27 +4,11 @@
 
 ## 杀进程方式
 
-方式1：
-
 	Process.killProcess(int pid)；
-
-方式2：
-
-	kill -9 <pid>
-
-方式3：
-	
-	ActivityManager am = (ActivityManager)getSystemService(ACTIVITY_SERVICE);
-	am.killBackgroundProcesses(String packageName);
-
-方式4：
-
+	kill -9 <pid>  //可杀任何指定的进程
 	am kill  <PACKAGE>  //当该应用处于后台时才能被杀掉
 	
 
-方式5：
-
-	System.exit(0);
 
 
 方式1和2等效，3和4等效。 接下来 看看方式3
