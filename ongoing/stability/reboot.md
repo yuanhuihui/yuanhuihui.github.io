@@ -104,11 +104,3 @@ static const char * const reset_reasons[RS_REASON_MAX] = {
 	[RS_REASON_EVENT_NORMAL]	= "reboot",
 	[RS_REASON_EVENT_OTHER]		= "other",
 };
-
-## 常用解决手段
-
-1. 增加try... catch，强行捕获异常
-2. 增加非空判定
-3. 硬件或者cpu问题
-4. native crash: double free
-5. 数组越界

@@ -7,11 +7,7 @@
 	Process.killProcess(int pid)；
 	kill -9 <pid>  //可杀任何指定的进程
 	am kill  <PACKAGE>  //当该应用处于后台时才能被杀掉
-	
 
-
-
-方式1和2等效，3和4等效。 接下来 看看方式3
 
 
 

@@ -132,12 +132,11 @@ PKMS服务往往是调用killApplication从而间接调用forceStopPackage方法
 
 以上介绍的所有杀进程都是调用ProcessRecord.kill()方法, 必然会输出相应的EventLog.那么还有哪些场景的杀进程不会输出log呢:
 
-	Process.killProcess(int pid) //可杀任何指定进程
-    Process.sendSignal(pid, SIGNAL_KILL) //直接发送信号
+	Process.killProcess(int pid) //可杀任何指定进程,或者直接发signal 
 	adb shell kill -9 <pid>  //可杀任何指定的进程  
     直接lmk杀进程
 
-也就是说进程被杀而无log输出,那么可能是通过直接调用kill或许发信号, 再或许是lmk所杀.
+也就是说进程被杀而无log输出,那么可能是通过直接调用kill或者发信号, 再或许是lmk所杀.
  
 ### 三. 小结
 

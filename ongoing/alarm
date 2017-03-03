@@ -1,0 +1,129 @@
+frameworks/base/core/java/android/app/AlarmManager.java
+
+
+### 启动
+
+app进程调用如下:
+
+    alarmManager = (AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
+
+### 1. AlarmManager
+[-> AlarmManager.java]
+
+    AlarmManager(IAlarmManager service, Context ctx) {
+        mService = service;
+
+        mPackageName = ctx.getPackageName();
+        mTargetSdkVersion = ctx.getApplicationInfo().targetSdkVersion;
+        mAlwaysExact = (mTargetSdkVersion < Build.VERSION_CODES.KITKAT);
+        mMainThreadHandler = new Handler(ctx.getMainLooper());
+    }
+    
+    
+### 2. setImpl
+[-> AlarmManager.java]
+
+    private void setImpl(int type, long triggerAtMillis, long windowMillis, long intervalMillis,
+            int flags, PendingIntent operation, final OnAlarmListener listener, String listenerTag,
+            Handler targetHandler, WorkSource workSource, AlarmClockInfo alarmClock) {
+        ListenerWrapper recipientWrapper = null;
+        if (listener != null) {
+            synchronized (AlarmManager.class) {
+                if (sWrappers == null) {
+                    sWrappers = new ArrayMap<OnAlarmListener, ListenerWrapper>();
+                }
+
+                recipientWrapper = sWrappers.get(listener);
+                if (recipientWrapper == null) {
+                    recipientWrapper = new ListenerWrapper(listener);
+                    sWrappers.put(listener, recipientWrapper);
+                }
+            }
+            //当没有设置handler对象时,则采用当前进程的主线程handler
+            final Handler handler = (targetHandler != null) ? targetHandler : mMainThreadHandler;
+            recipientWrapper.setHandler(handler);
+        }
+
+        mService.set(mPackageName, type, triggerAtMillis, windowMillis, intervalMillis, flags,
+                operation, recipientWrapper, listenerTag, workSource, alarmClock);
+    }
+
+
+### 3. ALMS.deliverLocked
+[-> AlarmManagerService.java]
+
+    public void deliverLocked(Alarm alarm, long nowELAPSED, boolean allowWhileIdle) {
+        if (alarm.operation != null) {
+          ...
+        } else {
+           alarm.listener.doAlarm(this); //
+           mHandler.sendMessageDelayed(
+                   mHandler.obtainMessage(AlarmHandler.LISTENER_TIMEOUT,
+                           alarm.listener.asBinder()),
+                   mConstants.LISTENER_TIMEOUT);
+        }
+        ...
+    }
+
+### 4. ListenerWrapper.doAlarm
+[-> AlarmManager.java ::ListenerWrapper]
+
+     final class ListenerWrapper extends IAlarmListener.Stub implements Runnable {
+         final OnAlarmListener mListener;
+         Handler mHandler;
+         IAlarmCompleteListener mCompletion;
+
+         public ListenerWrapper(OnAlarmListener listener) {
+             mListener = listener;
+         }
+
+         public void setHandler(Handler h) {
+            mHandler = h;
+         }
+
+         //执行alarm操作
+         public void doAlarm(IAlarmCompleteListener alarmManager) {
+             mCompletion = alarmManager;
+             mHandler.post(this);
+         }
+     }
+
+如果是运行在system_server进程里面, 则接下来post到了system_server的主线程.
+
+### 5. ListenerWrapper.run
+
+    final class ListenerWrapper extends IAlarmListener.Stub implements Runnable {
+        
+        public void run() {
+            //从wrapper的缓存中移除该listener, 由于服务端已经认为它不存在
+            synchronized (AlarmManager.class) {
+                if (sWrappers != null) {
+                    sWrappers.remove(mListener);
+                }
+            }
+
+            //分发到app端
+            try {
+                mListener.onAlarm();
+            } finally {
+                mCompletion.alarmComplete(this);
+            }
+        }
+    }
+    
+    
+问题调用栈
+
+at com.android.server.job.controllers.TimeController.checkExpiredDelaysAndResetAlarm(TimeController.java:174)
+- waiting to lock <0x08e172aa> (a java.lang.Object) held by thread 9
+at com.android.server.job.controllers.TimeController.-wrap1(TimeController.java:-1)
+at com.android.server.job.controllers.TimeController$2.onAlarm(TimeController.java:284)
+at android.app.AlarmManager$ListenerWrapper.run(AlarmManager.java:285)
+at android.os.Handler.handleCallback(Handler.java:751)
+at android.os.Handler.dispatchMessage(Handler.java:95)
+at android.os.Looper.loop(Looper.java:154)
+at com.android.server.SystemServer.run(SystemServer.java:363)
+at com.android.server.SystemServer.main(SystemServer.java:231)
+at java.lang.reflect.Method.invoke!(Native method)
+at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:895)
+at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:785)

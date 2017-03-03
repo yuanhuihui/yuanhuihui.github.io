@@ -26,3 +26,8 @@ http://blog.csdn.net/qq429205464/article/details/7822442
 
 1. 超时提前统计的功能；
 2. 有地方的MIUI ADD，修改input flags可能存在问题。
+
+
+#### 
+
+SharedPreferencesImpl的性能问题, 需要优化

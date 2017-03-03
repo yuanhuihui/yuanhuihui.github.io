@@ -63,3 +63,7 @@ static HLIST_HEAD(binder_dead_nodes);
 
 
 static struct workqueue_struct *binder_deferred_workqueue;
+
+
+### 链表
+

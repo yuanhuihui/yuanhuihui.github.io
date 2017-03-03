@@ -1565,7 +1565,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 
 图解: 
 
-
+### 5.2.1 并行广播
 
 整个过程涉及过程进程间通信, 先来说说并行广播处理过程:
 
@@ -1575,6 +1575,8 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 4. 广播接收端所在进程的binder线程: 步骤12~13;
 5. 广播接收端所在进程的主线程: 步骤14~15,以及23;
 6. system_server的binder线程: 步骤24~25.
+
+### 5.2.2 串行广播
 
 可以看出整个流程中,步骤8~15是并行广播, 而步骤16~22则是串行广播.那么再来说说串行广播的处理过程.
 
@@ -1590,3 +1592,13 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 - enqueueClockTime: 位于步骤4 scheduleBroadcastsLocked(), 这是在system_server的binder线程.
 - dispatchClockTime: 位于步骤8 deliverToRegisteredReceiverLocked(),这是在system_server的ActivityManager线程.
 - finishTime : 位于步骤11 addBroadcastToHistoryLocked()之后, 这是在并行广播向所有receivers发送完成后的时间点,而串行广播则是一个一个发送完成才会继续.
+
+### 5.3 ANR
+
+AMS.java
+mFgBroadcastQueue : mBgBroadcastQueue
+
+BroadcastQueue.java
+mParallelBroadcasts, mOrderedBroadcasts
+
+未完...
