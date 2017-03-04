@@ -337,8 +337,7 @@ tags:
 ## 三. 总结
 
 整个启动过程涉及3个线程: system_server主线程, "android.display", "android.ui", 整个过程是采用阻塞方式(利用Handler.runWithScissors)执行的.
+其中WindowManagerService.mH的Looper运行在 "android.display"进程，也就意味着WMS.H.handleMessage()在该线程执行。
 流程如下:
 
 ![wms_startup](/images/wms/wms_startup.jpg)
-
-其中WindowManagerService.mH的Looper运行在 "android.display"进程，也就意味着WMS.H.handleMessage()在该进程执行。

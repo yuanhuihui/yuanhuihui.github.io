@@ -495,11 +495,6 @@ ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并
         //执行后resultStack = null
         final ActivityStack resultStack = resultRecord == null ? null : resultRecord.task.stack;
 
-        if (err != ActivityManager.START_SUCCESS) {
-            ... //前面步骤存在err,执行到这里将会直接返回
-            return err;
-        }
-
         ... //权限检查
 
         // ActivityController不为空的情况，比如monkey测试过程
@@ -606,13 +601,12 @@ ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并
     final void doPendingActivityLaunchesLocked(boolean doResume) {
         while (!mPendingActivityLaunches.isEmpty()) {
             PendingActivityLaunch pal = mPendingActivityLaunches.remove(0);
-
             try {
                 //[见流程2.9]
                 startActivityUncheckedLocked(pal.r, pal.sourceRecord, null, null, pal.startFlags,
                                              doResume && mPendingActivityLaunches.isEmpty(), null, null);
             } catch (Exception e) {
-                Slog.w(TAG, "Exception during pending activity launch pal=" + pal, e);
+                ...
             }
         }
     }
@@ -1236,9 +1230,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
 ### 2.13 AS.resumeTopActivityInnerLocked
 
     private boolean resumeTopActivityInnerLocked(ActivityRecord prev, Bundle options) {
-        if (!mService.mBooting && !mService.mBooted) {
-            return false;
-        }
+        ... //系统没有进入booting或booted状态，则不允许启动Activity
 
         ActivityRecord parent = mActivityContainer.mParentActivity;
         if ((parent != null && parent.state != ActivityState.RESUMED) ||
@@ -1327,10 +1319,9 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
 
         mStackSupervisor.setLaunchSource(next.info.applicationInfo.uid);
 
-
         //需要等待暂停当前activity完成，再resume top activity
         boolean dontWaitForPause = (next.info.flags&ActivityInfo.FLAG_RESUME_WHILE_PAUSING) != 0;
-        //暂停其他Activity
+        //暂停其他Activity[见小节3.13.1]
         boolean pausing = mStackSupervisor.pauseBackStacks(userLeaving, true, dontWaitForPause);
         if (mResumedActivity != null) {
             //当前resumd状态activity不为空，则需要先暂停该Activity
@@ -1489,32 +1480,11 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
                 mStackSupervisor.checkReadyForSleepLocked();
 
             } catch (Exception e) {
-                next.state = lastState;
-                if (lastStack != null) {
-                    lastStack.mResumedActivity = lastResumedActivity;
-                }
-                if (!next.hasBeenLaunched) {
-                    next.hasBeenLaunched = true;
-                } else  if (SHOW_APP_STARTING_PREVIEW && lastStack != null &&
-                        mStackSupervisor.isFrontStack(lastStack)) {
-                    mWindowManager.setAppStartingWindow(
-                            next.appToken, next.packageName, next.theme,
-                            mService.compatibilityInfoForPackageLocked(next.info.applicationInfo),
-                            next.nonLocalizedLabel, next.labelRes, next.icon, next.logo,
-                            next.windowFlags, null, true);
-                }
-                mStackSupervisor.startSpecificActivityLocked(next, true, false);
+                ...
                 return true;
             }
-
-            try {
-                next.visible = true;
-                completeResumeLocked(next);
-            } catch (Exception e) {
-                requestFinishActivityLocked(next.appToken, Activity.RESULT_CANCELED, null,
-                        "resume-exception", true);
-                return true;
-            }
+            next.visible = true;
+            completeResumeLocked(next);
             next.stopped = false;
 
         } else {
@@ -1531,7 +1501,6 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
                             null, true);
                 }
             }
-            // [见流程2.14]
             mStackSupervisor.startSpecificActivityLocked(next, true, true);
         }
         return true;
@@ -1543,6 +1512,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
 - 否则，当mResumedActivity不为空，则执行startPausingLocked()暂停该activity;
 - 然后再进入startSpecificActivityLocked环节，接下来从这里继续往下说。
 
+#### 
 ### 2.14 ASS.startSpecificActivityLocked
 
     void startSpecificActivityLocked(ActivityRecord r,

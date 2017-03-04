@@ -41,9 +41,9 @@ Android系统中图形系统是相当复杂的，包括WindowManager，SurfaceFl
 
 SurfaceFlinger进程是由init进程创建的，运行在独立的SurfaceFlinger进程。Android应用程序
 必须跟SurfaceFlinger进程交互，才能完成将应用UI绘制到frameBuffer(帧缓冲区)。这个交互便涉及到
-进程间的通信，采用的Binder IPC方式，名为"SurfaceFlinger"的Binder服务端运行在SurfaceFlinger进程。
+进程间的通信，采用的Binder IPC方式，名为"SurfaceFlinger"的Binder服务端运行在[SurfaceFlinger进程](http://gityuan.com/2017/02/11/surface_flinger/)。
 
-Binder服务类图：点击查看[大图](http://gityuan.com/images/surfaceFlinger/class_surface.jpg)
+SurfaceFlinger关系图：点击查看[大图](http://gityuan.com/images/surfaceFlinger/class_surface.jpg)
 
 ![class_surface](/images/surfaceFlinger/class_surface.jpg)
 
