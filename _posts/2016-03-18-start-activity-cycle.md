@@ -124,7 +124,7 @@ Activity的生命周期，都是其他线程通过handler发送消息给主线�
 - STOP_ACTIVITY_SHOW / STOP_ACTIVITY_HIDE
 - DESTROY_ACTIVITY
 
-一般来说收到消息，都会调用相应handlerxxx方法。比如,`LAUNCH_ACTIVITY`则对应`handleLaunchActivity`, `RESUME_ACTIVITY`则对应`handleResumeActivity`等。
+一般来说收到消息，都会调用相应handlexxx方法。比如,`LAUNCH_ACTIVITY`则对应`handleLaunchActivity`, `RESUME_ACTIVITY`则对应`handleResumeActivity`等。
 
     public void handleMessage(Message msg) {
       switch (msg.what) {
@@ -153,9 +153,8 @@ Activity的生命周期，都是其他线程通过handler发送消息给主线�
             handleResumeActivity((IBinder) msg.obj, true, msg.arg1 != 0, true);
             break;
         case DESTROY_ACTIVITY:
-                handleDestroyActivity((IBinder)msg.obj, msg.arg1 != 0,
-                        msg.arg2, false);
-                break;
+            handleDestroyActivity((IBinder)msg.obj, msg.arg1 != 0, msg.arg2, false);
+            break;
          ...
       }
     }

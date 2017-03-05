@@ -77,7 +77,7 @@ Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 
 ###  三、通信方式
 
-无论是Android系统，还是各种Linux衍生系统，各个组件、模块往往运行在各种不同的进程和线程内，这里就必然涉及进程/线程之间的通信。对于IPC(Inter-Process Communication, 进程间通信)，Linux现有管道、消息队列、共享内存、套接字、信号量、信号这些IPC机制，Android额外还有Binder IPC机制，Android OS中的Zygote进程的IPC采用的是Socket机制，在上层system server、media server以及上层App之间更多的是采用Binder IPC方式来完成跨进程间的通信。对于Android上层架构中，还多时候是在同一个进程的线程之间需要相互通信，例如同一个进程的主线程与工作线程之间的通信，往往采用的Handler消息机制。
+无论是Android系统，还是各种Linux衍生系统，各个组件、模块往往运行在各种不同的进程和线程内，这里就必然涉及进程/线程之间的通信。对于IPC(Inter-Process Communication, 进程间通信)，Linux现有管道、消息队列、共享内存、套接字、信号量、信号这些IPC机制，Android额外还有Binder IPC机制，Android OS中的Zygote进程的IPC采用的是Socket机制，在上层system server、media server以及上层App之间更多的是采用Binder IPC方式来完成跨进程间的通信。对于Android上层架构中，很多时候是在同一个进程的线程之间需要相互通信，例如同一个进程的主线程与工作线程之间的通信，往往采用的Handler消息机制。
 
 想深入理解Android内核层架构，必须先深入理解Linux现有的IPC机制；对于Android上层架构，则最常用的通信方式是Binder、Socket、Handler，当然也有少量其他的IPC方式，比如杀进程Process.killProcess()采用的是signal方式。下面说说Binder、Socket、Handler：
 
@@ -193,8 +193,29 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
   - [debuggerd](http://gityuan.com/2016/06/15/android-debuggerd/)
   - [installd](http://gityuan.com/2016/11/13/android-installd)
   - [lmkd](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
-  
-#### 4.3 系统服务篇
+
+#### 4.3 四大组件篇
+对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：
+
+- Android组件-Activity
+  - [startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
+  - [简述Activity生命周期](http://gityuan.com/2016/03/18/start-activity-cycle/)
+- Android组件-Service
+  - [startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
+  - [bindService启动过程分析](http://gityuan.com/2016/05/01/bind-service/)
+  - [以Binder视角来看Service启动](http://gityuan.com/2016/09/04/binder-start-service/)
+- Android组件-Broadcast Receiver
+  - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
+- Android组件-Content Provider
+  - [理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)
+  - [ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/)
+
+#### 4.4 图形系统篇
+图形也是整个系统非常复杂且重要的一个系列，涉及WindowManager,SurfaceFlinger.
+
+
+
+#### 4.5 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
 - Android服务篇-ActivityManagerService
@@ -221,24 +242,7 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
   - [多用户管理UserManager](http://gityuan.com/2016/11/20/user_manager/)
 - 更多服务介绍, 敬请期待...
 
-
-#### 4.4 四大组件篇
-对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：
-
-- Android组件-Activity
-  - [startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
-  - [简述Activity生命周期](http://gityuan.com/2016/03/18/start-activity-cycle/)
-- Android组件-Service
-  - [startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
-  - [bindService启动过程分析](http://gityuan.com/2016/05/01/bind-service/)
-  - [以Binder视角来看Service启动](http://gityuan.com/2016/09/04/binder-start-service/)
-- Android组件-Broadcast Receiver
-  - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
-- Android组件-Content Provider
-  - [理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)
-  - [ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/)
-
-#### 4.5 系统分析篇
+#### 4.6 系统分析篇
 Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理流程,才能再进一步分析具体问题. 这里先展开原理篇.
 
 - Android ANR系列
@@ -252,7 +256,7 @@ Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理�
   - [理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)
   - [WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)
 
-#### 4.6 内存&&存储篇
+#### 4.7 内存&&存储篇
 
 - 内存篇
     - [Android LowMemoryKiller原理分析](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
@@ -266,7 +270,7 @@ Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理�
     - [ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)
     - 敬请期待
     
-#### 4.7 工具篇
+#### 4.8 工具篇
 最后，说说Android相关的一些常用命令和工具以及调试手段.
 
 - [理解Android编译命令](http://gityuan.com/2016/03/19/android-build/)
@@ -275,15 +279,15 @@ Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理�
 - [ps进程命令](http://gityuan.com/2015/10/11/ps-command/)
 - [Am命令用法](http://gityuan.com/2016/02/27/am-command/)
 - [Pm命令用法](http://gityuan.com/2016/02/28/pm-command/)
-- [dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)
 - [调试系列1：bugreport源码篇](http://gityuan.com/2016/06/10/bugreport/)
 - [调试系列2：bugreport实战篇](http://gityuan.com/2016/06/11/bugreport-2/)
+- [dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)
 
 
 ---
 
 **计划：** 后续不断持续得新增和完善整个大纲，不限于进程、内存、IO知识，系统各个服务框架，整体架构，以及各种系统分析实战文章。
-博客会持续更新，各个击破。 本文会持续更新，`最近更新时间点: `2017.01.15`.
+博客会持续更新，各个击破。 本文会持续更新，`最近更新时间点: `2017.03.05`.
 
 ---
 

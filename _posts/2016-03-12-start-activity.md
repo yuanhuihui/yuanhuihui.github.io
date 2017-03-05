@@ -1203,7 +1203,7 @@ ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并
         return result;
     }
 
-### 2.12 AS.resumeTopActivitiesLocked
+### 2.12 AS.resumeTopActivityLocked
 
     final boolean resumeTopActivityLocked(ActivityRecord prev, Bundle options) {
         if (mStackSupervisor.inResumeTopActivity) {
@@ -1321,7 +1321,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
 
         //需要等待暂停当前activity完成，再resume top activity
         boolean dontWaitForPause = (next.info.flags&ActivityInfo.FLAG_RESUME_WHILE_PAUSING) != 0;
-        //暂停其他Activity[见小节3.13.1]
+        //暂停其他Activity[见小节2.13.1]
         boolean pausing = mStackSupervisor.pauseBackStacks(userLeaving, true, dontWaitForPause);
         if (mResumedActivity != null) {
             //当前resumd状态activity不为空，则需要先暂停该Activity
@@ -1512,7 +1512,90 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
 - 否则，当mResumedActivity不为空，则执行startPausingLocked()暂停该activity;
 - 然后再进入startSpecificActivityLocked环节，接下来从这里继续往下说。
 
-#### 
+#### 2.13.1 ASS.pauseBackStacks
+
+    boolean pauseBackStacks(boolean userLeaving, boolean resuming, boolean dontWait) {
+        boolean someActivityPaused = false;
+        for (int displayNdx = mActivityDisplays.size() - 1; displayNdx >= 0; --displayNdx) {
+            ArrayList<ActivityStack> stacks = mActivityDisplays.valueAt(displayNdx).mStacks;
+            for (int stackNdx = stacks.size() - 1; stackNdx >= 0; --stackNdx) {
+                final ActivityStack stack = stacks.get(stackNdx);
+                if (!isFrontStack(stack) && stack.mResumedActivity != null) {
+                    //[见小节2.13.2]
+                    someActivityPaused |= stack.startPausingLocked(userLeaving, false, resuming,
+                            dontWait);
+                }
+            }
+        }
+        return someActivityPaused;
+    }
+
+暂停所有处于后台栈的所有Activity。
+
+#### 2.13.2 AS.startPausingLocked
+
+    final boolean startPausingLocked(boolean userLeaving, boolean uiSleeping, boolean resuming,
+         boolean dontWait) {
+      if (mPausingActivity != null) {
+          if (!mService.isSleeping()) {
+              completePauseLocked(false);
+          }
+      }
+      ActivityRecord prev = mResumedActivity;
+      ...
+
+      if (mActivityContainer.mParentActivity == null) {
+          //暂停所有子栈的Activity
+          mStackSupervisor.pauseChildStacks(prev, userLeaving, uiSleeping, resuming, dontWait);
+      }
+      ...
+      final ActivityRecord next = mStackSupervisor.topRunningActivityLocked();
+      
+      if (prev.app != null && prev.app.thread != null) {
+          EventLog.writeEvent(EventLogTags.AM_PAUSE_ACTIVITY,
+                  prev.userId, System.identityHashCode(prev),
+                  prev.shortComponentName);
+          mService.updateUsageStats(prev, false);
+          //暂停目标Activity
+          prev.app.thread.schedulePauseActivity(prev.appToken, prev.finishing,
+                  userLeaving, prev.configChangeFlags, dontWait);
+      }else {
+          ...
+      }
+
+      if (!uiSleeping && !mService.isSleepingOrShuttingDown()) {
+          mStackSupervisor.acquireLaunchWakelock(); //申请wakelock
+      }
+
+      if (mPausingActivity != null) {
+          if (!uiSleeping) {
+              prev.pauseKeyDispatchingLocked();
+          } 
+
+          if (dontWait) {
+              completePauseLocked(false); 
+              return false;
+          } else {
+              Message msg = mHandler.obtainMessage(PAUSE_TIMEOUT_MSG);
+              msg.obj = prev;
+              prev.pauseTime = SystemClock.uptimeMillis();
+              //500ms后，执行暂停超时的消息
+              mHandler.sendMessageDelayed(msg, PAUSE_TIMEOUT);
+              return true;
+          }
+
+      } else {
+          if (!resuming) { //调度暂停失败，则认为已暂停完成，开始执行resume操作
+              mStackSupervisor.getFocusedStack().resumeTopActivityLocked(null);
+          }
+          return false;
+      }
+
+该方法中，下一步通过Binder调用，进入acitivity所在进程来执行schedulePauseActivity()操作。
+接下来，对于dontWait=true则执行执行completePauseLocked，否则等待app通知或许500ms超时再执行该方法。
+
+#### 3.13.3 completePauseLocked
+
 ### 2.14 ASS.startSpecificActivityLocked
 
     void startSpecificActivityLocked(ActivityRecord r,
@@ -1657,15 +1740,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
                 mService.mHomeProcess = task.mActivities.get(0).app;
             }
             mService.ensurePackageDexOpt(r.intent.getComponent().getPackageName());
-            r.sleeping = false;
-            r.forceNewConfig = false;
-            mService.showAskCompatModeDialogLocked(r);
-            r.compat = mService.compatibilityInfoForPackageLocked(r.info.applicationInfo);
-            if (mService.mProfileApp != null && mService.mProfileApp.equals(app.processName)) {
-                if (mService.mProfileProc == null || mService.mProfileProc == app) {
-                    ...
-                }
-            }
+            ...
 
             if (andResume) {
                 app.hasShownUi = true;
@@ -1697,10 +1772,8 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
             throw e;
         }
 
-        r.launchFailed = false;
         //将该进程加入到mLRUActivities队列顶部
         stack.updateLRUListLocked(r)；
-
 
         if (andResume) {
             //启动过程的一部分

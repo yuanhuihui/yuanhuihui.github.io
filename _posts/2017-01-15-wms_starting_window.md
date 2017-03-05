@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "WMS之启动窗口过程"
+title:  "WMS之启动窗口篇"
 date:   2017-01-15 20:32:00
 catalog:  true
 tags:
