@@ -226,7 +226,7 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 
 - Android服务篇-ActivityManagerService
   - [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
-  - [Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)
+  - 更多组件篇[见小节4.3]
 - Input系统
   - [Input系统—启动篇](http://gityuan.com/2016/12/10/input-manager/)
   - [Input系统—InputReader线程](http://gityuan.com/2016/12/11/input-reader/)
@@ -237,8 +237,6 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 - Android服务篇-PackageManagerService
   - [PackageManager启动篇](http://gityuan.com/2016/11/06/packagemanagerservice)
   - [Installd守护进程](http://gityuan.com/2016/11/13/android-installd)
-- Android服务篇-WindowManagerService
-  - [WindowManagerService启动篇](http://gityuan.com/2017/01/08/windowmanger/)
 - Android服务篇-BatteryService
   - [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
 - Android服务篇-PowerManagerService
@@ -292,9 +290,10 @@ Android往往会有一些crash, anr等异常抛出, 只有先明白整个处理�
 
 ---
 
-**计划：** 后续不断持续得新增和完善整个大纲，不限于进程、内存、IO知识，系统各个服务框架，整体架构，以及各种系统分析实战文章。
-博客会持续更新，各个击破。 本文会持续更新，`最近更新时间点: `2017.03.05`.
+**计划：** 后续持续新增和完善整个大纲，不限于进程、内存、IO、系统服务框架，整体架构以及各种系统分析实战等文章。
+博客会持续更新，各个击破，本文最近更新时间点: `2017.03.05`.
 
 ---
 
-**说明：**博主水平和精力有限，没有大量的时间反复校验文章，目前只是初稿，后续会不断整理和完善每一个文章。如果您发现文章逻辑、文字或表述存在错误，还望海涵，可通过博客留言、邮件gityuan@gmail.com，或微博反馈。
+**说明：**博主水平和精力有限，没有大量的时间反复校验文章，目前只是初稿，后续会不断整理和完善每一篇文章。
+另外，如果您发现文章逻辑、文字或表述存在错误，还望海涵，可通过博客留言指正、邮件gityuan@gmail.com，或微博反馈，谢谢！

@@ -23,7 +23,7 @@ WMS是Android系统中比较复杂，也是非常重要的服务之一，它涉�
   - Session extends IWindowSession.Stub
   - ActivityRecord.Token extends IApplicationToken.Stub
 - app进程的Binder服务：
-  - ViewRootImpl.W extends IWindow.Stub
+  - ViewRootImpl.W extends IWindow.Stub (WindowState使用)
 
 Binder Call流程：
 

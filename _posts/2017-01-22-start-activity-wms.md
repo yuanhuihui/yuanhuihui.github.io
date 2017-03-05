@@ -744,7 +744,7 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
         }
     }
 
-#### 2.9.1 WMS.addToDisplay
+#### 2.9.1 WMS.addWindow
 [-> WindowManagerService.java]
 
     public int addWindow(Session session, IWindow client, int seq,
@@ -756,7 +756,13 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
         //创建WindowState【见小节2.9.2】
         WindowState win = new WindowState(this, session, client, token,
                     attachedWindow, appOp[0], seq, attrs, viewVisibility, displayContent);
-                    
+        ...
+        mPolicy.adjustWindowParamsLw(win.mAttrs);
+        res = mPolicy.prepareAddWindowLw(win, attrs);
+        addWindowToListInOrderLocked(win, true);
+        updateFocusedWindowLocked(UPDATE_FOCUS_WILL_ASSIGN_LAYERS,
+                        false /*updateInputWindows*/);
+        assignLayersLocked(displayContent.getWindowList());
         ...
     }
 
