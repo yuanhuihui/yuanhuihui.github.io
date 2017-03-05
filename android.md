@@ -213,7 +213,13 @@ Android系统启动过程中，有几个非常重要的进程：`init`、`Zygote
 #### 4.4 图形系统篇
 图形也是整个系统非常复杂且重要的一个系列，涉及WindowManager,SurfaceFlinger.
 
-
+- [WindowManager启动篇](http://gityuan.com/2017/01/08/windowmanger/)
+- [WMS之启动窗口篇](http://gityuan.com/2017/01/15/wms_starting_window/)
+- [以Window视角来看startActivity](http://gityuan.com/2017/01/22/start-activity-wms/)
+- [Android图形系统概述](http://gityuan.com/2017/02/05/graphic_arch/)
+- [SurfaceFlinger启动篇](http://gityuan.com/2017/02/11/surface_flinger/)
+- [SurfaceFlinger绘图篇](http://gityuan.com/2017/02/18/surface_flinger_2/)
+- [Choreographer原理](http://gityuan.com/2017/02/25/choreographer/)
 
 #### 4.5 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：

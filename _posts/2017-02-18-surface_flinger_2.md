@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "SurfaceFlinger原理(二)"
+title:  "SurfaceFlinger绘图篇"
 date:   2017-02-18 20:30:00
 catalog:  true
 tags:

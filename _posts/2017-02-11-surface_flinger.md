@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "SurfaceFlinger原理(一)"
+title:  "SurfaceFlinger启动篇"
 date:   2017-02-11 20:30:00
 catalog:  true
 tags:
