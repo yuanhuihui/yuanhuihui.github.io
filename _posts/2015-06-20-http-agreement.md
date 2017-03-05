@@ -32,7 +32,7 @@ tags:
         GET /user?id=10 HTTP/1.1
         Host: www.example.com
 
-- GOST:
+- POST:
 
         POST /user HTTP/1.1
         Host: www.example.com
