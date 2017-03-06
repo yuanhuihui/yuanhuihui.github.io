@@ -11,7 +11,7 @@ app进程调用如下:
 [-> AlarmManager.java]
 
     AlarmManager(IAlarmManager service, Context ctx) {
-        mService = service;
+        mService = service; //ALMS的binder代理端
 
         mPackageName = ctx.getPackageName();
         mTargetSdkVersion = ctx.getApplicationInfo().targetSdkVersion;
@@ -56,7 +56,7 @@ app进程调用如下:
         if (alarm.operation != null) {
           ...
         } else {
-           alarm.listener.doAlarm(this); //
+           alarm.listener.doAlarm(this); 
            mHandler.sendMessageDelayed(
                    mHandler.obtainMessage(AlarmHandler.LISTENER_TIMEOUT,
                            alarm.listener.asBinder()),
