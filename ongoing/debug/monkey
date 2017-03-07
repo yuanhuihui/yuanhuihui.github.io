@@ -1,0 +1,8 @@
+adb shell monkey -v --throttle 300 
+--pct-touch 30 --pct-motion 20 --pct-nav 20 --pct-majornav 15 --pct-appswitch 5 
+--pct-anyevent 5 --pct-trackball 0 --pct-syskeys 0 --bugreport 10000000  > E:\monkeytext​
+
+
+adb shell monkey --throttle 500 
+--pct-touch 20 --pct-motion 25 --pct-nav 20 --pct-majornav 15 --pct-appswitch 5 --pct-anyevent 15 
+--ignore-crashes --ignore-timeouts --ignore-native-crashes --bugreport 500000000
