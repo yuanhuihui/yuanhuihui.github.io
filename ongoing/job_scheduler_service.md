@@ -1,12 +1,8 @@
-###
-
-JobSchedulerImpl extends JobScheduler 
-JobSchedulerService的代理端位于 JobSchedulerImpl.mBinder
+## 一. 概述
 
 
-JobSchedulerService，简称为JSS
-
-## 二. 初始化
+      
+## 二. JSS启动过程
 
 ### 2.1 startOtherServices
 [-> SystemServer.java]
@@ -205,9 +201,45 @@ JobSchedulerService，简称为JSS
 - JobSchedulerImpl：调度任务
 - JobInfo：任务信息
 
-## 三. JobService
 
-### 3.1 JobService
+JobSchedulerImpl extends JobScheduler 
+JobSchedulerService的代理端位于 JobSchedulerImpl.mBinder
+
+## 三.  用户使用
+
+JobScheduler的用法:
+
+     //[见小节3.1]
+     JobScheduler scheduler = (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);  
+     // MyJobService继承于MyJobService对象 [见小节3.2]
+     ComponentName jobService = new ComponentName(this, MyJobService.class); 
+     int jobId = 123;  
+     
+     //创建JobInfo对象[见小节2.5.6]
+     JobInfo jobInfo = new JobInfo.Builder(jobId, jobService)  
+             .setMinimumLatency(5000)// 设置任务运行最少延迟时间  
+             .setOverrideDeadline(60000)// 设置deadline，若到期还没有达到规定的条件则会开始执行  
+             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_UNMETERED)// 设置网络条件  
+             .setRequiresCharging(true)// 设置是否充电的条件  
+             .setRequiresDeviceIdle(false)// 设置手机是否空闲的条件  
+             .build();  
+     //[见小节3.3]
+     scheduler.schedule(jobInfo); 
+
+### 3.1 JobScheduler
+[-> SystemServiceRegistry]
+
+    registerService(Context.JOB_SCHEDULER_SERVICE, JobScheduler.class,
+            new StaticServiceFetcher<JobScheduler>() {
+        public JobScheduler createService() {
+            IBinder b = ServiceManager.getService(Context.JOB_SCHEDULER_SERVICE);
+            return new JobSchedulerImpl(IJobScheduler.Stub.asInterface(b));
+        }});
+ 
+从这个过程,可知客户端请求获取JOB_SCHEDULER_SERVICE服务, 返回的是JobSchedulerImpl对象.
+JobSchedulerImpl对象继承于JobScheduler对象.
+ 
+### 3.2 JobService
 [-> JobService.java]
 
     public abstract class JobService extends Service {
@@ -229,6 +261,7 @@ JobSchedulerService，简称为JSS
         void ensureHandler() {
            synchronized (mHandlerLock) {
                if (mHandler == null) {
+                   //[见小节3.2.1]
                    mHandler = new JobHandler(getMainLooper());
                }
            }
@@ -239,7 +272,7 @@ JobSchedulerService，简称为JSS
       
     }
 
-### 3.2 JobHandler
+#### 3.2.1 JobHandler
 [-> JobService.java ::JobHandler]
 
     class JobHandler extends Handler {
@@ -268,11 +301,21 @@ JobSchedulerService，简称为JSS
         }
     }    
 
-## 四. schedule
+### 3.3 JSI.schedule
+[-> JobSchedulerImpl.java]
 
-当app端调用schedule如下：
+    public int schedule(JobInfo job) {
+        try {
+            return mBinder.schedule(job); //[见小节3.4]
+        } catch (RemoteException e) {
+            return JobScheduler.RESULT_FAILURE;
+        }
+    }
+    
+当app端调用JobSchedulerImpl的schedule()过程,通过binder call进入了system_server的binder线程,进入如下操作.
 
-### 4.1 JobSchedulerStub.schedule
+### 3.4 JobSchedulerStub.schedule
+[-> JobSchedulerService.java  ::JobSchedulerStub]
 
     public int schedule(JobInfo job) throws RemoteException {
         final int pid = Binder.getCallingPid();
@@ -281,23 +324,26 @@ JobSchedulerService，简称为JSS
 
         long ident = Binder.clearCallingIdentity();
         try {
-            return JobSchedulerService.this.schedule(job, uid);
+            return JobSchedulerService.this.schedule(job, uid);  //[见小节3.5]
         } finally {
             Binder.restoreCallingIdentity(ident);
         }
     }
     
-### 4.2  JSS.schedule
+### 3.5  JSS.schedule
 
     public int schedule(JobInfo job, int uId) {
         JobStatus jobStatus = new JobStatus(job, uId);
         cancelJob(uId, job.getId());
         startTrackingJob(jobStatus);
+         //[见小节3.6]
         mHandler.obtainMessage(MSG_CHECK_JOB).sendToTarget();
         return JobScheduler.RESULT_SUCCESS;
     }
   
-### 4.3 JSS.JobHandler
+向system_server进程的主线程发送message.
+
+### 3.6 JSS.JobHandler
 [-> JobSchedulerService.java  ::JobHandler]
 
     private class JobHandler extends Handler {
@@ -320,19 +366,19 @@ JobSchedulerService，简称为JSS
                     break;
                 case MSG_CHECK_JOB:
                     synchronized (mJobs) {
-                        //[见小节4.4]
+                        //[见小节3.7]
                         maybeQueueReadyJobsForExecutionLockedH();
                     }
                     break;
             }
-            //[见小节4.5]
+            //[见小节3.8]
             maybeRunPendingJobsH();
             removeMessages(MSG_CHECK_JOB);
         }
     }
     
 
-### 4.4 maybeQueueReadyJobsForExecutionLockedH
+### 3.7 maybeQueueReadyJobsForExecutionLockedH
 [-> JobSchedulerService.java  ::JobHandler]
 
     private void maybeQueueReadyJobsForExecutionLockedH() {
@@ -375,7 +421,12 @@ JobSchedulerService，简称为JSS
         } 
     }
 
-#### 4.5 maybeRunPendingJobsH
+该功能:
+
+1. 先将所有JobStatus加入runnableJobs队列;
+2. 再将runnableJobs中满足触发条件的JobStatus加入到mPendingJobs队列;
+
+### 3.8 maybeRunPendingJobsH
 
     private void maybeRunPendingJobsH() {
         synchronized (mJobs) {
@@ -399,7 +450,7 @@ JobSchedulerService，简称为JSS
                     }
                 }
                 if (availableContext != null) {
-                    //[见小节4.6]
+                    //[见小节3.9]
                     if (!availableContext.executeRunnableJob(nextPending)) {
                         mJobs.remove(nextPending);
                     }
@@ -409,7 +460,9 @@ JobSchedulerService，简称为JSS
         }
     }
 
-#### 4.6 executeRunnableJob
+处理mPendingJobs列队中所有的Job.
+
+### 3.9 executeRunnableJob
 [-> JobServiceContext]
 
     boolean executeRunnableJob(JobStatus job) {
@@ -445,7 +498,13 @@ JobSchedulerService，简称为JSS
             return true;
         }
     }
-    
+
+这便是由system_server进程的主线程来执行bind Service的方式来拉起的进程.
+
+## 四. cancel
+
+JobScheduler对象调用cancel(int jobId)或cancelAll()
+
 ### else
 http://blog.csdn.net/zhangyongfeiyong/article/details/52224300
 http://blog.csdn.net/zhangyongfeiyong/article/details/52130413

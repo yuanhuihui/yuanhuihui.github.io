@@ -84,7 +84,8 @@ Android系统源码中framework/native/cmds/bugreport目录通过Android.mk定�
       return 0;
     }
 
-该过程先启动`dumpstate`服务，Bugreport再通过socket建立于dumpstate的通信，这个过程会尝试20次socket连接建立直到成功连接。 在socket通道中如果持续3分钟没有任何数据可读，则超时停止读取并退出。由于dumpstate服务中不存在大于1分钟的timetout，因而不可预见的超时的情况下留有很大的回旋余地。
+property_set("ctl.start", "dumpstate")会触发init进程,来fork进程`/system/bin/dumpstate`, 作为dumpstate服务的进程.
+Bugreport再通过socket建立于dumpstate的通信，这个过程会尝试20次socket连接建立直到成功连接。 在socket通道中如果持续3分钟没有任何数据可读，则超时停止读取并退出。由于dumpstate服务中不存在大于1分钟的timetout，因而不可预见的超时的情况下留有很大的回旋余地。
 
 当从socket读取到数据后，写入到标准时输出或者重定向到文件。可见bugreport数据的来源都是dumpstate服务，那么接下来去看看dumpstate服务的工作。
 

@@ -1,5 +1,45 @@
 frameworks/base/core/java/android/app/AlarmManager.java
 
+## 用户使用
+
+
+AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE); 
+Intent intent=new Intent(Constants.ACITON_REMIND); 
+PendingIntent pi=PendingIntent.getBroadcast(context, (int)reminder.getId(), intent,  
+        PendingIntent.FLAG_UPDATE_CURRENT);  
+
+alarmManager.set(AlarmManager.RTC_WAKEUP, reminder.getReminderDate().getTime(), pi);  
+
+
+    registerService(Context.ALARM_SERVICE, AlarmManager.class,
+            new CachedServiceFetcher<AlarmManager>() {
+
+        public AlarmManager createService(ContextImpl ctx) {
+            IBinder b = ServiceManager.getService(Context.ALARM_SERVICE);
+            IAlarmManager service = IAlarmManager.Stub.asInterface(b);
+            return new AlarmManager(service, ctx);
+        }});
+    
+## 启动
+
+### 2.1 startOtherServices
+[-> SystemServer.java]
+
+    private void startOtherServices() {
+      ...
+      mSystemServiceManager.startService(AlarmManagerService.class);
+      ...
+    }
+
+
+### 2.2 AlarmManagerService
+
+
+AlarmManagerService.mHandler 也是运行在system_server的主线程.
+
+
+
+
 
 ### 启动
 

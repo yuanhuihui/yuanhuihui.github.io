@@ -27,8 +27,7 @@ http://ota.pt.miui.com/?r=eng&dir=/symbols
 
 1. 获取符号地址
 
-    cd prebuilts/gcc/linux-x86/arm/arm-eabi-4.8/bin/
-    arm-eabi-nm  out/target/product/cancro/obj/KERNEL_OBJ/vmlinux |grep epoll_wait
+    prebuilts/gcc/linux-x86/arm/arm-eabi-4.8/bin/arm-eabi-nm  out/target/product/cancro/obj/KERNEL_OBJ/vmlinux |grep epoll_wait
 
 该命令执行后,可获取sys_epoll_wait命令的符号地址
 
@@ -46,3 +45,9 @@ http://ota.pt.miui.com/?r=eng&dir=/symbols
 3. 注意
 
 对于kernel来说都是通过vmlinux来获取的
+
+
+### demo 2
+
+1. gityuan@13203:~/gityuan/projects/a1$ prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-nm out/target/product/gemini/obj/KERNEL_OBJ/vmlinux | grep binder_thread_read
+2. prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-addr2line -f -C -e out/target/product/gemini/obj/KERNEL_OBJ/vmlinux ffffffc000aa8cb4
