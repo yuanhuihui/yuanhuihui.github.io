@@ -392,7 +392,7 @@ scheduleLaunchActivity之后便调用到了handleLaunchActivity方法
         }
     }
 
-该方法的功能是获取AMS的binder代理。
+该方法的功能是获取AMS的代理对象。
 
 ### 2.4 AT.performLaunchActivity
 
@@ -535,7 +535,7 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
 
     final void handleResumeActivity(IBinder token,
             boolean clearHide, boolean isForward, boolean reallyResume) {
-        //[见小节2.5.1]
+        //执行到onResume方法()[见小节2.5.1]
         ActivityClientRecord r = performResumeActivity(token, clearHide);
 
         if (r != null) {
@@ -563,7 +563,8 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
                 ...
                 mNumVisibleActivities++;
                 if (r.activity.mVisibleFromClient) {
-                    r.activity.makeVisible(); //[见小节2.5.2]
+                    //添加视图[见小节2.5.2]
+                    r.activity.makeVisible(); 
                 }
             }
 
@@ -575,6 +576,11 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
             ...
         }
     }
+    
+该过程的执行顺序：
+
+- performResumeActivity：最终会调用到onResume()方法；
+- makeVisible：一直调用到WMS，来进行添加视图；
 
 #### 2.5.1 AT.performResumeActivity
 
@@ -620,39 +626,39 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
 
     public void addView(@NonNull View view, @NonNull ViewGroup.LayoutParams params) {
         applyDefaultToken(params);
-        //【见小节2.6.1】
+        //【见小节2.7】
         mGlobal.addView(view, params, mDisplay, mParentWindow);
     }
 
-#### 2.6.1 WMG.addView
+### 2.7 WMG.addView
 [-> WindowManagerGlobal.java]
 
     public void addView(View view, ViewGroup.LayoutParams params,
             Display display, Window parentWindow) {
         ...
         final WindowManager.LayoutParams wparams = (WindowManager.LayoutParams) params;
-        //创建ViewRootImpl[见小节2.7]
+        //创建ViewRootImpl[见小节2.8]
         ViewRootImpl root = new ViewRootImpl(view.getContext(), display);
         view.setLayoutParams(wparams);
         mViews.add(view);
         mRoots.add(root);
         mParams.add(wparams);
         
-        //[见小节2.8]
+        //[见小节2.9]
         root.setView(view, wparams, panelParentView);
         ...
     }
 
-### 2.7 ViewRootImpl
+### 2.8 ViewRootImpl
 [-> ViewRootImpl.java]
 
     public ViewRootImpl(Context context, Display display) {
         mContext = context;
-        //获取IWindowSession的代理类【见小节2.7.1】
+        //获取IWindowSession的代理类【见小节2.8.1】
         mWindowSession = WindowManagerGlobal.getWindowSession();
         mDisplay = display;
         mThread = Thread.currentThread(); //主线程
-        mWindow = new W(this); //【见小节2.7.3】
+        mWindow = new W(this); //【见小节2.8.3】
         mChoreographer = Choreographer.getInstance();
         ...
     }
@@ -663,7 +669,7 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
 - mWindow: 继承于IWindow.Stub的W对象；
 - mChoreographer：绘制相关的对象；
 
-#### 2.7.1 getWindowSession
+#### 2.8.1 WMG.getWindowSession
 [-> WindowManagerGlobal.java]
 
     public static IWindowSession getWindowSession() {
@@ -674,7 +680,7 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
                     InputMethodManager imm = InputMethodManager.getInstance();
                     //获取WMS的代理类
                     IWindowManager windowManager = getWindowManagerService();
-                    //经过Binder调用，最终调用WMS[见小节2.7.2]
+                    //经过Binder调用，最终调用WMS[见小节2.8.2]
                     sWindowSession = windowManager.openSession(
                             new IWindowSessionCallback.Stub() {...},
                             imm.getClient(), imm.getInputContext());
@@ -688,7 +694,7 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
 
 通过binder调用进入system_server进程，执行如下操作：
 
-#### 2.7.2 WMS.openSession
+#### 2.8.2 WMS.openSession
 
     public IWindowSession openSession(IWindowSessionCallback callback, IInputMethodClient client,
             IInputContext inputContext) {
@@ -699,7 +705,7 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
     
 再次经过Binder将数据写回app进程，则获取的便是Session的代理对象。
 
-#### 2.7.3 IWindow.Stub
+#### 2.8.3 创建对象W
 [-> ViewRootImpl.java ::W]
 
     static class W extends IWindow.Stub {
@@ -712,14 +718,16 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
         }
         ...
     }
-    
-### 2.8 setView
+
+创建完ViewRootImpl对象后，再回到小节2.7，接下来调用该对象的setView方法。
+
+### 2.9 VRI.setView
 [-> ViewRootImpl.java]
 
     public void setView(View view, WindowManager.LayoutParams attrs, View panelParentView) {
       synchronized (this) {
         ...
-        //通过Binder调用，进入system进程的Session[见小节2.9]
+        //通过Binder调用，进入system进程的Session[见小节2.10]
         res = mWindowSession.addToDisplay(mWindow, mSeq, mWindowAttributes,
               getHostVisibility(), mDisplay.getDisplayId(),
               mAttachInfo.mContentInsets, mAttachInfo.mStableInsets,
@@ -728,9 +736,9 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
       }
     }
     
-通过Binder调用，进入system进程的Session对象
+通过Binder调用，进入system_server进程的Session对象
 
-### 2.9 Session.addToDisplay
+### 2.10 Session.addToDisplay
 [-> Session.java]
 
     final class Session extends IWindowSession.Stub implements IBinder.DeathRecipient {
@@ -738,13 +746,13 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
         public int addToDisplay(IWindow window, int seq, WindowManager.LayoutParams attrs,
                 int viewVisibility, int displayId, Rect outContentInsets, Rect outStableInsets,
                 Rect outOutsets, InputChannel outInputChannel) {
-            //[见小节2.9.1]
+            //[见小节2.11]
             return mService.addWindow(this, window, seq, attrs, viewVisibility, displayId,
                     outContentInsets, outStableInsets, outOutsets, outInputChannel);
         }
     }
 
-#### 2.9.1 WMS.addWindow
+### 2.11 WMS.addWindow
 [-> WindowManagerService.java]
 
     public int addWindow(Session session, IWindow client, int seq,
@@ -753,20 +761,35 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
                InputChannel outInputChannel) {
         ...
         WindowToken token = mTokenMap.get(attrs.token);
-        //创建WindowState【见小节2.9.2】
+        //创建WindowState【见小节2.11.1】
         WindowState win = new WindowState(this, session, client, token,
                     attachedWindow, appOp[0], seq, attrs, viewVisibility, displayContent);
         ...
+        //调整WindowManager的LayoutParams参数
         mPolicy.adjustWindowParamsLw(win.mAttrs);
         res = mPolicy.prepareAddWindowLw(win, attrs);
+        if (type == TYPE_INPUT_METHOD) {
+            addInputMethodWindowToListLocked(win);
+            ...
+        } else if (type == TYPE_INPUT_METHOD_DIALOG) {
+            addWindowToListInOrderLocked(win, true);
+            ...
+        } else {
+            addWindowToListInOrderLocked(win, true);
+            ...
+        }
         addWindowToListInOrderLocked(win, true);
-        updateFocusedWindowLocked(UPDATE_FOCUS_WILL_ASSIGN_LAYERS,
-                        false /*updateInputWindows*/);
+        
+        if (win.canReceiveKeys()) {
+            //当该窗口能接收按键事件，则更新聚焦窗口【见小节2.12】
+            focusChanged = updateFocusedWindowLocked(UPDATE_FOCUS_WILL_ASSIGN_LAYERS,
+                    false /*updateInputWindows*/);
+        }
         assignLayersLocked(displayContent.getWindowList());
         ...
     }
 
-#### 2.9.2 WindowState
+#### 2.11.1 WindowState
 [-> WindowState.java]
 
     WindowState(WindowManagerService service, Session s, IWindow c, WindowToken token,
@@ -802,6 +825,209 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
 
 WindowState持有远程app进程中IWindow.Stub的代理镀锡，并且注册了死亡回调，当app进程死亡则会收到相应的死亡通知。
 
+### 2.12 WMS.updateFocusedWindowLocked
+[-> WindowManagerService.java]
+
+    private boolean updateFocusedWindowLocked(int mode, boolean updateInputWindows) {
+        //计算当前聚焦的窗口【见小节2.12.1】
+        WindowState newFocus = computeFocusedWindowLocked();
+        if (mCurrentFocus != newFocus) {
+            mH.removeMessages(H.REPORT_FOCUS_CHANGE);
+            mH.sendEmptyMessage(H.REPORT_FOCUS_CHANGE);
+            final DisplayContent displayContent = getDefaultDisplayContentLocked();
+            final boolean imWindowChanged = moveInputMethodWindowsIfNeededLocked(
+                    mode != UPDATE_FOCUS_WILL_ASSIGN_LAYERS
+                            && mode != UPDATE_FOCUS_WILL_PLACE_SURFACES);
+            if (imWindowChanged) {
+                displayContent.layoutNeeded = true;
+                newFocus = computeFocusedWindowLocked();
+            }
+
+            final WindowState oldFocus = mCurrentFocus;
+            mCurrentFocus = newFocus;
+            mLosingFocus.remove(newFocus);
+
+            int focusChanged = mPolicy.focusChangedLw(oldFocus, newFocus);
+
+            if (imWindowChanged && oldFocus != mInputMethodWindow) {
+                //输入法窗口的焦点改变，则执行layout
+                if (mode == UPDATE_FOCUS_PLACING_SURFACES) {
+                    //执行layout操作【2.12.3】
+                    performLayoutLockedInner(displayContent, true /*initial*/, updateInputWindows);
+                    focusChanged &= ~WindowManagerPolicy.FINISH_LAYOUT_REDO_LAYOUT;
+                } else if (mode == UPDATE_FOCUS_WILL_PLACE_SURFACES) {
+                    assignLayersLocked(displayContent.getWindowList());
+                }
+            }
+
+            if ((focusChanged & WindowManagerPolicy.FINISH_LAYOUT_REDO_LAYOUT) != 0) {
+                displayContent.layoutNeeded = true;
+                if (mode == UPDATE_FOCUS_PLACING_SURFACES) {
+                    performLayoutLockedInner(displayContent, true /*initial*/, updateInputWindows);
+                }
+            }
+
+            if (mode != UPDATE_FOCUS_WILL_ASSIGN_LAYERS) {
+                mInputMonitor.setInputFocusLw(mCurrentFocus, updateInputWindows);
+            }
+            return true;
+        }
+        return false;
+    }
+
+这里的遍历过程：
+
+1. 从WMS.mDisplayContents中获取DisplayContent对象；
+2. 从DisplayContent中获取WindowList对象；
+3. 从WindowList中获取WindowState对象；
+4. 从WindowState中获取AppWindowToken对象；
+
+mDisplayContents ->DisplayContent ->WindowList ->WindowState ->AppWindowToken.
+
+
+#### 2.12.1 WMS.computeFocusedWindowLocked
+
+    private WindowState computeFocusedWindowLocked() {
+        final int displayCount = mDisplayContents.size();
+        for (int i = 0; i < displayCount; i++) {
+            final DisplayContent displayContent = mDisplayContents.valueAt(i);
+            //【见小节2.12.2】
+            WindowState win = findFocusedWindowLocked(displayContent);
+            if (win != null) {
+                return win;
+            }
+        }
+        return null;
+    }
+
+#### 2.12.2 WMS.findFocusedWindowLocked
+
+    private WindowState findFocusedWindowLocked(DisplayContent displayContent) {
+        final WindowList windows = displayContent.getWindowList();
+        for (int i = windows.size() - 1; i >= 0; i--) {
+            final WindowState win = windows.get(i);
+            //不能接收key事件的窗口则忽略
+            if (!win.canReceiveKeys()) {
+                continue;
+            }
+
+            AppWindowToken wtoken = win.mAppToken;
+            //当窗口的app已被移除则忽略
+            if (wtoken != null && (wtoken.removed || wtoken.sendingToBottom)) {
+                continue;
+            }
+
+            if (wtoken != null && win.mAttrs.type != TYPE_APPLICATION_STARTING &&
+                    mFocusedApp != null) {
+                ArrayList<Task> tasks = displayContent.getTasks();
+                for (int taskNdx = tasks.size() - 1; taskNdx >= 0; --taskNdx) {
+                    AppTokenList tokens = tasks.get(taskNdx).mAppTokens;
+                    int tokenNdx = tokens.size() - 1;
+                    for ( ; tokenNdx >= 0; --tokenNdx) {
+                        final AppWindowToken token = tokens.get(tokenNdx);
+                        //找到聚焦窗口
+                        if (wtoken == token) {
+                            break;
+                        }
+                        if (mFocusedApp == token) {
+                            return null;
+                        }
+                    }
+                    if (tokenNdx >= 0) {
+                        break;
+                    }
+                }
+            }
+            return win;
+        }
+        return null;
+    }
+
+### 2.13.3 WMS.performLayoutLockedInner
+
+    private final void performLayoutLockedInner(final DisplayContent displayContent,
+                                    boolean initial, boolean updateInputWindows) {
+        if (!displayContent.layoutNeeded) {
+            return;
+        }
+        displayContent.layoutNeeded = false;
+        WindowList windows = displayContent.getWindowList();
+        boolean isDefaultDisplay = displayContent.isDefaultDisplay;
+
+        DisplayInfo displayInfo = displayContent.getDisplayInfo();
+        ...
+
+        final int N = windows.size();
+        //开始布局
+        mPolicy.beginLayoutLw(isDefaultDisplay, dw, dh, mRotation);
+        if (isDefaultDisplay) {
+            mSystemDecorLayer = mPolicy.getSystemDecorLayerLw();
+            mScreenRect.set(0, 0, dw, dh);
+        }
+
+        mPolicy.getContentRectLw(mTmpContentRect);
+        displayContent.resize(mTmpContentRect);
+
+        int seq = mLayoutSeq+1;
+        if (seq < 0) seq = 0;
+        mLayoutSeq = seq;
+
+        boolean behindDream = false;
+
+        int topAttached = -1;
+        for (i = N-1; i >= 0; i--) {
+            final WindowState win = windows.get(i);
+
+            // 当不可见或即将不可见，则不执行layout
+            final boolean gone = (behindDream && mPolicy.canBeForceHidden(win, win.mAttrs))
+                    || win.isGoneForLayoutLw();
+
+            if (!gone || !win.mHaveFrame || win.mLayoutNeeded
+                    || ((win.isConfigChanged() || win.setInsetsChanged()) &&
+                            ((win.mAttrs.privateFlags & PRIVATE_FLAG_KEYGUARD) != 0 ||
+                            (win.mHasSurface && win.mAppToken != null &&
+                            win.mAppToken.layoutConfigChanges)))) {
+                if (!win.mLayoutAttached) {
+                    ...
+                } else {
+                    if (topAttached < 0) topAttached = i;
+                }
+            }
+        }
+
+        boolean attachedBehindDream = false;
+
+        //执行attach窗口的布局操作
+        for (i = topAttached; i >= 0; i--) {
+            final WindowState win = windows.get(i);
+
+            if (win.mLayoutAttached) {
+                if (attachedBehindDream && mPolicy.canBeForceHidden(win, win.mAttrs)) {
+                    continue;
+                }
+                if ((win.mViewVisibility != View.GONE && win.mRelayoutCalled)
+                        || !win.mHaveFrame || win.mLayoutNeeded) {
+                    if (initial) {
+                        win.mContentChanged = false;
+                    }
+                    win.mLayoutNeeded = false;
+                    win.prelayout();
+                    mPolicy.layoutWindowLw(win, win.mAttachedWindow);
+                    win.mLayoutSeq = seq;
+                }
+            } else if (win.mAttrs.type == TYPE_DREAM) {
+                attachedBehindDream = behindDream;
+            }
+        }
+
+        //窗口的帧已改变，则告知input分发器
+        mInputMonitor.setUpdateInputWindowsNeededLw();
+        if (updateInputWindows) {
+            mInputMonitor.updateInputWindowsLw(false /*force*/);
+        }
+
+        mPolicy.finishLayoutLw();
+    }
 
 ## 三. 总结
 
@@ -825,9 +1051,11 @@ Activity的启动过程同时贯穿着AMS/WMS相关信息的创建，本文从Wi
   - mWindowManager：数据类型为WindowManagerImpl，实现WindowManager接口;
   - mToken：远程ActivityRecord的appToken的代理端
 4. 执行performResumeActivity过程；
+  - 回调onResume()方法；
 5. 执行addView过程：
   - 创建ViewRootImpl对象；
-    - 创建WMS端的Session的代理对象；
-    - 创建继承于IWindow.Stub的ViewRootImpl.W对象；
-  - setView()添加视图到WMS
-    - 在WMS中创建WindowState对象。
+  - 创建WMS端的Session的代理对象；
+  - 创建继承于IWindow.Stub的ViewRootImpl.W对象；
+  - 执行setView()添加视图到WMS；
+  - 在WMS中创建WindowState对象；
+  - updateFocusedWindowLocked来更新聚焦窗口情况。

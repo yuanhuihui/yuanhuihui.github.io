@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "WindowManager启动篇"
+title:  "WMS之启动篇"
 date:   2017-01-08 20:32:00
 catalog:  true
 tags:
