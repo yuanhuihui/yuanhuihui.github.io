@@ -1,4 +1,3 @@
-frameworks/base/core/java/android/app/AlarmManager.java
 
 ## 用户使用
 
@@ -11,6 +10,14 @@ PendingIntent pi=PendingIntent.getBroadcast(context, (int)reminder.getId(), inte
 alarmManager.set(AlarmManager.RTC_WAKEUP, reminder.getReminderDate().getTime(), pi);  
 
 
+|类型|是否能唤醒系统|是否包含休眠时间|
+|---|---|---|
+|RTC_WAKEUP|是|否|
+|RTC|否|否|
+|ELAPSED_REALTIME_WAKEUP|是|是|
+|ELAPSED_REALTIME|否|是|
+
+
     registerService(Context.ALARM_SERVICE, AlarmManager.class,
             new CachedServiceFetcher<AlarmManager>() {
 
@@ -20,7 +27,8 @@ alarmManager.set(AlarmManager.RTC_WAKEUP, reminder.getReminderDate().getTime(), 
             return new AlarmManager(service, ctx);
         }});
     
-## 启动
+    
+## 二. AlarmManager服务启动
 
 ### 2.1 startOtherServices
 [-> SystemServer.java]
@@ -31,11 +39,450 @@ alarmManager.set(AlarmManager.RTC_WAKEUP, reminder.getReminderDate().getTime(), 
       ...
     }
 
+AlarmManagerService的初始化比JobScheduler更早。
 
 ### 2.2 AlarmManagerService
+[-> AlarmManagerService.java]
 
+    public AlarmManagerService(Context context) {
+        super(context);
+        mConstants = new Constants(mHandler);
+    }
 
-AlarmManagerService.mHandler 也是运行在system_server的主线程.
+此处AlarmHandler mHandler = new AlarmHandler()，该Handler运行在system_server的主线程。
+
+#### 2.2.1 创建Constants
+[-> AlarmManagerService.java ::Constants]
+
+    private final class Constants extends ContentObserver {
+        public Constants(Handler handler) {
+            super(handler);
+            updateAllowWhileIdleMinTimeLocked();
+            updateAllowWhileIdleWhitelistDurationLocked();
+        }
+        
+        public void updateAllowWhileIdleMinTimeLocked() {
+            mAllowWhileIdleMinTime = mPendingIdleUntil != null
+                    ? ALLOW_WHILE_IDLE_LONG_TIME : ALLOW_WHILE_IDLE_SHORT_TIME;
+        }
+
+        public void updateAllowWhileIdleWhitelistDurationLocked() {
+            if (mLastAllowWhileIdleWhitelistDuration != ALLOW_WHILE_IDLE_WHITELIST_DURATION) {
+                mLastAllowWhileIdleWhitelistDuration = ALLOW_WHILE_IDLE_WHITELIST_DURATION;
+                BroadcastOptions opts = BroadcastOptions.makeBasic();
+                //设置为10s
+                opts.setTemporaryAppWhitelistDuration(ALLOW_WHILE_IDLE_WHITELIST_DURATION);
+                mIdleOptions = opts.toBundle();
+            }
+        }
+        ...
+    }
+
+当系统处于idle状态，则alarm最小时间间隔为9min；当处于非idle则最小时间间隔为5s.
+
+### 2.3 ALMS.onStart
+[-> AlarmManagerService.java]
+
+    public void onStart() {
+        mNativeData = init(); //【2.4】
+        mNextWakeup = mNextNonWakeup = 0;
+
+        //由于重启后内核并没有保存时区信息，则必须将当前时区设置到内核；若时区改变则会发送相应
+        setTimeZoneImpl(SystemProperties.get(TIMEZONE_PROPERTY));
+
+        PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "*alarm*");
+        //TIME_TICK广播
+        mTimeTickSender = PendingIntent.getBroadcastAsUser(getContext(), 0,
+                new Intent(Intent.ACTION_TIME_TICK).addFlags(
+                        Intent.FLAG_RECEIVER_REGISTERED_ONLY
+                        | Intent.FLAG_RECEIVER_FOREGROUND), 0,
+                        UserHandle.ALL);
+        //DATE_CHANGED广播
+        Intent intent = new Intent(Intent.ACTION_DATE_CHANGED);
+        intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
+        mDateChangeSender = PendingIntent.getBroadcastAsUser(getContext(), 0, intent,
+                Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT, UserHandle.ALL);
+                
+        //【见小节2.5】
+        mClockReceiver = new ClockReceiver();
+        //【见小节2.6】
+        mClockReceiver.scheduleTimeTickEvent();
+        //【见小节2.7】
+        mClockReceiver.scheduleDateChangedEvent();
+        
+        //用于监听亮屏/灭屏广播
+        mInteractiveStateReceiver = new InteractiveStateReceiver();
+        //用于监听package移除/重启，sdcard不可用的广播
+        mUninstallReceiver = new UninstallReceiver();
+        
+        if (mNativeData != 0) {
+            //创建"AlarmManager"【见小节2.8】
+            AlarmThread waitThread = new AlarmThread();
+            waitThread.start();
+        } 
+        publishBinderService(Context.ALARM_SERVICE, mService);
+    }
+
+时区属性TIMEZONE_PROPERTY = "persist.sys.timezone"
+
+### 2.4 init
+[-> com_android_server_AlarmManagerService.cpp]
+
+    static jlong android_server_AlarmManagerService_init(JNIEnv*, jobject)
+    {
+        jlong ret = init_alarm_driver(); //【2.4.1】
+        if (ret) {
+            return ret;
+        }
+
+        return init_timerfd(); //【2.4.2】
+    }
+
+#### 2.4.1 init_alarm_driver
+
+    static jlong init_alarm_driver()
+    {
+        int fd = open("/dev/alarm", O_RDWR);
+        //创建Alarm驱动对象
+        AlarmImpl *ret = new AlarmImplAlarmDriver(fd);
+        return reinterpret_cast<jlong>(ret);
+    }
+
+打开节点/dev/alarm，并创建Alarm驱动对象。
+
+#### 2.4.2 init_timerfd
+
+    static jlong init_timerfd()
+    {
+        int epollfd;
+        int fds[N_ANDROID_TIMERFDS];
+
+        epollfd = epoll_create(N_ANDROID_TIMERFDS);
+        for (size_t i = 0; i < N_ANDROID_TIMERFDS; i++) {
+            fds[i] = timerfd_create(android_alarm_to_clockid[i], 0);
+            
+        }
+
+        AlarmImpl *ret = new AlarmImplTimerFd(fds, epollfd, wall_clock_rtc());
+        for (size_t i = 0; i < N_ANDROID_TIMERFDS; i++) {
+            epoll_event event;
+            event.events = EPOLLIN | EPOLLWAKEUP;
+            event.data.u32 = i;
+
+            int err = epoll_ctl(epollfd, EPOLL_CTL_ADD, fds[i], &event);
+            ...
+        }
+
+        struct itimerspec spec;
+        memset(&spec, 0, sizeof(spec));
+
+        int err = timerfd_settime(fds[ANDROID_ALARM_TYPE_COUNT],
+                TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET, &spec, NULL);
+        ...
+
+        return reinterpret_cast<jlong>(ret);
+    }
+
+此处android_alarm_to_clockid数组如下：
+
+    android_alarm_to_clockid[N_ANDROID_TIMERFDS] = {
+        CLOCK_REALTIME_ALARM,
+        CLOCK_REALTIME,
+        CLOCK_BOOTTIME_ALARM,
+        CLOCK_BOOTTIME,
+        CLOCK_MONOTONIC,
+        CLOCK_REALTIME,
+    };
+
+### 2.5 创建ClockReceiver
+[-> AlarmManagerService.java  ::ClockReceiver]
+
+    class ClockReceiver extends BroadcastReceiver {
+        public ClockReceiver() {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(Intent.ACTION_TIME_TICK);
+            filter.addAction(Intent.ACTION_DATE_CHANGED);
+            getContext().registerReceiver(this, filter);
+        }
+        ...
+    }
+
+注册用于监听TIME_TICK和DATE_CHANGED的广播。
+
+### 2.6 scheduleTimeTickEvent
+[-> AlarmManagerService.java  ::ClockReceiver]
+
+    public void scheduleTimeTickEvent() {
+        final long currentTime = System.currentTimeMillis();
+        final long nextTime = 60000 * ((currentTime / 60000) + 1);
+        //距离下一分钟的时间戳
+        final long tickEventDelay = nextTime - currentTime;
+
+        final WorkSource workSource = null
+        //【见小节2.6.1】
+        setImpl(ELAPSED_REALTIME, SystemClock.elapsedRealtime() + tickEventDelay, 0,
+                0, mTimeTickSender, AlarmManager.FLAG_STANDALONE, workSource, null,
+                Process.myUid());
+    }
+    
+
+#### 2.6.1 setImpl
+
+void setImpl(int type, long triggerAtTime, long windowLength, long interval,
+         PendingIntent operation, int flags, WorkSource workSource,
+         AlarmManager.AlarmClockInfo alarmClock, int callingUid) {
+    ...
+
+     final long nowElapsed = SystemClock.elapsedRealtime();
+     //获取闹钟触发的时间点
+     final long nominalTrigger = convertToElapsed(triggerAtTime, type);
+     final long minTrigger = nowElapsed + mConstants.MIN_FUTURITY;
+     //保证alarm时间至少是在5s之后发生
+     final long triggerElapsed = (nominalTrigger > minTrigger) ? nominalTrigger : minTrigger;
+
+     final long maxElapsed;
+     if (windowLength == AlarmManager.WINDOW_EXACT) {
+         maxElapsed = triggerElapsed;
+     } else if (windowLength < 0) {
+         maxElapsed = maxTriggerTime(nowElapsed, triggerElapsed, interval);
+         windowLength = maxElapsed - triggerElapsed;
+     } else {
+         maxElapsed = triggerElapsed + windowLength;
+     }
+
+     synchronized (mLock) {
+         //【见小节2.6.2】
+         setImplLocked(type, triggerAtTime, triggerElapsed, windowLength, maxElapsed,
+                 interval, operation, flags, true, workSource, alarmClock, callingUid);
+     }
+ }
+
+#### 2.6.2 setImplLocked
+
+    private void setImplLocked(int type, long when, long whenElapsed, long windowLength,
+            long maxWhen, long interval, PendingIntent operation, int flags,
+            boolean doValidate, WorkSource workSource, AlarmManager.AlarmClockInfo alarmClock,
+            int uid) {
+        //创建Alarm对象
+        Alarm a = new Alarm(type, when, whenElapsed, windowLength, maxWhen, interval,
+                operation, workSource, flags, alarmClock, uid);
+        removeLocked(operation);
+        //【见小节2.6.3】
+        setImplLocked(a, false, doValidate);
+    }
+
+#### 2.6.3 setImplLocked
+
+    private void setImplLocked(Alarm a, boolean rebatching, boolean doValidate) {
+        if ((a.flags&AlarmManager.FLAG_IDLE_UNTIL) != 0) {
+            // This is a special alarm that will put the system into idle until it goes off.
+            // The caller has given the time they want this to happen at, however we need
+            // to pull that earlier if there are existing alarms that have requested to
+            // bring us out of idle at an earlier time.
+            if (mNextWakeFromIdle != null && a.whenElapsed > mNextWakeFromIdle.whenElapsed) {
+                a.when = a.whenElapsed = a.maxWhenElapsed = mNextWakeFromIdle.whenElapsed;
+            }
+            // Add fuzz to make the alarm go off some time before the actual desired time.
+            final long nowElapsed = SystemClock.elapsedRealtime();
+            final int fuzz = fuzzForDuration(a.whenElapsed-nowElapsed);
+            if (fuzz > 0) {
+                if (mRandom == null) {
+                    mRandom = new Random();
+                }
+                final int delta = mRandom.nextInt(fuzz);
+                a.whenElapsed -= delta;
+                if (false) {
+                    Slog.d(TAG, "Alarm when: " + a.whenElapsed);
+                    Slog.d(TAG, "Delta until alarm: " + (a.whenElapsed-nowElapsed));
+                    Slog.d(TAG, "Applied fuzz: " + fuzz);
+                    Slog.d(TAG, "Final delta: " + delta);
+                    Slog.d(TAG, "Final when: " + a.whenElapsed);
+                }
+                a.when = a.maxWhenElapsed = a.whenElapsed;
+            }
+
+        } else if (mPendingIdleUntil != null) {
+            // We currently have an idle until alarm scheduled; if the new alarm has
+            // not explicitly stated it wants to run while idle, then put it on hold.
+            if ((a.flags&(AlarmManager.FLAG_ALLOW_WHILE_IDLE
+                    | AlarmManager.FLAG_ALLOW_WHILE_IDLE_UNRESTRICTED
+                    | AlarmManager.FLAG_WAKE_FROM_IDLE))
+                    == 0) {
+                mPendingWhileIdleAlarms.add(a);
+                return;
+            }
+        }
+
+        int whichBatch = ((a.flags&AlarmManager.FLAG_STANDALONE) != 0)
+                ? -1 : attemptCoalesceLocked(a.whenElapsed, a.maxWhenElapsed);
+        if (whichBatch < 0) {
+            Batch batch = new Batch(a);
+            addBatchLocked(mAlarmBatches, batch);
+        } else {
+            Batch batch = mAlarmBatches.get(whichBatch);
+            if (batch.add(a)) {
+                // The start time of this batch advanced, so batch ordering may
+                // have just been broken.  Move it to where it now belongs.
+                mAlarmBatches.remove(whichBatch);
+                addBatchLocked(mAlarmBatches, batch);
+            }
+        }
+
+        if (a.alarmClock != null) {
+            mNextAlarmClockMayChange = true;
+        }
+
+        boolean needRebatch = false;
+
+        if ((a.flags&AlarmManager.FLAG_IDLE_UNTIL) != 0) {
+            mPendingIdleUntil = a;
+            mConstants.updateAllowWhileIdleMinTimeLocked();
+            needRebatch = true;
+        } else if ((a.flags&AlarmManager.FLAG_WAKE_FROM_IDLE) != 0) {
+            if (mNextWakeFromIdle == null || mNextWakeFromIdle.whenElapsed > a.whenElapsed) {
+                mNextWakeFromIdle = a;
+                // If this wake from idle is earlier than whatever was previously scheduled,
+                // and we are currently idling, then we need to rebatch alarms in case the idle
+                // until time needs to be updated.
+                if (mPendingIdleUntil != null) {
+                    needRebatch = true;
+                }
+            }
+        }
+
+        if (!rebatching) {
+            if (needRebatch) {
+                rebatchAllAlarmsLocked(false);
+            }
+
+            rescheduleKernelAlarmsLocked();
+            updateNextAlarmClockLocked();
+        }
+    }
+
+### 2.8 AlarmThread
+[-> AlarmManagerService.java  ::AlarmThread]
+
+    private class AlarmThread extends Thread
+    {
+        public AlarmThread()
+        {
+            super("AlarmManager");
+        }
+        
+        public void run()
+        {
+            ArrayList<Alarm> triggerList = new ArrayList<Alarm>();
+
+            while (true)
+            {
+                int result = waitForAlarm(mNativeData);
+
+                triggerList.clear();
+
+                final long nowRTC = System.currentTimeMillis();
+                final long nowELAPSED = SystemClock.elapsedRealtime();
+
+                if ((result & TIME_CHANGED_MASK) != 0) {
+                    // The kernel can give us spurious time change notifications due to
+                    // small adjustments it makes internally; we want to filter those out.
+                    final long lastTimeChangeClockTime;
+                    final long expectedClockTime;
+                    synchronized (mLock) {
+                        lastTimeChangeClockTime = mLastTimeChangeClockTime;
+                        expectedClockTime = lastTimeChangeClockTime
+                                + (nowELAPSED - mLastTimeChangeRealtime);
+                    }
+                    if (lastTimeChangeClockTime == 0 || nowRTC < (expectedClockTime-500)
+                            || nowRTC > (expectedClockTime+500)) {
+                        // The change is by at least +/- 500 ms (or this is the first change),
+                        // let's do it!
+                        if (DEBUG_BATCH) {
+                            Slog.v(TAG, "Time changed notification from kernel; rebatching");
+                        }
+                        removeImpl(mTimeTickSender);
+                        rebatchAllAlarms();
+                        mClockReceiver.scheduleTimeTickEvent();
+                        synchronized (mLock) {
+                            mNumTimeChanged++;
+                            mLastTimeChangeClockTime = nowRTC;
+                            mLastTimeChangeRealtime = nowELAPSED;
+                        }
+                        Intent intent = new Intent(Intent.ACTION_TIME_CHANGED);
+                        intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING
+                                | Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+                        getContext().sendBroadcastAsUser(intent, UserHandle.ALL);
+
+                        // The world has changed on us, so we need to re-evaluate alarms
+                        // regardless of whether the kernel has told us one went off.
+                        result |= IS_WAKEUP_MASK;
+                    }
+                }
+
+                if (result != TIME_CHANGED_MASK) {
+                    // If this was anything besides just a time change, then figure what if
+                    // anything to do about alarms.
+                    synchronized (mLock) {
+                        if (localLOGV) Slog.v(
+                            TAG, "Checking for alarms... rtc=" + nowRTC
+                            + ", elapsed=" + nowELAPSED);
+
+                        if (WAKEUP_STATS) {
+                            if ((result & IS_WAKEUP_MASK) != 0) {
+                                long newEarliest = nowRTC - RECENT_WAKEUP_PERIOD;
+                                int n = 0;
+                                for (WakeupEvent event : mRecentWakeups) {
+                                    if (event.when > newEarliest) break;
+                                    n++; // number of now-stale entries at the list head
+                                }
+                                for (int i = 0; i < n; i++) {
+                                    mRecentWakeups.remove();
+                                }
+
+                                recordWakeupAlarms(mAlarmBatches, nowELAPSED, nowRTC);
+                            }
+                        }
+
+                        boolean hasWakeup = triggerAlarmsLocked(triggerList, nowELAPSED, nowRTC);
+                        if (!hasWakeup && checkAllowNonWakeupDelayLocked(nowELAPSED)) {
+                            // if there are no wakeup alarms and the screen is off, we can
+                            // delay what we have so far until the future.
+                            if (mPendingNonWakeupAlarms.size() == 0) {
+                                mStartCurrentDelayTime = nowELAPSED;
+                                mNextNonWakeupDeliveryTime = nowELAPSED
+                                        + ((currentNonWakeupFuzzLocked(nowELAPSED)*3)/2);
+                            }
+                            mPendingNonWakeupAlarms.addAll(triggerList);
+                            mNumDelayedAlarms += triggerList.size();
+                            rescheduleKernelAlarmsLocked();
+                            updateNextAlarmClockLocked();
+                        } else {
+                            // now deliver the alarm intents; if there are pending non-wakeup
+                            // alarms, we need to merge them in to the list.  note we don't
+                            // just deliver them first because we generally want non-wakeup
+                            // alarms delivered after wakeup alarms.
+                            rescheduleKernelAlarmsLocked();
+                            updateNextAlarmClockLocked();
+                            if (mPendingNonWakeupAlarms.size() > 0) {
+                                calculateDeliveryPriorities(mPendingNonWakeupAlarms);
+                                triggerList.addAll(mPendingNonWakeupAlarms);
+                                Collections.sort(triggerList, mAlarmDispatchComparator);
+                                final long thisDelayTime = nowELAPSED - mStartCurrentDelayTime;
+                                mTotalDelayTime += thisDelayTime;
+                                if (mMaxDelayTime < thisDelayTime) {
+                                    mMaxDelayTime = thisDelayTime;
+                                }
+                                mPendingNonWakeupAlarms.clear();
+                            }
+                            deliverAlarmsLocked(triggerList, nowELAPSED);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 
 
 
@@ -153,6 +600,9 @@ app进程调用如下:
     
     
 问题调用栈
+
+AlarmManagerService.mHandler 也是运行在system_server的主线程.
+
 
 at com.android.server.job.controllers.TimeController.checkExpiredDelaysAndResetAlarm(TimeController.java:174)
 - waiting to lock <0x08e172aa> (a java.lang.Object) held by thread 9

@@ -35,7 +35,7 @@ JobScheduler的cancel过程：
      scheduler.cancelAll(); //取消当前uid下的所有任务
      
 schedule过程说明：
-setBackoffCriteria
+
 1. 先获取JobScheduler调度器的代理对象，要理解这个过程，那么就需要先看看JobSchedulerService的启动过程；
 2. 创建继承于JobService的对象，见小节3.2；
 3. 创建JobInfo对象，采用builder模式；
@@ -421,7 +421,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
 4. JobStore：其成员变量mIoHandler运行在"android.io"线程；
 5. JobStatus：从/data/system/job/jobs.xml文件中读取每个JobInfo,再解析成JobStatus对象，添加到mJobSet。
 
-可见JobSchedulerService启动过程，最主要工作是从jobs.xml文件收集所有的ejobs，放入到JobStore的成员变量mJobSet。接下来，再回到文章最开头，来说一说schedule过程。
+可见JobSchedulerService启动过程，最主要工作是从jobs.xml文件收集所有的jobs，放入到JobStore的成员变量mJobSet。接下来，再回到文章最开头，来说一说schedule过程。
 
 
 ## 三. Schedule
@@ -503,7 +503,8 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
     }    
 
 对于启动和停止任务，都分别向主线程发送消息，则分别会回调onStartJob和onStopJob方法。
-由小节3.1 可知获取代理对象为JobSchedulerImpl，接下来说说其schedule过程。
+由小节3.1 可知获取代理对象为JobSchedulerImpl，接下来说一说JobSchedulerImpl的schedule
+过程。
 
 ### 3.3 JSI.schedule
 [-> JobSchedulerImpl.java]
@@ -1125,4 +1126,6 @@ JobStatus通过job指向JobInfo对象; JobInfo对象里面记录着jobId, 组件
 
 当然在JobScheduler过程中前面介绍的5个StateController很重要,会根据时机来触发JobSchedulerService执行相应的满足条件的任务.
 
-最终会回调目标JobService的onStartJob()方法, 可见该方法运行在app进程的主线程, 那么当存在耗时操作时则必须要采用异步方式, 让耗时操作交给子线程去执行,这样就不会阻塞app的UI线程.
+另外，cancalAll()小心有坑，因为该方法的功能是取消该uid下的所有jobs，也就是说当存在多个app通过shareUid的方式，那么在其中任意一个app执行cancalAll()，则会把所有同一uid下的app中的jobs都cancel掉，这个应该是Google设计的缺陷，一定要谨慎处理。
+
+最终会回调目标应用中的JobService的onStartJob()方法, 可见该方法运行在app进程的主线程, 那么当存在耗时操作时则必须要采用异步方式, 让耗时操作交给子线程去执行,这样就不会阻塞app的UI线程.
