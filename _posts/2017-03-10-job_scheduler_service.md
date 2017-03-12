@@ -10,8 +10,7 @@ tags:
 
 ## 一. 概述
 
-JobScheduler主要用于在未来某个时间下满足一定条件时触发执行某项任务的情况，那么可以创建一个
-JobService的子类，重写其onStartJob()方法来实现这个功能。
+对于满足网络、电量、时间等一定预定条件而触发的任务，那么jobScheduler便是绝佳选择。JobScheduler主要用于在未来某个时间下满足一定条件时触发执行某项任务的情况，那么可以创建一个JobService的子类，重写其onStartJob()方法来实现这个功能。
 
 JobScheduler的schedule过程：
 
@@ -1126,6 +1125,6 @@ JobStatus通过job指向JobInfo对象; JobInfo对象里面记录着jobId, 组件
 
 当然在JobScheduler过程中前面介绍的5个StateController很重要,会根据时机来触发JobSchedulerService执行相应的满足条件的任务.
 
-另外，cancalAll()小心有坑，因为该方法的功能是取消该uid下的所有jobs，也就是说当存在多个app通过shareUid的方式，那么在其中任意一个app执行cancalAll()，则会把所有同一uid下的app中的jobs都cancel掉，这个应该是Google设计的缺陷，一定要谨慎处理。
-
 最终会回调目标应用中的JobService的onStartJob()方法, 可见该方法运行在app进程的主线程, 那么当存在耗时操作时则必须要采用异步方式, 让耗时操作交给子线程去执行,这样就不会阻塞app的UI线程.
+
+另外，cancalAll()小心有坑，因为该方法的功能是取消该uid下的所有jobs，也就是说当存在多个app通过shareUid的方式，那么在其中任意一个app执行cancalAll()，则会把所有同一uid下的app中的jobs都cancel掉，这个应该是Google设计的缺陷，一定要谨慎处理。

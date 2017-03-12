@@ -1,26 +1,6 @@
 ## 一. 概述
 
 
-用户的使用情况:
-
-    PendingIntent pi = PendingIntent.getBroadcast(context, 0, intent, 0);  
-    AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);  
-
-接下来设置闹钟,有3种类型:
-
-    set(int type，long startTime，PendingIntent pi)，//设置一次闹钟
-    setRepeating(int type，long startTime，long intervalTime，PendingIntent pi)，//设置重复闹钟
-    setInexactRepeating（int type，long startTime，long intervalTime，PendingIntent pi），//设置重复闹钟,但不准确
-
-此处type共有4种类型:
-
-- ELAPSED_REALTIME：不可唤醒, 指定延时时长的闹钟;
-- ELAPSED_REALTIME_WAKEUP：可唤醒, 指定延时时长的闹钟;
-- RTC：不可唤醒，指定触发时刻的闹钟;
-- RTC_WAKEUP：闹可唤醒, 指定触发时刻的闹钟;
-
-
-
 ##  PendingIntent
 
 PendingIntent.getActivity
@@ -92,13 +72,3 @@ PendingIntent.getBroadcastAsUser
         }
         return null;
     }
-
-
-
-
-
-
-
-### else
-http://blog.csdn.net/zhangyongfeiyong/article/details/52224300
-http://blog.csdn.net/zhangyongfeiyong/article/details/52130413
