@@ -92,11 +92,17 @@ setBackoffCriteria
 
 |类型|说明|
 |---|---|
-|ConnectivityController||
-|TimeController||
-|IdleController||
-|BatteryController||
-|AppIdleController||
+|ConnectivityController|注册监听网络连接状态的广播|
+|TimeController|注册监听job时间到期的广播|
+|IdleController|注册监听屏幕亮/灭,dream进入/退出,状态改变的广播|
+|BatteryController|注册监听电池是否充电,电量状态的广播|
+|AppIdleController|监听app是否空闲|
+
+
+![state_controller](/images/jobscheduler/state_controller.jpg)
+
+
+接下来,以ConnectivityController为例,说一说相应Controller的创建过程, 其他Controller也基本类似.
 
 #### 2.2.1 ConnectivityController
 [-> ConnectivityController.java]
@@ -535,7 +541,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
         JobStatus jobStatus = new JobStatus(job, uId);
         //先取消该uid下的任务【见小节3.6】
         cancelJob(uId, job.getId());
-        //【见小节3.7】
+        //开始追踪该任务【见小节3.7】
         startTrackingJob(jobStatus);
         //向system_server进程的主线程发送message.【见小节3.8】
         mHandler.obtainMessage(MSG_CHECK_JOB).sendToTarget();
@@ -577,8 +583,8 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
         }
     }
 
-当添加新的JobStatus，则通知相应的controllers.
-再回到[]小节3.5]，通过JobHandler发送MSG_CHECK_JOB消息，接下来进入其handleMessage。
+先将该JobStatus添加到JobStore，再遍历已添加的5个状态控制器, 依次检查是否需要将该任务添加到相应的追踪控制器.
+再回到[小节3.5]，通过JobHandler发送MSG_CHECK_JOB消息，接下来进入其handleMessage。
 
 ### 3.8 JSS.JobHandler
 [-> JobSchedulerService.java  ::JobHandler]
@@ -1101,9 +1107,22 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
 
 ## 四. 总结
 
-1. JobScheduler启动调用schedule()，结束则调用cancel(int jobId)或cancelAll()。
-2. JobSchedulerService运行在system_server进程。
-3. ... 未完
+JobScheduler启动调用schedule()，结束则调用cancel(int jobId)或cancelAll(),整个JobScheduler过程涉及不少记录job的对象,关系如下:
+ 
+![job](/images/jobscheduler/job.jpg)
 
-IJobScheduler， 非oneway方式
-IJobService, oneway方式
+JobSchedulerService通过成员遍历mJobs指向JobStore对象;JobStore的mJobSet记录着所有的JobStatus对象;
+JobStatus通过job指向JobInfo对象; JobInfo对象里面记录着jobId, 组件名以及各种触发scheduler的限制条件信息.
+
+
+再来看看整个jobscheduler的执行过程:[点击查看大图](http://www.gityuan.com/images/jobscheduler/job_scheduler_sequence.jpg)
+
+![job_scheduler_sequence](/images/jobscheduler/job_scheduler_sequence.jpg)
+
+上图整个过程涉及两次跨进程的调用, 第一次是从app进程进入system_server进程的JobSchedulerStub, 采用IJobScheduler接口. 
+第二次则是JobScheduler通过bindService方式启动之后, 再回到system_server进程,然后调用startJob(),这是通过IJobService接口,
+这是oneway的方式,意味着不会等待对方完成便会结束.
+
+当然在JobScheduler过程中前面介绍的5个StateController很重要,会根据时机来触发JobSchedulerService执行相应的满足条件的任务.
+
+最终会回调目标JobService的onStartJob()方法, 可见该方法运行在app进程的主线程, 那么当存在耗时操作时则必须要采用异步方式, 让耗时操作交给子线程去执行,这样就不会阻塞app的UI线程.
