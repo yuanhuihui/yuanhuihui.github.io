@@ -620,6 +620,8 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
         }
         mDecor.setVisibility(View.VISIBLE);
     }
+    
+此处getWindowManager获取的是WindowManagerImpl对象。
 
 ### 2.6 WMI.addView
 [-> WindowManagerImpl.java]
@@ -768,17 +770,12 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
         //调整WindowManager的LayoutParams参数
         mPolicy.adjustWindowParamsLw(win.mAttrs);
         res = mPolicy.prepareAddWindowLw(win, attrs);
-        if (type == TYPE_INPUT_METHOD) {
-            addInputMethodWindowToListLocked(win);
-            ...
-        } else if (type == TYPE_INPUT_METHOD_DIALOG) {
-            addWindowToListInOrderLocked(win, true);
-            ...
-        } else {
-            addWindowToListInOrderLocked(win, true);
-            ...
-        }
         addWindowToListInOrderLocked(win, true);
+        // 设置input
+        mInputManager.registerInputChannel(win.mInputChannel, win.mInputWindowHandle);
+        //【见小节2.11.2】
+        win.attach();
+        mWindowMap.put(client.asBinder(), win);
         
         if (win.canReceiveKeys()) {
             //当该窗口能接收按键事件，则更新聚焦窗口【见小节2.12】
@@ -825,6 +822,42 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
 
 WindowState持有远程app进程中IWindow.Stub的代理镀锡，并且注册了死亡回调，当app进程死亡则会收到相应的死亡通知。
 
+#### 2.11.2 WS.attach
+[-> WindowState.java]
+
+    void attach() {
+        //【见小节2.11.3】
+        mSession.windowAddedLocked();
+    }
+
+#### 2.11.3 windowAddedLocked
+[-> Session.java]
+
+    void windowAddedLocked() {
+        if (mSurfaceSession == null) {
+            //【见小节2.11.4】
+            mSurfaceSession = new SurfaceSession();
+            mService.mSessions.add(this);
+            if (mLastReportedAnimatorScale != mService.getCurrentAnimatorScale()) {
+                mService.dispatchNewAnimatorScaleLocked(this);
+            }
+        }
+        mNumWindow++;
+    }
+
+创建SurfaceSession对象，并将当前Session添加到WMS.mSessions成员变量。
+
+#### 2.11.4 nativeCreate
+[-> android_view_SurfaceSession.cpp]
+
+    static jlong nativeCreate(JNIEnv* env, jclass clazz) {
+        SurfaceComposerClient* client = new SurfaceComposerClient();
+        client->incStrong((void*)nativeCreate);
+        return reinterpret_cast<jlong>(client);
+    }
+    
+创建SurfaceComposerClient对象， 作为跟SurfaceFlinger通信的代理对象。
+
 ### 2.12 WMS.updateFocusedWindowLocked
 [-> WindowManagerService.java]
 
@@ -852,7 +885,7 @@ WindowState持有远程app进程中IWindow.Stub的代理镀锡，并且注册了
             if (imWindowChanged && oldFocus != mInputMethodWindow) {
                 //输入法窗口的焦点改变，则执行layout
                 if (mode == UPDATE_FOCUS_PLACING_SURFACES) {
-                    //执行layout操作【2.12.3】
+                    //执行layout操作【2.13】
                     performLayoutLockedInner(displayContent, true /*initial*/, updateInputWindows);
                     focusChanged &= ~WindowManagerPolicy.FINISH_LAYOUT_REDO_LAYOUT;
                 } else if (mode == UPDATE_FOCUS_WILL_PLACE_SURFACES) {
@@ -943,7 +976,7 @@ mDisplayContents ->DisplayContent ->WindowList ->WindowState ->AppWindowToken.
         return null;
     }
 
-### 2.13.3 WMS.performLayoutLockedInner
+### 2.13 WMS.performLayoutLockedInner
 
     private final void performLayoutLockedInner(final DisplayContent displayContent,
                                     boolean initial, boolean updateInputWindows) {

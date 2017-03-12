@@ -51,7 +51,7 @@ Client，SurfaceFlinger这两个Binder服务运行在SurfaceFlinger进程.
 SurfaceComposerClient对象的两个成员变量分别跟着两个Binder服务通信：
 
 - 其成员变量mClient通过Binder调用Client服务，
-- 其成员变量mComposer经过Composer，ComposerService对象，再通过Binder调用SurfaceFlinger。
+- 其成员变量mComposer经过Composer(位于SurfaceComposerClient.cpp文件)，ComposerService对象，再通过Binder调用SurfaceFlinger。
 
 也就是说只需要调用`new SurfaceComposerClient()`便建立应用程序跟SurfaceFlinger服务建立连接，
 获取了其中两个Binder的代理类。每一个app在SurfaceFlinger中都有一个Client对象相对应。

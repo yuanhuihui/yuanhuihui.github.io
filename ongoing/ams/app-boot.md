@@ -1,6 +1,6 @@
 ## App启动时长
 
-	adb shell am start -w packagename/activity
+  adb shell am start -w packagename/activity
 
 - ThisTime：App的最后一个Activity的启动时长; (单位ms)
 - TotalTime：App的一系列Activity的启动总时长;
@@ -34,27 +34,20 @@ WaitTime就是总的耗时，包括前一个应用Activity pause的时间和新�
 
 公式：
 
-	ThisTime = result.thisTime = curTime - displayStartTime
-	TotalTime = result.totalTime = curTime - stack.mLaunchStartTime
-	WaitTime = endTime-startTime
+  ThisTime = result.thisTime = curTime - displayStartTime
+  TotalTime = result.totalTime = curTime - stack.mLaunchStartTime
+  WaitTime = endTime-startTime
 
 ActivityRecord.reportLaunchTimeLocked(long curTime)
 
-回推查找到：
+### 调用栈：
 
-Activity.reportFullyDrawn() 错了，不在这里
-
-在整个framework/base下搜不到调用。
-
-PowerUsageSummary.refreshStats() （package里面，这里很奇怪？）
-
-窗口界面显示出来后，WMS才调用reportLaunchTimeLocked()通知AMS Activity启动完成
-
-
-ActivityRecord.windowsDrawnLocked
-
-ActivityStack.setLaunchTime
-
+WMS.updateReportedVisibilityLocked
+  REPORT_APPLICATION_TOKEN_DRAWN (android.display线程)
+      wtoken.appToken.windowsDrawn
+        	ActivityRecord.Token.windowsDrawn
+          	ActivityRecord.reportLaunchTimeLocked
+          
 
 ### 关系
 
