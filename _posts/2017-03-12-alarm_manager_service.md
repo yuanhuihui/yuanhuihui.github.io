@@ -1,5 +1,26 @@
+---
+layout: post
+title:  "理解AlarmManager机制"
+date:   2017-3-10 20:12:30
+catalog:    true
+tags:
+    - android
+        
+---
+
 ## 一. 概述    
-    
+
+上一篇文章[理解JobScheduler机制](http://gityuan.com/2017/03/10/job_scheduler_service/), 介绍了根据一定条件而触发的任务可以采用JobScheduler.
+那么对于只是定时的任务, 而非考虑网络/时间之类的条件,也可以直接采用AlarmManager来完成. 
+
+AlarmManager的用法  
+
+    PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_JOB_EXPIRED), 0);
+    AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE); 
+    alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), pi);  
+
+对于alarmManager关于alarm的类型, 以及时间到达后可以选择发送广播, 启动Activity或许启动服务等自由组合.
+
 ## 二. AlarmManager服务启动
 
 ### 2.1 startOtherServices
@@ -116,7 +137,6 @@ AlarmManagerService的初始化比JobScheduler更早。
         if (ret) {
             return ret;
         }
-
         return init_timerfd(); //【2.4.2】
     }
 
@@ -145,6 +165,7 @@ AlarmManagerService的初始化比JobScheduler更早。
             
         }
 
+        //创建AlarmImplTimerFd对象
         AlarmImpl *ret = new AlarmImplTimerFd(fds, epollfd, wall_clock_rtc());
         for (size_t i = 0; i < N_ANDROID_TIMERFDS; i++) {
             epoll_event event;
@@ -175,6 +196,8 @@ AlarmManagerService的初始化比JobScheduler更早。
         CLOCK_MONOTONIC,
         CLOCK_REALTIME,
     };
+
+此处创建AlarmImplTimerFd
 
 ### 2.5 创建ClockReceiver
 [-> AlarmManagerService.java  ::ClockReceiver]
@@ -214,8 +237,7 @@ AlarmManagerService的初始化比JobScheduler更早。
     void setImpl(int type, long triggerAtTime, long windowLength, long interval,
              PendingIntent operation, int flags, WorkSource workSource,
              AlarmManager.AlarmClockInfo alarmClock, int callingUid) {
-        ...
-
+          ...
          final long nowElapsed = SystemClock.elapsedRealtime();
          //获取闹钟触发的时间点
          final long nominalTrigger = convertToElapsed(triggerAtTime, type);
@@ -322,6 +344,8 @@ AlarmManagerService的初始化比JobScheduler更早。
         }
     }
 
+再来看看"AlarmManager"线程的工作过程.
+
 ### 2.8 AlarmThread
 [-> AlarmManagerService.java  ::AlarmThread]
 
@@ -337,6 +361,7 @@ AlarmManagerService的初始化比JobScheduler更早。
             ArrayList<Alarm> triggerList = new ArrayList<Alarm>();
             while (true)
             {
+                //[见小节2.8.1]
                 int result = waitForAlarm(mNativeData);
                 triggerList.clear();
 
@@ -344,31 +369,7 @@ AlarmManagerService的初始化比JobScheduler更早。
                 final long nowELAPSED = SystemClock.elapsedRealtime();
 
                 if ((result & TIME_CHANGED_MASK) != 0) {
-                    final long lastTimeChangeClockTime;
-                    final long expectedClockTime;
-                    synchronized (mLock) {
-                        lastTimeChangeClockTime = mLastTimeChangeClockTime;
-                        expectedClockTime = lastTimeChangeClockTime
-                                + (nowELAPSED - mLastTimeChangeRealtime);
-                    }
-                    if (lastTimeChangeClockTime == 0 || nowRTC < (expectedClockTime-500)
-                            || nowRTC > (expectedClockTime+500)) {
-                        removeImpl(mTimeTickSender);
-                        rebatchAllAlarms();
-                        mClockReceiver.scheduleTimeTickEvent();
-                        synchronized (mLock) {
-                            mNumTimeChanged++;
-                            mLastTimeChangeClockTime = nowRTC;
-                            mLastTimeChangeRealtime = nowELAPSED;
-                        }
-                        //发送TIME_CHANGED广播
-                        Intent intent = new Intent(Intent.ACTION_TIME_CHANGED);
-                        intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING
-                                | Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
-                        getContext().sendBroadcastAsUser(intent, UserHandle.ALL);
-
-                        result |= IS_WAKEUP_MASK;
-                    }
+                    ...
                 }
 
                 if (result != TIME_CHANGED_MASK) {
@@ -398,6 +399,7 @@ AlarmManagerService的初始化比JobScheduler更早。
                                 }
                                 mPendingNonWakeupAlarms.clear();
                             }
+                            //分发Alarm事件.[见小节4.1]
                             deliverAlarmsLocked(triggerList, nowELAPSED);
                         }
                     }
@@ -406,12 +408,43 @@ AlarmManagerService的初始化比JobScheduler更早。
         }
     }
 
+#### 2.8.1 waitForAlarm
+[-> com_android_server_AlarmManagerService.cpp]
+
+    int AlarmImplTimerFd::waitForAlarm()
+    {
+        epoll_event events[N_ANDROID_TIMERFDS];
+
+        int nevents = epoll_wait(epollfd, events, N_ANDROID_TIMERFDS, -1);
+        if (nevents < 0) {
+            return nevents;
+        }
+
+        int result = 0;
+        for (int i = 0; i < nevents; i++) {
+            uint32_t alarm_idx = events[i].data.u32;
+            uint64_t unused;
+            ssize_t err = read(fds[alarm_idx], &unused, sizeof(unused));
+            if (err < 0) {
+                if (alarm_idx == ANDROID_ALARM_TYPE_COUNT && errno == ECANCELED) {
+                    result |= ANDROID_ALARM_TIME_CHANGE_MASK;
+                } else {
+                    return err;
+                }
+            } else {
+                result |= (1 << alarm_idx);
+            }
+        }
+
+        return result;
+    }
 
 ### 三. alarm使用
 
     //【见小节3.1】
     PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_JOB_EXPIRED), 0);
     AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE); 
+    //[见小节3.3]
     alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), pi);  
 
 alarm使用过程会使用到PendingIntent，先来简单介绍下PendingIntent.
@@ -448,7 +481,8 @@ alarm使用过程会使用到PendingIntent，先来简单介绍下PendingIntent.
         return null;
     }
 
-PendingIntentRecord对象继承于IIntentSender.Stub，此处target是指PendingIntentRecord对象的代理端。
+getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIntentSender.Stub，
+经过binder call回来, 所以此处target是指PendingIntentRecord对象的代理端, 即为PendingIntent.mTarget.
 
 #### 3.1.2 getActivity
 
@@ -585,7 +619,6 @@ PendingIntentRecord对象继承于IIntentSender.Stub，此处target是指Pending
         
 由此可知，getSystemService(Service.ALARM_SERVICE)获取的是AlarmManager对象，再来看看其创建过程。
 
-#### 3.2.1 AlarmManager
 [-> AlarmManager.java]
 
     AlarmManager(IAlarmManager service, Context ctx) {
@@ -598,7 +631,7 @@ PendingIntentRecord对象继承于IIntentSender.Stub，此处target是指Pending
     
 此处mMainThreadHandler是运行在app进程的主线程。
 
-### 3.3 ALM.set
+### 3.3 AlarmManager.set
 [-> AlarmManager.java]
 
     public void set(int type, long triggerAtMillis, PendingIntent operation) {
@@ -607,7 +640,8 @@ PendingIntentRecord对象继承于IIntentSender.Stub，此处target是指Pending
             null, null, null);
     }
 
-### 3.4 ALM.setImpl
+
+### 3.4 AlarmManager.setImpl
 [-> AlarmManager.java]
 
     private void setImpl(int type, long triggerAtMillis, long windowMillis, long intervalMillis,
@@ -635,28 +669,184 @@ PendingIntentRecord对象继承于IIntentSender.Stub，此处target是指Pending
                 operation, recipientWrapper, listenerTag, workSource, alarmClock);
     }
 
-此处mService是指远程IAlarmManager的代理类， 服务类位于ALMS的成员变量mService = new IAlarmManager.Stub()。
+注意: 此处targetHandler这个是在Android N上才有的逻辑. 此处mService是指远程IAlarmManager的代理类， 服务类位于ALMS的成员变量mService = new IAlarmManager.Stub()。
 可见，接下来程序运行到system_server进程。
 
---------------
 
-### 3. ALMS.deliverLocked
+## 四. alarm分发流程
+
+由[]小节2.8] 可知当alarm时间触发时则执行deliverAlarmsLocked(), 接下来,从该方法说起.
+
+### 4.1 deliverAlarmsLocked
+[-> AlarmManagerService.java]
+
+    void deliverAlarmsLocked(ArrayList<Alarm> triggerList, long nowELAPSED) {
+        mLastAlarmDeliveryTime = nowELAPSED;
+        for (int i=0; i<triggerList.size(); i++) {
+            Alarm alarm = triggerList.get(i);
+            final boolean allowWhileIdle = (alarm.flags&AlarmManager.FLAG_ALLOW_WHILE_IDLE) != 0;
+            try {
+                ...
+                //[见小节4.2]
+                mDeliveryTracker.deliverLocked(alarm, nowELAPSED, allowWhileIdle);
+            } catch (RuntimeException e) {
+            }
+        }
+    }
+
+### 4.2 ALMS.deliverLocked
 [-> AlarmManagerService.java]
 
     public void deliverLocked(Alarm alarm, long nowELAPSED, boolean allowWhileIdle) {
         if (alarm.operation != null) {
-          ...
+            //执行PendingIntent操作[见小节4.3]
+            alarm.operation.send(getContext(), 0,
+                    mBackgroundIntent.putExtra(
+                        Intent.EXTRA_ALARM_COUNT, alarm.count),
+                        mDeliveryTracker, mHandler, null,
+                        allowWhileIdle ? mIdleOptions : null);
         } else {
-           alarm.listener.doAlarm(this); 
+           //[见小节4.4]
+           alarm.listener.doAlarm(this);
+           // 5s的超时时长 
            mHandler.sendMessageDelayed(
                    mHandler.obtainMessage(AlarmHandler.LISTENER_TIMEOUT,
                            alarm.listener.asBinder()),
                    mConstants.LISTENER_TIMEOUT);
         }
+        //alarm正在触发
+        final InFlight inflight = new InFlight(AlarmManagerService.this,
+                alarm.operation, alarm.listener, alarm.workSource, alarm.uid,
+                alarm.packageName, alarm.type, alarm.statsTag, nowELAPSED);
+        mInFlight.add(inflight);
+        mBroadcastRefCount++;
+        qcNsrmExt.addTriggeredUid((alarm.operation != null) ?
+                                alarm.operation.getCreatorUid() :
+                                alarm.uid);
         ...
     }
 
-### 4. ListenerWrapper.doAlarm
+
+### 4.3 PendingIntent.send
+[-> PendingIntent.java]
+
+    public void send(Context context, int code, @Nullable Intent intent,
+            @Nullable OnFinished onFinished, @Nullable Handler handler,
+            @Nullable String requiredPermission, @Nullable Bundle options)
+            throws CanceledException {
+        try {
+            String resolvedType = intent != null ?
+                    intent.resolveTypeIfNeeded(context.getContentResolver())
+                    : null;
+            int res = mTarget.send(code, intent, resolvedType,
+                    onFinished != null
+                            ? new FinishedDispatcher(this, onFinished, handler)
+                            : null,
+                    requiredPermission, options);
+            ...
+        } catch (RemoteException e) {
+            throw new CanceledException(e);
+        }
+    }
+         
+由小节3.1, 可知mTarget代表的是远端PendingIntentRecord对象. 可知接下来进入到system_server的如下方法.
+
+#### 4.3.1 pendingIntentRecord.send
+[-> pendingIntentRecord.java]
+
+    public int send(int code, Intent intent, String resolvedType, IIntentReceiver finishedReceiver,
+            String requiredPermission, Bundle options) throws TransactionTooLargeException {
+        return sendInner(code, intent, resolvedType, finishedReceiver,
+                requiredPermission, null, null, 0, 0, 0, options, null);
+    }
+
+#### 4.3.2 sendInner
+[-> pendingIntentRecord.java]
+
+    int sendInner(int code, Intent intent, String resolvedType, IIntentReceiver finishedReceiver,
+            String requiredPermission, IBinder resultTo, String resultWho, int requestCode,
+            int flagsMask, int flagsValues, Bundle options, IActivityContainer container)
+            throws TransactionTooLargeException {
+        synchronized(owner) {
+                ...
+                final long origId = Binder.clearCallingIdentity();
+
+                boolean sendFinish = finishedReceiver != null;
+                int userId = key.userId;
+                if (userId == UserHandle.USER_CURRENT) {
+                    userId = owner.getCurrentUserIdLocked();
+                }
+                switch (key.type) {
+                    case ActivityManager.INTENT_SENDER_ACTIVITY:
+                        ...
+                        if (key.allIntents != null && key.allIntents.length > 1) {
+                            Intent[] allIntents = new Intent[key.allIntents.length];
+                            String[] allResolvedTypes = new String[key.allIntents.length];
+                            System.arraycopy(key.allIntents, 0, allIntents, 0,
+                                    key.allIntents.length);
+                            if (key.allResolvedTypes != null) {
+                                System.arraycopy(key.allResolvedTypes, 0, allResolvedTypes, 0,
+                                        key.allResolvedTypes.length);
+                            }
+                            allIntents[allIntents.length-1] = finalIntent;
+                            allResolvedTypes[allResolvedTypes.length-1] = resolvedType;
+                            //核心方法
+                            owner.startActivitiesInPackage(uid, key.packageName, allIntents,
+                                    allResolvedTypes, resultTo, options, userId);
+                        } else {
+                            owner.startActivityInPackage(uid, key.packageName, finalIntent,
+                                    resolvedType, resultTo, resultWho, requestCode, 0,
+                                    options, userId, container, null);
+                        }
+                        break;
+                    case ActivityManager.INTENT_SENDER_ACTIVITY_RESULT:
+                        if (key.activity.task.stack != null) {
+                            //核心方法
+                            key.activity.task.stack.sendActivityResultLocked(-1, key.activity,
+                                    key.who, key.requestCode, code, finalIntent);
+                        }
+                        break;
+                    case ActivityManager.INTENT_SENDER_BROADCAST:
+                        //核心方法
+                        int sent = owner.broadcastIntentInPackage(key.packageName, uid,
+                                finalIntent, resolvedType, finishedReceiver, code, null, null,
+                                requiredPermission, options, (finishedReceiver != null),
+                                false, userId);
+                        if (sent == ActivityManager.BROADCAST_SUCCESS) {
+                            sendFinish = false;
+                        }
+
+                        break;
+                    case ActivityManager.INTENT_SENDER_SERVICE:
+                        //核心方法
+                        owner.startServiceInPackage(uid, finalIntent,
+                                resolvedType, key.packageName, userId);
+                        break;
+                }
+
+                if (sendFinish) {
+                    finishedReceiver.performReceive(new Intent(finalIntent), 0,
+                            null, null, false, false, key.userId);
+                }
+                Binder.restoreCallingIdentity(origId);
+                return 0;
+            }
+        }
+        return ActivityManager.START_CANCELED;
+    }
+
+可见,
+
+- INTENT_SENDER_ACTIVITY: 则执行startActivitiesInPackage
+- INTENT_SENDER_ACTIVITY_RESULT: 则执行sendActivityResultLocked
+- INTENT_SENDER_SERVICE: 则执行startServiceInPackage
+- INTENT_SENDER_BROADCAST: 则执行broadcastIntentInPackage
+    - 当广播发送不成功, 且需要发送广播,则直接执行startServiceInPackage
+    
+再回到小节4.2 deliverLocked,可知当没有指定PendingIntent时,则会回调listener的doAlarm()过程. 
+由[小节3.4]创建的ListenerWrapper对象.
+
+### 4.4 ListenerWrapper.doAlarm
 [-> AlarmManager.java ::ListenerWrapper]
 
      final class ListenerWrapper extends IAlarmListener.Stub implements Runnable {
@@ -668,20 +858,18 @@ PendingIntentRecord对象继承于IIntentSender.Stub，此处target是指Pending
              mListener = listener;
          }
 
-         public void setHandler(Handler h) {
-            mHandler = h;
-         }
-
-         //执行alarm操作
+         //执行alarm操作[见小节4.4.1]
          public void doAlarm(IAlarmCompleteListener alarmManager) {
              mCompletion = alarmManager;
              mHandler.post(this);
          }
      }
 
-如果是运行在system_server进程里面, 则接下来post到了system_server的主线程.
+默认情况下mHandler是指设置闹钟setImpl方法所在进程的主线程, 当然也可以指定Handler线程.
+对于前面[JobSchedulerService](http://gityuan.com/2017/03/10/job_scheduler_service/)中用到的TimeController
+则是在system_server进程设置的闹钟, 那么接下来post到了system_server的主线程.
 
-### 5. ListenerWrapper.run
+#### 4.4.1 ListenerWrapper.run
 
     final class ListenerWrapper extends IAlarmListener.Stub implements Runnable {
         
@@ -693,8 +881,9 @@ PendingIntentRecord对象继承于IIntentSender.Stub，此处target是指Pending
                 }
             }
 
-            //分发到app端
+            
             try {
+                //分发目标监听者的onAlarm[4.4.2]
                 mListener.onAlarm();
             } finally {
                 mCompletion.alarmComplete(this);
@@ -702,8 +891,43 @@ PendingIntentRecord对象继承于IIntentSender.Stub，此处target是指Pending
         }
     }
     
+这里以TimeController为例, 可知接下来,便会进入mNextDelayExpiredListener.onAlarm()的过程
 
-## 四. 总结
+#### 4.4.2 TimeController
+
+[-> TimeController.java]
+
+    private void setDelayExpiredAlarmLocked(long alarmTimeElapsedMillis, int uid) {
+        alarmTimeElapsedMillis = maybeAdjustAlarmTime(alarmTimeElapsedMillis);
+        mNextDelayExpiredElapsedMillis = alarmTimeElapsedMillis;
+        //将mNextDelayExpiredListener设置到alarm的回调过程
+        updateAlarmWithListenerLocked(DELAY_TAG, mNextDelayExpiredListener,
+                mNextDelayExpiredElapsedMillis, uid);
+    }
+
+    private void updateAlarmWithListenerLocked(String tag, OnAlarmListener listener,
+            long alarmTimeElapsed, int uid) {
+        ensureAlarmServiceLocked();
+        if (alarmTimeElapsed == Long.MAX_VALUE) {
+            ...
+        } else {
+            mAlarmService.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, alarmTimeElapsed,
+                    AlarmManager.WINDOW_HEURISTIC, 0, tag, listener, null, new WorkSource(uid));
+        }
+    }
+
+
+    private final OnAlarmListener mNextDelayExpiredListener = new OnAlarmListener() {
+        @Override
+        public void onAlarm() {
+            checkExpiredDelaysAndResetAlarm();
+        }
+    };
+
+
+此处没有指定handler, 则onAlarm回调方法默认运行在system_server的主线程.
+
+## 五 总结
 
 1. AlarmManagerService.mHandler 也是运行在system_server的主线程；
 2. 防止alarm频繁发起，则最小时间间隔5s；
@@ -723,19 +947,4 @@ Type有4种类型：
 |ELAPSED_REALTIME_WAKEUP|是|是|
 |ELAPSED_REALTIME|否|是|
 
-
-问题调用栈
-
-at com.android.server.job.controllers.TimeController.checkExpiredDelaysAndResetAlarm(TimeController.java:174)
-- waiting to lock <0x08e172aa> (a java.lang.Object) held by thread 9
-at com.android.server.job.controllers.TimeController.-wrap1(TimeController.java:-1)
-at com.android.server.job.controllers.TimeController$2.onAlarm(TimeController.java:284)
-at android.app.AlarmManager$ListenerWrapper.run(AlarmManager.java:285)
-at android.os.Handler.handleCallback(Handler.java:751)
-at android.os.Handler.dispatchMessage(Handler.java:95)
-at android.os.Looper.loop(Looper.java:154)
-at com.android.server.SystemServer.run(SystemServer.java:363)
-at com.android.server.SystemServer.main(SystemServer.java:231)
-at java.lang.reflect.Method.invoke!(Native method)
-at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:895)
-at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:785)
+未完, 待续...
