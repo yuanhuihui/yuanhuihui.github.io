@@ -1,15 +1,5 @@
 ### 5.5 ANR时机
 
-ANR时间区别便是指当前这次的事件dispatch过程中执行findFocusedWindowTargetsLocked()方法到下一次执行resetANRTimeoutsLocked()的时间区间.
-以下5个时机会reset. 都位于InputDispatcher.cpp
-
-
-resetAndDropEverythingLocked
-releasePendingEventLocked
-setFocusedApplication
-
-dispatchOnceInnerLocked
-setInputDispatchMode
 
 #### 1 解冻屏幕, 系统开/关机的时刻点
 

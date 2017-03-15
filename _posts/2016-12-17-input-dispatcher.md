@@ -101,63 +101,160 @@ InputDispatcher，同样从threadLoop为起点开始分析。
 
     void InputDispatcher::dispatchOnceInnerLocked(nsecs_t* nextWakeupTime) {
         nsecs_t currentTime = now(); //当前时间
+
         if (!mDispatchEnabled) { //默认值为false
             resetKeyRepeatLocked(); //重置操作
         }
         if (mDispatchFrozen) { //默认值为false
             return; //当分发被冻结，则不再处理超时和分发事件的工作，直接返回
         }
+
+        //优化app切换延迟，当切换超时，则抢占分发，丢弃其他所有即将要处理的事件。
+        bool isAppSwitchDue = mAppSwitchDueTime <= currentTime;
         ...
 
         if (!mPendingEvent) {
             if (mInboundQueue.isEmpty()) {
-                ...
                 if (!mPendingEvent) {
                     return; //没有事件需要处理，则直接返回
                 }
             } else {
-                //从mInboundQueue取出头部的事件【重点】
+                //从mInboundQueue取出头部的事件
                 mPendingEvent = mInboundQueue.dequeueAtHead();
             }
-            resetANRTimeoutsLocked(); //重置ANR信息
+            ...
+            resetANRTimeoutsLocked(); //重置ANR信息[见小节2.1.1]
+        }
+
+        bool done = false;
+        DropReason dropReason = DROP_REASON_NOT_DROPPED;
+        if (!(mPendingEvent->policyFlags & POLICY_FLAG_PASS_TO_USER)) {
+            dropReason = DROP_REASON_POLICY;
+        } else if (!mDispatchEnabled) {
+            dropReason = DROP_REASON_DISABLED;
         }
         ...
 
         switch (mPendingEvent->type) {
           case EventEntry::TYPE_KEY: {
               KeyEntry* typedEntry = static_cast<KeyEntry*>(mPendingEvent);
-              ...
+              if (isAppSwitchDue) {
+                  if (isAppSwitchKeyEventLocked(typedEntry)) {
+                      resetPendingAppSwitchLocked(true);
+                      isAppSwitchDue = false;
+                  } else if (dropReason == DROP_REASON_NOT_DROPPED) {
+                      dropReason = DROP_REASON_APP_SWITCH;
+                  }
+              }
+              if (dropReason == DROP_REASON_NOT_DROPPED
+                      && isStaleEventLocked(currentTime, typedEntry)) {
+                  dropReason = DROP_REASON_STALE;
+              }
+              if (dropReason == DROP_REASON_NOT_DROPPED && mNextUnblockedEvent) {
+                  dropReason = DROP_REASON_BLOCKED;
+              }
               // 分发按键事件[见小节2.2]
               done = dispatchKeyLocked(currentTime, typedEntry, &dropReason, nextWakeupTime);
               break;
           }
           ...
         }
+        ...
         
-        if (done) { //分发操作完成，则进入该分支
-            ...
-            releasePendingEventLocked(); //释放pending事件[2.10]
+        //分发操作完成，则进入该分支
+        if (done) {
+            if (dropReason != DROP_REASON_NOT_DROPPED) {
+                //[见小节2.1.2]
+                dropInboundEventLocked(mPendingEvent, dropReason);
+            }
+            mLastDropReason = dropReason;
+            releasePendingEventLocked(); //释放pending事件 []见小节2.10]
             *nextWakeupTime = LONG_LONG_MIN; //强制立刻执行轮询
         }
     }
 
+在enqueueInboundEventLocked()的过程中已设置mAppSwitchDueTime等于eventTime加上500ms:
+
+    mAppSwitchDueTime = keyEntry->eventTime + APP_SWITCH_TIMEOUT;
+
 该方法主要功能:
 
--  mDispatchFrozen: 决定是否冻结事件分发工作不再往下执行;
-  - 当mDispatchFrozen == true，则不再分发；
--  mPendingEvent：决定是否需要再取一次事件，从mInboundQueue头部取出事件,放入mPendingEvent变量;并重置ANR时间;
-  - 当mPendingEvent为空，则不再分发；
-- 根据EventEntry的type类型分别处理:
-    - TYPE_KEY: 则调用dispatchKeyLocked分发事件;
-    - TYPE_MOTION: 则调用dispatchMotionLocked分发事件;
+1. mDispatchFrozen用于决定是否冻结事件分发工作不再往下执行;
+2. 当事件分发的时间点距离该事件加入mInboundQueue的时间超过500ms,则认为app切换过期,即isAppSwitchDue=true;
+3. mInboundQueue不为空,则取出头部的事件,放入mPendingEvent变量;并重置ANR时间;
+4. 根据情况设置dropReason;
+5. 根据EventEntry的type类型分别处理，比如按键调用dispatchKeyLocked分发事件;
+6. 执行完成后，根据dropReason来决定是否丢失事件，以及释放当前事件；
 
-接下来以按键为例来展开说明, 则进入[小节2.2]dispatchKeyLocked。
+接下来以按键为例来展开说明, 则进入[小节2.2] dispatchKeyLocked.
+
+#### 2.1.1 resetANRTimeoutsLocked
+
+    void InputDispatcher::resetANRTimeoutsLocked() {
+        // 重置等待超时cause和handle
+        mInputTargetWaitCause = INPUT_TARGET_WAIT_CAUSE_NONE;
+        mInputTargetWaitApplicationHandle.clear();
+    }
+
+#### 2.1.2 dropInboundEventLocked
+
+    void InputDispatcher::dropInboundEventLocked(EventEntry* entry, DropReason dropReason) {
+        const char* reason;
+        switch (dropReason) {
+        case DROP_REASON_POLICY:
+            reason = "inbound event was dropped because the policy consumed it";
+            break;
+        case DROP_REASON_DISABLED:
+            if (mLastDropReason != DROP_REASON_DISABLED) {
+                ALOGI("Dropped event because input dispatch is disabled.");
+            }
+            reason = "inbound event was dropped because input dispatch is disabled";
+            break;
+        case DROP_REASON_APP_SWITCH:
+            ALOGI("Dropped event because of pending overdue app switch.");
+            reason = "inbound event was dropped because of pending overdue app switch";
+            break;
+        case DROP_REASON_BLOCKED:
+            ALOGI("Dropped event because the current application is not responding and the user "
+                    "has started interacting with a different application.");
+            reason = "inbound event was dropped because the current application is not responding "
+                    "and the user has started interacting with a different application";
+            break;
+        case DROP_REASON_STALE:
+            ALOGI("Dropped event because it is stale.");
+            reason = "inbound event was dropped because it is stale";
+            break;
+        default:
+            return;
+        }
+
+        switch (entry->type) {
+        case EventEntry::TYPE_KEY: {
+            CancelationOptions options(CancelationOptions::CANCEL_NON_POINTER_EVENTS, reason);
+            synthesizeCancelationEventsForAllConnectionsLocked(options);
+            break;
+        }
+        ...
+        }
+    }
 
 ### 2.2 dispatchKeyLocked
 
     bool InputDispatcher::dispatchKeyLocked(nsecs_t currentTime, KeyEntry* entry,
             DropReason* dropReason, nsecs_t* nextWakeupTime) {
         ...
+        if (entry->interceptKeyResult ==    KeyEntry::INTERCEPT_KEY_RESULT_TRY_AGAIN_LATER) {
+            //当前时间小于唤醒时间，则进入等待状态。
+            if (currentTime < entry->interceptKeyWakeupTime) {
+                if (entry->interceptKeyWakeupTime < *nextWakeupTime) {
+                    *nextWakeupTime = entry->interceptKeyWakeupTime;
+                }
+                return false; //直接返回
+            }
+            entry->interceptKeyResult = KeyEntry::INTERCEPT_KEY_RESULT_UNKNOWN;
+            entry->interceptKeyWakeupTime = 0;
+        }
+
         if (entry->interceptKeyResult == KeyEntry::INTERCEPT_KEY_RESULT_UNKNOWN) {
             //让policy有机会执行拦截操作
             if (entry->policyFlags & POLICY_FLAG_PASS_TO_USER) {
@@ -169,30 +266,248 @@ InputDispatcher，同样从threadLoop为起点开始分析。
                 commandEntry->keyEntry = entry;
                 entry->refCount += 1;
                 return false; //直接返回
+            } else {
+                entry->interceptKeyResult = KeyEntry::INTERCEPT_KEY_RESULT_CONTINUE;
+            }
+        } else if (entry->interceptKeyResult == KeyEntry::INTERCEPT_KEY_RESULT_SKIP) {
+            if (*dropReason == DROP_REASON_NOT_DROPPED) {
+                *dropReason = DROP_REASON_POLICY;
             }
         }
-        ...
-        //获取目标聚焦窗口【见小节2.3】
+
+        //如果需要丢弃该事件，则执行清理操作
+        if (*dropReason != DROP_REASON_NOT_DROPPED) {
+            setInjectionResultLocked(entry, *dropReason == DROP_REASON_POLICY
+                    ? INPUT_EVENT_INJECTION_SUCCEEDED : INPUT_EVENT_INJECTION_FAILED);
+            return true; //直接返回
+        }
+
         Vector<InputTarget> inputTargets;
+        // 【见小节2.3】
         int32_t injectionResult = findFocusedWindowTargetsLocked(currentTime,
                 entry, inputTargets, nextWakeupTime);
-                
-        ...
         if (injectionResult == INPUT_EVENT_INJECTION_PENDING) {
-            return false;
+            return false; //直接返回
         }
 
         setInjectionResultLocked(entry, injectionResult);
         if (injectionResult != INPUT_EVENT_INJECTION_SUCCEEDED) {
-            return true;
+            return true; //直接返回
         }
-        
-        //只有injectionResult成功，才有机会执行分发事件【见小节2.4】
+        addMonitoringTargetsLocked(inputTargets);
+
+        //只有injectionResult是成功，才有机会执行分发事件【见小节2.5】
         dispatchEventLocked(currentTime, entry, inputTargets);
         return true;
     }
     
-先找到当前focused目标窗口，则将事件分发该目标窗口；
+在以下场景下，有可能无法分发事件：
+
+- 当前时间小于唤醒时间(nextWakeupTime)的情况；
+- policy需要提前拦截事件的情况；
+- 需要drop事件的情况；
+- 寻找聚焦窗口失败的情况；
+
+如果成功跳过以上所有情况，则会进入执行事件分发的过程。
+    
+### 2.3 findFocusedWindowTargetsLocked
+
+    int32_t InputDispatcher::findFocusedWindowTargetsLocked(nsecs_t currentTime,
+            const EventEntry* entry, Vector<InputTarget>& inputTargets, nsecs_t* nextWakeupTime) {
+        int32_t injectionResult;
+        String8 reason;
+
+        if (mFocusedWindowHandle == NULL) {
+            if (mFocusedApplicationHandle != NULL) {
+                //【见小节2.3.2】
+                injectionResult = handleTargetsNotReadyLocked(currentTime, entry,
+                        mFocusedApplicationHandle, NULL, nextWakeupTime,
+                        "Waiting because no window has focus but there is a "
+                        "focused application that may eventually add a window "
+                        "when it finishes starting up.");
+                goto Unresponsive;
+            }
+
+            ALOGI("Dropping event because there is no focused window or focused application.");
+            injectionResult = INPUT_EVENT_INJECTION_FAILED;
+            goto Failed;
+        }
+
+        //权限检查
+        if (! checkInjectionPermission(mFocusedWindowHandle, entry->injectionState)) {
+            injectionResult = INPUT_EVENT_INJECTION_PERMISSION_DENIED;
+            goto Failed;
+        }
+
+        //检测窗口是否为更多的输入操作而准备就绪【见小节2.3.1】
+        reason = checkWindowReadyForMoreInputLocked(currentTime,
+                mFocusedWindowHandle, entry, "focused");
+        if (!reason.isEmpty()) {
+            //【见小节2.3.2】
+            injectionResult = handleTargetsNotReadyLocked(currentTime, entry,
+                    mFocusedApplicationHandle, mFocusedWindowHandle, nextWakeupTime, reason.string());
+            goto Unresponsive;
+        }
+
+        injectionResult = INPUT_EVENT_INJECTION_SUCCEEDED;
+        //成功找到目标窗口，添加到目标窗口
+        addWindowTargetLocked(mFocusedWindowHandle,
+                InputTarget::FLAG_FOREGROUND | InputTarget::FLAG_DISPATCH_AS_IS, BitSet32(0),
+                inputTargets);
+
+    Failed:
+    Unresponsive:
+        //TODO: 统计等待时长信息，目前没有实现，这个方法还是很值得去改造
+        nsecs_t timeSpentWaitingForApplication = getTimeSpentWaitingForApplicationLocked(currentTime);
+        updateDispatchStatisticsLocked(currentTime, entry,
+              injectionResult, timeSpentWaitingForApplication);
+        return injectionResult;
+    }
+    
+寻找聚焦窗口失败的情况：
+
+- 无窗口，无应用：Dropping event because there is no focused window or focused application.(这并不导致ANR的情况，因为没有机会调用handleTargetsNotReadyLocked)
+- 无窗口, 有应用：Waiting because no window has focus but there is a focused application that may eventually add a window when it finishes starting up.
+
+另外，还有更多多的失败场景见checkWindowReadyForMoreInputLocked的过程，如下：
+   
+#### 2.3.1 checkWindowReadyForMoreInputLocked
+
+    String8 InputDispatcher::checkWindowReadyForMoreInputLocked(nsecs_t currentTime,
+            const sp<InputWindowHandle>& windowHandle, const EventEntry* eventEntry,
+            const char* targetType) {
+        //当窗口暂停的情况，则保持等待
+        if (windowHandle->getInfo()->paused) {
+            return String8::format("Waiting because the %s window is paused.", targetType);
+        }
+
+        //当窗口连接未注册，则保持等待
+        ssize_t connectionIndex = getConnectionIndexLocked(windowHandle->getInputChannel());
+        if (connectionIndex < 0) {
+            return String8::format("Waiting because the %s window's input channel is not "
+                    "registered with the input dispatcher.  The window may be in the process "
+                    "of being removed.", targetType);
+        }
+
+        //当窗口连接已死亡，则保持等待
+        sp<Connection> connection = mConnectionsByFd.valueAt(connectionIndex);
+        if (connection->status != Connection::STATUS_NORMAL) {
+            return String8::format("Waiting because the %s window's input connection is %s."
+                    "The window may be in the process of being removed.", targetType,
+                    connection->getStatusLabel());
+        }
+
+        // 当窗口连接已满，则保持等待
+        if (connection->inputPublisherBlocked) {
+            return String8::format("Waiting because the %s window's input channel is full.  "
+                    "Outbound queue length: %d.  Wait queue length: %d.",
+                    targetType, connection->outboundQueue.count(), connection->waitQueue.count());
+        }
+
+
+        if (eventEntry->type == EventEntry::TYPE_KEY) {
+            // 按键事件，输出队列或事件等待队列不为空
+            if (!connection->outboundQueue.isEmpty() || !connection->waitQueue.isEmpty()) {
+                return String8::format("Waiting to send key event because the %s window has not "
+                        "finished processing all of the input events that were previously "
+                        "delivered to it.  Outbound queue length: %d.  Wait queue length: %d.",
+                        targetType, connection->outboundQueue.count(), connection->waitQueue.count());
+            }
+        } else {
+            // 非按键事件，事件等待队列不为空且头事件分发超时500ms
+            if (!connection->waitQueue.isEmpty()
+                    && currentTime >= connection->waitQueue.head->deliveryTime
+                            + STREAM_AHEAD_EVENT_TIMEOUT) {
+                return String8::format("Waiting to send non-key event because the %s window has not "
+                        "finished processing certain input events that were delivered to it over "
+                        "%0.1fms ago.  Wait queue length: %d.  Wait queue head age: %0.1fms.",
+                        targetType, STREAM_AHEAD_EVENT_TIMEOUT * 0.000001f,
+                        connection->waitQueue.count(),
+                        (currentTime - connection->waitQueue.head->deliveryTime) * 0.000001f);
+            }
+        }
+        return String8::empty();
+    }
+    
+#### 2.3.2 handleTargetsNotReadyLocked
+
+    int32_t InputDispatcher::handleTargetsNotReadyLocked(nsecs_t currentTime,
+        const EventEntry* entry,
+        const sp<InputApplicationHandle>& applicationHandle,
+        const sp<InputWindowHandle>& windowHandle,
+        nsecs_t* nextWakeupTime, const char* reason) {
+        if (applicationHandle == NULL && windowHandle == NULL) {
+            if (mInputTargetWaitCause != INPUT_TARGET_WAIT_CAUSE_SYSTEM_NOT_READY) {
+                mInputTargetWaitCause = INPUT_TARGET_WAIT_CAUSE_SYSTEM_NOT_READY;
+                mInputTargetWaitStartTime = currentTime; //当前时间
+                mInputTargetWaitTimeoutTime = LONG_LONG_MAX;
+                mInputTargetWaitTimeoutExpired = false;
+                mInputTargetWaitApplicationHandle.clear();
+            }
+        } else {
+            if (mInputTargetWaitCause != INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY) {
+                nsecs_t timeout;
+                if (windowHandle != NULL) {
+                    timeout = windowHandle->getDispatchingTimeout(DEFAULT_INPUT_DISPATCHING_TIMEOUT);
+                } else if (applicationHandle != NULL) {
+                    timeout = applicationHandle->getDispatchingTimeout(DEFAULT_INPUT_DISPATCHING_TIMEOUT);
+                } else {
+                    timeout = DEFAULT_INPUT_DISPATCHING_TIMEOUT; // 5s
+                }
+
+                mInputTargetWaitCause = INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY;
+                mInputTargetWaitStartTime = currentTime; //当前时间
+                mInputTargetWaitTimeoutTime = currentTime + timeout;
+                mInputTargetWaitTimeoutExpired = false;
+                mInputTargetWaitApplicationHandle.clear();
+
+                if (windowHandle != NULL) {
+                    mInputTargetWaitApplicationHandle = windowHandle->inputApplicationHandle;
+                }
+                if (mInputTargetWaitApplicationHandle == NULL && applicationHandle != NULL) {
+                    mInputTargetWaitApplicationHandle = applicationHandle;
+                }
+            }
+        }
+
+        if (mInputTargetWaitTimeoutExpired) {
+            return INPUT_EVENT_INJECTION_TIMED_OUT; //等待超时已过期,则直接返回
+        }
+        
+        //当超时5s则进入ANR流程
+        if (currentTime >= mInputTargetWaitTimeoutTime) {
+            onANRLocked(currentTime, applicationHandle, windowHandle,
+                    entry->eventTime, mInputTargetWaitStartTime, reason);
+
+            *nextWakeupTime = LONG_LONG_MIN; //强制立刻执行轮询来执行ANR策略
+            return INPUT_EVENT_INJECTION_PENDING;
+        } else {
+            if (mInputTargetWaitTimeoutTime < *nextWakeupTime) {
+                *nextWakeupTime = mInputTargetWaitTimeoutTime; //当触发超时则强制执行轮询
+            }
+            return INPUT_EVENT_INJECTION_PENDING;
+        }
+    }
+
+此处mInputTargetWaitTimeoutTime是由当前时间戳+5s, 并设置mInputTargetWaitCause等于INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY.
+也就是说ANR时间段是指input等待理由处于INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY(应用没有准备就绪)的时间长达5s的场景.而前面resetANRTimeoutsLocked()
+过程是唯一用于重置等待理由的地方.
+
+那么, ANR时间区别便是指当前这次的事件dispatch过程中执行findFocusedWindowTargetsLocked()方法到下一次执行resetANRTimeoutsLocked()的时间区间.
+
+
+- 当applicationHandle和windowHandle同时为空, 且system准备就绪的情况下
+    - 设置等待理由 INPUT_TARGET_WAIT_CAUSE_SYSTEM_NOT_READY;
+    - 设置超时等待时长为无限大;
+    - 设置TimeoutExpired= false
+    - 清空等待队列;
+- 当applicationHandle和windowHandle至少一个不为空, 且application准备就绪的情况下:
+    - 设置等待理由 INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY;
+    - 设置超时等待时长为5s;
+    - 设置TimeoutExpired= false
+    - 清空等待队列;
+
+ 继续回到[小节2.3]findFocusedWindowTargetsLocked，如果没有发生ANR，则addWindowTargetLocked()将该事件添加到inputTargets。
 
 ### 2.3 findFocusedWindowTargetsLocked
 
@@ -438,6 +753,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
 
         }
     }
+startDispatchCycleLocked的主要功能: 从outboundQueue中取出事件,重新放入waitQueue队列
 
 - startDispatchCycleLocked触发时机：当起初connection.outboundQueue等于空, 经enqueueDispatchEntryLocked处理后, outboundQueue不等于空。
 - startDispatchCycleLocked主要功能: 从outboundQueue中取出事件,重新放入waitQueue队列
@@ -445,7 +761,8 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
   - WOULD_BLOCK，且waitQueue等于空，则调用abortBrokenDispatchCycleLocked()，该方法最终会调用到Java层的IMS.notifyInputChannelBroken().
   - WOULD_BLOCK，且waitQueue不等于空，则处于阻塞状态，即inputPublisherBlocked=true
   - 其他情况，则调用abortBrokenDispatchCycleLocked
-    
+- abortBrokenDispatchCycleLocked()方法最终会调用到Java层的IMS.notifyInputChannelBroken().
+
 ### 2.9  inputPublisher.publishKeyEvent
 [-> InputTransport.cpp]
 
@@ -472,7 +789,8 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
     }
     
 InputChannel通过socket向远端的socket发送消息。socket通道是如何建立的呢？
-InputDispatcher又是如何与前台的window通信的呢？ 见下一篇文章[]()
+InputDispatcher又是如何与前台的window通信的呢？ 见下一篇文章[Input系统—进程交互](http://gityuan.com/2016/12/31/input-ipc/),
+从文章的小节2.1开始继续往下说.
 
 ### 2.10 releasePendingEventLocked
 
