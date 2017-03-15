@@ -23,13 +23,11 @@ tags:
 InputDispatcher，同样从threadLoop为起点开始分析。
 
 #### 1.1 InputDispatcher执行流
-整体调用链：
 
-    InputDispatcherThread.threadLoop
-      InputDispatcher.dispatchOnce
-        InputDispatcher.dispatchOnceInnerLocked
-        runCommandsLockedInterruptible
-        Looper->pollOnce
+点击查看[大图](http://www.gityuan.com/images/input/input_dispatcher_seq.jpg):
+
+![input_dispatcher_seq](/images/input/input_dispatcher_seq.jpg)
+        
         
 先来回顾一下InputDispatcher对象的初始化过程:
 

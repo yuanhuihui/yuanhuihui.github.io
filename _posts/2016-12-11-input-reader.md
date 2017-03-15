@@ -22,35 +22,14 @@ tags:
 
 上一篇文章[Input系统—启动篇](http://gityuan.com/2016/12/10/input-manager/)，介绍IMS服务的启动过程会创建两个native线程，分别是InputReader,InputDispatcher，并且是可以调用Java代码的native线程。
 
-#### 1.1 InputReader执行流
-整体调用链：
+#### 1.1 InputReader流程图
 
-    InputReaderThread.threadLoop
-      InputReader.loopOnce
-        EventHub.getEvents
-        InputReader.processEventsLocked
-        QueuedListener.flush
+点击查看[大图](http://www.gityuan.com/images/input/input_reader_seq.jpg):
 
-先来回顾一下InputReader对象的初始化过程:
-
-    InputReader::InputReader(const sp<EventHubInterface>& eventHub,
-            const sp<InputReaderPolicyInterface>& policy,
-            const sp<InputListenerInterface>& listener) :
-            mContext(this), mEventHub(eventHub), mPolicy(policy),
-            mGlobalMetaState(0), mGeneration(1),
-            mDisableVirtualKeysTimeout(LLONG_MIN), mNextTimeout(LLONG_MAX),
-            mConfigurationChangesToRefresh(0) {
-        //此处mQueuedListener的成员变量`mInnerListener`便是InputDispatcher对象
-        mQueuedListener = new QueuedInputListener(listener);
-        {
-            AutoMutex _l(mLock);
-            refreshConfigurationLocked(0);
-            updateGlobalMetaStateLocked();
-        } 
-    }
+![input_reader_seq](/images/input/input_reader_seq.jpg)
 
 
-接下来介绍InputReader线程的执行过程，从threadLoop为起点开始分析。
+接下来从InputReader线程的执行过程从threadLoop为起点开始分析。
 
 #### 1.2 threadLoop
 [-> InputReader.cpp]
@@ -673,7 +652,7 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
         mArgsQueue.push(new NotifyKeyArgs(*args));
     }
 
-mArgsQueued的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶。 到此,整个事件加工完成,
+mArgsQueue的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶。 到此,整个事件加工完成,
 再然后就是将事件发送给InputDispatcher线程.
 
 ## 四. QueuedListener
@@ -944,7 +923,10 @@ AppSwitchKeyEvent是指keyCode等于以下值：
         }
         return NULL;
     }
-    
+
+此处mWindowHandles的赋值过程是由Java层的InputMonitor.setInputWindows(),经过JNI调用后进入InputDispatcher::setInputWindows()方法完成.
+进一步说, 就是WMS执行addWindow()过程或许UI改变等场景,都会触发该方法的修改.
+
 #### 4.3.5 Looper.wake
 [-> system/core/libutils/Looper.cpp]
 
