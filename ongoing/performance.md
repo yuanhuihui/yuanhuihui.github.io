@@ -1,0 +1,1 @@
+binder 是不是可以减少向servicemanager来查询的操作, 直接缓存起来.

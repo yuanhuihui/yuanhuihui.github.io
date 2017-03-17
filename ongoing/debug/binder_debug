@@ -1,0 +1,4 @@
+cat /d/binder/stats
+查看进程的 
+ready threads (是否有可用线程)
+pending transactions (是否有正在等待的事务), proc->todo中的个数

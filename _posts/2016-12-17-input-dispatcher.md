@@ -753,6 +753,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
 
         }
     }
+    
 startDispatchCycleLocked的主要功能: 从outboundQueue中取出事件,重新放入waitQueue队列
 
 - startDispatchCycleLocked触发时机：当起初connection.outboundQueue等于空, 经enqueueDispatchEntryLocked处理后, outboundQueue不等于空。
