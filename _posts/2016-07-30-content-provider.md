@@ -87,6 +87,14 @@ ContentProvider作为Android四大组件之一，并没有Activity那样复杂�
 - `mProviderMap`： AMS和AT都有一个同名的成员变量, AMS的数据类型为ProviderMap,而AT则是以ProviderKey为key的ArrayMap类型.
 - `mLocalProviders`和`mLocalProvidersByName`：都是用于记录所有本地的ContentProvider,不同的只是key.
 
+### 1.5 query流图图
+
+点击查看[大图](http://www.gityuan.com/images/ams/get_content_provider.jpg)
+
+![get_content_provider](/images/ams/get_content_provider.jpg)
+
+getContentProviderImpl()过程返回的对象ContentProviderRecord中有成员变量ContentProviderConnection对象, 这个binder服务端.
+
 ## 二、查询ContentProvider
 
 接下来，从源码角度来说说，以`query`的为例来说说ContentProvider的整个完整流程,首先获取ContentResolver再执行相应query方法.
@@ -609,6 +617,7 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
                 if (prc != null) {
                     //只有当需要释放引用时则进入该分支
                     if (!noReleaseNeeded) {
+                        //向ams来增加引用计数
                         incProviderRefLocked(prc, stable);
                         //[见流程2.8.1]
                         ActivityManagerNative.getDefault().removeContentProvider(

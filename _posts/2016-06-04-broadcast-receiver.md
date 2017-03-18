@@ -43,7 +43,7 @@ BroadcastReceiver分为两类：
 - Sticky广播：通过Context.sendStickyBroadcast()发送
 
 
-#### BroadcastRecord
+#### 1.1 BroadcastRecord
 
 广播在系统中以BroadcastRecord对象来记录, 该对象有几个时间相关的成员变量.
 
