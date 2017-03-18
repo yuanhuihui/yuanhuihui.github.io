@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解Android ANR的处理过程"
+title:  "理解Android ANR的信息收集过程"
 date:   2016-12-02 22:19:53
 catalog:    true
 tags:
@@ -45,7 +45,7 @@ tags:
           } else if (app.crashing) {
               return;
           }
-          //记录ANR
+          //记录ANR到EventLog
           EventLog.writeEvent(EventLogTags.AM_ANR, app.userId, app.pid,
                   app.processName, app.info.flags, annotation);
                   
@@ -159,7 +159,7 @@ tags:
 
 当发生ANR时, 会按顺序依次执行:
 
-1. 输出ANR Reason信息;
+1. 输出ANR Reason信息到EventLog. 也就是说ANR触发的时间点最接近的就是EventLog中输出的am_anr信息;
 2. 收集并输出重要进程列表中的各个线程的**traces信息**，该方法较耗时; 【见小节2】
 3. 输出当前各个进程的**CPU使用情况**以及CPU负载情况;
 4. 将traces文件和 CPU使用情况信息**保存到dropbox**，即data/system/dropbox目录
@@ -278,7 +278,7 @@ ANR输出重要进程的traces信息，这些进程包含:
   - 依次输出CPU使用率top 5的进程；
 
 **Tips:** firstPids列表中的进程, 两个进程之间会休眠200ms, 可见persistent进程越多,则时间越长.
-出top 5进程的traces过程中, 同样是间隔200ms, 另外进程使用情况的收集也是比较耗时.
+top 5进程的traces过程中, 同样是间隔200ms, 另外进程使用情况的收集也是比较耗时.
 
 ### 4. dumpNativeBacktraceToFile
 Debug.dumpNativeBacktraceToFile(pid, tracesPath)经过JNI调用如下方法：
@@ -297,11 +297,8 @@ Debug.dumpNativeBacktraceToFile(pid, tracesPath)经过JNI调用如下方法：
 
         //打开/data/anr/traces.txt
         int fd = open(fileName8.string(), O_CREAT | O_WRONLY | O_NOFOLLOW, 0666);  /* -rw-rw-rw- */
-        if (fd < 0) {
-            fprintf(stderr, "Can't open %s: %s\n", fileName8.string(), strerror(errno));
-            return;
-        }
-
+        ...
+        
         if (lseek(fd, 0, SEEK_END) < 0) {
             fprintf(stderr, "lseek: %s\n", strerror(errno));
         } else {
@@ -348,8 +345,8 @@ dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理]
 
 触发ANR时系统会输出关键信息：(这个较耗时,可能会有10s)
 
-1. 将am_anr信息,输出到EventLog.(ANR开始起点,可以EventLog)
-2. 获取重要进程trace信息，保存到/data/anr/traces.txt；
+1. 将am_anr信息,输出到EventLog.(ANR开始起点看EventLog)
+2. 获取重要进程trace信息，保存到/data/anr/traces.txt；(会先删除老的文件)
     - Java进程的traces;
     - Native进程的traces;
 3. ANR reason以及CPU使用情况信息，输出到main log;
@@ -369,4 +366,4 @@ dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理]
 - 进程名：cat /proc/<pid>/cmdline
 - 线程名：cat /proc/<tid>/comm
 - Kernel栈：cat /proc/[tid]/stack
-- Native栈： 解析/proc/%d/maps
+- Native栈： 解析 /proc/%d/maps

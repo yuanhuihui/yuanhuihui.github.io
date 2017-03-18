@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解Android ANR的触发情景"
+title:  "理解Android ANR的触发原理"
 date:   2016-07-02 23:39:00
 catalog:  true
 tags:
@@ -17,7 +17,7 @@ ANR(Application Not responding)，是指应用程序未响应，Android系统对
 
 - Service Timeout:比如前台服务在20s内未执行完成；
 - BroadcastQueue Timeout：比如前台广播在10s内未执行完成
-- ContentProvider Timeout：内容提供者执行超时
+- ContentProvider Timeout：内容提供者,在publish过超时10s;
 - InputDispatching Timeout: 输入事件分发超时5s，包括按键和触摸事件。
 
 触发ANR的过程可分为三个步骤: 埋炸弹, 拆炸弹, 引爆炸弹
@@ -30,6 +30,9 @@ Service Timeout是位于"ActivityManager"线程中的AMS.MainHandler收到`SERVI
 
 - 对于前台服务，则超时为SERVICE_TIMEOUT = 20s；
 - 对于后台服务，则超时为SERVICE_BACKGROUND_TIMEOUT = 200s
+
+
+由变量ProcessRecord.execServicesFg来决定是否前台启动
 
 ### 2.1 埋炸弹
 
@@ -621,7 +624,7 @@ removeDyingProviderLocked()的功能跟进程的存活息息相关：详见[Cont
     
 ## 五、总结
 
-当出现ANR时，都是调用到AMS.appNotResponding()方法，详细过程见文章[理解Android ANR的处理过程](http://gityuan.com/2016/12/02/app-not-response/). 当然这里介绍的provider例外.
+当出现ANR时，都是调用到AMS.appNotResponding()方法，详细过程见文章[理解Android ANR的信息收集过程](http://gityuan.com/2016/12/02/app-not-response/). 当然这里介绍的provider例外.
 
 - 对于前台服务，则超时为SERVICE_TIMEOUT = 20s；
 - 对于后台服务，则超时为SERVICE_BACKGROUND_TIMEOUT = 200s

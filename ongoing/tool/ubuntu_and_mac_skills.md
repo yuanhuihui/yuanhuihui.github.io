@@ -30,6 +30,9 @@ ctrl + cmd + j： 调用
 
 COMMAND + F3: 快速回到桌面
 
+## Atom
+
+Ctrl + P : 查找文件
 
 ## 截图
 

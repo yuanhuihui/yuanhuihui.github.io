@@ -776,5 +776,5 @@ Native程序通过link连接后，当发生Native Crash时，则kernel会发送�
 
 这个流程图只是从整体来概要介绍native crash流程，其中有两个部分是核心方法：
 
-- 其一是图中红色块`perform_dump`是整个debuggerd的核心工作，该方法内部调用`engrave_tombstone`，该方法的具体工作见文章[调试系列4：debuggerd源码篇](http://gityuan.com/2016/06/15/android-debuggerd/#tombstone)的功能内容，这个过程还需要与target进程通信来获取target进程更多信息。
+- 其一是图中红色块`perform_dump`是整个debuggerd的核心工作，该方法内部调用`engrave_tombstone`，该方法的具体工作见文章[ebuggerd守护进程](http://gityuan.com/2016/06/15/android-debuggerd/#tombstone)的功能内容，这个过程还需要与target进程通信来获取target进程更多信息。
 - 其二是AMS的handleApplicationCrashInner，该方法的工作见姊妹篇[理解Android Crash处理流程](http://gityuan.com/2016/06/24/app-crash/#handleApplicationCrashInner)。
