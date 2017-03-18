@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "WMS之启动篇"
+title:  "WMS—启动过程"
 date:   2017-01-08 20:32:00
 catalog:  true
 tags:

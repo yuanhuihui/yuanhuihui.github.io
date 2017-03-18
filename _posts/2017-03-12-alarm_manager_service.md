@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "理解AlarmManager机制"
-date:   2017-3-10 20:12:30
+date:   2017-3-12 20:12:30
 catalog:    true
 tags:
     - android

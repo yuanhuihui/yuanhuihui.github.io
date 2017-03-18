@@ -18,6 +18,21 @@ tags:
 
 ServiceManager是整个Binder IPC通信过程中的守护进程，本身也是一个Binder服务，但并没有采用libbinder中的多线程模型来与Binder驱动通信，而是自行编写了binder.c直接和Binder驱动来通信，并且只有一个循环binder_loop来进行读取和处理事务，这样的好处是简单而高效。 这也跟ServiceManager本身工作相对并不复杂，主要就两个工作：查询和注册服务。 对于Binder IPC通信过程中，其实更多的情形是BpBinder和BBinder之间的通信，比如ActivityManager和ActivityManagerService有大量的通信。
 
+
+servicemanager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通过解析init.rc文件而创建的，其所对应的可执行程序/system/bin/servicemanager，所对应的源文件是service_manager.c，进程名为/system/bin/servicemanager。
+
+
+    service servicemanager /system/bin/servicemanager
+        class core
+        user system
+        group system
+        critical
+        onrestart restart healthd
+        onrestart restart zygote
+        onrestart restart media
+        onrestart restart surfaceflinger
+        onrestart restart drm
+    
 启动Service Manager的入口函数是service_manager.c中的main()方法，代码如下：
 
 ==> `/framework/native/cmds/servicemanager/service_manager.c`

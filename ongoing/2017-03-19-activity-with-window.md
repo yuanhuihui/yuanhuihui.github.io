@@ -1,3 +1,12 @@
+---
+layout: post
+title:  "理解ActivityManager与WindowManager"
+date:   2017-03-12 23:19:12
+catalog:  true
+tags:
+    - android
+
+---
 
 ## 一. 概述
 
@@ -11,7 +20,7 @@ WMS是Android系统中比较复杂，也是非常重要的服务之一，它涉�
 
 ### 1.1 
 
-Activity启动过程，会执行组件的生命周期回调以及视图对象的创建。视图相关工作会通过向AMS服务来
+Activity启动过程会执行组件的生命周期回调以及UI相关对象的创建。UI工作会通过向AMS服务来
 创建WindowState对象完成，这是用于描述窗口各种状态属性的。
 
 
@@ -66,7 +75,7 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
 4. ViewRootImpl：管理DecorView跟WMS的交互；每次调用addView添加窗口时，则都会创建一个ViewRootImpl对象；
 5. 
 
-### 1.2 C/S
+### 1.2 C/S cx
 
 WindowManagerGlobal.sWindowManagerService -> WMS
 ViewRootImpl.mWindowSession

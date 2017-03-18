@@ -423,9 +423,9 @@ Binder主线程的创建是在其所在进程创建的过程一起创建的，�
 
 默认地，每个进程的binder线程池的线程个数上限为15，该上限不统计通过BC_ENTER_LOOPER命令创建的binder主线程， 只计算BC_REGISTER_LOOPER命令创建的线程。 对此，或者很多人不理解，例个栗子：某个进程的主线程执行如下方法，那么该进程可创建的binder线程个数上限是多少呢？
 
-    ProcessState::self()->setThreadPoolMaxThreadCount(6);  
-    ProcessState::self()->startThreadPool();  
-    IPCThread::self()->joinThreadPool(); 
+    ProcessState::self()->setThreadPoolMaxThreadCount(6);  // 6个线程
+    ProcessState::self()->startThreadPool();   // 1个线程
+    IPCThread::self()->joinThreadPool();   // 1个线程
 
 首先线程池的binder线程个数上限为6个，通过startThreadPool()创建的主线程不算在最大线程上限，最后一句是将当前线程成为binder线程，所以说可创建的binder线程个数上限为8，如果还不理解，建议再多看看这几个方案的源码，多思考整个binder架构。
 

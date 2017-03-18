@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android系统启动-init篇"
+title:  "Android系统启动-Init篇"
 date:   2016-02-05 20:15:40
 catalog:  true
 tags:
@@ -494,9 +494,10 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
     
 由上可知：
 
-- zygote：触发media、netd以及子进程重启；
+- zygote：触发media、netd以及子进程(包括system_server进程)重启；
+- system_server: 触发zygote重启;
 - surfaceflinger：触发zygote重启;
-- servicemanager: 触发healthd、zygote、media、surfaceflinger、drm重启
+- servicemanager: 触发zygote、healthd、media、surfaceflinger、drm重启
 
 所以，surfaceflinger,servicemanager,zygote自身以及system_server进程被杀都会触发Zygote重启。
 
