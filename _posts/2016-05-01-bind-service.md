@@ -314,6 +314,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnection是ServiceDispa
         if (token != null) {
             activity = ActivityRecord.isInStackLocked(token);
             if (activity == null) {
+                //发起方的activity为空，则直接返回
                 return 0;
             }
         }
@@ -325,7 +326,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnection是ServiceDispa
             ... //发起方是system进程的情况
         }
         ...
-
+        //根据发送端所在进程的SchedGroup来决定是否为前台service.
         final boolean callerFg = callerApp.setSchedGroup != Process.THREAD_GROUP_BG_NONINTERACTIVE;
 
         //根据用户传递进来Intent来检索相对应的服务【见流程7.1】
@@ -347,6 +348,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnection是ServiceDispa
             unscheduleServiceRestartLocked(s, callerApp.info.uid, false);
 
             if ((flags&Context.BIND_AUTO_CREATE) != 0) {
+                //更新当前service活动时间
                 s.lastActivity = SystemClock.uptimeMillis();
                 ...
             }
@@ -408,7 +410,7 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnection是ServiceDispa
 
             if (s.app != null && b.intent.received) {
                 try {
-                    //Service已经正在运行，则调用InnerConnectiond的代理对象
+                    //Service已经正在运行，则调用InnerConnection的代理对象
                     c.conn.connected(s.name, b.intent.binder);
                 } catch (Exception e) {
                     ...
@@ -683,10 +685,16 @@ AppBindRecord对象记录着当前ServiceRecord,intent以及发起方的进程�
         ...
     }
     
+该方法有几个重要的时间点：
+
+- bumpServiceExecutingLocked；
+- AT.scheduleCreateService;
+- requestServiceBindingsLocked;
+- AT.sendServiceArgsLocked;
 
 ## 三. 远程服务进程
 
-### 10.  AT.scheduleCreateService
+### 10.  scheduleCreateService
 [-> ApplicationThread.java]
 
     public final void scheduleCreateService(IBinder token,
@@ -735,6 +743,8 @@ AppBindRecord对象记录着当前ServiceRecord,intent以及发起方的进程�
         }
     }
 
+再回到前面的【流程9】realStartServiceLocked()过程，执行完scheduleCreateService()操作，
+接下来，继续回到system_server进程，开始执行requestServiceBindingsLocked过程。
 
 ## 四. system_server端
 
@@ -825,8 +835,8 @@ AppBindRecord对象记录着当前ServiceRecord,intent以及发起方的进程�
         ...
     }
 
-### 13. AT.scheduleBindService
-[-> ActivityThread.java]
+### 13. scheduleBindService
+[-> ApplicationThread.java]
 
     public final void scheduleBindService(IBinder token, Intent intent,
             boolean rebind, int processState) {
@@ -906,8 +916,9 @@ AppBindRecord对象记录着当前ServiceRecord,intent以及发起方的进程�
     }
 
 远程服务的onBind()的返回值的IBinder(Bn端), 在AMP.publishService()过程中经过data.writeStrongBinder(service)传递到底层,
-再回到system_server进程中AMN.onTransact()中经过data.readStrongBinder()方法会获取该service所相对应的代理对象(Bp端).
-简言之,此处的service就是远程服务中IBinder的Bp端对象.
+再回到system_server进程中AMN.onTransact()中经过data.readStrongBinder()方法会获取该service所相对应的代理对象(Bp端).  
+
+简言之,此处的IBinder类型的service就是远程服务进程中的Bp端对象.
 
 ### 17. publishServiceLocked
 [-> ActiveServices.java]
@@ -1076,44 +1087,16 @@ AppBindRecord对象记录着当前ServiceRecord,intent以及发起方的进程�
     }
 
 
-## 八. 总结 
+## 八. 总结
 
-调用链
+整体调用流程图：[大图](http://www.gityuan.com/images/ams/bind_service.jpg)
 
-    CW.bindService
-        CI.bindService
-            CI.bindServiceCommon
-                AMP.bindService
-                    AMS.bindService
-                        AS.bindServiceLocked
-                            AS.retrieveServiceLocked
-                            SR.retrieveAppBindingLocked
-                            AS.bringUpServiceLocked
-                                AS.realStartServiceLocked
-                                    ATP.scheduleCreateService
-                                        AT.scheduleCreateService
-                                            AT.handleCreateService
-                                                Service.onCreate()
-                                                AMP.serviceDoneExecuting
-                                                    AMS.serviceDoneExecuting
-                                    requestServiceBindingsLocked
-                                        requestServiceBindingLocked
-                                             ATP.scheduleBindService
-                                                 AT.scheduleBindService
-                                                    AT.handleBindService
-                                                        Service.onBind()
-                                                        AMP.publishService
-                                                            AMS.publishService
-                                                                AS.publishServiceLocked
-                                                                    IServiceConnection.Stub.Proxy.connected
-                                                                        InnerConnection.connected
-                                                                            ServiceDispatcher.connected
-                                                                                RunConnection.run
-                                                                                    ServiceDispatcher.doConnected
-                                                                                        ServiceConnection.onServiceConnected
-                                                        AMP.serviceDoneExecuting
-                                                            AMS.serviceDoneExecuting
+![bind_service](/images/ams/bind_service.jpg)
 
-整个过程中3个重要的对象 IServiceConnection.Stub.Proxy,AMP, ATP, Service.onBind对象
+说明：
 
-流程图，设计图，总结， 后续补充...
+1. 步骤3的getServiceDispatcher，获取的是发起端进程的匿名Binder服务，即LoadedApk.ServiceDispatcher.InnerConnection,该对象继承于IServiceConnection.Stub；
+这里需要注意的是IServiceConnection是属于oneway interface，也就是非阻塞的binder call.
+2. 步骤11的makeApplication，创建目标Service所属于的Application对象；
+3. 步骤18的publishService过程，会将onBind()返回值对象(即远程服务进程中的匿名Binder服务)
+传递给发起端进程的onServiceConnection()方法。
