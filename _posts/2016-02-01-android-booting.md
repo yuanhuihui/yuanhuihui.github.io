@@ -648,6 +648,19 @@ app进程的主线程调用栈的栈底如下:
 |进程|主方法|
 |---|---|
 |init进程|Init.main()|
-|Zygote进程|ZygoteInit.main()|
+|zygote进程|ZygoteInit.main()|
+|app_process进程|RuntimeInit.main|
 |system_server进程|SystemServer.main()|
 |app进程|ActivityThread.main()|
+
+注意其中app_process进程是指通过/system/bin/app_process来启动的进程，且后面跟的参数不带--zygote，即并非启动zygote进程。
+比如常见的有通过adb shell方式来执行am,pm等命令，便是这种方式。
+
+关于重要进程重启的过程，会触发哪些关联进程重启名单：
+
+- zygote：触发media、netd以及子进程(包括system_server进程)重启；
+- system_server: 触发zygote重启;
+- surfaceflinger：触发zygote重启;
+- servicemanager: 触发zygote、healthd、media、surfaceflinger、drm重启
+
+所以，surfaceflinger,servicemanager,zygote自身以及system_server进程被杀都会触发Zygote重启。

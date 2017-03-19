@@ -194,7 +194,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |3|[Android四大组件与进程启动的关系](http://gityuan.com/2016/10/09/app-process-create-2/)|AMS.startProcessLocked过程分析组件与进程|
 |4|[Android进程绝杀技--forceStop](http://gityuan.com/2016/10/22/force-stop/)|force-stop过程分析彻底移除组件与杀进程|
 |5|[理解Android线程创建流程](http://gityuan.com/2016/09/24/android-thread/)|3种不同线程的创建过程|
-|6|[彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)|为start-service为线,阐述进程间通信机理|
+|6|[彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)|以start-service为线,阐述进程间通信机理|
 |7|[理解Binder线程池的管理](http://gityuan.com/2016/10/29/binder-thread-pool/)|Zygote fork的进程都默认开启binder线程池|
 |8|[Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)|进程adj, processState以及lmk|
 |9|[Android LowMemoryKiller原理分析](http://gityuan.com/2016/09/17/android-lowmemorykiller/)|lmk原理分析|
@@ -202,34 +202,46 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |11|[Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)|updateOomAdjLocked过程|
 |12|[Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)|整理系统的所有进程/线程|
 
-#### 4.3 四大组件篇
-对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，那么我们需要分别展开对其他的分解：
+#### 4.3 四大组件系列
+对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，接下分别展开介绍：
 
-- Android组件-Activity
-  - [startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)
-  - [简述Activity生命周期](http://gityuan.com/2016/03/18/start-activity-cycle/)
-- Android组件-Service
-  - [startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)
-  - [bindService启动过程分析](http://gityuan.com/2016/05/01/bind-service/)
-  - [以Binder视角来看Service启动](http://gityuan.com/2016/09/04/binder-start-service/)
-- Android组件-Broadcast Receiver
-  - [Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
-- Android组件-Content Provider
-  - [理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)
-  - [ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/)
+|序号|文章名|类别|
+|1|[startActivity启动过程分析](http://gityuan.com/2016/03/12/start-activity/)|Activity|
+|2|[简述Activity生命周期](http://gityuan.com/2016/03/18/start-activity-cycle/)|Activity|
+|3|[startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)|Service|
+|4|[bindService启动过程分析](http://gityuan.com/2016/05/01/bind-service/)|Service|
+|5|[以Binder视角来看Service启动](http://gityuan.com/2016/09/04/binder-start-service/)|Service|
+|6|[Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)|Broadcast|
+|7|[理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)|ContentProvider|
+|8|[ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/)|ContentProvider|
 
-#### 4.4 图形系统篇
+#### 4.4 图形系统系列
 图形也是整个系统非常复杂且重要的一个系列，涉及WindowManager,SurfaceFlinger.
 
-- [WindowManager启动篇](http://gityuan.com/2017/01/08/windowmanger/)
-- [WMS之启动窗口篇](http://gityuan.com/2017/01/15/wms_starting_window/)
-- [以Window视角来看startActivity](http://gityuan.com/2017/01/22/start-activity-wms/)
-- [Android图形系统概述](http://gityuan.com/2017/02/05/graphic_arch/)
-- [SurfaceFlinger启动篇](http://gityuan.com/2017/02/11/surface_flinger/)
-- [SurfaceFlinger绘图篇](http://gityuan.com/2017/02/18/surface_flinger_2/)
-- [Choreographer原理](http://gityuan.com/2017/02/25/choreographer/)
+|序号|文章名|类别|
+|1|[WindowManager启动篇](http://gityuan.com/2017/01/08/windowmanger/)|Window|
+|2|[WMS之启动窗口篇](http://gityuan.com/2017/01/15/wms_starting_window/)|Window|
+|3|[以Window视角来看startActivity](http://gityuan.com/2017/01/22/start-activity-wms/)|Window|
+|4|[Android图形系统概述](http://gityuan.com/2017/02/05/graphic_arch/)|SurfaceFlinger|
+|5|[SurfaceFlinger启动篇](http://gityuan.com/2017/02/11/surface_flinger/)|SurfaceFlinger|
+|6|[SurfaceFlinger绘图篇](http://gityuan.com/2017/02/18/surface_flinger_2/)|SurfaceFlinger|
+|7|[Choreographer原理](http://gityuan.com/2017/02/25/choreographer/)|Choreographer|
 
-#### 4.5 系统服务篇
+#### 4.5 系统稳定性系列
+
+Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Android系统稳定性简述](http://gityuan.com/2016/06/19/stability_summary/) :
+
+|序号|文章名|概述|
+|1|[理解Android ANR的触发原理](http://gityuan.com/2016/07/02/android-anr/)|触发ANR的场景以及机理|
+|2|[Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)|input触发ANR的原理|
+|3|[理解Android ANR的信息收集过程](http://gityuan.com/2016/12/02/app-not-response/)|AMS.appNotResponding过程分析,收集traces|
+|4|[ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)|kill -3 信息收集过程|
+|5|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)|debuggerd -b 信息收集过程|
+|6|[WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)|WatchDog触发机制|
+|7|[理解Java   Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)|AMS.handleApplicationCrash过程分析|
+|8|[理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)|debuggerd守护进程|
+  
+#### 4.6 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
 - Android服务篇-ActivityManagerService
@@ -254,26 +266,12 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
   - [多用户管理UserManager](http://gityuan.com/2016/11/20/user_manager/)
 - 更多服务介绍, 敬请期待...
 
-#### 4.6 系统稳定性系列
-
-Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Android系统稳定性简述](http://gityuan.com/2016/06/19/stability_summary/) :
-
-|序号|文章名|概述|
-|1|[理解Android ANR的触发原理](http://gityuan.com/2016/07/02/android-anr/)|触发ANR的场景以及机理|
-|2|[Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)|input触发ANR的原理|
-|3|[理解Android ANR的信息收集过程](http://gityuan.com/2016/12/02/app-not-response/)|AMS.appNotResponding过程分析,收集traces|
-|4|[ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)|kill -3 信息收集过程|
-|5|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)|debuggerd -b 信息收集过程|
-|6|[WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)|WatchDog触发机制|
-|7|[理解Java   Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)|AMS.handleApplicationCrash过程分析|
-|8|[理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)|debuggerd守护进程|
-  
-
 #### 4.7 内存&&存储篇
 
 - 内存篇
     - [Android LowMemoryKiller原理分析](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
-  - [Linux内存管理](http://gityuan.com/2015/10/30/kernel-memory/)
+    - [Linux内存管理](http://gityuan.com/2015/10/30/kernel-memory/)
+    - [Android内存分析命令](http://gityuan.com/2016/01/02/memory-analysis-command/)
 - 存储篇
     - [Android存储系统之源码篇](http://gityuan.com/2016/07/17/android-io/)
     - [Android存储系统之架构篇](http://gityuan.com/2016/07/23/android-io-arch)
@@ -281,20 +279,20 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
     - 敬请期待
 - dalvik/art
     - [ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)
-    - 敬请期待
     
 #### 4.8 工具篇
 最后，说说Android相关的一些常用命令和工具以及调试手段.
 
-- [理解Android编译命令](http://gityuan.com/2016/03/19/android-build/)
-- [性能工具Systrace](http://gityuan.com/2016/01/17/systrace/)
-- [Android内存分析命令](http://gityuan.com/2016/01/02/memory-analysis-command/)
-- [ps进程命令](http://gityuan.com/2015/10/11/ps-command/)
-- [Am命令用法](http://gityuan.com/2016/02/27/am-command/)
-- [Pm命令用法](http://gityuan.com/2016/02/28/pm-command/)
-- [调试系列1：bugreport源码篇](http://gityuan.com/2016/06/10/bugreport/)
-- [调试系列2：bugreport实战篇](http://gityuan.com/2016/06/11/bugreport-2/)
-- [dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)
+|序号|文章名|类别|
+|1|[理解Android编译命令](http://gityuan.com/2016/03/19/android-build/)|build|
+|2|[性能工具Systrace](http://gityuan.com/2016/01/17/systrace/)|systrace|
+|3|[Android内存分析命令](http://gityuan.com/2016/01/02/memory-analysis-command/)|Memory|
+|4|[ps进程命令](http://gityuan.com/2015/10/11/ps-command/)|Process|
+|5|[Am命令用法](http://gityuan.com/2016/02/27/am-command/)|Am|
+|6|[Pm命令用法](http://gityuan.com/2016/02/28/pm-command/)|Pm|
+|7|[调试系列1：bugreport源码篇](http://gityuan.com/2016/06/10/bugreport/)|bugreport|
+|8|[调试系列2：bugreport实战篇](http://gityuan.com/2016/06/11/bugreport-2/)|bugreport|
+|9|[dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)|dumpsys|
 
 
 ---

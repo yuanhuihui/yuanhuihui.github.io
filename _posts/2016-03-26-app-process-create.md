@@ -182,9 +182,10 @@ tags:
     private static ZygoteState openZygoteSocketIfNeeded(String abi) throws ZygoteStartFailedEx {
         if (primaryZygoteState == null || primaryZygoteState.isClosed()) {
             try {
+                //向主zygote发起connect()操作
                 primaryZygoteState = ZygoteState.connect(ZYGOTE_SOCKET);
             } catch (IOException ioe) {
-                throw new ZygoteStartFailedEx("Error connecting to primary zygote", ioe);
+                ...
             }
         }
 
@@ -192,8 +193,8 @@ tags:
             return primaryZygoteState;
         }
 
-        //当主zygote没能匹配成功，则尝试第二个zygote
         if (secondaryZygoteState == null || secondaryZygoteState.isClosed()) {
+            //当主zygote没能匹配成功，则采用第二个zygote，发起connect()操作
             secondaryZygoteState = ZygoteState.connect(SECONDARY_ZYGOTE_SOCKET);
         }
 
@@ -231,35 +232,72 @@ tags:
 后续会讲到runSelectLoop()方法会抛出异常`MethodAndArgsCaller`，从而进入caller.run()方法。
 
 ### 5. runSelectLoop
-
 [-> ZygoteInit.java]
 
     private static void runSelectLoop(String abiList) throws MethodAndArgsCaller {
-        ...
-
+        ArrayList<FileDescriptor> fds = new ArrayList<FileDescriptor>();
         ArrayList<ZygoteConnection> peers = new ArrayList<ZygoteConnection>();
+        //sServerSocket是socket通信中的服务端，即zygote进程。保存到fds[0]
+        fds.add(sServerSocket.getFileDescriptor());
+        peers.add(null);
+
         while (true) {
+            StructPollfd[] pollFds = new StructPollfd[fds.size()];
+            for (int i = 0; i < pollFds.length; ++i) {
+                pollFds[i] = new StructPollfd();
+                pollFds[i].fd = fds.get(i);
+                pollFds[i].events = (short) POLLIN;
+            }
+            try {
+                 //处理轮询状态，当pollFds有事件到来则往下执行，否则阻塞在这里
+                Os.poll(pollFds, -1);
+            } catch (ErrnoException ex) {
+                ...
+            }
+            
             for (int i = pollFds.length - 1; i >= 0; --i) {
-                //采用I/O多路复用机制，当客户端发出连接请求或者数据处理请求时，跳过continue，执行后面的代码
+                //采用I/O多路复用机制，当接收到客户端发出连接请求 或者数据处理请求到来，则往下执行；
+                // 否则进入continue，跳出本次循环。
                 if ((pollFds[i].revents & POLLIN) == 0) {
                     continue;
                 }
                 if (i == 0) {
-                    //创建客户端连接
+                    //即fds[0]，代表的是sServerSocket，则意味着有客户端连接请求；
+                    // 则创建ZygoteConnection对象,并添加到fds。//【见小节5.1】
                     ZygoteConnection newPeer = acceptCommandPeer(abiList);
                     peers.add(newPeer);
-                    fds.add(newPeer.getFileDesciptor());
+                    fds.add(newPeer.getFileDesciptor()); //添加到fds.
                 } else {
-                    //处理客户端数据事务 【见小节6】
+                    //i>0，则代表通过socket接收来自对端的数据，并执行相应操作【见小节6】
                     boolean done = peers.get(i).runOnce();
                     if (done) {
                         peers.remove(i);
-                        fds.remove(i);
+                        fds.remove(i); //处理完则从fds中移除该文件描述符
                     }
                 }
             }
         }
     }
+
+该方法主要功能：
+
+- 客户端通过openZygoteSocketIfNeeded()来跟zygote进程建立连接。zygote进程收到客户端连接请求后执行accept()；然后再创建ZygoteConnection对象,并添加到fds数组列表；
+- 建立连接之后，可以跟客户端通信，进入runOnce()方法来接收客户端数据，并执行进程创建工作。
+
+#### 5.1 acceptCommandPeer
+[-> ZygoteInit.java]
+
+    private static ZygoteConnection acceptCommandPeer(String abiList) {
+        try {
+            return new ZygoteConnection(sServerSocket.accept(), abiList);
+        } catch (IOException ex) {
+            ...
+        }
+    }
+
+接收客户端发送过来的connect()操作，Zygote作为服务端执行accept()操作。
+再后面客户端调用write()写数据，Zygote进程调用read()读数据。
+
 
 没有连接请求时会进入休眠状态，当有创建新进程的连接请求时，唤醒Zygote进程，创建Socket通道ZygoteConnection，然后执行ZygoteConnection的runOnce()方法。
 
@@ -858,6 +896,8 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller` caller，该方�
     }
 
 ## 五. 总结
+
+Process.start()方法是阻塞操作，等待直到进程创建完成并返回相应的新进程pid，才完成该方法。
 
 当App第一次启动时或者启动远程Service，即AndroidManifest.xml文件中定义了process:remote属性时，都需要创建进程。比如当用户点击桌面的某个App图标，桌面本身是一个app（即Launcher App），那么Launcher所在进程便是这次创建新进程的发起进程，该通过binder发送消息给system_server进程，该进程承载着整个java framework的核心服务。system_server进程从Process.start开始，执行创建进程，流程图（以进程的视角）如下：
 
