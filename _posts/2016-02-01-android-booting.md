@@ -24,7 +24,7 @@ system_server进程以及各种app进程.
 
 ## 二. init
 
-init是Linux系统中用户空间的第一个进程(pid=1), Kerner启动后会调用/system/core/init/Init.cpp的main()方法.
+[init](http://gityuan.com/2016/02/05/android-init/)是Linux系统中用户空间的第一个进程(pid=1), Kerner启动后会调用/system/core/init/Init.cpp的main()方法.
 
 #### 2.1 Init.main
 
@@ -101,7 +101,7 @@ init进程的主要功能点:
 
 ## 三. Zygote
 
-当Zygote进程启动后, 便会执行到frameworks/base/cmds/app_process/App_main.cpp文件的main()方法. 整个调用流程:
+当[Zygote](http://gityuan.com/2016/02/13/android-zygote/)进程启动后, 便会执行到frameworks/base/cmds/app_process/App_main.cpp文件的main()方法. 整个调用流程:
 
     App_main.main
         AR.start
@@ -265,6 +265,8 @@ Zygote进程创建Java虚拟机,并注册JNI方法, 真正成为Java进程的母
 
 
 ## 四. system_server
+
+Zygote通过fork后创建[system_server](http://gityuan.com/2016/02/14/android-system-server/)进程。
 
 #### 4.1 handleSystemServerProcess
 [-->ZygoteInit.java]
@@ -475,7 +477,8 @@ System_server主线程的启动工作,总算完成, 进入Looper.loop()状态,�
 对于普通的app进程,跟system_server进程的启动过来有些类似.不同的是app进程是向发消息给system_server进程,
 由system_server向zygote发出创建进程的请求.
 
-[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/), 可知进程
+[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/), 可知进程创建后
+接下来会进入ActivityThread.main()过程。
 
 #### 5.1 ActivityThread.main
 
@@ -638,15 +641,9 @@ app进程的主线程调用栈的栈底如下:
 4. lsof [pid] ==> 查看进程所打开的文件
 
 
-##  7. 总结
+##  七. 总结
 
-系统启动线:
-
-[init](http://gityuan.com/2016/02/05/android-init/) ->
-[Zygote](http://gityuan.com/2016/02/13/android-zygote/) ->
-[SystemServer](http://gityuan.com/2016/02/14/android-system-server/), [SystemServer](http://gityuan.com/2016/02/20/android-system-server-2/) -> 
-[app进程](http://gityuan.com/2016/03/26/app-process-create/)
-
+各大核心进程启动后，都会进入各种对象所相应的main()方法，如下
 
 |进程|主方法|
 |---|---|

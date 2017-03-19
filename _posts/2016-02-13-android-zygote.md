@@ -38,6 +38,14 @@ Zygote启动函数调用类的栈关系：
 
 Zygote是由[init进程](http://gityuan.com/2016/02/05/android-init/)通过解析init.zygote.rc文件而创建的，zygote所对应的可执行程序app_process，所对应的源文件是App_main.cpp，进程名为zygote。
 
+    service zygote /system/bin/app_process -Xzygote /system/bin --zygote --start-system-server
+        class main
+        socket zygote stream 660 root system
+        onrestart write /sys/android_power/request_state wake
+        onrestart write /sys/power/state on
+        onrestart restart media
+        onrestart restart netd
+    
 传到main()的参数为 `-Xzygote /system/bin --zygote --start-system-server`
 
 [-> App_main.cpp]
