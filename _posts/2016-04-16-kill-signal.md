@@ -40,12 +40,11 @@ tags:
 
 ### 1.1 killProcess
 
-**Step 1-1-1.  killProcess**
-
+#### 1.1.1 killProcess
 [-> Process.java]
 
     public static final void killProcess(int pid) {
-        sendSignal(pid, SIGNAL_KILL); //【见Step 1-1-2】
+        sendSignal(pid, SIGNAL_KILL); //【见小节1.1.2】
     }
 
 
@@ -53,8 +52,7 @@ tags:
 
 这里的`sendSignal`所对应的JNI方法在android_util_Process.cpp文件的`android_os_Process_SendSignal`方法，接下来进入见流程2.
 
-**Step 1-1-2.  android_os_Process_sendSignal**
-
+#### 1.1.2 android_os_Process_sendSignal
 [- >android_util_Process.cpp]
 
     void android_os_Process_sendSignal(JNIEnv* env, jobject clazz, jint pid, jint sig)
@@ -70,16 +68,14 @@ tags:
 
 ### 1.2 killProcessQuiet
 
-**Step 1-2-1.  killProcessQuiet**
-
+#### 1.2.1  killProcessQuiet
 [-> Process.java]
 
     public static final void killProcessQuiet(int pid) {
-        sendSignalQuiet(pid, SIGNAL_KILL); //【见Step 1-2-2】
+        sendSignalQuiet(pid, SIGNAL_KILL); //【见小节1.2.2】
     }
 
-**Step 1-2-2.  android_os_Process_sendSignalQuiet**
-
+#### 1.2.2 android_os_Process_sendSignalQuiet
 [- >android_util_Process.cpp]
 
     void android_os_Process_sendSignalQuiet(JNIEnv* env, jobject clazz, jint pid, jint sig)
@@ -91,31 +87,24 @@ tags:
 
 可见`killProcess`和`killProcessQuiet`的唯一区别在于是否输出log。最终杀进程的实现方法都是调用`kill(pid, sig)`方法。
 
-流程图：
-
-![process-kill-quiet](/images/android-process/process-kill-quiet.jpg)
-
 ### 1.3 killProcessGroup
 
-**Step 1-3-1.  killProcessGroup**
-
+#### 1.3.1  killProcessGroup
 [-> Process.java]
 
     public static final native int killProcessGroup(int uid, int pid);
 
 该Native方法所对应的Jni方法如下：
 
-**Step 1-3-2.  android_os_Process_killProcessGroup**
-
-[- >android_util_Process.cpp]
+#### 1.3.2  android_os_Process_killProcessGroup
+[-> android_util_Process.cpp]
 
     jint android_os_Process_killProcessGroup(JNIEnv* env, jobject clazz, jint uid, jint pid)
     {
-        return killProcessGroup(uid, pid, SIGKILL);  //【见Step 1-3-3】
+        return killProcessGroup(uid, pid, SIGKILL);  //【见小节1.3.3】
     }
 
-**Step 1-3-3.  killProcessGroup**
-
+#### 1.3.3 killProcessGroup
 [-> processgroup.cpp]
 
     int killProcessGroup(uid_t uid, int initialPid, int signal)
@@ -142,8 +131,7 @@ tags:
         }
     }
 
-**Step 1-3-3-1.  killProcessGroupOnce**
-
+#### 1.3.3.1 killProcessGroupOnce
 [-> processgroup.cpp]
 
     static int killProcessGroupOnce(uid_t uid, int initialPid, int signal)
@@ -166,12 +154,13 @@ tags:
         return processes;
     }
 
-其中`getOneAppProcess`方法的作用是从节点`/acct/uid_<uid>/pid_<pid>/cgroup.procs`中获取相应pid，这里是进程，而非线程。故`killProcessGroupOnce`的功能是杀掉uid下，跟initialPid同一个进程组的所有进程。也就意味着通过`kill <pid>` ，当pid是某个进程的子线程时，那么最终杀的仍是进程。
+其中`getOneAppProcess`方法的作用是从节点`/acct/uid_<uid>/pid_<pid>/cgroup.procs`中获取相应pid，这里是进程，而非线程。
+
+故`killProcessGroupOnce`的功能是杀掉uid下，跟initialPid同一个进程组的所有进程。也就意味着通过`kill <pid>` ，当pid是某个进程的子线程时，那么最终杀的仍是进程。
 
 最终杀进程的实现方法都是调用`kill(pid, sig)`方法。
 
-**Step 1-3-3-2.  removeProcessGroup**
-
+#### 1.3.3.2 removeProcessGroup
 [-> processgroup.cpp]
 
     static int removeProcessGroup(uid_t uid, int pid)
@@ -189,15 +178,19 @@ tags:
         return ret;
     }
 
+### 1.4 小结
+
 流程图：
+
+![process-kill-quiet](/images/android-process/process-kill-quiet.jpg)
 
 ![process-kill-group](/images/android-process/process-kill-group.jpg)
 
-### 1.4 小结
+说明:
 
- - Process.killProcess(int pid): 杀pid进程
- - Process.killProcessQuiet(int pid)：杀pid进程，且不输出log信息
- - Process.killProcessGroup(int uid, int pid)：杀同一个uid下同一进程组下的所有进程
+- Process.killProcess(int pid): 杀pid进程
+- Process.killProcessQuiet(int pid)：杀pid进程，且不输出log信息
+- Process.killProcessGroup(int uid, int pid)：杀同一个uid下同一进程组下的所有进程
 
 以上3个方法，最终杀进程的实现方法都是调用`kill(pid, sig)`方法，该方法位于用户空间的Native层，经过系统调用进入到Linux内核的`sys_kill方法`。对于杀进程此处的sig=9，其实与大家平时在adb里输入的 `kill -9 <pid>` 效果基本一致。
 
@@ -205,8 +198,7 @@ tags:
 
 ## 二、内核态Kill
 
-### 2.1. 系统调用
-
+### 2.1. sys_kill
 [-> syscalls.h]
 
     asmlinkage long sys_kill(int pid, int sig);

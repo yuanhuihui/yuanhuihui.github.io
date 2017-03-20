@@ -214,6 +214,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |6|[Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)|Broadcast|
 |7|[理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)|ContentProvider|
 |8|[ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/)|ContentProvider|
+|9|[Activity与Service生命周期](http://gityuan.com/2015/05/31/android-lifecycle/)|Activity&&Service|
 
 #### 4.4 图形系统系列
 图形也是整个系统非常复杂且重要的一个系列，涉及WindowManager,SurfaceFlinger.

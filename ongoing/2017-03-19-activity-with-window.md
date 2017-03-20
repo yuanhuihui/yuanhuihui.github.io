@@ -117,6 +117,30 @@ Activity以及task栈的对应关系：
 |TaskRecord|Task|
 
 
+###  IWindow死亡回调
+
+WindowState.java
+
+    private class DeathRecipient implements IBinder.DeathRecipient {
+        @Override
+        public void binderDied() {
+            try {
+                synchronized(mService.mWindowMap) {
+                    WindowState win = mService.windowForClientLocked(mSession, mClient, false);
+                    Slog.i(TAG, "WIN DEATH: " + win);
+                    if (win != null) {
+                        mService.removeWindowLocked(win);
+                    } else if (mHasSurface) {
+                        Slog.e(TAG, "!!! LEAK !!! Window removed but surface still valid.");
+                        mService.removeWindowLocked(WindowState.this);
+                    }
+                }
+            } catch (IllegalArgumentException ex) {
+                // This will happen if the window has already been
+                // removed.
+            }
+        }
+    }
 
 ## 一. 概述
 
