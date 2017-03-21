@@ -619,20 +619,18 @@ AMS.systemReady()的过程并非立刻执行Runnable中的run()方法, 如下方
         }
     }
     
-## 二、启动系统服务
+## 二、服务启动阶段
 
-### 2.1 启动阶段
 SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶段从`PHASE_WAIT_FOR_DEFAULT_DISPLAY`到`PHASE_BOOT_COMPLETED`，启动阶段顺序如下图：
 
 ![system_server服务启动流程](/images/boot/systemServer/system_server_boot_process.jpg)
-
 
 
 6. `PHASE_BOOT_COMPLETED=1000`，该阶段是发生在Boot完成和home应用启动完毕。系统服务更倾向于监听该阶段，而不是注册广播ACTION_BOOT_COMPLETED，从而降低系统延迟。
 
 接下来再说说简单每个阶段的大概完成的工作：
 
-#### 2.1.1 Phase0
+#### 2.1 Phase0
 
 创建四大引导服务
 
@@ -641,7 +639,7 @@ SystemServiceManager的`startBootPhase(）`方法贯穿整个阶段，启动阶�
 - LightsService
 - DisplayManagerService共4项服务
 
-#### 2.1.2 Phase100
+#### 2.2 Phase100
 进入阶段`PHASE_WAIT_FOR_DEFAULT_DISPLAY`=100回调服务
 
 onBootPhase(100)
@@ -659,7 +657,7 @@ onBootPhase(100)
 - LauncherAppsService
 - ...
 
-#### 2.1.3 Phase480
+#### 2.3 Phase480
 进入阶段`PHASE_LOCK_SETTINGS_READY`=480回调服务
 
 onBootPhase(480)
@@ -668,7 +666,7 @@ onBootPhase(480)
 
 阶段480后马上就进入阶段500.
 
-#### 2.1.4 Phase500
+#### 2.4 Phase500
 
 `PHASE_SYSTEM_SERVICES_READY`=500，进入该阶段服务能安全地调用核心系统服务.
 
@@ -700,7 +698,7 @@ onBootPhase(500)
 
 接下来就绪AMS.systemReady方法.
 
-#### 2.1.5 Phase550
+#### 2.5 Phase550
 
 `PHASE_ACTIVITY_MANAGER_READY`=550， AMS.mSystemReady=true, 
 已准备就绪,进入该阶段服务能广播Intent;但是system_server主线程并没有就绪.
@@ -714,7 +712,7 @@ onBootPhase(550)
 - DockObserver
 - BatteryService
 
-接下来执行: (AMS启动native crash监控,，加载WebView，启动SystemUi等),如下
+接下来执行: (AMS启动native crash监控, 加载WebView，启动SystemUi等),如下
 
 - mActivityManagerService.startObservingNativeCrashes();
 - WebViewFactory.prepareWebViewInSystemServer();
@@ -728,7 +726,7 @@ onBootPhase(550)
 - audioServiceF.systemReady();
 - Watchdog.getInstance().start();
             
-#### 2.1.6 Phase600
+#### 2.6 Phase600
 `PHASE_THIRD_PARTY_APPS_CAN_START`=600
 
 onBootPhase(600)
@@ -746,36 +744,14 @@ onBootPhase(600)
 
 WallpaperManagerService、InputMethodManagerService、LocationManagerService、CountryDetectorService、NetworkTimeUpdateService、CommonTimeManagementService、TextServicesManagerService、AssetAtlasService、InputManagerService、TelephonyRegistry、MediaRouterService、MmsServiceBroker这些服务依次执行其`systemRunning()`方法。
 
-#### 2.1.6 Phase1000
+#### 2.7 Phase1000
 在经过一系列流程，再调用`AMS.finishBooting()`时，则进入阶段`Phase1000`。
 
 到此，系统服务启动阶段完成就绪，system_server进程启动完成则进入`Looper.loop()`状态，随时待命，等待消息队列MessageQueue中的消息到来，则马上进入执行状态。
 
-### 2.2 启动方式
-system_server进程中的服务启动方式有两种，分别是SystemServiceManager的`startService()`和ServiceManager的`addService`
-
-#### 2.2.1 startService
-
-通过SystemServiceManager的`startService(Class<T> serviceClass)`用于启动继承于`SystemService`的服务。主要功能：
-
-- 创建`serviceClass`类对象，将新建对象注册到SystemServiceManager的成员变量mServices;
-- 调用新建对象的onStart()方法，即调用`serviceClass.onStart()`；
-- 当系统启动到一个新的阶段Phase时，SystemServiceManager的`startBootPhase()`会循环遍历所有向`SystemServiceManager`注册过服务的`onBootPhase()`方法，即调用`serviceClass.onBootPhase()`。
-
-例如：`mSystemServiceManager.startService(PowerManagerService.class);`
-
-#### 2.2.2 addService
-
-通过ServiceManager的`addService(String name, IBinder service)`用于初始化继承于`IBinder`的服务。主要功能:
-
-- 将该服务向Native层的[serviceManager注册服务](http://gityuan.com/2015/11/14/binder-add-service/#addservice)。
-
-例如：`ServiceManager.addService(Context.WINDOW_SERVICE, wm);`
-
-
 ### 三、服务类别
 
-system_server进程，从源码角度划分为引导服务、核心服务、其他服务3类。
+system_server进程，从源码角度划分为引导服务、核心服务、其他服务3类。 以下这些系统服务的注册过程, 见[Android系统服务的注册方式](http://gityuan.com/2016/10/01/system_service_common/)
 
 1. 引导服务(7个)：ActivityManagerService、PowerManagerService、LightsService、DisplayManagerService、PackageManagerService、UserManagerService、SensorService；
 2. 核心服务(3个)：BatteryService、UsageStatsService、WebViewUpdateService；

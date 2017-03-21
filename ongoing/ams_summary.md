@@ -30,6 +30,8 @@ BR.setBroadcastTimeoutLocked
 
 AMS.registerReceiver的过程, 根据intent来决定加入哪个Queue.
 
+isFg = (intent.getFlags() & Intent.FLAG_RECEIVER_FOREGROUND) != 0;
+
 根据schedGroup = (queue == mFgBroadcastQueue)  ? Process.THREAD_GROUP_DEFAULT : Process.THREAD_GROUP_BG_NONINTERACTIVE; 来决定调度组
 
 

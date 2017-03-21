@@ -245,6 +245,8 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 #### 4.6 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
+系统服务的注册过程, 见[Android系统服务的注册方式](http://gityuan.com/2016/10/01/system_service_common/)
+
 - Android服务篇-ActivityManagerService
   - [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
   - 更多组件篇[见小节4.3]

@@ -1,15 +1,31 @@
+---
+layout: post
+title:  "ActivityManager剖析"
+date:   2016-10-01 21:12:40
+catalog:  true
+tags:
+    - android
+    - AMS
+
+---
+
 - ActivityInfo: 从xml解析出来的信息
 - ActivityRecord: 记录着Activity信息
 - TaskRecord: 记录着task信息
 - ActivityStack: 栈信息
 
 
+### 一. ActivityManager概述
+
+ActivityManagerService(简称AMS)运行在system_server进程. 当AMS服务启动之后, 便创建ActivityStackSupervisor对象.
+
 ### 一 基本对象
+
+
 
 #### 重要变量:
 
 mBooted: 默认false, startHomeActivityLocked的时候则认为是true;
-
 
 boolean mProcessesReady = false;    AMS.systemReady()
 boolean mSystemReady = false;    AMS.systemReady()
@@ -56,22 +72,28 @@ ActivityRecord mResumedActivity  //已经resumed
 ActivityRecord mLastStartedActivity
 
 ActivityContainer mActivityContainer
-boolean mConfigWillChange
 
 
 所有前台stack的mResumedActivity的state == RESUMED, 则表示allResumedActivitiesComplete, 此时 mLastFocusedStack = mFocusedStack;
 
 #### 4. ActivityStackSupervisor
 
-int mLastStackId
-int mCurTaskId
-int mCurrentUser
+
 ActivityStack mHomeStack //桌面的stack
 ActivityStack mFocusedStack //当前聚焦stack
 ActivityStack mLastFocusedStack //正在切换
 
 SparseArray<ActivityDisplay> mActivityDisplays  //displayId为key
 SparseArray<ActivityContainer> mActivityContainers // mStackId为key
+
+home的栈ID等于0,即HOME_STACK_ID = 0;
+
+
+### 6. Broadcast
+
+BroadcastQueue.BroadcastHandler 运行在ActivityManager线程
+
+AS, ASS 这些handler的过程都是运行在ActivityManager线程中.
 
 ### 5. pendings
 
@@ -169,5 +191,3 @@ AS.removeTask:
 - "setTask"
 - "moveTaskToStack"
 
-
-锁屏下来电时只显示绿条

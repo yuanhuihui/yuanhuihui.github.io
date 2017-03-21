@@ -58,18 +58,6 @@ tags:
 
 [-->SystemServiceManager.java]
 
-    public SystemService startService(String className) {
-        final Class<SystemService> serviceClass;
-        try {
-            serviceClass = (Class<SystemService>)Class.forName(className);
-        } catch (ClassNotFoundException ex) {
-            ...
-        }
-        return startService(serviceClass); //启动服务【小节2-2】
-    }
-
-**2-2. startService**
-
     public <T extends SystemService> T startService(Class<T> serviceClass) {
         final String name = serviceClass.getName();
 
