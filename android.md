@@ -186,7 +186,22 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
   - [installd](http://gityuan.com/2016/11/13/android-installd)
   - [lmkd](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
 
-#### 4.2 进程系列
+  
+#### 4.2 系统稳定性系列
+
+Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Android系统稳定性简述](http://gityuan.com/2016/06/19/stability_summary/) :
+
+|序号|文章名|概述|
+|1|[理解Android ANR的触发原理](http://gityuan.com/2016/07/02/android-anr/)|触发ANR的场景以及机理|
+|2|[Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)|input触发ANR的原理|
+|3|[理解Android ANR的信息收集过程](http://gityuan.com/2016/12/02/app-not-response/)|AMS.appNotResponding过程分析,收集traces|
+|4|[ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)|kill -3 信息收集过程|
+|5|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)|debuggerd -b 信息收集过程|
+|6|[WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)|WatchDog触发机制|
+|7|[理解Java   Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)|AMS.handleApplicationCrash过程分析|
+|8|[理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)|debuggerd守护进程|
+    
+#### 4.3 Android进程系列
 进程对于系统非常重要，系统运转，各种服务、组件的载体都依托于进程，对进程理解越深刻，越能掌握系统整体架构。那么先来看看进程相关：
 
 |序号|文章名|概述|
@@ -203,7 +218,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |11|[Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)|updateOomAdjLocked过程|
 |12|[Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)|整理系统的所有进程/线程|
 
-#### 4.3 四大组件系列
+#### 4.4 四大组件系列
 对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，接下分别展开介绍：
 
 |序号|文章名|类别|
@@ -217,7 +232,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |8|[ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/)|ContentProvider|
 |9|[Activity与Service生命周期](http://gityuan.com/2015/05/31/android-lifecycle/)|Activity&&Service|
 
-#### 4.4 图形系统系列
+#### 4.5 图形系统系列
 图形也是整个系统非常复杂且重要的一个系列，涉及WindowManager,SurfaceFlinger.
 
 |序号|文章名|类别|
@@ -229,20 +244,6 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |6|[SurfaceFlinger绘图篇](http://gityuan.com/2017/02/18/surface_flinger_2/)|SurfaceFlinger|
 |7|[Choreographer原理](http://gityuan.com/2017/02/25/choreographer/)|Choreographer|
 
-#### 4.5 系统稳定性系列
-
-Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Android系统稳定性简述](http://gityuan.com/2016/06/19/stability_summary/) :
-
-|序号|文章名|概述|
-|1|[理解Android ANR的触发原理](http://gityuan.com/2016/07/02/android-anr/)|触发ANR的场景以及机理|
-|2|[Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)|input触发ANR的原理|
-|3|[理解Android ANR的信息收集过程](http://gityuan.com/2016/12/02/app-not-response/)|AMS.appNotResponding过程分析,收集traces|
-|4|[ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)|kill -3 信息收集过程|
-|5|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)|debuggerd -b 信息收集过程|
-|6|[WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)|WatchDog触发机制|
-|7|[理解Java   Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)|AMS.handleApplicationCrash过程分析|
-|8|[理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)|debuggerd守护进程|
-  
 #### 4.6 系统服务篇
 再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
 
