@@ -22,13 +22,47 @@ tags:
 
 ##  一.概述
 
-在Native层的服务以media服务为例，注册服务media的入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
+在Native层的服务以media服务为例，来说一说服务注册过程，
+
+### 1.1 类图
+
+先看看media的整个的类关系图。
+
+点击查看[大图](http://gityuan.com/images/binder/addService/add_media_player_service.png)
+
+![add_media_player_service](/images/binder/addService/add_media_player_service.png)
+
+图解：
+
+- 蓝色代表的是注册MediaPlayerService服务所涉及的类
+- 绿色代表的是Binder架构中与Binder驱动通信过程中的最为核心的两个类；
+- 紫色代表的是注册服务和[获取服务](http://gityuan.com/2015/11/15/binder-get-service/)的公共接口/父类；
+
+
+### 1.2 时序图
+
+先通过一幅图来说说，media服务启动过程是如何向servicemanager注册服务的。
+
+点击查看[大图](http://gityuan.com/images/binder/addService/addService.jpg)
+
+![addService](/images/binder/addService/addService.jpg)
+
+为了让每小节标题更加紧凑，下面流程采用如下简称：
+
+    MPS: MediaPlayerService
+    IPC: IPCThreadState
+    PS:  ProcessState
+    ISM: IServiceManager
+
+## 二. 启动过程
+
+media入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
 
     int main(int argc __unused, char** argv)
     {
         ...
         InitializeIcuOrDie();
-        //获得ProcessState实例对象
+        //获得ProcessState实例对象【见小节2.2】
         sp<ProcessState> proc(ProcessState::self());
         //获取ServiceManager实例对象
         sp<IServiceManager> sm = defaultServiceManager();
@@ -47,42 +81,95 @@ tags:
         IPCThreadState::self()->joinThreadPool();
      }
 
-### 1.1 流程图
+### 2.1 流程图
 
 ![workflow](/images/binder/addService/workflow.jpg)
 
-其中ProcessState::self()和defaultServiceManager()过程在上一篇文章[获取ServiceManager](http://gityuan.com/2015/11/08/binder-get-sm/#defaultservicemanager)已讲过，下面说说后3个方法的具体工作内容。
+defaultServiceManager()在上篇文章[获取ServiceManager](http://gityuan.com/2015/11/08/binder-get-sm/#defaultservicemanager)已讲过，用于获取BpServiceManager对象，跟ServiceManager通信。
 
-### 1.2 类图
+### 2.2 ProcessState::self
+[-> ProcessState.cpp]
 
-在Native层的服务注册，我们选择以media为例来展开讲解，先来看看media的类关系图。
+    sp<ProcessState> ProcessState::self()
+    {
+        Mutex::Autolock _l(gProcessMutex);
+        if (gProcess != NULL) {
+            return gProcess;
+        }
 
-点击查看[大图](http://gityuan.com/images/binder/addService/add_media_player_service.png)
-
-![add_media_player_service](/images/binder/addService/add_media_player_service.png)
-
-图解：
-
-- 蓝色代表的是注册MediaPlayerService服务所涉及的类
-- 绿色代表的是Binder架构中与Binder驱动通信过程中的最为核心的两个类；
-- 紫色代表的是注册服务和[获取服务](http://gityuan.com/2015/11/15/binder-get-service/)的公共接口/父类；
+        //实例化ProcessState 【见小节2.3】
+        gProcess = new ProcessState;
+        return gProcess;
+    }
 
 
+获得ProcessState对象: 这也是**单例模式**，从而保证每一个进程只有一个`ProcessState`对象。其中`gProcess`和`gProcessMutex`是保存在`Static.cpp`类的全局变量。
 
-### 1.3 时序图
+### 2.3  ProcessState创建
+[-> ProcessState.cpp]
 
-点击查看[大图](http://gityuan.com/images/binder/addService/addService.jpg)
+    ProcessState::ProcessState()
+        : mDriverFD(open_driver()) // 打开Binder驱动【见小节2.4】
+        , mVMStart(MAP_FAILED)
+        , mThreadCountLock(PTHREAD_MUTEX_INITIALIZER)
+        , mThreadCountDecrement(PTHREAD_COND_INITIALIZER)
+        , mExecutingThreadsCount(0)
+        , mMaxThreads(DEFAULT_MAX_BINDER_THREADS)
+        , mManagesContexts(false)
+        , mBinderContextCheckFunc(NULL)
+        , mBinderContextUserData(NULL)
+        , mThreadPoolStarted(false)
+        , mThreadPoolSeq(1)
+    {
+        if (mDriverFD >= 0) {
+            //采用内存映射函数mmap，给binder分配一块虚拟地址空间,用来接收事务
+            mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
+            if (mVMStart == MAP_FAILED) {
+                close(mDriverFD); //没有足够空间分配给/dev/binder,则关闭驱动
+                mDriverFD = -1;
+            }
+        }
+    }
 
-![addService](/images/binder/addService/addService.jpg)
+- `ProcessState`的单例模式的惟一性，因此一个进程只打开binder设备一次,其中ProcessState的成员变量`mDriverFD`记录binder驱动的fd，用于访问binder设备。
+- `BINDER_VM_SIZE = (1*1024*1024) - (4096 *2)`, binder分配的默认内存大小为1M-8k。
+- `DEFAULT_MAX_BINDER_THREADS = 15`，binder默认的最大可并发访问的线程数为16。
 
-注意每小节前的**[ 数字 ]** 是与时序图所处的**顺序编号**一一对应，中间会省略部分方法，所以看到的小节可能并非连续的，建议读者一个窗口打开时序图，另一个窗口顺着文章往下读，这样不至于迷糊。另外，为了让每小节标题更加紧凑，下面流程采用如下简称：
+### 2.4  open_driver
+[-> ProcessState.cpp]
 
-    MPS: MediaPlayerService
-    IPC: IPCThreadState
-    PS:  ProcessState
-    ISM: IServiceManager
+    static int open_driver()
+    {
+        // 打开/dev/binder设备，建立与内核的Binder驱动的交互通道
+        int fd = open("/dev/binder", O_RDWR);
+        if (fd >= 0) {
+            fcntl(fd, F_SETFD, FD_CLOEXEC);
+            int vers = 0;
+            status_t result = ioctl(fd, BINDER_VERSION, &vers);
+            if (result == -1) {
+                close(fd);
+                fd = -1;
+            }
+            if (result != 0 || vers != BINDER_CURRENT_PROTOCOL_VERSION) {
+                close(fd);
+                fd = -1;
+            }
+            size_t maxThreads = DEFAULT_MAX_BINDER_THREADS;
 
-## 二. 流程分析
+            // 通过ioctl设置binder驱动，能支持的最大线程数
+            result = ioctl(fd, BINDER_SET_MAX_THREADS, &maxThreads);
+            if (result == -1) {
+                ALOGE("Binder ioctl to set max threads failed: %s", strerror(errno));
+            }
+        } else {
+            ALOGW("Opening '/dev/binder' failed: %s\n", strerror(errno));
+        }
+        return fd;
+    }
+
+open_driver作用是打开/dev/binder设备，设定binder支持的最大线程数。关于binder驱动的相应方法，见文章[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)。
+
+## 三. 服务注册
 
 ### 1. MPS:instantiate
 [-> MediaPlayerService.cpp]

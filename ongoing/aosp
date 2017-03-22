@@ -12,15 +12,12 @@ hwbinder 作者： owner:maco@google.com
 
 1, https://android.googlesource.com/platform/frameworks/base/+/cc64dfcf66a19084a58372ea7f9f5139ccc93221
 
+2. binder
+https://android.googlesource.com/kernel/common/+/8e5822fdabbb55608b62a100156e17612b590d39%5E%21/#F0
+https://android.googlesource.com/kernel/common/+/325c5ebdb78901cd3b5dd4aa0a0726c61cb0959d%5E%21/#F0
+https://android.googlesource.com/kernel/common/+/19d47b2b50699383c9a0869ef633d19e66448144%5E%21/#F0
 
-3. ContentProvider
-
-https://android-review.googlesource.com/#/c/144191/ 这个patch被revert掉，但还是存在隐患，考虑下如何优化。
-
-4. info.uid 改为uid的问题
-https://android.googlesource.com/platform/frameworks/base/+/4c5c6f43dd81031c2501e35b355fad5ebbf0ab87%5E%21/#F0
-procstats的问题
-
+关于ServiceManager的死亡回调问题？ 百度地图多进程， 是否回调？ app binderDied是否回调？
 
 5. patch 2:
 final void appDiedLocked(ProcessRecord app, int pid, IApplicationThread thread,
@@ -96,8 +93,6 @@ https://android.googlesource.com/platform/frameworks/base/+/d86e14e45c15cd1a1792
 
 - provider问题，仅仅保留query方法的修改，以及修改this is exciting的注释
 - 关机的patch问题，增加commit说明
-
-25. 考虑下binder优化 （比如system_server增加线程上限，虚拟内存大小增加些）
 
 26. fork问题
 

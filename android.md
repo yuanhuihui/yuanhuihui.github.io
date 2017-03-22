@@ -96,25 +96,26 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 
 **Native层面:**
 
-- [Binder系列3—启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)
-- [Binder系列4—获取Service Manager](http://gityuan.com/2015/11/08/binder-get-sm/)
-- [Binder系列5—注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)
-- [Binder系列6—获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)
+|序号|文章名|概述|
+|---|---|---|
+|1|[Binder系列3—启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)|ServiceManager注册和查询服务|
+|2|[Binder系列4—获取Service Manager](http://gityuan.com/2015/11/08/binder-get-sm/)|获取BpServiceManager|
+|3|[Binder系列5—注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)|Native层Media服务的注册|
+|4|[Binder系列6—获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)|Native层Media服务代理，以及DeathRecipient|
 
 **Driver层面:**
 
-- [Binder系列1—Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)
-- [Binder系列2—Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)
+|---|---|---|
+|1|[Binder系列1—Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)|驱动open/mmap/ioctl，以及binder结构体|
+|2|[Binder系列2—Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)|Binder通信协议，内存机制|
 
 **Framework层面:**
 
-- [Binder系列7—framework层分析](http://gityuan.com/2015/11/21/binder-framework/)
-- [Binder系列8—如何使用Binder](http://gityuan.com/2015/11/22/binder-use/)
-
-**App层面**
-
-- [Binder系列9—如何使用AIDL](http://gityuan.com/2015/11/23/binder-aidl/)
-- [Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)
+|---|---|---|
+|1|[Binder系列7—framework层分析](http://gityuan.com/2015/11/21/binder-framework/)|framework层服务注册和查询，Binder注册|
+|2|[Binder系列8—如何使用Binder](http://gityuan.com/2015/11/22/binder-use/)|Native层、Framwrok层自定义Binder服务|
+|3|[Binder系列9—如何使用AIDL](http://gityuan.com/2015/11/23/binder-aidl/)|App层自定义Binder服务|
+|4|[Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)|Binder的简单总结|
 
 **全栈架构型:** 从Java framework到Native层,再到Linux层的一条线的串通
 
@@ -143,7 +144,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 由于工作线程与主线程共享地址空间，即Handler实例对象`mHandler`位于线程间共享的内存堆上，工作线程与主线程都能直接使用该对象，只需要注意多线程的同步问题。工作线程通过`mHandler`向其成员变量`MessageQueue`中添加新Message，主线程一直处于loop()方法内，当收到新的Message时按照一定规则分发给相应的`handleMessage`()方法来处理。所以说，而Handler消息机制用于同进程的线程间通信的核心是线程间共享内存空间，而不同进程拥有不同的地址空间，也就不能用handler来实现进程间通信。
 
-上图只是Handler消息机制的一种处理流程，是不是只能工作线程向UI主线程发消息呢，其实不然，可以是UI线程想工作线程发送消息，也可以是多个工作线程之间通过handler发送消息。更多关于Handler消息机制文章：
+上图只是Handler消息机制的一种处理流程，是不是只能工作线程向UI主线程发消息呢，其实不然，可以是UI线程向工作线程发送消息，也可以是多个工作线程之间通过handler发送消息。更多关于Handler消息机制文章：
 
 - [Android消息机制-Handler(framework篇)](http://gityuan.com/2015/12/26/handler-message-framework/)
 - [Android消息机制-Handler(native篇)](http://gityuan.com/2015/12/27/handler-message-native/)
