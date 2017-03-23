@@ -21,7 +21,8 @@ ActivityManagerService(简称AMS)运行在system_server进程. 当AMS服务启�
 
 ### 一 基本对象
 
-
+ActivityRecord
+ServiceRecord
 
 #### 重要变量:
 
@@ -91,12 +92,50 @@ home的栈ID等于0,即HOME_STACK_ID = 0;
 
 ### 6. Broadcast
 
-BroadcastQueue.BroadcastHandler 运行在ActivityManager线程
 
-AS, ASS 这些handler的过程都是运行在ActivityManager线程中.
+
+
+
+### 7. Service
+
+ActiveServices.mServiceMap 运行在ActivityManager线程
+
+## Handler角度
+运行在ActivityManager线程
+
+### 1 Activity
+
+ActivityManagerService.mHandler  --> MainHandler
+
+ActivityStackSupervisor.mHandler  -->  ActivityStackSupervisorHandler
+ActivityStack.mHandler  -->  ActivityStackHandler
+
+### 2 Broadcast
+BroadcastQueue.mHandler  -->  BroadcastHandler
+
+### 3 Service
+ActiveServices.mServiceMap --> ServiceMap extends Handler 
+
+
+### 4 else
+CompatModePackages.mHandler -> CompatHandler
+
+### 其他
+
+BaseErrorDialog.mHandler  --> android.ui
+AppErrorDialog --> android.ui
+StrictModeViolationDialog --> android.ui
+AppNotRespondingDialog
+AppWaitingForDebuggerDialog
+UserSwitchingDialog
+
+除了上述的,基本上所有的Anr/Crash/error等弹出都是运行在android.ui线程.
+
+
+
+
 
 ### 5. pendings
-
 
 #### Activity  当binderDied 需要提交
 

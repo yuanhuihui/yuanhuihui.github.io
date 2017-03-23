@@ -15,8 +15,10 @@ tags:
     /framework/native/libs/binder/IServiceManager.cpp
 
 
-### 一、 获取服务
+## 一、 获取服务
 在Native层的服务注册，我们选择以media为例来展开讲解，先来看看media的类关系图。
+
+### 1.1 类图
 
 点击查看[大图](http://gityuan.com/images/binder/addService/add_media_player_service.png)
 
@@ -29,8 +31,7 @@ tags:
 - 紫色: 代表[注册服务](http://gityuan.com/2015/11/14/binder-add-service/)和获取服务的公共接口/父类；
 
 
-继续以Media为例，讲解如何获取服务。
-
+## 二. 获取Media服务
 
 ### 1. getMediaPlayerService
 [-> IMediaDeathNotifier.cpp]
@@ -266,8 +267,6 @@ IPCThreadState进行transact事务处理分3部分：
 ### 9. IPC.waitForResponse
 [-> IPCThreadState.cpp]
 
-【流程7】传递过来的参数：waitForResponse(&reply, NULL);
-
     status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
     {
         int32_t cmd;
@@ -280,89 +279,33 @@ IPCThreadState进行transact事务处理分3部分：
             if (mIn.dataAvail() == 0) continue;
 
             cmd = mIn.readInt32();
-
             switch (cmd) {
-            case BR_TRANSACTION_COMPLETE:
-                if (!reply && !acquireResult) goto finish;
-                break;
+                case BR_TRANSACTION_COMPLETE: ...
+                case BR_DEAD_REPLY: ...
+                case BR_FAILED_REPLY: ...
+                case BR_ACQUIRE_RESULT: ...
+                case BR_REPLY: ...
+                    goto finish;
 
-            case BR_DEAD_REPLY:
-                err = DEAD_OBJECT;
-                goto finish;
-
-            case BR_FAILED_REPLY:
-                err = FAILED_TRANSACTION;
-                goto finish;
-
-            case BR_ACQUIRE_RESULT:
-                {
-                    const int32_t result = mIn.readInt32();
-                    if (!acquireResult) continue;
-                    *acquireResult = result ? NO_ERROR : INVALID_OPERATION;
-                }
-                goto finish;
-
-            case BR_REPLY:
-                {
-                    binder_transaction_data tr;
-                    err = mIn.read(&tr, sizeof(tr));
+                default:
+                    err = executeCommand(cmd);  //【见流程11】
                     if (err != NO_ERROR) goto finish;
-
-                    if (reply) {
-                        if ((tr.flags & TF_STATUS_CODE) == 0) {
-                            reply->ipcSetDataReference(
-                                reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
-                                tr.data_size,
-                                reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
-                                tr.offsets_size/sizeof(binder_size_t),
-                                freeBuffer, this);
-                        } else {
-                            err = *reinterpret_cast<const status_t*>(tr.data.ptr.buffer);
-                            freeBuffer(NULL,
-                                reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
-                                tr.data_size,
-                                reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
-                                tr.offsets_size/sizeof(binder_size_t), this);
-                        }
-                    } else {
-                        freeBuffer(NULL,
-                            reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
-                            tr.data_size,
-                            reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
-                            tr.offsets_size/sizeof(binder_size_t), this);
-                        continue;
-                    }
-                }
-                goto finish;
-
-            default:
-                err = executeCommand(cmd);  //【见流程11】
-                if (err != NO_ERROR) goto finish;
-                break;
+                    break;
             }
         }
-
-    finish:
-        if (err != NO_ERROR) {
-            if (acquireResult) *acquireResult = err;
-            if (reply) reply->setError(err);
-            mLastError = err;
-        }
-
+        ...
         return err;
     }
 
-不断循环地与Binder驱动设备交互，获取响应信息
+
+【流程7】传递过来的参数：waitForResponse(&reply, NULL);
 
 ### 10. IPC.talkWithDriver
 [-> IPCThreadState.cpp]
 
     status_t IPCThreadState::talkWithDriver(bool doReceive)
     {
-        if (mProcess->mDriverFD <= 0) {
-            return -EBADF;
-        }
-
+        ...
         binder_write_read bwr;
 
         const bool needRead = mIn.dataPosition() >= mIn.dataSize();
@@ -386,18 +329,9 @@ IPCThreadState进行transact事务处理分3部分：
         bwr.read_consumed = 0;
         status_t err;
         do {
-    #if defined(HAVE_ANDROID_OS)
             if (ioctl(mProcess->mDriverFD, BINDER_WRITE_READ, &bwr) >= 0) //ioctl不停的读写操作
                 err = NO_ERROR;
-            else
-                err = -errno;
-    #else
-            err = INVALID_OPERATION;
-    #endif
-            if (mProcess->mDriverFD <= 0) {
-                err = -EBADF;
-            }
-
+            ...
         } while (err == -EINTR);
 
         if (err >= NO_ERROR) {
@@ -423,10 +357,6 @@ IPCThreadState进行transact事务处理分3部分：
 ### 11. IPC.executeCommand
 [-> IPCThreadState.cpp]
 
-根据收到的响应消息，执行相应的操作
-
-【流程9】传递过来的参数：executeCommand(BR_TRANSACTION)
-
     status_t IPCThreadState::executeCommand(int32_t cmd)
     {
         BBinder* obj;
@@ -434,150 +364,67 @@ IPCThreadState进行transact事务处理分3部分：
         status_t result = NO_ERROR;
 
         switch (cmd) {
-        case BR_ERROR:
-            result = mIn.readInt32();
-            break;
+          case BR_TRANSACTION:
+          {
+            binder_transaction_data tr;
+            result = mIn.read(&tr, sizeof(tr));
+            if (result != NO_ERROR) break;
 
-        case BR_OK:
-            break;
+            Parcel buffer;
+            buffer.ipcSetDataReference(
+                reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
+                tr.data_size,
+                reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
+                tr.offsets_size/sizeof(binder_size_t), freeBuffer, this);
 
-        case BR_ACQUIRE:
-            refs = (RefBase::weakref_type*)mIn.readPointer();
-            obj = (BBinder*)mIn.readPointer();
-            obj->incStrong(mProcess.get());
-            mOut.writeInt32(BC_ACQUIRE_DONE);
-            mOut.writePointer((uintptr_t)refs);
-            mOut.writePointer((uintptr_t)obj);
-            break;
+            const pid_t origPid = mCallingPid;
+            const uid_t origUid = mCallingUid;
+            const int32_t origStrictModePolicy = mStrictModePolicy;
+            const int32_t origTransactionBinderFlags = mLastTransactionBinderFlags;
 
-        case BR_RELEASE:
-            refs = (RefBase::weakref_type*)mIn.readPointer();
-            obj = (BBinder*)mIn.readPointer();
-            mPendingStrongDerefs.push(obj);
-            break;
+            mCallingPid = tr.sender_pid; //发起端的pid
+            mCallingUid = tr.sender_euid; //发起端的uid
+            mLastTransactionBinderFlags = tr.flags;
 
-        case BR_INCREFS:
-            refs = (RefBase::weakref_type*)mIn.readPointer();
-            obj = (BBinder*)mIn.readPointer();
-            refs->incWeak(mProcess.get());
-            mOut.writeInt32(BC_INCREFS_DONE);
-            mOut.writePointer((uintptr_t)refs);
-            mOut.writePointer((uintptr_t)obj);
-            break;
-
-        case BR_DECREFS:
-            refs = (RefBase::weakref_type*)mIn.readPointer();
-            obj = (BBinder*)mIn.readPointer();
-            mPendingWeakDerefs.push(refs);
-            break;
-
-        case BR_ATTEMPT_ACQUIRE:
-            refs = (RefBase::weakref_type*)mIn.readPointer();
-            obj = (BBinder*)mIn.readPointer();
-            const bool success = refs->attemptIncStrong(mProcess.get());
-            mOut.writeInt32(BC_ACQUIRE_RESULT);
-            mOut.writeInt32((int32_t)success);
-            break;
-
-        case BR_TRANSACTION:
-            {
-                binder_transaction_data tr;
-                result = mIn.read(&tr, sizeof(tr));
-                if (result != NO_ERROR) break;
-
-                Parcel buffer;
-                buffer.ipcSetDataReference(
-                    reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
-                    tr.data_size,
-                    reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
-                    tr.offsets_size/sizeof(binder_size_t), freeBuffer, this);
-
-                const pid_t origPid = mCallingPid;
-                const uid_t origUid = mCallingUid;
-                const int32_t origStrictModePolicy = mStrictModePolicy;
-                const int32_t origTransactionBinderFlags = mLastTransactionBinderFlags;
-
-                mCallingPid = tr.sender_pid;
-                mCallingUid = tr.sender_euid;
-                mLastTransactionBinderFlags = tr.flags;
-
-                int curPrio = getpriority(PRIO_PROCESS, mMyThreadId);
-                if (gDisableBackgroundScheduling) {
-                    if (curPrio > ANDROID_PRIORITY_NORMAL) {
-                        setpriority(PRIO_PROCESS, mMyThreadId, ANDROID_PRIORITY_NORMAL);
-                    }
-                } else {
-                    if (curPrio >= ANDROID_PRIORITY_BACKGROUND) {
-                        set_sched_policy(mMyThreadId, SP_BACKGROUND);
-                    }
+            int curPrio = getpriority(PRIO_PROCESS, mMyThreadId);
+            if (gDisableBackgroundScheduling) {
+                if (curPrio > ANDROID_PRIORITY_NORMAL) {
+                    setpriority(PRIO_PROCESS, mMyThreadId, ANDROID_PRIORITY_NORMAL);
                 }
-
-                Parcel reply;
-                status_t error;
-                // tr.cookie里存放的是BBinder，此处b是BBinder的实现子类
-                if (tr.target.ptr) {
-                    sp<BBinder> b((BBinder*)tr.cookie);
-                    error = b->transact(tr.code, buffer, &reply, tr.flags); //【见流程12】
-
-                } else {
-                    error = the_context_object->transact(tr.code, buffer, &reply, tr.flags);
+            } else {
+                if (curPrio >= ANDROID_PRIORITY_BACKGROUND) {
+                    set_sched_policy(mMyThreadId, SP_BACKGROUND);
                 }
-
-                if ((tr.flags & TF_ONE_WAY) == 0) {
-                    if (error < NO_ERROR) reply.setError(error);
-                    sendReply(reply, 0);
-                }
-
-                mCallingPid = origPid;
-                mCallingUid = origUid;
-                mStrictModePolicy = origStrictModePolicy;
-                mLastTransactionBinderFlags = origTransactionBinderFlags;
-
             }
-            break;
 
-        case BR_DEAD_BINDER:
-            {  //收到binder驱动发来的service死掉的消息，只有Bp端能收到。
-                BpBinder *proxy = (BpBinder*)mIn.readPointer();
-                proxy->sendObituary();
-                mOut.writeInt32(BC_DEAD_BINDER_DONE);
-                mOut.writePointer((uintptr_t)proxy);
-            } break;
+            Parcel reply;
+            status_t error;
+            // tr.cookie里存放的是BBinder，此处b是BBinder的实现子类
+            if (tr.target.ptr) {
+                sp<BBinder> b((BBinder*)tr.cookie);
+                error = b->transact(tr.code, buffer, &reply, tr.flags); //【见流程12】
 
-        case BR_CLEAR_DEATH_NOTIFICATION_DONE:
-            {
-                BpBinder *proxy = (BpBinder*)mIn.readPointer();
-                proxy->getWeakRefs()->decWeak(proxy);
-            } break;
+            } else {
+                error = the_context_object->transact(tr.code, buffer, &reply, tr.flags);
+            }
 
-        case BR_FINISHED:
-            result = TIMED_OUT;
-            break;
+            if ((tr.flags & TF_ONE_WAY) == 0) {
+                if (error < NO_ERROR) reply.setError(error);
+                sendReply(reply, 0);
+            }
 
-        case BR_NOOP:
-            break;
-
-        case BR_SPAWN_LOOPER:
-            //收到来自驱动的指示以创建一个新线程，用于和Binder通信 【见流程17】
-            mProcess->spawnPooledThread(false);
-            break;
-
-        default:
-            result = UNKNOWN_ERROR;
-            break;
+            mCallingPid = origPid;
+            mCallingUid = origUid;
+            mStrictModePolicy = origStrictModePolicy;
+            mLastTransactionBinderFlags = origTransactionBinderFlags;
+          }
+          break;
         }
-
-        if (result != NO_ERROR) {
-            mLastError = result;
-        }
-
         return result;
     }
 
 ### 12. BBinder::transact
 [-> Binder.cpp ::BBinder]
-
-服务端transact事务处理
 
     status_t BBinder::transact(
         uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
@@ -637,7 +484,7 @@ IPCThreadState进行transact事务处理分3部分：
 对于MediaPlayerService的场景下，事实上BnMediaPlayerService继承了BBinder类，且重载了onTransact()方法，故实际调用的是BnMediaPlayerService::onTransact()方法。
 
 
-### 二、 死亡通知
+## 二、 死亡通知
 
 死亡通知是为了让Bp端能知道Bn端的生死情况。
 
@@ -646,13 +493,55 @@ IPCThreadState进行transact事务处理分3部分：
 
 Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，则在Bn端死掉后，会回调binderDied()进行相应处理。
 
-### 14. 死亡注册
 
-注册用该方法：
+### 2.1 linkToDeath
+[-> BpBinder.cpp]
 
-    binder->linkToDeath(sDeathNotifier);
+    status_t BpBinder::linkToDeath(
+        const sp<DeathRecipient>& recipient, void* cookie, uint32_t flags)
+    {
+        Obituary ob;
+        ob.recipient = recipient;
+        ob.cookie = cookie;
+        ob.flags = flags;
 
-覆写binderDied方法，主要是实现收尾清除类的工作，比如
+        {
+            AutoMutex _l(mLock);
+            if (!mObitsSent) {
+                if (!mObituaries) {
+                    mObituaries = new Vector<Obituary>;
+                    if (!mObituaries) {
+                        return NO_MEMORY;
+                    }
+                    getWeakRefs()->incWeak(this);
+                    IPCThreadState* self = IPCThreadState::self();
+                    //[见小节2.2]
+                    self->requestDeathNotification(mHandle, this);
+                    self->flushCommands();
+                }
+                ssize_t res = mObituaries->add(ob);
+                return res >= (ssize_t)NO_ERROR ? (status_t)NO_ERROR : res;
+            }
+        }
+
+        return DEAD_OBJECT;
+    }
+
+### 2.2 requestDeathNotification
+[-> IPCThreadState.cpp]
+
+    status_t IPCThreadState::requestDeathNotification(int32_t handle, BpBinder* proxy)
+    {
+        mOut.writeInt32(BC_REQUEST_DEATH_NOTIFICATION);
+        mOut.writeInt32((int32_t)handle);
+        mOut.writePointer((uintptr_t)proxy);
+        return NO_ERROR;
+    }
+
+向binder driver发送BC_REQUEST_DEATH_NOTIFICATION命令. 后面的处理流程,类似于文章[Binder系列3—启动ServiceManager](http://gityuan.com/2015/11/07/binder-start-sm/)
+的[小节3.3]binder_link_to_death()的过程.
+
+### 2.3 binderDied
 
     void IMediaDeathNotifier::DeathNotifier::binderDied(const wp<IBinder>& who __unused) {
         SortedVector< wp<IMediaDeathNotifier> > list;
@@ -673,7 +562,7 @@ Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，
 
 客户端进程通过Binder驱动获得Binder的代理（BpBinder），死亡通知注册的过程就是客户端进程向Binder驱动注册一个死亡通知，该死亡通知关联BBinder，即与BpBinder所对应的服务端。
 
-### 15. 取消注册
+### 2.4 unlinkToDeath
 
 当Bp在收到服务端的死亡通知之前先挂了，那么需要在对象的销毁方法内，调用`unlinkToDeath()`来取消死亡通知；
 
@@ -686,7 +575,7 @@ Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，
         }
     }
 
-### 16. 调用机制
+###  触发时机
 
 每当service进程退出时，service manager会收到来自Binder驱动的死亡通知。
 这项工作是在[启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)时通过`binder_link_to_death(bs, ptr, &si->death)`完成。另外，每个Bp端也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。

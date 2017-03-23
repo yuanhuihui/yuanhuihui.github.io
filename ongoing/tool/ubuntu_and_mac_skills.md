@@ -33,6 +33,7 @@ COMMAND + F3: 快速回到桌面
 ## Atom
 
 Ctrl + P : 查找文件
+Ctrl + Shift + F: 查找project里面的关键词
 
 ## 截图
 

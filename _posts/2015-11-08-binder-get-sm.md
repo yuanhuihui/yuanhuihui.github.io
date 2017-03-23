@@ -24,11 +24,13 @@ tags:
 获取Service Manager是通过`defaultServiceManager()`方法来完成，当进程[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)或
 [获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)的过程之前，都需要先调用defaultServiceManager()方法来获取`gDefaultServiceManager`对象。对于gDefaultServiceManager对象，如果存在则直接返回；如果不存在则创建该对象，创建过程包括调用open()打开binder驱动设备，利用mmap()映射内核的地址空间。
 
+### 1.1 流程图
+
 点击查看[大图](http://gityuan.com/images/binder/get_servicemanager/get_servicemanager.jpg)
 
 ![get_servicemanager](/images/binder/get_servicemanager/get_servicemanager.jpg)
 
-###  1.1 defaultServiceManager
+###  1.2 defaultServiceManager
 [-> IServiceManager.cpp]
 
     sp<IServiceManager> defaultServiceManager()
@@ -230,7 +232,7 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 
 ## 四. 获取BpServiceManager
 
-#### 4.1 interface_cast
+### 4.1 interface_cast
 [-> IInterface.h]
 
     template<typename INTERFACE>
@@ -242,10 +244,9 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 
 这是一个模板函数，可得出，`interface_cast<IServiceManager>()` 等价于 `IServiceManager::asInterface()`。接下来,再来说说`asInterface()`函数的具体功能。
 
+### 4.2 IServiceManager::asInterface
 
-#### 4.2 IServiceManager::asInterface
-
-对于asInterface()函数，通过搜索代码，你会发现根本找不到这个方法是在哪里定义这个函数的，其实跟前面小节9的方式类似，也是通过模板函数来定义的，通过下面两个代码完成的：
+对于asInterface()函数，通过搜索代码，你会发现根本找不到这个方法是在哪里定义这个函数的, 其实是通过模板函数来定义的，通过下面两个代码完成的：
 
     //位于IServiceManager.h文件 【见小节4.3】
     DECLARE_META_INTERFACE(ServiceManager)
@@ -254,7 +255,7 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 
 接下来，再说说这两行代码分别完成的功能：
 
-#### 4.3 DECLARE_META_INTERFACE
+### 4.3 DECLARE_META_INTERFACE
 [-> IInterface.h]
 
     #define DECLARE_META_INTERFACE(INTERFACE)                               \
@@ -281,7 +282,7 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 
  该过程主要是声明`asInterface()`,`getInterfaceDescriptor()`方法.
 
-#### 4.4 IMPLEMENT_META_INTERFACE
+### 4.4 IMPLEMENT_META_INTERFACE
 [-> IInterface.h]
 
     #define IMPLEMENT_META_INTERFACE(INTERFACE, NAME)                       \
@@ -338,28 +339,25 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 不难发现，[小节4.2]的`IServiceManager::asInterface()` 等价于 `new BpServiceManager()`。在这里，更确切地说应该是new BpServiceManager(BpBinder)。
 
 
-#### 4.5 创建BpServiceManager
+### 4.5 BpServiceManager实例化
 
 创建BpServiceManager对象的过程，会先初始化父类对象：
 
-##### 4.5.1 初始化BpServiceManager
+#### 4.5.1 BpServiceManager初始化
 [-> IServiceManager.cpp]
 
     BpServiceManager(const sp<IBinder>& impl)
         : BpInterface<IServiceManager>(impl)
-    {
-    }
+    {    }
 
-##### 4.5.2 初始化父类BpInterface
+#### 4.5.2 BpInterface初始化
 [-> IInterface.h]
-
 
     inline BpInterface<INTERFACE>::BpInterface(const sp<IBinder>& remote)
         :BpRefBase(remote)
-    {
-    }
+    {    }
 
-##### 4.5.3 初始化父类BpRefBase
+#### 4.5.3 BpRefBase初始化
 [-> Binder.cpp]
 
     BpRefBase::BpRefBase(const sp<IBinder>& o)
@@ -393,7 +391,37 @@ BpServiceManager巧妙将通信层与业务层逻辑合为一体，
 - BpBinder通过handler来指向所对应BBinder, 在整个Binder系统中`handle=0`代表ServiceManager所对应的BBinder。
 
 
+### 5.1 模板函数
+
 Native层的Binder架构,通过如下两个宏,非常方便地创建了`new Bp##INTERFACE(obj)`:
 
-    #define DECLARE_META_INTERFACE(INTERFACE)   
-    #define IMPLEMENT_META_INTERFACE(INTERFACE, NAME)     
+    #define DECLARE_META_INTERFACE(INTERFACE) //用于申明asInterface(),getInterfaceDescriptor()
+    #define IMPLEMENT_META_INTERFACE(INTERFACE, NAME) //用于实现上述两个方法
+
+例如:
+
+    IMPLEMENT_META_INTERFACE(ServiceManager,"android.os.IServiceManager")
+
+等价于:
+
+    const android::String16 IServiceManager::descriptor(“android.os.IServiceManager”);
+    const android::String16& IServiceManager::getInterfaceDescriptor() const
+    {
+         return IServiceManager::descriptor;
+    }
+
+     android::sp<IServiceManager> IServiceManager::asInterface(const android::sp<android::IBinder>& obj)
+    {
+           android::sp<IServiceManager> intr;
+            if(obj != NULL) {
+               intr = static_cast<IServiceManager *>(
+                   obj->queryLocalInterface(IServiceManager::descriptor).get());
+               if (intr == NULL) {
+                   intr = new BpServiceManager(obj);
+                }
+            }
+           return intr;
+    }
+
+    IServiceManager::IServiceManager () { }
+    IServiceManager::~ IServiceManager() { }

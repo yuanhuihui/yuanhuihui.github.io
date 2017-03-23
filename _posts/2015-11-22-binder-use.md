@@ -216,7 +216,7 @@ Client端
 定义sayHello()方法，DESCRIPTOR属性
 
     public interface IMyService extends IInterface {
-        static final java.lang.String DESCRIPTOR = "com.yuanhh.frameworkBinder.MyServer";
+        static final java.lang.String DESCRIPTOR = "com.gityuan.frameworkBinder.MyServer";
         public void sayHello(String str) throws RemoteException ;
         static final int TRANSACTION_say = android.os.IBinder.FIRST_CALL_TRANSACTION;
     }
@@ -235,14 +235,14 @@ Client端
         }
 
         /** 将MyService转换为IMyService接口 **/
-        public static com.yuanhh.frameworkBinder.IMyService asInterface(
+        public static com.gityuan.frameworkBinder.IMyService asInterface(
                 android.os.IBinder obj) {
             if ((obj == null)) {
                 return null;
             }
             android.os.IInterface iInterface = obj.queryLocalInterface(DESCRIPTOR);
-            if (((iInterface != null)&&(iInterface instanceof com.yuanhh.frameworkBinder.IMyService))){
-                return ((com.yuanhh.frameworkBinder.IMyService) iInterface);
+            if (((iInterface != null)&&(iInterface instanceof com.gityuan.frameworkBinder.IMyService))){
+                return ((com.gityuan.frameworkBinder.IMyService) iInterface);
             }
             return null;
         }

@@ -3,6 +3,15 @@
 	/libcore/luni/src/main/java/java/lang/System.java
 	/libcore/luni/src/main/java/java/lang/Runtime.java
 
+
+
+## 调用栈
+
+System.exit
+    Runtime.getRuntime().exit(code);
+        java_lang_Runtime.cc
+            runtime.cc
+
 ### 1. System.exit
 
 [-> System.java]
@@ -11,7 +20,7 @@
 	    Runtime.getRuntime.exit(code);
 	}
 
-### 2.Runtime.exit 
+### 2.Runtime.exit
 
 [-> Runtime.java]
 
@@ -47,3 +56,21 @@
             }
         }
     }
+
+### 3. java_lang_Runtime
+
+    NO_RETURN static void Runtime_nativeExit(JNIEnv*, jclass, jint status) {
+      LOG(INFO) << "System.exit called, status: " << status;
+      Runtime::Current()->CallExitHook(status);
+      exit(status);
+    }
+
+
+### 4.runtime.cc
+
+    void Runtime::CallExitHook(jint status) {
+      if (exit_ != nullptr) {
+        ScopedThreadStateChange tsc(Thread::Current(), kNative);
+        exit_(status);
+        LOG(WARNING) << "Exit hook returned instead of exiting!";
+      }

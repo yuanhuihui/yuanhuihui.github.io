@@ -125,7 +125,7 @@ PKMS服务往往是调用killApplication从而间接调用forceStopPackage方法
 |performIdleMaintenance|idle maint (pss `lastPss`  from `initialIdlePss`)||
 |checkExcessivePowerUsageLocked|excessive wake held ||
 |checkExcessivePowerUsageLocked|excessive cpu ||
-
+|scheduleCrash|scheduleCrash for `message` failed|
 
 ### 二. 杀进程手段
 

@@ -26,13 +26,13 @@
 					Process.sendSignalQuiet(pid, SIGNAL_KILL);
 						android_util_Process.android_os_Process_SendSignalQuiet
 							Signal.kill(pid, SIGNAL_KILL)
-		
+
 				Process.killProcessGroup(info.uid, pid);
 					android_util_Process.android_os_Process_killProcessGroup
 						ProcessGroup.KillProcessGroup(uid, pid, SIGNAL_KILL)
 							ProcessGroup.killProcessGroupOnce()
 								loop: Signal.kill(pid, SIGNAL_KILL)
-		
+
 			AMS.handleAppDiedLocked()
 				AMS.cleanUpApplicationRecordLocked()
 					ActiveServices.killServicesLocked()
@@ -185,7 +185,7 @@ minOomAdj=SERVICE_ADJ, callerWillRestart=false, allowRestart=true, doit=true, ev
 ### forceStopPackage
 
 AMS.forceStopPackage
-	
+
 	pm.setPackageStoppedState(packageName, true, user);
 	AMS.forceStopPackageLocked
 		AMS.killPackageProcessesLocked

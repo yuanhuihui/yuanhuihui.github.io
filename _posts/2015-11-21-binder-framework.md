@@ -509,7 +509,7 @@ JavaBBinderHolder有一个成员变量mBinder，保存当前创建的JavaBBinder
 
 
 ### 3.9 mRemote.transact
-==> Binder.java
+[-> Binder.java]
 
 回到ServiceManagerProxy.addService，其成员变量mRemote是BinderProxy。BinderProxy.transact如下：
 
@@ -522,7 +522,7 @@ JavaBBinderHolder有一个成员变量mBinder，保存当前创建的JavaBBinder
 transactNative经过jni调用，进入下面的方法
 
 ### 3.10 android_os_BinderProxy_transact
-==> android_util_Binder.cpp
+[-> android_util_Binder.cpp]
 
     static jboolean android_os_BinderProxy_transact(JNIEnv* env, jobject obj,
         jint code, jobject dataObj, jobject replyObj, jint flags)
@@ -594,23 +594,157 @@ addService的核心过程：
 其中sCache = new HashMap<String, IBinder>()以hashmap格式缓存已组成的名称。请求获取服务过程中，先从缓存中查询是否存在，如果缓存中不存在的话，再通过binder交互来查询相应的服务。
 
 
-### 4.2 SMN.getService
+### 4.2 SMP.getService
+[-> ServiceManagerNative.java]
 
-==> ServiceManagerNative.java
-
-    public IBinder getService(String name) throws RemoteException {
-        Parcel data = Parcel.obtain();
-        Parcel reply = Parcel.obtain();
-        data.writeInterfaceToken(IServiceManager.descriptor);
-        data.writeString(name);
-        mRemote.transact(GET_SERVICE_TRANSACTION, data, reply, 0); //mRemote为BinderProxy
-        IBinder binder = reply.readStrongBinder(); //【见4.3】
-        reply.recycle();
-        data.recycle();
-        return binder;
+    class ServiceManagerProxy implements IServiceManager {
+        public IBinder getService(String name) throws RemoteException {
+            Parcel data = Parcel.obtain();
+            Parcel reply = Parcel.obtain();
+            data.writeInterfaceToken(IServiceManager.descriptor);
+            data.writeString(name);
+            mRemote.transact(GET_SERVICE_TRANSACTION, data, reply, 0); //mRemote为BinderProxy
+            IBinder binder = reply.readStrongBinder(); //【见4.3】
+            reply.recycle();
+            data.recycle();
+            return binder;
+        }
     }
 
-mRemote.transact()在前面已经说明过，通过JNI最终调用的是BpBinder::transact（)方法。
+从reply里面解析出获取的IBinder对象
+
+### 4.3  BinderProxy.transact
+[-> Binder.java]
+
+    final class BinderProxy implements IBinder {
+        public boolean transact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
+            Binder.checkParcel(this, code, data, "Unreasonably large binder buffer");
+            return transactNative(code, data, reply, flags);
+        }
+    }
+
+### 4.4 android_os_BinderProxy_transact
+[-> android_util_Binder.cpp]
+
+    static jboolean android_os_BinderProxy_transact(JNIEnv* env, jobject obj,
+        jint code, jobject dataObj, jobject replyObj, jint flags)
+    {
+        ...
+        //java Parcel转为native Parcel
+        Parcel* data = parcelForJavaObject(env, dataObj);
+        ...
+
+        Parcel* reply = parcelForJavaObject(env, replyObj);
+        ...
+
+        //gBinderProxyOffsets.mObject中保存的是new BpBinder(0)对象
+        IBinder* target = (IBinder*)
+            env->GetLongField(obj, gBinderProxyOffsets.mObject);
+        ...
+
+        //此处便是BpBinder::transact(), 经过native层[见小节4.5]
+        status_t err = target->transact(code, *data, reply, flags);
+        ...
+        return JNI_FALSE;
+    }
+
+### 4.5  BpBinder.transact
+[-> BpBinder.cpp]
+
+    status_t BpBinder::transact(
+        uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
+    {
+        if (mAlive) {
+            // [见小节4.6]
+            status_t status = IPCThreadState::self()->transact(
+                mHandle, code, data, reply, flags);
+            if (status == DEAD_OBJECT) mAlive = 0;
+            return status;
+        }
+
+        return DEAD_OBJECT;
+    }
+
+### 4.6 IPC.transact
+[-> IPCThreadState.cpp]
+
+    status_t IPCThreadState::transact(int32_t handle,
+                                      uint32_t code, const Parcel& data,
+                                      Parcel* reply, uint32_t flags)
+    {
+        status_t err = data.errorCheck(); //数据错误检查
+        flags |= TF_ACCEPT_FDS;
+        ....
+        if (err == NO_ERROR) {
+             // 传输数据
+            err = writeTransactionData(BC_TRANSACTION, flags, handle, code, data, NULL);
+        }
+        ...
+
+        // 默认情况下,都是采用非oneway的方式, 也就是需要等待服务端的返回结果
+        if ((flags & TF_ONE_WAY) == 0) {
+            if (reply) {
+                //等待回应事件
+                err = waitForResponse(reply);
+            }else {
+                Parcel fakeReply;
+                err = waitForResponse(&fakeReply);
+            }
+        } else {
+            err = waitForResponse(NULL, NULL);
+        }
+        return err;
+    }
+
+### 4.7 IPC.waitForResponse
+
+    status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
+    {
+        int32_t cmd;
+        int32_t err;
+        while (1) {
+            if ((err=talkWithDriver()) < NO_ERROR) break; // 【见小节2.11】
+            ...
+
+            cmd = mIn.readInt32();
+            switch (cmd) {
+                case BR_REPLY:
+                {
+                    binder_transaction_data tr;
+                    err = mIn.read(&tr, sizeof(tr));
+
+                    if (reply) {
+                        if ((tr.flags & TF_STATUS_CODE) == 0) {
+                            reply->ipcSetDataReference(
+                                reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
+                                tr.data_size,
+                                reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
+                                tr.offsets_size/sizeof(binder_size_t),
+                                freeBuffer, this);
+                        } else {
+                            err = *reinterpret_cast<const status_t*>(tr.data.ptr.buffer);
+                            freeBuffer(NULL,
+                                reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
+                                tr.data_size,
+                                reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
+                                tr.offsets_size/sizeof(binder_size_t), this);
+                        }
+                    } else {
+                        ...
+                    }
+                }
+                goto finish;
+                ...
+            }
+        }
+
+    finish:
+        if (err != NO_ERROR) {
+            if (reply) reply->setError(err); //将发送的错误代码返回给最初的调用者
+        }
+        return err;
+    }
+
 
 ### 4.3 readStrongBinder
 ==> Parcel.java
@@ -715,3 +849,72 @@ getService的核心过程：
 
 javaObjectForIBinder作用是创建BinderProxy对象，并将BpBinder对象的地址保存到BinderProxy对象的mObjects中。
 获取服务过程就是通过BpBinder来发送`GET_SERVICE_TRANSACTION`命令，与实现与binder驱动进行数据交互。
+
+## 五. 实例
+
+以IWindowManager为例
+
+    public interface IWindowManager extends android.os.IInterface {
+
+        public static abstract class Stub extends android.os.Binder implements android.view.IWindowManager {
+            private static final java.lang.String DESCRIPTOR = "android.view.IWindowManager";
+
+            public Stub() {
+                this.attachInterface(this, DESCRIPTOR);
+            }
+
+            public static android.view.IWindowManager asInterface(android.os.IBinder obj) {
+                if ((obj == null)) {
+                    return null;
+                }
+                android.os.IInterface iin = obj.queryLocalInterface(DESCRIPTOR);
+                if (((iin != null) && (iin instanceof android.view.IWindowManager))) {
+                    return ((android.view.IWindowManager) iin);
+                }
+                return new android.view.IWindowManager.Stub.Proxy(obj);
+            }
+
+            public android.os.IBinder asBinder() {
+                return this;
+            }
+
+            private static class Proxy implements android.view.IWindowManager {
+                private android.os.IBinder mRemote;
+
+                Proxy(android.os.IBinder remote) {
+                    mRemote = remote;
+                }
+
+                public android.os.IBinder asBinder() {
+                    return mRemote;
+                }
+            }
+            ...
+        }
+    }
+
+
+### 5.1 Binder
+[-> Binder.java]
+
+    public class Binder implements IBinder {
+        public void attachInterface(IInterface owner, String descriptor) {
+            mOwner = owner;
+            mDescriptor = descriptor;
+        }
+
+        public IInterface queryLocalInterface(String descriptor) {
+            if (mDescriptor.equals(descriptor)) {
+                return mOwner;
+            }
+            return null;
+        }
+    }
+
+### 5.2 BinderProxy
+
+    final class BinderProxy implements IBinder {
+        public IInterface queryLocalInterface(String descriptor) {
+            return null;
+        }
+    }
