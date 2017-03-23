@@ -24,7 +24,7 @@ tags:
 
 在Native层的服务以media服务为例，来说一说服务注册过程，
 
-### 1.1 类图
+#### 1.1 类图
 
 先看看media的整个的类关系图。
 
@@ -39,7 +39,7 @@ tags:
 - 紫色代表的是注册服务和[获取服务](http://gityuan.com/2015/11/15/binder-get-service/)的公共接口/父类；
 
 
-### 1.2 时序图
+#### 1.2 时序图
 
 先通过一幅图来说说，media服务启动过程是如何向servicemanager注册服务的。
 
@@ -105,11 +105,11 @@ defaultServiceManager()在上篇文章[获取ServiceManager](http://gityuan.com/
 
 获得ProcessState对象: 这也是**单例模式**，从而保证每一个进程只有一个`ProcessState`对象。其中`gProcess`和`gProcessMutex`是保存在`Static.cpp`类的全局变量。
 
-### 2.3  ProcessState创建
+### 2.3  ProcessState初始化
 [-> ProcessState.cpp]
 
     ProcessState::ProcessState()
-        : mDriverFD(open_driver()) // 打开Binder驱动【见小节2.4】
+        : mDriverFD(open_driver()) // 打开Binder驱动【见小节2.3.1】
         , mVMStart(MAP_FAILED)
         , mThreadCountLock(PTHREAD_MUTEX_INITIALIZER)
         , mThreadCountDecrement(PTHREAD_COND_INITIALIZER)
@@ -135,7 +135,7 @@ defaultServiceManager()在上篇文章[获取ServiceManager](http://gityuan.com/
 - `BINDER_VM_SIZE = (1*1024*1024) - (4096 *2)`, binder分配的默认内存大小为1M-8k。
 - `DEFAULT_MAX_BINDER_THREADS = 15`，binder默认的最大可并发访问的线程数为16。
 
-### 2.4  open_driver
+#### 2.3.1  open_driver
 [-> ProcessState.cpp]
 
     static int open_driver()
@@ -171,48 +171,45 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 
 ## 三. 服务注册
 
-### 1. MPS:instantiate
+### 3.1 MPS.instantiate
 [-> MediaPlayerService.cpp]
 
     void MediaPlayerService::instantiate() {
+        //注册服务【见小节3.2】
         defaultServiceManager()->addService(
-               String16("media.player"), new MediaPlayerService()); 【见流程3】
+               String16("media.player"), new MediaPlayerService()); 
     }
 
-注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。关于`MediaPlayerService`创建过程，此处就省略后面有时间会单独介绍，接下来进入流程[3]。
+注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。关于`MediaPlayerService`创建过程，此处就省略后面有时间会单独介绍，接下来进入流程[2]。
 
-### 3. BpServiceManager.addService
+### 3.2 addService
 [-> IServiceManager.cp BpServiceManager]
 
     virtual status_t addService(const String16& name, const sp<IBinder>& service,
             bool allowIsolated)
     {
         Parcel data, reply; //Parcel是数据通信包
-        data.writeInterfaceToken(IServiceManager::getInterfaceDescriptor());   //写入RPC头信息
+        //写入头信息"android.os.IServiceManager"
+        data.writeInterfaceToken(IServiceManager::getInterfaceDescriptor());   
         data.writeString16(name);        // name为 "media.player"
         data.writeStrongBinder(service); // MediaPlayerService对象
         data.writeInt32(allowIsolated ? 1 : 0); // allowIsolated= false
-        status_t err = remote()->transact(ADD_SERVICE_TRANSACTION, data, &reply); //【见流程4】
+        //remote()指向的是BpBinder对象【见小节3.3】
+        status_t err = remote()->transact(ADD_SERVICE_TRANSACTION, data, &reply);
         return err == NO_ERROR ? reply.readExceptionCode() : err;
     }
 
 
-服务注册过程
+服务注册过程：向ServiceManager注册服务MediaPlayerService，服务名为"media.player"；
 
-- 将名叫"media.player"的MediaPlayerService服务注册到ServiceManager；
-- RPC头信息为 "android.os.IServiceManager"；
-- remote()就是BpBinder()；
-
-### 4. BpBinder::transact
+### 3.3 BpBinder::transact
 [-> BpBinder.cpp]
-
-由【流程3】传递过来的参数：transact(ADD_SERVICE_TRANSACTION, data, &reply, 0);
 
     status_t BpBinder::transact(
         uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
     {
         if (mAlive) {
-            // 【见流程5和7】
+            // code=ADD_SERVICE_TRANSACTION【见小节3.4】
             status_t status = IPCThreadState::self()->transact(
                 mHandle, code, data, reply, flags);
             if (status == DEAD_OBJECT) mAlive = 0;
@@ -221,10 +218,10 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
         return DEAD_OBJECT;
     }
 
-Binder代理类调用transact()方法，真正工作还是交给IPCThreadState来进行transact工作，
+Binder代理类调用transact()方法，真正工作还是交给IPCThreadState来进行transact工作。先来
+看看IPCThreadState::self的过程。
 
-
-### 5. IPCThreadState::self
+#### 3.3.1 IPCThreadState::self
 [-> IPCThreadState.cpp]
 
     IPCThreadState* IPCThreadState::self()
@@ -234,7 +231,7 @@ Binder代理类调用transact()方法，真正工作还是交给IPCThreadState�
             const pthread_key_t k = gTLS;
             IPCThreadState* st = (IPCThreadState*)pthread_getspecific(k);
             if (st) return st;
-            return new IPCThreadState;  //初始IPCThreadState 【见流程6】
+            return new IPCThreadState;  //初始IPCThreadState 【见小节3.3.2】
         }
 
         if (gShutdown) return NULL;
@@ -251,13 +248,9 @@ Binder代理类调用transact()方法，真正工作还是交给IPCThreadState�
         goto restart;
     }
 
-
-获取IPCThreadState对象
-
-
 TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有自己的TLS，并且是私有空间，线程之间不会共享。通过pthread_getspecific/pthread_setspecific函数可以获取/设置这些空间中的内容。从线程本地存储空间中获得保存在其中的IPCThreadState对象。
 
-### 6. new IPCThreadState
+#### 3.3.2 IPCThreadState初始化
 [-> IPCThreadState.cpp]
 
     IPCThreadState::IPCThreadState()
@@ -277,10 +270,8 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
 - mIn 用来接收来自Binder设备的数据，默认大小为256字节；
 - mOut用来存储发往Binder设备的数据，默认大小为256字节。
 
-### 7. IPC::transact
+### 3.4 IPC::transact
 [-> IPCThreadState.cpp]
-
-由【流程4】传递过来的参数：transact (0，ADD_SERVICE_TRANSACTION, data, &reply, 0);
 
     status_t IPCThreadState::transact(int32_t handle,
                                       uint32_t code, const Parcel& data,
@@ -289,18 +280,14 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
         status_t err = data.errorCheck(); //数据错误检查
         flags |= TF_ACCEPT_FDS;
         ....
-        if (err == NO_ERROR) { // 传输数据 【见流程8】
+        if (err == NO_ERROR) { // 传输数据 【见小节3.5】
             err = writeTransactionData(BC_TRANSACTION, flags, handle, code, data, NULL);
         }
-
-        if (err != NO_ERROR) {
-            if (reply) reply->setError(err);
-            return (mLastError = err);
-        }
+        ...
 
         if ((flags & TF_ONE_WAY) == 0) {
             if (reply) {
-                //等待响应 【见流程9】
+                //等待响应 【见小节3.6】
                 err = waitForResponse(reply);
             } else {
                 Parcel fakeReply;
@@ -321,20 +308,17 @@ IPCThreadState进行transact事务处理分3部分：
 - writeTransactionData() // 传输数据
 - waitForResponse()      //f等待响应
 
-### 8. IPC.writeTransactionData
+### 3.5 IPC.writeTransactionData
 [-> IPCThreadState.cpp]
-
-由【流程7】传递过来的参数：writeTransactionData(BC_TRANSACTION, 0, 0, ADD_SERVICE_TRANSACTION, data, NULL)
 
     status_t IPCThreadState::writeTransactionData(int32_t cmd, uint32_t binderFlags,
         int32_t handle, uint32_t code, const Parcel& data, status_t* statusBuffer)
     {
         binder_transaction_data tr;
-
         tr.target.ptr = 0;
-        tr.target.handle = handle; // handle=0
-        tr.code = code;            // ADD_SERVICE_TRANSACTION
-        tr.flags = binderFlags;    // 0
+        tr.target.handle = handle; // handle = 0
+        tr.code = code;            // code = ADD_SERVICE_TRANSACTION
+        tr.flags = binderFlags;    // binderFlags = 0
         tr.cookie = 0;
         tr.sender_pid = 0;
         tr.sender_euid = 0;
@@ -346,40 +330,31 @@ IPCThreadState进行transact事务处理分3部分：
             tr.offsets_size = data.ipcObjectsCount()*sizeof(binder_size_t);
             tr.data.ptr.offsets = data.ipcObjects();
         } else if (statusBuffer) {
-            tr.flags |= TF_STATUS_CODE;
-            *statusBuffer = err;
-            tr.data_size = sizeof(status_t);
-            tr.data.ptr.buffer = reinterpret_cast<uintptr_t>(statusBuffer);
-            tr.offsets_size = 0;
-            tr.data.ptr.offsets = 0;
+            ...
         } else {
             return (mLastError = err);
         }
 
         mOut.writeInt32(cmd);         //cmd = BC_TRANSACTION
         mOut.write(&tr, sizeof(tr));  //写入binder_transaction_data数据
-
         return NO_ERROR;
     }
 
 
 其中handle的值用来标识目的端，注册服务过程的目的端为service manager，此处handle=0所对应的是binder_context_mgr_node对象，正是service manager所对应的binder实体对象。[binder_transaction_data结构体](http://gityuan.com/2015/11/01/binder-driver/#bindertransactiondata)是binder驱动通信的数据结构，该过程最终是把Binder请求码BC_TRANSACTION和binder_transaction_data结构体写入到`mOut`。
 
+transact过程，先写完binder_transaction_data数据， 接下来执行waitForResponse()方法。
 
-### 9. IPC.waitForResponse
+### 3.6 IPC.waitForResponse
 [-> IPCThreadState.cpp]
-
-【流程7】传递过来的参数：waitForResponse(&reply, NULL);
 
     status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
     {
         int32_t cmd;
         int32_t err;
-
         while (1) {
-            if ((err=talkWithDriver()) < NO_ERROR) break; // 【见流程10】
-            err = mIn.errorCheck();
-            if (err < NO_ERROR) break;
+            if ((err=talkWithDriver()) < NO_ERROR) break; // 【见小节3.6.1】
+            ...
             if (mIn.dataAvail() == 0) continue;
 
             cmd = mIn.readInt32();
@@ -392,7 +367,7 @@ IPCThreadState进行transact事务处理分3部分：
                     goto finish;
 
                 default:
-                    err = executeCommand(cmd);  //【见流程11】
+                    err = executeCommand(cmd);  //【见小节3.6.2】
                     if (err != NO_ERROR) goto finish;
                     break;
             }
@@ -403,14 +378,13 @@ IPCThreadState进行transact事务处理分3部分：
 
 不断循环地与Binder驱动设备交互，获取响应信息
 
-### 10. IPC.talkWithDriver
+#### 3.6.1 IPC.talkWithDriver
 [-> IPCThreadState.cpp]
 
     status_t IPCThreadState::talkWithDriver(bool doReceive)
     {
         ...
         binder_write_read bwr;
-
         const bool needRead = mIn.dataPosition() >= mIn.dataSize();
         const size_t outAvail = (!doReceive || needRead) ? mOut.dataSize() : 0;
 
@@ -425,7 +399,7 @@ IPCThreadState进行transact事务处理分3部分：
             bwr.read_size = 0;
             bwr.read_buffer = 0;
         }
-
+        //当读缓冲和写缓冲都为空，则直接返回
         if ((bwr.write_size == 0) && (bwr.read_size == 0)) return NO_ERROR;
 
         bwr.write_consumed = 0;
@@ -440,26 +414,21 @@ IPCThreadState进行transact事务处理分3部分：
             if (mProcess->mDriverFD <= 0) {
                 err = -EBADF;
             }
-
-        } while (err == -EINTR);
-
-        if (err >= NO_ERROR) {
-            ...
-        }
+        } while (err == -EINTR); //当被中断，则继续执行
+        ...
         return err;
     }
 
 
 [binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。 主要是操作mOut和mIn变量。
 
-在waitForResponse过程, 当接收到则执行executeCommand(),如下:
+在waitForResponse过程, 首先执行BR_TRANSACTION_COMPLETE；另外，目标进程收到事务后，处理BR_TRANSACTION事务。
+然后发送给当前进程，再执行BR_REPLY命令。
 
-### 11. IPC.executeCommand
+此处省略若干过程...， 当服务注册完成后，其他进程请求该服务时则会执行到BR_TRANSACTION过程：
+
+### 3.7 IPC.executeCommand
 [-> IPCThreadState.cpp]
-
-根据收到的响应消息，执行相应的操作
-
-【流程9】传递过来的参数：executeCommand(BR_TRANSACTION)
 
     status_t IPCThreadState::executeCommand(int32_t cmd)
     {
@@ -468,20 +437,11 @@ IPCThreadState进行transact事务处理分3部分：
         status_t result = NO_ERROR;
 
         switch (cmd) {
-        case BR_ERROR: ...
-        case BR_OK: ...
-        case BR_ACQUIRE: ...
-        case BR_RELEASE: ...
-        case BR_INCREFS: ...
-        case BR_DECREFS: ...
-        case BR_ATTEMPT_ACQUIRE: ...
-
-        case BR_TRANSACTION:
-        {
+          case BR_TRANSACTION:
+          {
             binder_transaction_data tr;
             result = mIn.read(&tr, sizeof(tr));
-            if (result != NO_ERROR) break;
-
+            ...
             Parcel buffer;
             buffer.ipcSetDataReference(
                 reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
@@ -499,23 +459,14 @@ IPCThreadState进行transact事务处理分3部分：
             mLastTransactionBinderFlags = tr.flags;
 
             int curPrio = getpriority(PRIO_PROCESS, mMyThreadId);
-            if (gDisableBackgroundScheduling) {
-                if (curPrio > ANDROID_PRIORITY_NORMAL) {
-                    setpriority(PRIO_PROCESS, mMyThreadId, ANDROID_PRIORITY_NORMAL);
-                }
-            } else {
-                if (curPrio >= ANDROID_PRIORITY_BACKGROUND) {
-                    set_sched_policy(mMyThreadId, SP_BACKGROUND);
-                }
-            }
+            ... //调整优先级
 
             Parcel reply;
             status_t error;
             // tr.cookie里存放的是BBinder，此处b是BBinder的实现子类
             if (tr.target.ptr) {
                 sp<BBinder> b((BBinder*)tr.cookie);
-                error = b->transact(tr.code, buffer, &reply, tr.flags); //【见流程12】
-
+                error = b->transact(tr.code, buffer, &reply, tr.flags); //【见小节3.8】
             } else {
                 error = the_context_object->transact(tr.code, buffer, &reply, tr.flags);
             }
@@ -529,42 +480,17 @@ IPCThreadState进行transact事务处理分3部分：
             mCallingUid = origUid;
             mStrictModePolicy = origStrictModePolicy;
             mLastTransactionBinderFlags = origTransactionBinderFlags;
+          }
+          break;
+          ...
         }
-        break;
-
-        case BR_DEAD_BINDER:
-            {  //收到binder驱动发来的service死掉的消息，只有Bp端能收到。
-                BpBinder *proxy = (BpBinder*)mIn.readPointer();
-                proxy->sendObituary();
-                mOut.writeInt32(BC_DEAD_BINDER_DONE);
-                mOut.writePointer((uintptr_t)proxy);
-            } break;
-
-        case BR_CLEAR_DEATH_NOTIFICATION_DONE:
-        case BR_FINISHED:
-        case BR_NOOP:
-
-        case BR_SPAWN_LOOPER:
-            //收到来自驱动的指示以创建一个新线程，用于和Binder通信 【见流程15】
-            mProcess->spawnPooledThread(false);
-            break;
-
-        default:
-            result = UNKNOWN_ERROR;
-            break;
-        }
-
-        if (result != NO_ERROR) {
-            mLastError = result;
-        }
-
+        ...
         return result;
     }
 
-### 12. BBinder::transact
+    
+### 3.8 BBinder::transact
 [-> Binder.cpp]
-
-服务端transact事务处理
 
     status_t BBinder::transact(
         uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
@@ -577,7 +503,7 @@ IPCThreadState进行transact事务处理分3部分：
                 reply->writeInt32(pingBinder());
                 break;
             default:
-                err = onTransact(code, data, reply, flags); //【见流程13】
+                err = onTransact(code, data, reply, flags); //【见小节3.9】
                 break;
         }
 
@@ -588,10 +514,10 @@ IPCThreadState进行transact事务处理分3部分：
         return err;
     }
 
-### 13. BBinder::onTransact
-[-> Binder.cpp]
+服务端transact事务处理
 
-服务端事务回调处理函数
+### 3.9 BBinder::onTransact
+[-> Binder.cpp]
 
     status_t BBinder::onTransact(
         uint32_t code, const Parcel& data, Parcel* reply, uint32_t /*flags*/)
@@ -621,35 +547,34 @@ IPCThreadState进行transact事务处理分3部分：
         }
     }
 
-对于MediaPlayerService的场景下:  MediaPlayerService继承于BnMediaPlayerService, 而BnMediaPlayerService继承了BnInterface, 而BnInterface又继承BBinder于IMediaPlayerService.
+以上只是默认处理过程，但对于本文的MediaPlayerService继承于BnMediaPlayerService,由间接继承于BBinder对象，
+在BnMediaPlayerService重载了onTransact()方法，故实际调用的是BnMediaPlayerService::onTransact()方法。
 
-其中BnMediaPlayerService重载了onTransact()方法，故实际调用的是BnMediaPlayerService::onTransact()方法。
+##  四. Binder线程池
 
-
-### 14 PS.startThreadPool
+### 4.1 PS.startThreadPool
 [-> ProcessState.cpp]
-
-先通过ProcessState::self()，来获取单例对象ProcessState，再进行启动线程池
 
     void ProcessState::startThreadPool()
     {
         AutoMutex _l(mLock);    //多线程同步 自动锁
         if (!mThreadPoolStarted) {
             mThreadPoolStarted = true;
-            spawnPooledThread(true);  【见流程15】
+            spawnPooledThread(true);  【见流程4.2】
         }
     }
 
-通过变量mThreadPoolStarted来保证每个应用进程只允许主动创建一个binder线程，其余binder线程池中的线程都是由Binder驱动来控制创建的。
+通过ProcessState::self()，来获取单例对象ProcessState，再进行启动线程池。
+使用变量mThreadPoolStarted来保证每个应用进程只允许主动创建一个binder线程，其余binder线程池中的线程都是由Binder驱动来控制创建的。
 
-### 15. PS.spawnPooledThread
+### 4.2 PS.spawnPooledThread
 [-> ProcessState.cpp]
 
     void ProcessState::spawnPooledThread(bool isMain)
     {
         if (mThreadPoolStarted) {
             String8 name = makeBinderThreadName(); //获取Binder线程名
-            sp<Thread> t = new PoolThread(isMain); //isMain=true
+            sp<Thread> t = new PoolThread(isMain); //isMain=true 【见小节4.2.1】
             t->run(name.string());
         }
     }
@@ -657,8 +582,9 @@ IPCThreadState进行transact事务处理分3部分：
 - 获取Binder线程名，格式为`Binder_x`, 其中x为整数。每个进程中的binder编码是从1开始，依次递增;
 - 在终端通过 `ps -t | grep Binder`，能看到当前所有的Binder线程。
 
-从函数名看起来是创建线程池，其实就只是创建一个线程，该PoolThread继承Thread类。t->run()方法最终调用 PoolThread的threadLoop()方法。
+从函数名看起来是创建线程池，其实就只是创建一个线程，该PoolThread继承Thread类，t->run()方法最终调用PoolThread的threadLoop()方法。
 
+#### 4.2.1 PoolThread
 
     class PoolThread : public Thread
     {
@@ -671,15 +597,15 @@ IPCThreadState进行transact事务处理分3部分：
     protected:
         virtual bool threadLoop()
         {
-            IPCThreadState::self()->joinThreadPool(mIsMain); // 【见流程16】
+            IPCThreadState::self()->joinThreadPool(mIsMain); //【见小节4.3】
             return false;
         }
-
         const bool mIsMain;
     };
 
+在新创建的线程里面执行joinThreadPool()方法，加入到Binder线程池，执行binder操作。
 
-### 16 IPC.joinThreadPool()
+### 4.3 IPC.joinThreadPool
 [-> IPCThreadState.cpp]
 
     void IPCThreadState::joinThreadPool(bool isMain)
@@ -691,7 +617,7 @@ IPCThreadState进行transact事务处理分3部分：
         status_t result;
         do {
             processPendingDerefs(); //清除队列的引用
-            result = getAndExecuteCommand(); //处理下一条指令 【见流程17】
+            result = getAndExecuteCommand(); //处理下一条指令 【见小节4.4】
 
             if (result < NO_ERROR && result != TIMED_OUT && result != -ECONNREFUSED && result != -EBADF) {
                 abort();
@@ -706,27 +632,16 @@ IPCThreadState进行transact事务处理分3部分：
         talkWithDriver(false); //false代表bwr数据的read_buffer为空 【见流程10】
     }
 
-
-先通过IPCThreadState::self()，来获取单例对象IPCThreadState，再join到线程池中。对于前面新创建的线程
-`new PoolThread()`以及当前线程，都会调用到该方法。
-
 将线程调度策略设置SP_FOREGROUND，当已启动的线程由后台的scheduling group创建，可以避免由后台线程优先级来执行初始化的transaction。
+Binder设计架构中，只有第一个Binder线程是由应用层主动创建，对于Binder线程池其他的线程都是由Binder驱动根据IPC通信需求来控制创建的。
 
-对于参数`isMain`=true的情况下，command为BC_ENTER_LOOPER，表示是程序主动创建的线程；而对于`isMain`=false的情况下，command为BC_REGISTER_LOOPER，表示是由binder驱动强制创建的线程。Binder设计架构中，只有第一个Binder线程是由应用层主动创建，对于Binder线程池其他的线程都是由Binder驱动根据IPC通信需求来控制创建的。
+- 对于参数`isMain`=true时，command为BC_ENTER_LOOPER，表示是程序主动创建的线程；
+- 对于参数`isMain`=false时，command为BC_REGISTER_LOOPER，表示是由binder驱动强制创建的线程。
 
-从这个过程可以发现，调用链：
+另外，此处有timeout退出机制，当binder线程长时间没有执行任务，则退出该线程。
 
-    PS.startThreadPool
-     PS.spawnPooledThread
-      PoolThread.run
-        IPCThreadState::self()->joinThreadPool()
-
-startThreadPool最终还是调用joinThreadPool()来执行binder操作。
-
-### 17 IPC.getAndExecuteCommand
+### 4.4 IPC.getAndExecuteCommand
 [-> IPCThreadState.cpp]
-
-获取并处理指令
 
     status_t IPCThreadState::getAndExecuteCommand()
     {
@@ -755,13 +670,13 @@ startThreadPool最终还是调用joinThreadPool()来执行binder操作。
         return result;
     }
 
-### 总结
+## 五.总结
 
 MediaPlayerService服务注册
 
 - 前面13个步骤的功能是MediaPlayerService服务向ServiceManager进行服务注册的过程
-- 接下来，通过startThreadPool()方法创建了一个binder线程，该线程在不断跟Binder驱动进行交互；
-- 最后，当前主线程通过joinThreadPool，也实现了Binder进行交互；
+- 再通过startThreadPool()方法创建了一个binder线程，该线程在不断跟Binder驱动进行交互；
+- 最后將当前主线程通过joinThreadPool，也实现了Binder进行交互；
 
 
 从流程1到流程13，整个过程是`MediaPlayerService`服务向`Service Manager`进程进行服务注册的过程。在整个过程涉及到MediaPlayerService(作为Client进程)和Service Manager(作为Service进程)，通信流程图如下所示：

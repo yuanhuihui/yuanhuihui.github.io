@@ -65,7 +65,7 @@ Binder通信采用C/S架构，从组件视角来说，包含Client、Server、Se
 
 ![ams_ipc](/images/binder/binder_start_service/ams_ipc.jpg)
 
-可以看出无论是注册服务和获取服务的过程都需要ServiceManager，需要注意的是此处的Service Manager是指Native层的ServiceManager（C++），并非指framework层的ServiceManager(Java)。ServiceManager是整个Binder通信机制的大管家，是Android进程间通信机制Binder的守护进程，Client端和Server端通信时都需要先获取Service Manager接口，才能开始通信服务, 当然查找懂啊目标信息可以缓存起来则不需要每次都向ServiceManager请求。
+可以看出无论是注册服务和获取服务的过程都需要ServiceManager，需要注意的是此处的Service Manager是指Native层的ServiceManager（C++），并非指framework层的ServiceManager(Java)。ServiceManager是整个Binder通信机制的大管家，是Android进程间通信机制Binder的守护进程，Client端和Server端通信时都需要先获取Service Manager接口，才能开始通信服务, 当然查找到目标信息可以缓存起来则不需要每次都向ServiceManager请求。
 
 图中Client/Server/ServiceManage之间的相互通信都是基于Binder机制。既然基于Binder机制通信，那么同样也是C/S架构，则图中的3大步骤都有相应的Client端与Server端。
 
@@ -968,7 +968,7 @@ transact主要过程:
                 
         thread->looper |= BINDER_LOOPER_STATE_WAITING;
         if (wait_for_proc_work)
-		      proc->ready_threads++; //进程中空闲binder线程加1
+          proc->ready_threads++; //进程中空闲binder线程加1
               
         //只有当前线程todo队列为空，并且transaction_stack也为空，才会开始处于当前进程的事务
         if (wait_for_proc_work) {
@@ -986,7 +986,7 @@ transact主要过程:
         }
 
         if (wait_for_proc_work)
-		      proc->ready_threads--; //退出等待状态, 则进程中空闲binder线程减1
+          proc->ready_threads--; //退出等待状态, 则进程中空闲binder线程减1
         thread->looper &= ~BINDER_LOOPER_STATE_WAITING;
         ...
         
@@ -1454,66 +1454,66 @@ BR_REPLY命令是如何来的呢？【小节4.3】IPC.executeCommand()过程处�
 
     // reply =true
     static void binder_transaction(struct binder_proc *proc,
-    			       struct binder_thread *thread,
-    			       struct binder_transaction_data *tr, int reply)
+                 struct binder_thread *thread,
+                 struct binder_transaction_data *tr, int reply)
     {
+      ...
+      if (reply) {
+        in_reply_to = thread->transaction_stack; //接收端的事务栈
         ...
-    	if (reply) {
-    		in_reply_to = thread->transaction_stack; //接收端的事务栈
-    		...
-    		thread->transaction_stack = in_reply_to->to_parent;
-    		target_thread = in_reply_to->from; //发起端的线程
+        thread->transaction_stack = in_reply_to->to_parent;
+        target_thread = in_reply_to->from; //发起端的线程
         
             //发起端线程不能为空
-    		if (target_thread == NULL) {
-    			return_error = BR_DEAD_REPLY;
-    			goto err_dead_binder; 
-    		}
+        if (target_thread == NULL) {
+          return_error = BR_DEAD_REPLY;
+          goto err_dead_binder; 
+        }
         
             //发起端线程的事务栈 要等于 接收端的事务栈
-    		if (target_thread->transaction_stack != in_reply_to) {
-    			return_error = BR_FAILED_REPLY;
-    			in_reply_to = NULL;
-    			target_thread = NULL;
-    			goto err_dead_binder; 
-    		}
-    		target_proc = target_thread->proc; //发起端的进程
-    	} else {
+        if (target_thread->transaction_stack != in_reply_to) {
+          return_error = BR_FAILED_REPLY;
+          in_reply_to = NULL;
+          target_thread = NULL;
+          goto err_dead_binder; 
+        }
+        target_proc = target_thread->proc; //发起端的进程
+      } else {
         ...
       }
       
       if (target_thread) {
           //发起端的线程
-      		target_list = &target_thread->todo;
-      		target_wait = &target_thread->wait;
-      	} else {
-      		...
-      	}
+          target_list = &target_thread->todo;
+          target_wait = &target_thread->wait;
+        } else {
+          ...
+        }
 
-      	t = kzalloc(sizeof(*t), GFP_KERNEL);
-      	tcomplete = kzalloc(sizeof(*tcomplete), GFP_KERNEL);
-      	...
+        t = kzalloc(sizeof(*t), GFP_KERNEL);
+        tcomplete = kzalloc(sizeof(*tcomplete), GFP_KERNEL);
+        ...
 
-      	if (!reply && !(tr->flags & TF_ONE_WAY))
-      		t->from = thread;
-      	else
-      		t->from = NULL; //进入该分支
-      	t->sender_euid = task_euid(proc->tsk);
-      	t->to_proc = target_proc;
-      	t->to_thread = target_thread;
-      	t->code = tr->code;
-      	t->flags = tr->flags;
-      	t->priority = task_nice(current);
+        if (!reply && !(tr->flags & TF_ONE_WAY))
+          t->from = thread;
+        else
+          t->from = NULL; //进入该分支
+        t->sender_euid = task_euid(proc->tsk);
+        t->to_proc = target_proc;
+        t->to_thread = target_thread;
+        t->code = tr->code;
+        t->flags = tr->flags;
+        t->priority = task_nice(current);
 
         // 发起端进程分配buffer
-      	t->buffer = binder_alloc_buf(target_proc, tr->data_size,
-      		tr->offsets_size, !reply && (t->flags & TF_ONE_WAY));
-      	...
-      	t->buffer->allow_user_free = 0;
-      	t->buffer->transaction = t;
-      	t->buffer->target_node = target_node;
-      	if (target_node)
-      		binder_inc_node(target_node, 1, 0, NULL);
+        t->buffer = binder_alloc_buf(target_proc, tr->data_size,
+          tr->offsets_size, !reply && (t->flags & TF_ONE_WAY));
+        ...
+        t->buffer->allow_user_free = 0;
+        t->buffer->transaction = t;
+        t->buffer->target_node = target_node;
+        if (target_node)
+          binder_inc_node(target_node, 1, 0, NULL);
 
         //分别拷贝用户空间的binder_transaction_data中ptr.buffer和ptr.offsets到内核
         copy_from_user(t->buffer->data, 

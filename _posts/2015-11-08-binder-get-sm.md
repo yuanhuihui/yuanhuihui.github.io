@@ -395,11 +395,13 @@ BpServiceManager巧妙将通信层与业务层逻辑合为一体，
 
 Native层的Binder架构,通过如下两个宏,非常方便地创建了`new Bp##INTERFACE(obj)`:
 
-    #define DECLARE_META_INTERFACE(INTERFACE) //用于申明asInterface(),getInterfaceDescriptor()
+    //用于申明asInterface(),getInterfaceDescriptor()
+    #define DECLARE_META_INTERFACE(INTERFACE) 
     #define IMPLEMENT_META_INTERFACE(INTERFACE, NAME) //用于实现上述两个方法
 
 例如:
-
+    
+    // 实现BPServiceManager对象
     IMPLEMENT_META_INTERFACE(ServiceManager,"android.os.IServiceManager")
 
 等价于:

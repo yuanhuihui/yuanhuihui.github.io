@@ -431,7 +431,7 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
 
                     bio_init(&reply, rdata, sizeof(rdata), 4);
                     bio_init_from_txn(&msg, txn);
-                     // 收到Binder事务 【见小节2.6.1】
+                     // 收到Binder事务 【见小节2.7】
                     res = func(bs, txn, &msg, &reply);
                     binder_send_reply(bs, &reply, txn->data.ptr.buffer, res);
                 }
@@ -472,7 +472,7 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
 
 解析binder信息，此处参数ptr指向BC_ENTER_LOOPER，func指向svcmgr_handler。故有请求到来，则调用svcmgr_handler。
 
-#### 2.6.1 svcmgr_handler
+### 2.7 svcmgr_handler
 [-> service_manager.c]
 
     int svcmgr_handler(struct binder_state *bs,
@@ -562,7 +562,7 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
         return 0;
     }
 
-serviceManager操作的真正处理函数。
+该方法的功能：查询服务，注册服务，以及列举所有服务
 
 ## 三. 核心工作
 
@@ -896,20 +896,12 @@ binder_write经过跟小节2.5一样的方式, 进入Binder driver后,直接调�
                 } break;
             }
         }
-        done:
-
-        *consumed = ptr - buffer;
-        if (proc->requested_threads + proc->ready_threads == 0 &&
-            proc->requested_threads_started < proc->max_threads &&
-            (thread->looper & (BINDER_LOOPER_STATE_REGISTERED |
-             BINDER_LOOPER_STATE_ENTERED)) ) {
-            proc->requested_threads++;
-            put_user(BR_SPAWN_LOOPER, (uint32_t __user *)buffer); //创建binder线程.
-        }
+        ...
         return 0;
     }
 
-将命令BR_DEAD_BINDER写到用户空间, 此处的cookie是前面传递的svcinfo_death.
+将命令BR_DEAD_BINDER写到用户空间, 此处的cookie是前面传递的svcinfo_death. 当binder_loop下一次
+执行binder_parse的过程便会处理该消息。
 
 #### 3.3.4 binder_parse
 [-> servicemanager/binder.c]
