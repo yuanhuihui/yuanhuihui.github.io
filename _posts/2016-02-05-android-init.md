@@ -406,14 +406,17 @@ Options是Services的可选项，与service配合使用
          
     on post-fs-data
         start logd
-        start vold
+        start vold //启动vold
         ...
         
     on boot
         ...
-        class_start core
+        class_start core //启动core class
         
-由early-init -> init -> late-init -> on boot。接下里便开始启动core class.
+由on early-init -> init -> late-init -> boot。
+
+先启动core class, 至于main class的启动是由vold.decrypt的以下4个值的设置所决定的，
+该过程位于system/vold/cryptfs.c文件。
 
     on nonencrypted
         class_start main
@@ -433,7 +436,6 @@ Options是Services的可选项，与service配合使用
         class_reset late_start
         class_reset main
 
-vold.decrypt的以上4个值的设置过程位于system/vold/cryptfs.c文件。
       
 ### 4.2 服务启动(Zygote)
 在init.zygote.rc文件中，zygote服务定义如下：

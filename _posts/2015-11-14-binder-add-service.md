@@ -11,22 +11,41 @@ tags:
 ---
 > 基于Android 6.0的源码剖析， 本文讲解如何向ServiceManager注册Native层的服务的过程。
 
-    /framework/native/libs/binder/IServiceManager.cpp
-    /framework/native/libs/binder/BpBinder.cpp
-    /framework/native/libs/binder/Binder.cpp
-    /framework/native/libs/binder/IPCThreadState.cpp
-    /framework/native/libs/binder/ProcessState.cpp
+    framework/native/libs/binder/
+      - Binder.cpp
+      - BpBinder.cpp
+      - IPCThreadState.cpp
+      - ProcessState.cpp
+      - IServiceManager.cpp
+      - IInterface.cpp
+      - Parcel.cpp
 
-    /framework/av/media/libmediaplayerservice/MediaPlayerService.cpp
-
-
+    frameworks/native/include/binder/
+      - IInterface.h (包括BnInterface, BpInterface)
+        
 ##  一.概述
 
-在Native层的服务以media服务为例，来说一说服务注册过程，
+先来看看Native Binder IPC的两个重量级对象：BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代表，它们都从IBinder类中派生而来，关系图如下：
+
+![Binder关系图](/images/binder/prepare/Ibinder_classes.jpg)
+
+- IBinder有一个重要方法queryLocalInterface， 默认返回值为NULL；
+  - BBinder/BpBinder都没有实现，默认返回NULL；BnInterface重写该方法；
+  - BinderProxy(Java)默认返回NULL；Binder(Java)重写该方法；
+- IInterface有一个重要方法asBinder；
+- IInterface子类(服务端)会有一个方法asInterface；
+
+Native层通过宏IMPLEMENT_META_INTERFACE来完成asInterface实现和descriptor的赋值过程；
+
+Tips: 对于Java层跟Native一样，也有完全对应的一套对象和方法。
+例如ActivityManagerNative， 通过实现asInterface方法，以及其通过其构造函数
+调用attachInterface()，完成descriptor的赋值过程。再比如AIDL全自动生成asInterface和descriptor赋值过程。
+
+同一个进程，请求binder服务，是否需要经过binder call，取决于descriptor是否设置。
 
 #### 1.1 类图
 
-先看看media的整个的类关系图。
+在Native层的服务以media服务为例，来说一说服务注册过程，先来看看media的整个的类关系图。
 
 点击查看[大图](http://gityuan.com/images/binder/addService/add_media_player_service.png)
 
@@ -62,12 +81,12 @@ media入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
     {
         ...
         InitializeIcuOrDie();
-        //获得ProcessState实例对象【见小节2.2】
+        //获得ProcessState实例对象【见小节2.1】
         sp<ProcessState> proc(ProcessState::self());
-        //获取ServiceManager实例对象
+        //获取BpServiceManager对象
         sp<IServiceManager> sm = defaultServiceManager();
         AudioFlinger::instantiate();
-        //多媒体服务  【见流程1~13】
+        //注册多媒体服务  【见小节3.1】
         MediaPlayerService::instantiate();
         ResourceManagerService::instantiate();
         CameraService::instantiate();
@@ -75,19 +94,16 @@ media入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
         SoundTriggerHwService::instantiate();
         RadioService::instantiate();
         registerExtensions();
-        //创建Binder线程，并加入线程池【见流程14】
+        //创建Binder线程，并加入线程池【小节4.1】
         ProcessState::self()->startThreadPool();
-        //当前线程加入到线程池 【见流程16】
+        //当前线程加入到线程池 【见小节4.3】
         IPCThreadState::self()->joinThreadPool();
      }
 
-### 2.1 流程图
+[获取ServiceManager](http://gityuan.com/2015/11/08/binder-get-sm/#defaultservicemanager)
+已介绍过defaultServiceManager()返回的是BpServiceManager对象，用于跟/system/bin/servicemanager进程通信。
 
-![workflow](/images/binder/addService/workflow.jpg)
-
-defaultServiceManager()在上篇文章[获取ServiceManager](http://gityuan.com/2015/11/08/binder-get-sm/#defaultservicemanager)已讲过，用于获取BpServiceManager对象，跟ServiceManager通信。
-
-### 2.2 ProcessState::self
+#### 2.1 ProcessState::self
 [-> ProcessState.cpp]
 
     sp<ProcessState> ProcessState::self()
@@ -97,7 +113,7 @@ defaultServiceManager()在上篇文章[获取ServiceManager](http://gityuan.com/
             return gProcess;
         }
 
-        //实例化ProcessState 【见小节2.3】
+        //实例化ProcessState 【见小节2.2】
         gProcess = new ProcessState;
         return gProcess;
     }
@@ -105,11 +121,11 @@ defaultServiceManager()在上篇文章[获取ServiceManager](http://gityuan.com/
 
 获得ProcessState对象: 这也是**单例模式**，从而保证每一个进程只有一个`ProcessState`对象。其中`gProcess`和`gProcessMutex`是保存在`Static.cpp`类的全局变量。
 
-### 2.3  ProcessState初始化
+#### 2.2  ProcessState初始化
 [-> ProcessState.cpp]
 
     ProcessState::ProcessState()
-        : mDriverFD(open_driver()) // 打开Binder驱动【见小节2.3.1】
+        : mDriverFD(open_driver()) // 打开Binder驱动【见小节2.3】
         , mVMStart(MAP_FAILED)
         , mThreadCountLock(PTHREAD_MUTEX_INITIALIZER)
         , mThreadCountDecrement(PTHREAD_COND_INITIALIZER)
@@ -135,7 +151,7 @@ defaultServiceManager()在上篇文章[获取ServiceManager](http://gityuan.com/
 - `BINDER_VM_SIZE = (1*1024*1024) - (4096 *2)`, binder分配的默认内存大小为1M-8k。
 - `DEFAULT_MAX_BINDER_THREADS = 15`，binder默认的最大可并发访问的线程数为16。
 
-#### 2.3.1  open_driver
+#### 2.3  open_driver
 [-> ProcessState.cpp]
 
     static int open_driver()
@@ -169,6 +185,8 @@ defaultServiceManager()在上篇文章[获取ServiceManager](http://gityuan.com/
 
 open_driver作用是打开/dev/binder设备，设定binder支持的最大线程数。关于binder驱动的相应方法，见文章[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)。
 
+ProcessState采用单例模式，保证每一个进程都只打开一次Binder Driver。
+
 ## 三. 服务注册
 
 ### 3.1 MPS.instantiate
@@ -180,7 +198,8 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
                String16("media.player"), new MediaPlayerService()); 
     }
 
-注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。关于`MediaPlayerService`创建过程，此处就省略后面有时间会单独介绍，接下来进入流程[2]。
+注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。
+其中MediaPlayerService位于libmediaplayerservice库，其创建过程此处就省略后面有时间会单独介绍，接下来进入流程[2]。
 
 ### 3.2 addService
 [-> IServiceManager.cp BpServiceManager]
