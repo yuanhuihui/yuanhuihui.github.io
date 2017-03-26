@@ -21,7 +21,7 @@ tags:
 
 ### 1.1 概述
 
-Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样。binder驱动在以misc设备进行注册，作为虚拟设备，没有直接操作硬件，只是对设备内存的处理。主要是驱动设备的初始化(binder_init)，打开
+Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样。binder驱动在以misc设备进行注册，作为虚拟字符设备，没有直接操作硬件，只是对设备内存的处理。主要是驱动设备的初始化(binder_init)，打开
 (binder_open)，映射(binder_mmap)，数据操作(binder_ioctl)。
 
 ![binder_driver](/images/binder/binder_dev/binder_driver.png)

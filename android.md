@@ -98,10 +98,10 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 
 |序号|文章名|概述|
 |---|---|---|
-|1|[Binder系列3—启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)|ServiceManager注册和查询服务|
-|2|[Binder系列4—获取Service Manager](http://gityuan.com/2015/11/08/binder-get-sm/)|获取BpServiceManager|
-|3|[Binder系列5—注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)|Native层Media服务的注册|
-|4|[Binder系列6—获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)|Native层Media服务代理，以及DeathRecipient|
+|1|[Binder系列3—启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)|ServiceManager守护进程 注册和查询服务|
+|2|[Binder系列4—获取Service Manager](http://gityuan.com/2015/11/08/binder-get-sm/)|获取代理对象BpServiceManager|
+|3|[Binder系列5—注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)|注册Media服务|
+|4|[Binder系列6—获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)|获取Media代理，以及DeathRecipient|
 
 **Driver层面:**
 
