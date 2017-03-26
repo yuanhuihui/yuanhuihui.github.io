@@ -634,9 +634,11 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
         return;
     }
 
-## 五.
 
-### 3.7 IPC.executeCommand
+省略。。。， 后续再完善。
+-------------
+
+### 4.4 IPC.executeCommand
 [-> IPCThreadState.cpp]
 
     status_t IPCThreadState::executeCommand(int32_t cmd)
@@ -698,7 +700,7 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
     }
 
 
-### 3.8 BBinder::transact
+### 4.5 BBinder::transact
 [-> Binder.cpp]
 
     status_t BBinder::transact(
@@ -725,7 +727,7 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
 
 服务端transact事务处理
 
-### 3.9 BBinder::onTransact
+### 4.6 BBinder::onTransact
 [-> Binder.cpp]
 
     status_t BBinder::onTransact(
@@ -760,7 +762,7 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
 在BnMediaPlayerService重载了onTransact()方法，故实际调用的是BnMediaPlayerService::onTransact()方法。
 
 
-## 四.总结
+## 五.总结
 
 MediaPlayerService服务注册
 
@@ -790,3 +792,6 @@ MediaPlayerService服务注册
 
 整个过程中，BC_TRANSACTION和BR_TRANSACTION过程是一个完整的事务过程；BC_REPLY和BR_REPLY是一个完整的事务过程。
 到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://gityuan.com/2015/11/15/binder-get-service/)。
+
+
+    TODO: 还需要修改
