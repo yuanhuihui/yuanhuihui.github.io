@@ -11,9 +11,6 @@ tags:
 ---
 > 基于Android 6.0的源码剖析， 本文Client如何向Server获取服务的过程。
 
-    /framework/av/media/libmedia/IMediaDeathNotifier.cpp
-    /framework/native/libs/binder/IServiceManager.cpp
-
 
 ## 一、 获取服务
 在Native层的服务注册，我们选择以media为例来展开讲解，先来看看media的类关系图。
@@ -34,7 +31,7 @@ tags:
 ## 二. 获取Media服务
 
 ### 1. getMediaPlayerService
-[-> IMediaDeathNotifier.cpp]
+[-> framework/av/media/libmedia/IMediaDeathNotifier.cpp]
 
     sp<IMediaPlayerService>&
     IMediaDeathNotifier::getMediaPlayerService()
@@ -575,7 +572,7 @@ Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，
         }
     }
 
-###  触发时机
+###  2.5  触发时机
 
 每当service进程退出时，service manager会收到来自Binder驱动的死亡通知。
 这项工作是在[启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)时通过`binder_link_to_death(bs, ptr, &si->death)`完成。另外，每个Bp端也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。

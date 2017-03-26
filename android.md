@@ -98,14 +98,15 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 
 |序号|文章名|概述|
 |---|---|---|
+|0|[Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)|概述Binder|
 |1|[Binder系列3—启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)|ServiceManager守护进程 注册和查询服务|
 |2|[Binder系列4—获取Service Manager](http://gityuan.com/2015/11/08/binder-get-sm/)|获取代理对象BpServiceManager|
 |3|[Binder系列5—注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)|注册Media服务|
 |4|[Binder系列6—获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)|获取Media代理，以及DeathRecipient|
 |5|[Binder系列7—framework层分析](http://gityuan.com/2015/11/21/binder-framework/)|framework层服务注册和查询，Binder注册|
 |6|[理解Binder线程池的管理](http://gityuan.com/2016/10/29/binder-thread-pool/)|Binder的startThreadPool过程|
-|1|[彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)|startService为主线|
-|2|[Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)|Binder的简单总结|
+|7|[彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)|startService为主线|
+|8|[Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)|Binder的简单总结|
 
 **驱动篇:**
 

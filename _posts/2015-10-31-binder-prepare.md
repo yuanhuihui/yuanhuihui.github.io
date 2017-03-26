@@ -79,3 +79,52 @@ BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代
 前面的这些都是讲述Binder整个流程以及原理，再接下来你可能想要自己写一套Binder的C/S架构服务。如果你是**系统工程师**可能会比较关心Native层和framework层分别该如何实现自己的自定义的Binder通信服务，见[Binder系列8—如何使用Binder](http://gityuan.com/2015/11/22/binder-use/)；如果你是**应用开发工程师**则应该更关心App是如何使用Binder的，那么可以查看文章[Binder系列9—如何使用AIDL](http://gityuan.com/2015/11/23/binder-aidl/)。
 
 最后是对Binder的一个简单总结[Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)。
+
+## 四. 源码目录
+从上之下, 整个Binder架构所涉及的总共有以下5个目录:
+
+    /framework/base/core/java/               (Java)
+    /framework/base/core/jni/                (JNI)
+    /framework/native/libs/binder            (Native)
+    /framework/native/cmds/servicemanager/   (Native)
+    /kernel/drivers/staging/android          (Driver)
+
+#### 4.1 Java framework
+
+    /framework/base/core/java/android/os/  
+        - IInterface.java
+        - IBinder.java
+        - Parcel.java
+        - IServiceManager.java
+        - ServiceManager.java
+        - ServiceManagerNative.java
+        - Binder.java  
+
+
+    /framework/base/core/jni/    
+        - android_os_Parcel.cpp
+        - AndroidRuntime.cpp
+        - android_util_Binder.cpp (核心类)
+
+#### 4.2 Native framework
+
+    /framework/native/libs/binder         
+        - IServiceManager.cpp
+        - BpBinder.cpp
+        - Binder.cpp
+        - IPCThreadState.cpp (核心类)
+        - ProcessState.cpp  (核心类)
+
+    /framework/native/include/binder/
+        - IServiceManager.h
+        - IInterface.h
+
+    /framework/native/cmds/servicemanager/
+        - service_manager.c
+        - binder.c
+
+#### 4.3 Kernel
+
+    /kernel/drivers/staging/android/
+        - binder.c
+        - uapi/binder.h

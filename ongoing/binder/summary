@@ -6,7 +6,9 @@
 Binder服务注册过程：
 
 1. 进入驱动层，生成服务相应的binder_node结构体；
-2. 分别将binder_node注册到服务所在进程binder_proc，以及servicemanager进程binder_proc结构体；
+2. 将binder_node注册到服务所在进程的binder_proc结构体的nodes；(最常见的system_server进程)
+3. 再将相应的binder_ref注册到servicemanager进程binder_proc结构体的refs_by_node, refs_by_desc;
+
 
 
 ### 2. 查询服务

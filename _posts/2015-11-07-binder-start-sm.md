@@ -132,6 +132,8 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
 
 调用mmap()进行内存映射，同理mmap()方法经过系统调用，对应于Binder驱动层的[binder_mmap()](http://gityuan.com/2015/11/01/binder-driver/#bindermmap)方法，该方法会在Binder驱动层创建`Binder_buffer`对象，并放入当前binder_proc的`proc->buffers`链表。
 
+binder_state结构体记录着fd和mmap信息。
+
 ### 2.3 binder_become_context_manager
 [-> servicemanager/binder.c]
 
@@ -430,7 +432,7 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
                     int res;
 
                     bio_init(&reply, rdata, sizeof(rdata), 4);
-                    bio_init_from_txn(&msg, txn);
+                    bio_init_from_txn(&msg, txn); //从txn解析出binder_io信息
                      // 收到Binder事务 【见小节2.7】
                     res = func(bs, txn, &msg, &reply);
                     binder_send_reply(bs, &reply, txn->data.ptr.buffer, res);
@@ -523,6 +525,7 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
             handle = do_find_service(bs, s, len, txn->sender_euid, txn->sender_pid);
             if (!handle)
                 break;
+            //将handle信息封装到reply
             bio_put_ref(reply, handle);
             return 0;
 
@@ -594,6 +597,8 @@ servicemanager的核心工作就是注册服务和查询服务。
         }
         return si->handle;
     }
+
+查询到目标服务，并返回该服务所对应的handle
 
 #### 3.1.1 find_svc
 
@@ -957,6 +962,47 @@ binder_write经过跟小节2.5一样的方式, 进入Binder driver后,直接调�
 
 向Binder Driver写入BC_RELEASE命令, 最终进入Binder Driver后执行binder_dec_ref(ref, 1)来减少binder node的引用.
 
+### 3.4 binder_send_reply
+[-> servicemanager/binder.c]
+
+    void binder_send_reply(struct binder_state *bs,
+                           struct binder_io *reply,
+                           binder_uintptr_t buffer_to_free,
+                           int status)
+    {
+        struct {
+            uint32_t cmd_free;
+            binder_uintptr_t buffer;
+            uint32_t cmd_reply;
+            struct binder_transaction_data txn;
+        } __attribute__((packed)) data;
+
+        data.cmd_free = BC_FREE_BUFFER; //free buffer命令
+        data.buffer = buffer_to_free;
+        data.cmd_reply = BC_REPLY; // reply命令
+        data.txn.target.ptr = 0;
+        data.txn.cookie = 0;
+        data.txn.code = 0;
+        if (status) {
+            data.txn.flags = TF_STATUS_CODE;
+            data.txn.data_size = sizeof(int);
+            data.txn.offsets_size = 0;
+            data.txn.data.ptr.buffer = (uintptr_t)&status;
+            data.txn.data.ptr.offsets = 0;
+        } else {
+            data.txn.flags = 0;
+            data.txn.data_size = reply->data - reply->data0;
+            data.txn.offsets_size = ((char*) reply->offs) - ((char*) reply->offs0);
+            data.txn.data.ptr.buffer = (uintptr_t)reply->data0;
+            data.txn.data.ptr.offsets = (uintptr_t)reply->offs0;
+        }
+        //向Binder驱动通信
+        binder_write(bs, &data, sizeof(data));
+    }
+
+【小节2.5】binder_write进入binder驱动后，将BC_FREE_BUFFER和BC_REPLY命令协议发送给Binder驱动，
+向client端发送reply.
+    
 ## 四. 小结
 
 ServiceManger集中管理系统内的所有服务，通过权限控制进程是否有权注册服务,通过字符串名称来查找对应的Service;

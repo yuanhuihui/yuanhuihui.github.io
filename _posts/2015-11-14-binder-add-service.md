@@ -25,24 +25,6 @@ tags:
 
 ##  一.概述
 
-先来看看Native Binder IPC的两个重量级对象：BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代表，它们都从IBinder类中派生而来，关系图如下：
-
-![Binder关系图](/images/binder/prepare/Ibinder_classes.jpg)
-
-- IBinder有一个重要方法queryLocalInterface， 默认返回值为NULL；
-  - BBinder/BpBinder都没有实现，默认返回NULL；BnInterface重写该方法；
-  - BinderProxy(Java)默认返回NULL；Binder(Java)重写该方法；
-- IInterface有一个重要方法asBinder；
-- IInterface子类(服务端)会有一个方法asInterface；
-
-Native层通过宏IMPLEMENT_META_INTERFACE来完成asInterface实现和descriptor的赋值过程；
-
-Tips: 对于Java层跟Native一样，也有完全对应的一套对象和方法。
-例如ActivityManagerNative， 通过实现asInterface方法，以及其通过其构造函数
-调用attachInterface()，完成descriptor的赋值过程。再比如AIDL全自动生成asInterface和descriptor赋值过程。
-
-同一个进程，请求binder服务，是否需要经过binder call，取决于descriptor是否设置。
-
 #### 1.1 media服务注册
 
 media入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
@@ -808,5 +790,3 @@ MediaPlayerService服务注册
 
 整个过程中，BC_TRANSACTION和BR_TRANSACTION过程是一个完整的事务过程；BC_REPLY和BR_REPLY是一个完整的事务过程。
 到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://gityuan.com/2015/11/15/binder-get-service/)。
-
-`TODO, 本文重构中...`

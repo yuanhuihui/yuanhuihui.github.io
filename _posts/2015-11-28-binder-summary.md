@@ -48,55 +48,30 @@ Binder IPC机制，就是指在进程间传输数据（binder_transaction_data�
 
 在Binder驱动层，每个接收端进程都有一个todo队列，用于保存发送端进程发送过来的binder请求，这类请求可以由接收端进程的任意一个空闲的binder线程处理；接收端进程存在一个或多个binder线程，在每个binder线程里都有一个todo队列，也是用于保存发送端进程发送过来的binder请求，这类请求只能由当前binder线程来处理。binder线程在空闲时进入可中断的休眠状态，当自己的todo队列或所属进程的todo队列有新的请求到来时便会唤醒，如果是由所需进程唤醒的，那么进程会让其中一个线程处理响应的请求，其他线程再次进入休眠状态。
 
+
+### 5. Binder路由
+
+先来看看Native Binder IPC的两个重量级对象：BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代表，它们都从IBinder类中派生而来，关系图如下：
+
+![Binder关系图](/images/binder/prepare/Ibinder_classes.jpg)
+
+- IBinder有一个重要方法queryLocalInterface， 默认返回值为NULL；
+  - BBinder/BpBinder都没有实现，默认返回NULL；BnInterface重写该方法；
+  - BinderProxy(Java)默认返回NULL；Binder(Java)重写该方法；
+- IInterface有一个重要方法asBinder；
+- IInterface子类(服务端)会有一个方法asInterface；
+
+Native层通过宏IMPLEMENT_META_INTERFACE来完成asInterface实现和descriptor的赋值过程；
+
+对于Java层跟Native一样，也有完全对应的一套对象和方法:
+
+- 例如ActivityManagerNative， 通过实现asInterface方法，以及其通过其构造函数
+调用attachInterface()，完成descriptor的赋值过程。
+- 再如AIDL全自动生成asInterface和descriptor赋值过程。
+
+同一个进程，请求binder服务，是否需要经过binder call，取决于descriptor是否设置。
+
+
 **binder的路由原理**：BpBinder发送端，根据handler，在当前binder_proc中，找到相应的binder_ref，由binder_ref再找到目标binder_node实体，由目标binder_node再找到目标进程binder_proc。简单地方式是直接把binder_transaction节点插入到binder_proc的todo队列中，完成传输过程。
 
 对于binder驱动来说应尽可能地把binder_transaction节点插入到目标进程的某个线程的todo队列，效率更高。当binder驱动可以找到合适的线程，就会把binder_transaction节点插入到相应线程的todo队列中，如果找不到合适的线程，就把节点之间插入binder_proc的todo队列。
-
-### 5. 源码目录
-从上之下, 整个Binder架构所涉及的总共有以下5个目录:
-
-    /framework/base/core/java/               (Java)
-    /framework/base/core/jni/                (JNI)
-    /framework/native/libs/binder            (Native)
-    /framework/native/cmds/servicemanager/   (Native)
-    /kernel/drivers/staging/android          (Driver)
-
-
-#### 5.1 Java framework
-    /framework/base/core/java/android/os/  
-        - IInterface.java
-        - IBinder.java
-        - Parcel.java
-        - IServiceManager.java
-        - ServiceManager.java
-        - ServiceManagerNative.java
-        - Binder.java  
-
-
-    /framework/base/core/jni/    
-        - android_os_Parcel.cpp
-        - AndroidRuntime.cpp
-        - android_util_Binder.cpp (核心类)
-
-#### 5.2 Native framework
-
-    /framework/native/libs/binder         
-        - IServiceManager.cpp
-        - BpBinder.cpp
-        - Binder.cpp
-        - IPCThreadState.cpp (核心类)
-        - ProcessState.cpp  (核心类)
-
-    /framework/native/include/binder/
-        - IServiceManager.h
-        - IInterface.h
-
-    /framework/native/cmds/servicemanager/
-        - service_manager.c
-        - binder.c
-
-#### 5.3 Kernel
-
-    /kernel/drivers/staging/android/
-        - binder.c
-        - uapi/binder.h

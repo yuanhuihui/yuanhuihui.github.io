@@ -436,7 +436,6 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
 这里涉及两个核心方法`binder_thread_write()`和`binder_thread_read()`方法，在Binder系列的后续文章[Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)中详细介绍。
 
-
 ## 三、 结构体附录
 
 下面列举Binder相关的核心结构体，并解释其中的比较重要的参数。
@@ -445,7 +444,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 |---|---|---|
 |**binder_proc**|binder进程|每个进程调用open()打开binder驱动都会创建该结构体，用于管理IPC所需的各种信息|
 |**binder_thread**|binder线程|对应于上层的binder线程|
-|**binder_buffer**|binder缓存|调用mmap()创建用于Binder传输数据的缓存区|
+|**binder_buffer**|binder内存|调用mmap()创建用于Binder传输数据的缓存区|
 |binder_transaction_data|binder事务数据|记录传输数据内容，比如发送方pid/uid，RPC数据
 |binder_transaction|binder事务|记录传输事务的发送方和接收方线程、进程等|
 |binder_write_read|binder读写|记录buffer中读和写的数据信息|
@@ -453,12 +452,9 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 |**binder_ref**|binder引用|对应于BpBinder对象，记录BpBinder的引用计数、死亡通知、BBinder指针等
 |flat_binder_object|binder扁平对象|Binder对象在两个进程间传递的扁平结构
 
-
-
 ### 3.1 binder_proc
 
 binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构体的结构体。
-
 
 |类型|成员变量|解释|
 |---|---|---|
@@ -760,3 +756,11 @@ flat_binder_object结构体代表Binder对象在两个进程间传递的扁平�
 |BINDER_TYPE_FD|binder文件描述符|
 
 当传输的flat_binder_object的成员变量type等于BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER类型时，代表该过程为Server进程向Service Manager进程进行服务注册的过程，则创建binder_node对象；当其type等于BINDER_TYPE_HANDLE或BINDER_TYPE_WEAK_HEANDLE类型时，代表该过程为Client进程向另一个进程发送Service代理，则创建binder_ref对象；当其type等于BINDER_TYPE_FD时，代表该过程为一个进程向另一个进程发送文件描述符(file descriptor)，只是打开文件，则无需创建任何对象。
+
+## 四. 常见方法
+
+    //从proc->refs_by_node中，根据node查询并创建应的binder_ref
+    binder_ref *binder_get_ref_for_node(struct binder_proc *proc, struct binder_node *node)
+    
+    //从proc->refs_by_desc中，根据desc查询对应的binder_ref
+    binder_ref *binder_get_ref(struct binder_proc *proc, uint32_t desc, bool need_strong_ref)
