@@ -12,16 +12,17 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android进程是如何一步步创建的，本文涉及到的源码：
 
+    /frameworks/base/core/java/com/android/internal/os/
+        - ZygoteInit.java
+        - ZygoteConnection.java
+        - RuntimeInit.java
+        - Zygote.java
+
     /frameworks/base/core/java/android/os/Process.java
-    /frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
-    /frameworks/base/core/java/com/android/internal/os/ZygoteConnection.java
-    /frameworks/base/core/java/com/android/internal/os/RuntimeInit.java
-
-    /frameworks/base/core/java/com/android/internal/os/Zygote.java
     /frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
-
-    /frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
     /frameworks/base/core/jni/AndroidRuntime.cpp
+    /frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
+
 
     /libcore/dalvik/src/main/java/dalvik/system/ZygoteHooks.java
     /art/runtime/native/dalvik_system_ZygoteHooks.cc
@@ -254,7 +255,7 @@ tags:
             } catch (ErrnoException ex) {
                 ...
             }
-            
+
             for (int i = pollFds.length - 1; i >= 0; --i) {
                 //采用I/O多路复用机制，当接收到客户端发出连接请求 或者数据处理请求到来，则往下执行；
                 // 否则进入continue，跳出本次循环。
@@ -393,7 +394,7 @@ tags:
     }
 
 VM_HOOKS是Zygote对象的静态成员变量：VM_HOOKS = new ZygoteHooks();
-        
+
 #### 7.1 Zygote进程
 
 先说说Zygote进程，如下图：
@@ -632,7 +633,7 @@ nativePostForkChild通过JNI最终调用调用如下方法：
 [-> ZygoteHooks.java]
 
     public void postForkCommon() {
-        Daemons.start(); 
+        Daemons.start();
     }
 
     public static void start() {
@@ -782,9 +783,10 @@ nativeZygoteInit()所对应的jni方法如下：
     static void com_android_internal_os_RuntimeInit_nativeZygoteInit(JNIEnv* env, jobject clazz)
     {
         //此处的gCurRuntime为AppRuntime，是在AndroidRuntime.cpp中定义的
-        gCurRuntime->onZygoteInit(); 
+        gCurRuntime->onZygoteInit();
     }
 
+##### 14.2.1 onZygoteInit
 [-->app_main.cpp]
 
     virtual void onZygoteInit()
@@ -793,7 +795,8 @@ nativeZygoteInit()所对应的jni方法如下：
         proc->startThreadPool(); //启动新binder线程
     }
 
-ProcessState::self()是单例模式，主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver()，在binder系列文章中的[注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)详细这两个方法的执行原理。
+- ProcessState::self():主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver().
+- startThreadPool(): 启动Binder线程池, 详见[进程的Binder线程池工作过程](http://gityuan.com/2016/10/29/binder-thread-pool/)
 
 
 #### 14.3 applicationInit
@@ -832,7 +835,7 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
         Class<?> cl = Class.forName(className, true, classLoader);
 
         Method m = cl.getMethod("main", new Class[] { String[].class });
-        
+
         int modifiers = m.getModifiers();
         ...
 
@@ -888,7 +891,7 @@ invokeStaticMain()方法中抛出的异常`MethodAndArgsCaller` caller，该方�
         if (sMainThreadHandler == null) {
             sMainThreadHandler = thread.getHandler();
         }
-        
+
         //主线程进入循环状态
         Looper.loop();
 

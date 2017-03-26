@@ -22,7 +22,7 @@ tags:
 
     frameworks/native/include/binder/
       - IInterface.h (包括BnInterface, BpInterface)
-        
+
 ##  一.概述
 
 先来看看Native Binder IPC的两个重量级对象：BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代表，它们都从IBinder类中派生而来，关系图如下：
@@ -43,37 +43,7 @@ Tips: 对于Java层跟Native一样，也有完全对应的一套对象和方法�
 
 同一个进程，请求binder服务，是否需要经过binder call，取决于descriptor是否设置。
 
-#### 1.1 类图
-
-在Native层的服务以media服务为例，来说一说服务注册过程，先来看看media的整个的类关系图。
-
-点击查看[大图](http://gityuan.com/images/binder/addService/add_media_player_service.png)
-
-![add_media_player_service](/images/binder/addService/add_media_player_service.png)
-
-图解：
-
-- 蓝色代表的是注册MediaPlayerService服务所涉及的类
-- 绿色代表的是Binder架构中与Binder驱动通信过程中的最为核心的两个类；
-- 紫色代表的是注册服务和[获取服务](http://gityuan.com/2015/11/15/binder-get-service/)的公共接口/父类；
-
-
-#### 1.2 时序图
-
-先通过一幅图来说说，media服务启动过程是如何向servicemanager注册服务的。
-
-点击查看[大图](http://gityuan.com/images/binder/addService/addService.jpg)
-
-![addService](/images/binder/addService/addService.jpg)
-
-为了让每小节标题更加紧凑，下面流程采用如下简称：
-
-    MPS: MediaPlayerService
-    IPC: IPCThreadState
-    PS:  ProcessState
-    ISM: IServiceManager
-
-## 二. 启动过程
+#### 1.1 media服务注册
 
 media入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
 
@@ -94,14 +64,43 @@ media入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
         SoundTriggerHwService::instantiate();
         RadioService::instantiate();
         registerExtensions();
-        //创建Binder线程，并加入线程池【小节4.1】
+        //启动Binder线程池
         ProcessState::self()->startThreadPool();
-        //当前线程加入到线程池 【见小节4.3】
+        //当前线程加入到线程池
         IPCThreadState::self()->joinThreadPool();
      }
 
-[获取ServiceManager](http://gityuan.com/2015/11/08/binder-get-sm/#defaultservicemanager)
-已介绍过defaultServiceManager()返回的是BpServiceManager对象，用于跟/system/bin/servicemanager进程通信。
+过程说明:
+
+1. [获取ServiceManager](http://gityuan.com/2015/11/08/binder-get-sm/#defaultservicemanager):
+讲解了defaultServiceManager()返回的是BpServiceManager对象， 用于跟servicemanager进程通信;
+2. [理解Binder线程池的管理](http://gityuan.com/2016/10/29/binder-thread-pool/), 讲解了startThreadPool和joinThreadPool过程.
+
+本文的重点就是讲解Native层服务注册的过程.
+
+#### 1.2 类图
+
+在Native层的服务以media服务为例，来说一说服务注册过程，先来看看media的整个的类关系图。
+点击查看[大图](http://gityuan.com/images/binder/addService/add_media_player_service.png)
+
+![add_media_player_service](/images/binder/addService/add_media_player_service.png)
+
+图解：
+
+- 蓝色代表的是注册MediaPlayerService服务所涉及的类
+- 绿色代表的是Binder架构中与Binder驱动通信过程中的最为核心的两个类；
+- 紫色代表的是注册服务和[获取服务](http://gityuan.com/2015/11/15/binder-get-service/)的公共接口/父类；
+
+
+#### 1.3 时序图
+
+先通过一幅图来说说，media服务启动过程是如何向servicemanager注册服务的。
+
+点击查看[大图](http://gityuan.com/images/binder/addService/addService.jpg)
+
+![addService](/images/binder/addService/addService.jpg)
+
+## 二. ProcessState
 
 #### 2.1 ProcessState::self
 [-> ProcessState.cpp]
@@ -195,11 +194,11 @@ ProcessState采用单例模式，保证每一个进程都只打开一次Binder D
     void MediaPlayerService::instantiate() {
         //注册服务【见小节3.2】
         defaultServiceManager()->addService(
-               String16("media.player"), new MediaPlayerService()); 
+               String16("media.player"), new MediaPlayerService());
     }
 
-注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。故此处等价于调用BpServiceManager->addService。
-其中MediaPlayerService位于libmediaplayerservice库，其创建过程此处就省略后面有时间会单独介绍，接下来进入流程[2]。
+注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。
+故此处等价于调用BpServiceManager->addService。其中MediaPlayerService位于libmediaplayerservice库.
 
 ### 3.2 addService
 [-> IServiceManager.cp BpServiceManager]
@@ -372,7 +371,7 @@ transact过程，先写完binder_transaction_data数据， 接下来执行waitFo
         int32_t cmd;
         int32_t err;
         while (1) {
-            if ((err=talkWithDriver()) < NO_ERROR) break; // 【见小节3.6.1】
+            if ((err=talkWithDriver()) < NO_ERROR) break; // 【见小节3.7】
             ...
             if (mIn.dataAvail() == 0) continue;
 
@@ -386,7 +385,7 @@ transact过程，先写完binder_transaction_data数据， 接下来执行waitFo
                     goto finish;
 
                 default:
-                    err = executeCommand(cmd);  //【见小节3.6.2】
+                    err = executeCommand(cmd);  //【见小节3.x】
                     if (err != NO_ERROR) goto finish;
                     break;
             }
@@ -395,9 +394,10 @@ transact过程，先写完binder_transaction_data数据， 接下来执行waitFo
         return err;
     }
 
-不断循环地与Binder驱动设备交互，获取响应信息
+在waitForResponse过程, 首先执行BR_TRANSACTION_COMPLETE；另外，目标进程收到事务后，处理BR_TRANSACTION事务。
+然后发送给当前进程，再执行BR_REPLY命令。
 
-#### 3.6.1 IPC.talkWithDriver
+### 3.7 IPC.talkWithDriver
 [-> IPCThreadState.cpp]
 
     status_t IPCThreadState::talkWithDriver(bool doReceive)
@@ -441,10 +441,218 @@ transact过程，先写完binder_transaction_data数据， 接下来执行waitFo
 
 [binder_write_read结构体](http://gityuan.com/2015/11/01/binder-driver/#binderwriteread)用来与Binder设备交换数据的结构, 通过ioctl与mDriverFD通信，是真正与Binder驱动进行数据读写交互的过程。 主要是操作mOut和mIn变量。
 
-在waitForResponse过程, 首先执行BR_TRANSACTION_COMPLETE；另外，目标进程收到事务后，处理BR_TRANSACTION事务。
-然后发送给当前进程，再执行BR_REPLY命令。
+ioctl()经过系统调用后进入Binder Driver.
 
-此处省略若干过程...， 当服务注册完成后，其他进程请求该服务时则会执行到BR_TRANSACTION过程：
+## 四. Binder Driver
+
+ioctl -> binder_ioctl -> binder_ioctl_write_read
+
+### 4.1 binder_ioctl_write_read
+[-> binder.c]
+
+    static int binder_ioctl_write_read(struct file *filp,
+                    unsigned int cmd, unsigned long arg,
+                    struct binder_thread *thread)
+    {
+        struct binder_proc *proc = filp->private_data;
+        void __user *ubuf = (void __user *)arg;
+        struct binder_write_read bwr;
+
+        //将用户空间bwr结构体拷贝到内核空间
+        copy_from_user(&bwr, ubuf, sizeof(bwr));
+        ...
+
+        if (bwr.write_size > 0) {
+            //将数据放入目标进程【见小节4.2】
+            ret = binder_thread_write(proc, thread,
+                          bwr.write_buffer,
+                          bwr.write_size,
+                          &bwr.write_consumed);
+            ...
+        }
+        if (bwr.read_size > 0) {
+            //读取自己队列的数据 【见小节】
+            ret = binder_thread_read(proc, thread, bwr.read_buffer,
+                 bwr.read_size,
+                 &bwr.read_consumed,
+                 filp->f_flags & O_NONBLOCK);
+            if (!list_empty(&proc->todo))
+                wake_up_interruptible(&proc->wait);
+            ...
+        }
+
+        //将内核空间bwr结构体拷贝到用户空间
+        copy_to_user(ubuf, &bwr, sizeof(bwr));
+        ...
+    }   
+
+### 4.2 binder_thread_write
+
+    static int binder_thread_write(struct binder_proc *proc,
+                struct binder_thread *thread,
+                binder_uintptr_t binder_buffer, size_t size,
+                binder_size_t *consumed)
+    {
+        uint32_t cmd;
+        void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
+        void __user *ptr = buffer + *consumed;
+        void __user *end = buffer + size;
+        while (ptr < end && thread->return_error == BR_OK) {
+            //拷贝用户空间的cmd命令，此时为BC_TRANSACTION
+            if (get_user(cmd, (uint32_t __user *)ptr)) -EFAULT;
+            ptr += sizeof(uint32_t);
+            switch (cmd) {
+            case BC_TRANSACTION:
+            case BC_REPLY: {
+                struct binder_transaction_data tr;
+                //拷贝用户空间的binder_transaction_data
+                if (copy_from_user(&tr, ptr, sizeof(tr)))   return -EFAULT;
+                ptr += sizeof(tr);
+                // 见小节4.3】
+                binder_transaction(proc, thread, &tr, cmd == BC_REPLY);
+                break;
+            }
+            ...
+        }
+        *consumed = ptr - buffer;
+      }
+      return 0;
+    }
+
+### 4.3 binder_transaction
+
+    static void binder_transaction(struct binder_proc *proc,
+                   struct binder_thread *thread,
+                   struct binder_transaction_data *tr, int reply){
+         struct binder_transaction *t;
+         struct binder_work *tcomplete;
+         binder_size_t *offp, *off_end;
+         binder_size_t off_min;
+         struct binder_proc *target_proc;
+         struct binder_thread *target_thread = NULL;
+         struct binder_node *target_node = NULL;
+         struct list_head *target_list;
+         wait_queue_head_t *target_wait;
+         struct binder_transaction *in_reply_to = NULL;
+
+        if (reply) {
+            ...
+        }else {
+            if (tr->target.handle) {
+                ...
+            } else {
+                // handle=0,则找到servicemanager实体
+                target_node = binder_context_mgr_node;
+            }
+            //target_proc为servicemanager进程
+            target_proc = target_node->proc;
+        }
+
+        if (target_thread) {
+            ...
+        } else {
+            //找到servicemanager进程的todo队列
+            target_list = &target_proc->todo;
+            target_wait = &target_proc->wait;
+        }
+
+        t = kzalloc(sizeof(*t), GFP_KERNEL);
+        tcomplete = kzalloc(sizeof(*tcomplete), GFP_KERNEL);
+
+        //非oneway的通信方式，把当前thread保存到transaction的from字段
+        if (!reply && !(tr->flags & TF_ONE_WAY))
+            t->from = thread;
+        else
+            t->from = NULL;
+
+        t->sender_euid = task_euid(proc->tsk);
+        t->to_proc = target_proc; //此次通信目标进程为servicemanager进程
+        t->to_thread = target_thread;
+        t->code = tr->code;  //此次通信code = ADD_SERVICE_TRANSACTION
+        t->flags = tr->flags;  // 此次通信flags = 0
+        t->priority = task_nice(current);
+
+        //从servicemanager进程中分配buffer
+        t->buffer = binder_alloc_buf(target_proc, tr->data_size,
+            tr->offsets_size, !reply && (t->flags & TF_ONE_WAY));
+
+        t->buffer->allow_user_free = 0;
+        t->buffer->transaction = t;
+        t->buffer->target_node = target_node;
+
+        if (target_node)
+            binder_inc_node(target_node, 1, 0, NULL); //引用计数加1
+        offp = (binder_size_t *)(t->buffer->data + ALIGN(tr->data_size, sizeof(void *)));
+
+        //分别拷贝用户空间的binder_transaction_data中ptr.buffer和ptr.offsets到内核
+        copy_from_user(t->buffer->data,
+            (const void __user *)(uintptr_t)tr->data.ptr.buffer, tr->data_size);
+        copy_from_user(offp,
+            (const void __user *)(uintptr_t)tr->data.ptr.offsets, tr->offsets_size);
+
+        off_end = (void *)offp + tr->offsets_size;
+
+        for (; offp < off_end; offp++) {
+            struct flat_binder_object *fp;
+            fp = (struct flat_binder_object *)(t->buffer->data + *offp);
+            off_min = *offp + sizeof(struct flat_binder_object);
+            switch (fp->type) {
+            ...
+            case BINDER_TYPE_HANDLE:
+            case BINDER_TYPE_WEAK_HANDLE: {
+                //处理引用计数情况
+                struct binder_ref *ref = binder_get_ref(proc, fp->handle);
+                if (ref->node->proc == target_proc) {
+                    if (fp->type == BINDER_TYPE_HANDLE)
+                        fp->type = BINDER_TYPE_BINDER;
+                    else
+                        fp->type = BINDER_TYPE_WEAK_BINDER;
+                    fp->binder = ref->node->ptr;
+                    fp->cookie = ref->node->cookie;
+                    binder_inc_node(ref->node, fp->type == BINDER_TYPE_BINDER, 0, NULL);
+                } else {    
+                    struct binder_ref *new_ref;
+                    new_ref = binder_get_ref_for_node(target_proc, ref->node);
+                    fp->handle = new_ref->desc;
+                    binder_inc_ref(new_ref, fp->type == BINDER_TYPE_HANDLE, NULL);
+                }
+            } break;
+            ...
+
+        }
+
+        if (reply) {
+            //BC_REPLY的过程
+            binder_pop_transaction(target_thread, in_reply_to);
+        } else if (!(t->flags & TF_ONE_WAY)) {
+            //BC_TRANSACTION 且 非oneway,则设置事务栈信息
+            t->need_reply = 1;
+            t->from_parent = thread->transaction_stack;
+            thread->transaction_stack = t;
+        } else {
+            //BC_TRANSACTION 且 oneway,则加入异步todo队列
+            if (target_node->has_async_transaction) {
+                target_list = &target_node->async_todo;
+                target_wait = NULL;
+            } else
+                target_node->has_async_transaction = 1;
+        }
+
+        //将BINDER_WORK_TRANSACTION添加到目标队列，本次通信的目标队列为target_proc->todo
+        t->work.type = BINDER_WORK_TRANSACTION;
+        list_add_tail(&t->work.entry, target_list);
+
+        //将BINDER_WORK_TRANSACTION_COMPLETE添加到当前线程的todo队列
+        tcomplete->type = BINDER_WORK_TRANSACTION_COMPLETE;
+        list_add_tail(&tcomplete->entry, &thread->todo);
+
+        //唤醒等待队列，本次通信的目标队列为target_proc->wait
+        if (target_wait)
+            wake_up_interruptible(target_wait);
+        return;
+    }
+
+## 五.
 
 ### 3.7 IPC.executeCommand
 [-> IPCThreadState.cpp]
@@ -507,7 +715,7 @@ transact过程，先写完binder_transaction_data数据， 接下来执行waitFo
         return result;
     }
 
-    
+
 ### 3.8 BBinder::transact
 [-> Binder.cpp]
 
@@ -569,127 +777,8 @@ transact过程，先写完binder_transaction_data数据， 接下来执行waitFo
 以上只是默认处理过程，但对于本文的MediaPlayerService继承于BnMediaPlayerService,由间接继承于BBinder对象，
 在BnMediaPlayerService重载了onTransact()方法，故实际调用的是BnMediaPlayerService::onTransact()方法。
 
-##  四. Binder线程池
 
-### 4.1 PS.startThreadPool
-[-> ProcessState.cpp]
-
-    void ProcessState::startThreadPool()
-    {
-        AutoMutex _l(mLock);    //多线程同步 自动锁
-        if (!mThreadPoolStarted) {
-            mThreadPoolStarted = true;
-            spawnPooledThread(true);  【见流程4.2】
-        }
-    }
-
-通过ProcessState::self()，来获取单例对象ProcessState，再进行启动线程池。
-使用变量mThreadPoolStarted来保证每个应用进程只允许主动创建一个binder线程，其余binder线程池中的线程都是由Binder驱动来控制创建的。
-
-### 4.2 PS.spawnPooledThread
-[-> ProcessState.cpp]
-
-    void ProcessState::spawnPooledThread(bool isMain)
-    {
-        if (mThreadPoolStarted) {
-            String8 name = makeBinderThreadName(); //获取Binder线程名
-            sp<Thread> t = new PoolThread(isMain); //isMain=true 【见小节4.2.1】
-            t->run(name.string());
-        }
-    }
-
-- 获取Binder线程名，格式为`Binder_x`, 其中x为整数。每个进程中的binder编码是从1开始，依次递增;
-- 在终端通过 `ps -t | grep Binder`，能看到当前所有的Binder线程。
-
-从函数名看起来是创建线程池，其实就只是创建一个线程，该PoolThread继承Thread类，t->run()方法最终调用PoolThread的threadLoop()方法。
-
-#### 4.2.1 PoolThread
-
-    class PoolThread : public Thread
-    {
-    public:
-        PoolThread(bool isMain)
-            : mIsMain(isMain)
-        {
-        }
-
-    protected:
-        virtual bool threadLoop()
-        {
-            IPCThreadState::self()->joinThreadPool(mIsMain); //【见小节4.3】
-            return false;
-        }
-        const bool mIsMain;
-    };
-
-在新创建的线程里面执行joinThreadPool()方法，加入到Binder线程池，执行binder操作。
-
-### 4.3 IPC.joinThreadPool
-[-> IPCThreadState.cpp]
-
-    void IPCThreadState::joinThreadPool(bool isMain)
-    {
-        //创建Binder线程
-        mOut.writeInt32(isMain ? BC_ENTER_LOOPER : BC_REGISTER_LOOPER);
-        set_sched_policy(mMyThreadId, SP_FOREGROUND); //设置前台调度策略
-
-        status_t result;
-        do {
-            processPendingDerefs(); //清除队列的引用
-            result = getAndExecuteCommand(); //处理下一条指令 【见小节4.4】
-
-            if (result < NO_ERROR && result != TIMED_OUT && result != -ECONNREFUSED && result != -EBADF) {
-                abort();
-            }
-
-            if(result == TIMED_OUT && !isMain) {
-                break;
-            }
-        } while (result != -ECONNREFUSED && result != -EBADF);
-
-        mOut.writeInt32(BC_EXIT_LOOPER);  // 线程退出循环
-        talkWithDriver(false); //false代表bwr数据的read_buffer为空 【见流程10】
-    }
-
-将线程调度策略设置SP_FOREGROUND，当已启动的线程由后台的scheduling group创建，可以避免由后台线程优先级来执行初始化的transaction。
-Binder设计架构中，只有第一个Binder线程是由应用层主动创建，对于Binder线程池其他的线程都是由Binder驱动根据IPC通信需求来控制创建的。
-
-- 对于参数`isMain`=true时，command为BC_ENTER_LOOPER，表示是程序主动创建的线程；
-- 对于参数`isMain`=false时，command为BC_REGISTER_LOOPER，表示是由binder驱动强制创建的线程。
-
-另外，此处有timeout退出机制，当binder线程长时间没有执行任务，则退出该线程。
-
-### 4.4 IPC.getAndExecuteCommand
-[-> IPCThreadState.cpp]
-
-    status_t IPCThreadState::getAndExecuteCommand()
-    {
-        status_t result;
-        int32_t cmd;
-
-        result = talkWithDriver(); //与binder进行交互 【见流程10】
-        if (result >= NO_ERROR) {
-            size_t IN = mIn.dataAvail();
-            if (IN < sizeof(int32_t)) return result;
-            cmd = mIn.readInt32();
-
-            pthread_mutex_lock(&mProcess->mThreadCountLock);
-            mProcess->mExecutingThreadsCount++;
-            pthread_mutex_unlock(&mProcess->mThreadCountLock);
-
-            result = executeCommand(cmd); //执行Binder响应码  【见流程11】
-
-            pthread_mutex_lock(&mProcess->mThreadCountLock);
-            mProcess->mExecutingThreadsCount--;
-            pthread_cond_broadcast(&mProcess->mThreadCountDecrement);
-            pthread_mutex_unlock(&mProcess->mThreadCountLock);
-
-            set_sched_policy(mMyThreadId, SP_FOREGROUND);
-        }
-        return result;
-    }
-
-## 五.总结
+## 四.总结
 
 MediaPlayerService服务注册
 
@@ -719,3 +808,5 @@ MediaPlayerService服务注册
 
 整个过程中，BC_TRANSACTION和BR_TRANSACTION过程是一个完整的事务过程；BC_REPLY和BR_REPLY是一个完整的事务过程。
 到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://gityuan.com/2015/11/15/binder-get-service/)。
+
+`TODO, 本文重构中...`

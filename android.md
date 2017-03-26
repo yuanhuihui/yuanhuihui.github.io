@@ -94,7 +94,7 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 
 - 想进一步了解Binder，可查看[Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)，Binder系列花费了13篇文章的篇幅，从源码角度出发来，讲述Driver、Native、Framework、App四个层面的整个完整流程。根据有些读者反馈这个系列还是不好理解，这个binder涉及的层次跨度比较大,知识量比较广, 建议大家先知道binder是用于进程间通信,有个大致概念就可以.先去学习系统基本知识,等后面有一定功力再进一步深入研究Binder.
 
-**Native层面:**
+**原理篇**
 
 |序号|文章名|概述|
 |---|---|---|
@@ -102,24 +102,22 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 |2|[Binder系列4—获取Service Manager](http://gityuan.com/2015/11/08/binder-get-sm/)|获取代理对象BpServiceManager|
 |3|[Binder系列5—注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)|注册Media服务|
 |4|[Binder系列6—获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)|获取Media代理，以及DeathRecipient|
+|5|[Binder系列7—framework层分析](http://gityuan.com/2015/11/21/binder-framework/)|framework层服务注册和查询，Binder注册|
+|6|[理解Binder线程池的管理](http://gityuan.com/2016/10/29/binder-thread-pool/)|Binder的startThreadPool过程|
+|1|[彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)|startService为主线|
+|2|[Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)|Binder的简单总结|
 
-**Driver层面:**
+**驱动篇:**
 
 |---|---|---|
 |1|[Binder系列1—Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)|驱动open/mmap/ioctl，以及binder结构体|
 |2|[Binder系列2—Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)|Binder通信协议，内存机制|
 
-**Framework层面:**
+**使用篇:**
 
 |---|---|---|
-|1|[Binder系列7—framework层分析](http://gityuan.com/2015/11/21/binder-framework/)|framework层服务注册和查询，Binder注册|
-|2|[Binder系列8—如何使用Binder](http://gityuan.com/2015/11/22/binder-use/)|Native层、Framwrok层自定义Binder服务|
-|3|[Binder系列9—如何使用AIDL](http://gityuan.com/2015/11/23/binder-aidl/)|App层自定义Binder服务|
-|4|[Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)|Binder的简单总结|
-
-**全栈架构型:** 从Java framework到Native层,再到Linux层的一条线的串通
-
-- [彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)
+|1|[Binder系列8—如何使用Binder](http://gityuan.com/2015/11/22/binder-use/)|Native层、Framwrok层自定义Binder服务|
+|2|[Binder系列9—如何使用AIDL](http://gityuan.com/2015/11/23/binder-aidl/)|App层自定义Binder服务|
 
 #### 3.2 Socket
 
@@ -186,7 +184,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
   - [installd](http://gityuan.com/2016/11/13/android-installd)
   - [lmkd](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
 
-  
+
 #### 4.2 系统稳定性系列
 
 Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Android系统稳定性简述](http://gityuan.com/2016/06/19/stability_summary/) :
@@ -200,7 +198,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |6|[WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)|WatchDog触发机制|
 |7|[理解Java   Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)|AMS.handleApplicationCrash过程分析|
 |8|[理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)|debuggerd守护进程|
-    
+
 #### 4.3 Android进程系列
 进程对于系统非常重要，系统运转，各种服务、组件的载体都依托于进程，对进程理解越深刻，越能掌握系统整体架构。那么先来看看进程相关：
 
@@ -284,7 +282,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
     - 敬请期待
 - dalvik/art
     - [ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)
-    
+
 #### 4.8 工具篇
 最后，说说Android相关的一些常用命令和工具以及调试手段.
 

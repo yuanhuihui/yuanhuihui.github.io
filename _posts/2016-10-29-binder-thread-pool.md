@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解Binder线程池的管理"
+title:  "进程的Binder线程池工作过程"
 date:   2016-10-29 11:20:00
 catalog:  true
 tags:
@@ -31,126 +31,44 @@ Binder线程创建与其所在进程的创建中产生，Java层进程的创建�
 
     virtual void onZygoteInit()
     {
-        //获取ProcessState对象【见小节2.2】
+        //获取ProcessState对象
         sp<ProcessState> proc = ProcessState::self();
-        //启动新binder线程 【见小节2.3】
+        //启动新binder线程 【见小节2.2】
         proc->startThreadPool();
     }
 
-ProcessState::self()是单例模式，主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver()。
+ProcessState::self()是单例模式，主要工作是调用open()打开/dev/binder驱动设备，再利用mmap()映射内核的地址空间，将Binder驱动的fd赋值ProcessState对象中的变量mDriverFD，用于交互操作。startThreadPool()是创建一个新的binder线程，不断进行talkWithDriver()。 详细过程,见[注册服务](http://gityuan.com/2015/11/14/binder-add-service/)的[小节二].
 
-### 2.2 ProcessState::self
-[-> ProcessState.cpp]
-
-    sp<ProcessState> ProcessState::self()
-    {
-        Mutex::Autolock _l(gProcessMutex);
-        if (gProcess != NULL) {
-            return gProcess;
-        }
-
-        //实例化ProcessState 【见小节2.2.1】
-        gProcess = new ProcessState;
-        return gProcess;
-    }
-
-
-这也是**单例模式**，从而保证每一个进程只有一个`ProcessState`对象。其中`gProcess`和`gProcessMutex`是保存在`Static.cpp`类的全局变量。
-
-### 2.2.1  ProcessState实例化
-[-> ProcessState.cpp]
-
-    ProcessState::ProcessState()
-        : mDriverFD(open_driver()) // 打开Binder驱动【见小节2.2.2】
-        , mVMStart(MAP_FAILED)
-        , mThreadCountLock(PTHREAD_MUTEX_INITIALIZER)
-        , mThreadCountDecrement(PTHREAD_COND_INITIALIZER)
-        , mExecutingThreadsCount(0)
-        , mMaxThreads(DEFAULT_MAX_BINDER_THREADS)
-        , mManagesContexts(false)
-        , mBinderContextCheckFunc(NULL)
-        , mBinderContextUserData(NULL)
-        , mThreadPoolStarted(false)
-        , mThreadPoolSeq(1)
-    {
-        if (mDriverFD >= 0) {
-            //采用内存映射函数mmap，给binder分配一块虚拟地址空间,用来接收事务
-            mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
-            if (mVMStart == MAP_FAILED) {
-                close(mDriverFD); //没有足够空间分配给/dev/binder,则关闭驱动
-                mDriverFD = -1;
-            }
-        }
-    }
-
-
-- `ProcessState`的单例模式的惟一性，因此一个进程只打开binder设备一次,其中ProcessState的成员变量`mDriverFD`记录binder驱动的fd，用于访问binder设备。
-- `BINDER_VM_SIZE = (1*1024*1024) - (4096 *2)`, 每个进程分配给binder的默认内存大小为1M-8k。
-- `DEFAULT_MAX_BINDER_THREADS = 15`，binder默认的最大可并发访问的线程数为16。
-
-#### 2.2.2 PS.open_driver
-[-> ProcessState.cpp]
-
-    static int open_driver()
-    {
-        // 打开/dev/binder设备，建立与内核的Binder驱动的交互通道
-        int fd = open("/dev/binder", O_RDWR);
-        if (fd >= 0) {
-            fcntl(fd, F_SETFD, FD_CLOEXEC);
-            int vers = 0;
-            status_t result = ioctl(fd, BINDER_VERSION, &vers);
-            if (result == -1) {
-                close(fd);
-                fd = -1;
-            }
-            if (result != 0 || vers != BINDER_CURRENT_PROTOCOL_VERSION) {
-                close(fd);
-                fd = -1;
-            }
-            size_t maxThreads = DEFAULT_MAX_BINDER_THREADS;
-
-            // 通过ioctl设置binder驱动，能支持的最大线程数
-            result = ioctl(fd, BINDER_SET_MAX_THREADS, &maxThreads);
-            if (result == -1) {
-                ...
-            }
-        } else {
-            ...
-        }
-        return fd;
-    }
-
-open_driver作用是打开/dev/binder设备，设定binder支持的最大线程数。关于binder驱动的相应方法，见文章[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)。
-
-### 2.3 PS.startThreadPool
+### 2.2 PS.startThreadPool
 [-> ProcessState.cpp]
 
     void ProcessState::startThreadPool()
     {
-        AutoMutex _l(mLock);    //多线程同步 自动锁
+        AutoMutex _l(mLock);    //多线程同步
         if (!mThreadPoolStarted) {
             mThreadPoolStarted = true;
-            spawnPooledThread(true);  【见小节2.4】
+            spawnPooledThread(true);  【见小节2.3】
         }
     }
 
-启动Binder线程池，通过变量mThreadPoolStarted来保证每个应用进程只允许创建一个binder主线程(isMain=true)，其余binder线程池中的线程都是由Binder驱动来控制创建的。
+启动Binder线程池后, 则设置mThreadPoolStarted=true. 通过变量mThreadPoolStarted来保证每个应用进程只允许启动一个binder线程池, 且本次创建的是binder主线程(isMain=true).
+其余binder线程池中的线程都是由Binder驱动来控制创建的。
 
-### 2.4 PS.spawnPooledThread
+### 2.3 PS.spawnPooledThread
 [-> ProcessState.cpp]
 
     void ProcessState::spawnPooledThread(bool isMain)
     {
         if (mThreadPoolStarted) {
-            //获取Binder线程名【见小节2.4.1】
-            String8 name = makeBinderThreadName(); 
-            //此处isMain=true【见小节2.4.2】
-            sp<Thread> t = new PoolThread(isMain); 
+            //获取Binder线程名【见小节2.3.1】
+            String8 name = makeBinderThreadName();
+            //此处isMain=true【见小节2.3.2】
+            sp<Thread> t = new PoolThread(isMain);
             t->run(name.string());
         }
     }
 
-#### 2.4.1 makeBinderThreadName
+#### 2.3.1 makeBinderThreadName
 [-> ProcessState.cpp]
 
     String8 ProcessState::makeBinderThreadName() {
@@ -161,25 +79,31 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
     }
 
 获取Binder线程名，格式为`Binder_x`, 其中x为整数。每个进程中的binder编码是从1开始，依次递增; 只有通过spawnPooledThread方法来创建的线程才符合这个格式，对于直接将当前线程通过joinThreadPool加入线程池的线程名则不符合这个命名规则。
+另外,目前Android N中Binder命令已改为Binder:<pid>_x格式, 则对于分析问题很有帮忙.
 
-#### 2.4.2 PoolThread.run
+#### 2.3.2 PoolThread.run
+[-> ProcessState.cpp]
 
     class PoolThread : public Thread
     {
-        ...
-        virtual bool threadLoop()
+    public:
+        PoolThread(bool isMain)
+            : mIsMain(isMain)
         {
-             //加入线程池【见小节2.5】
-            IPCThreadState::self()->joinThreadPool(mIsMain);
-            return false;
         }
 
+    protected:
+        virtual bool threadLoop()
+        {
+            IPCThreadState::self()->joinThreadPool(mIsMain); //【见小节2.4】
+            return false;
+        }
         const bool mIsMain;
     };
 
 从函数名看起来是创建线程池，其实就只是创建一个线程，该PoolThread继承Thread类。t->run()方法最终调用 PoolThread的threadLoop()方法。
 
-### 2.5 IPC.joinThreadPool
+### 2.4 IPC.joinThreadPool
 [-> IPCThreadState.cpp]
 
     void IPCThreadState::joinThreadPool(bool isMain)
@@ -190,15 +114,17 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 
         status_t result;
         do {
-            processPendingDerefs(); //清除队列的引用
-            result = getAndExecuteCommand(); //处理下一条指令
-            ...
+            processPendingDerefs(); //清除队列的引用[见小节2.5]
+            result = getAndExecuteCommand(); //处理下一条指令[见小节2.6]
 
-            //非主线程出现timeout则线程退出
-            if(result == TIMED_OUT && !isMain) {
-                break;
+            if (result < NO_ERROR && result != TIMED_OUT
+                    && result != -ECONNREFUSED && result != -EBADF) {
+                abort();
             }
-            //发生ECONNREFUSED或EBADF，则不管什么线程直接退出
+
+            if(result == TIMED_OUT && !isMain) {
+                break; ////非主线程出现timeout则线程退出
+            }
         } while (result != -ECONNREFUSED && result != -EBADF);
 
         mOut.writeInt32(BC_EXIT_LOOPER);  // 线程退出循环
@@ -208,9 +134,86 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 - 对于`isMain`=true的情况下， command为BC_ENTER_LOOPER，代表的是Binder主线程，不会退出的线程；
 - 对于`isMain`=false的情况下，command为BC_REGISTER_LOOPER，表示是由binder驱动创建的线程。
 
-在这里调用的isMain=true，也就是向mOut例如写入的便是`BC_ENTER_LOOPER`，接下来程序往哪进行呢？在文章[彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)详细讲解了Binder通信过程，那么从`binder_thread_write()`往下说`BC_ENTER_LOOPER`的处理过程。
+### 2.5 processPendingDerefs
+[-> IPCThreadState.cpp]
 
-### 2.6 binder_thread_write
+    void IPCThreadState::processPendingDerefs()
+    {
+        if (mIn.dataPosition() >= mIn.dataSize()) {
+            size_t numPending = mPendingWeakDerefs.size();
+            if (numPending > 0) {
+                for (size_t i = 0; i < numPending; i++) {
+                    RefBase::weakref_type* refs = mPendingWeakDerefs[i];
+                    refs->decWeak(mProcess.get()); //弱引用减一
+                }
+                mPendingWeakDerefs.clear();
+            }
+
+            numPending = mPendingStrongDerefs.size();
+            if (numPending > 0) {
+                for (size_t i = 0; i < numPending; i++) {
+                    BBinder* obj = mPendingStrongDerefs[i];
+                    obj->decStrong(mProcess.get()); //强引用减一
+                }
+                mPendingStrongDerefs.clear();
+            }
+        }
+    }
+
+### 2.6 getAndExecuteCommand
+[-> IPCThreadState.cpp]
+
+    status_t IPCThreadState::getAndExecuteCommand()
+    {
+        status_t result;
+        int32_t cmd;
+
+        result = talkWithDriver(); //与binder进行交互[见小节2.7]
+        if (result >= NO_ERROR) {
+            size_t IN = mIn.dataAvail();
+            if (IN < sizeof(int32_t)) return result;
+            cmd = mIn.readInt32();
+
+            pthread_mutex_lock(&mProcess->mThreadCountLock);
+            mProcess->mExecutingThreadsCount++;
+            pthread_mutex_unlock(&mProcess->mThreadCountLock);
+
+            result = executeCommand(cmd); //执行Binder响应码 [见小节2.8]
+
+            pthread_mutex_lock(&mProcess->mThreadCountLock);
+            mProcess->mExecutingThreadsCount--;
+            pthread_cond_broadcast(&mProcess->mThreadCountDecrement);
+            pthread_mutex_unlock(&mProcess->mThreadCountLock);
+
+            set_sched_policy(mMyThreadId, SP_FOREGROUND);
+        }
+        return result;
+    }
+
+### 2.7 talkWithDriver
+
+    //mOut有数据，mIn还没有数据。doReceive默认值为true
+    status_t IPCThreadState::talkWithDriver(bool doReceive)
+    {
+        binder_write_read bwr;
+        ...
+        // 当同时没有输入和输出数据则直接返回
+        if ((bwr.write_size == 0) && (bwr.read_size == 0)) return NO_ERROR;
+        ...
+
+        do {
+            //ioctl执行binder读写操作，经过syscall，进入Binder驱动。调用Binder_ioctl
+            if (ioctl(mProcess->mDriverFD, BINDER_WRITE_READ, &bwr) >= 0)
+                err = NO_ERROR;
+            ...
+        } while (err == -EINTR);
+        ...
+        return err;
+    }
+
+在这里调用的isMain=true，也就是向mOut例如写入的便是`BC_ENTER_LOOPER`. 经过talkWithDriver(), 接下来程序往哪进行呢？在文章[彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)详细讲解了Binder通信过程，那么从`binder_thread_write()`往下说`BC_ENTER_LOOPER`的处理过程。
+
+#### 2.7.1 binder_thread_write
 [-> binder.c]
 
     static int binder_thread_write(struct binder_proc *proc,
@@ -242,7 +245,7 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
                   }
                   thread->looper |= BINDER_LOOPER_STATE_REGISTERED;
                   break;
-              
+
               case BC_ENTER_LOOPER:
                   if (thread->looper & BINDER_LOOPER_STATE_REGISTERED) {
                     //出错原因：线程调用完BC_REGISTER_LOOPER，不能立刻执行该分支
@@ -251,7 +254,7 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
                   //创建Binder主线程
                   thread->looper |= BINDER_LOOPER_STATE_ENTERED;
                   break;
-                
+
               case BC_EXIT_LOOPER:
                   thread->looper |= BINDER_LOOPER_STATE_EXITED;
                   break;
@@ -266,7 +269,7 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 处理完BC_ENTER_LOOPER命令后，一般情况下成功设置thread->looper |= `BINDER_LOOPER_STATE_ENTERED`。那么binder线程的创建是在什么时候呢？
 那就当该线程有事务需要处理的时候，进入binder_thread_read()过程。
 
-### 2.7 binder_thread_read
+#### 2.7.2 binder_thread_read
 
     binder_thread_read（）{
       ...
@@ -274,19 +277,19 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
         //当前线程todo队列为空且transaction栈为空，则代表该线程是空闲的
         wait_for_proc_work = thread->transaction_stack == NULL &&
             list_empty(&thread->todo);
-      
+
         if (thread->return_error != BR_OK && ptr < end) {
             ...
             put_user(thread->return_error, (uint32_t __user *)ptr);
             ptr += sizeof(uint32_t);
             goto done; //发生error，则直接进入done
         }
-        
+
         thread->looper |= BINDER_LOOPER_STATE_WAITING;
         if (wait_for_proc_work)
             proc->ready_threads++; //可用线程个数+1
         binder_unlock(__func__);
-        
+
         if (wait_for_proc_work) {
             if (non_block) {
                 ...
@@ -300,21 +303,21 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
                 //当线程todo队列没有数据，则进入休眠等待状态
                 ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
         }
-        
+
         binder_lock(__func__);
         if (wait_for_proc_work)
             proc->ready_threads--; //可用线程个数-1
         thread->looper &= ~BINDER_LOOPER_STATE_WAITING;
-        
+
         if (ret)
             return ret; //对于非阻塞的调用，直接返回
-  
+
         while (1) {
             uint32_t cmd;
             struct binder_transaction_data tr;
             struct binder_work *w;
             struct binder_transaction *t = NULL;
-            
+
             //先考虑从线程todo队列获取事务数据
             if (!list_empty(&thread->todo)) {
                 w = list_first_entry(&thread->todo, struct binder_work, entry);
@@ -352,25 +355,10 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
 
             if (!t)
                 continue; //只有BINDER_WORK_TRANSACTION命令才能继续往下执行
-
-            if (t->buffer->target_node) {
-                ...
-                cmd = BR_TRANSACTION;  //设置命令为BR_TRANSACTION
-            } else {
-                ...
-                cmd = BR_REPLY; //设置命令为BR_REPLY
-            }
-            ...
-
-            //将cmd和数据写回用户空间
-            if (put_user(cmd, (uint32_t __user *)ptr))  return -EFAULT;
-            ptr += sizeof(uint32_t);
-            if (copy_to_user(ptr, &tr, sizeof(tr)))   return -EFAULT;
-            ptr += sizeof(tr);
             ...
             break;
         }
-        
+
     done:
         *consumed = ptr - buffer;
         //创建线程的条件
@@ -409,14 +397,14 @@ open_driver作用是打开/dev/binder设备，设定binder支持的最大线程�
         switch ((uint32_t)cmd) {
           ...
           case BR_SPAWN_LOOPER:
-              //创建新的binder线程 【见小节2.4】
+              //创建新的binder线程 【见小节2.3】
               mProcess->spawnPooledThread(false);
               break;
           ...
         }
         return result;
     }
-    
+
 Binder主线程的创建是在其所在进程创建的过程一起创建的，后面再创建的普通binder线程是由spawnPooledThread(false)方法所创建的。
 
 ### 2.9 思考

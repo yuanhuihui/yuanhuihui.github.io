@@ -12,55 +12,6 @@ tags:
 > 基于Android 6.0的源码剖析， Binder所涉及的源码目录
 
 
-## 二. 通信过程
-
-### 1. 注册服务
-
-Binder服务注册过程： 
-
-1. 进入驱动层，生成服务相应的binder_node结构体；
-2. 分别将binder_node注册到服务所在进程binder_proc，以及servicemanager进程binder_proc结构体；
-
-
-### 2. 查询服务
-
-根据handle来查询相应服务，通过servicemanager，将查询到的binder_node(还是binder_ref?)插入代理端所在进程的binder_proc结构体；
-
-### 3. 使用服务
-
-handle -> binder_ref -> binder_node -> binder_proc -> binder_buffer，找到buffer后将IPC数据拷贝到buffer.
-
-## 三. 数据传输
-
-### 3.1 binder_ioctl
-
-binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
-
-- filp：binder driver fd;
-- cmd： BINDER_WRITE_READ;
-- arg: binder_write_read
-
-### 3.2  binder_write_read(用户空间和内核空间都有该结构体)
-
-有两个buffer: 
-
-- read buffer: 接收binder driver发送过来的数据，用于用户空间的处理；
-- write buffer：发送给binder driver处理的数据，用户内核空间的处理；
-
-每一项数据，即read或write buffer中的数据内容组成：
-
-1. binder protocol: BC_XXX, BR_XXX
-2. binder_transaction_data: handle, ADD_SERVICE_TRANSACTION, "media.play"
-
-flat_binder_object
-
-
-
-### 3.x
-open, mmap
-proc, buffer,
-
-## 四. 其他
 ### 1. Binder概述
 
 1. 从IPC角度来说：Binder是Android中的一种跨进程通信方式，该通信方式在linux中没有，是Android独有；
@@ -121,12 +72,12 @@ Binder IPC机制，就是指在进程间传输数据（binder_transaction_data�
         - ServiceManagerNative.java
         - Binder.java  
 
-        
+
     /framework/base/core/jni/    
         - android_os_Parcel.cpp
         - AndroidRuntime.cpp
         - android_util_Binder.cpp (核心类)
-        
+
 #### 5.2 Native framework
 
     /framework/native/libs/binder         
@@ -135,16 +86,16 @@ Binder IPC机制，就是指在进程间传输数据（binder_transaction_data�
         - Binder.cpp
         - IPCThreadState.cpp (核心类)
         - ProcessState.cpp  (核心类)
-    
-    /framework/native/include/binder/ 
+
+    /framework/native/include/binder/
         - IServiceManager.h
         - IInterface.h
-    
-    /framework/native/cmds/servicemanager/ 
+
+    /framework/native/cmds/servicemanager/
         - service_manager.c
         - binder.c
-        
-#### 5.3 Kernel 
+
+#### 5.3 Kernel
 
     /kernel/drivers/staging/android/
         - binder.c

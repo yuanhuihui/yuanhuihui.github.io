@@ -20,7 +20,7 @@ tags:
     CONFIG_DEBUG_FS=y
     //有时，可能还需要配置fs的白名单列表，例如：
     CONFIG_DEBUG_FS_WHITE_LIST=":/tracing:/binder:/wakeup_sources:"
-    
+
 #### 1.2 创建debugfs
 
 首先debugfs文件系统默认挂载在节点`/sys/kernel/debug`，binder驱动初始化的过程会在该节点下先创建`/binder`目录，然后在该目录下创建下面文件和目录：
@@ -225,7 +225,7 @@ tags:
     dead nodes:
       node 24713573: u0000007f9fe0c6c0 c0000007f9fe63700 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
       node 24712275: u0000007f9d5f0a80 c0000007fa82d1880 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
-  
+
 
 #### 2.2.2 各进程信息
 
@@ -243,7 +243,7 @@ tags:
 
 遍历进程的thread/node/ref/buffer信息.  当然如果存在,还会有pending transaction信息.
 
-
+Tips: `pending transaction`记录当前所有进程和线程TODO队列的transaction.
 
 ### 相关说明
 
