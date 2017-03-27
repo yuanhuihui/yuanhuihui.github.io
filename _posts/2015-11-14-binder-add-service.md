@@ -506,24 +506,14 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
     static void binder_transaction(struct binder_proc *proc,
                    struct binder_thread *thread,
                    struct binder_transaction_data *tr, int reply){
-         struct binder_transaction *t;
-         struct binder_work *tcomplete;
-         binder_size_t *offp, *off_end;
-         binder_size_t off_min;
-         struct binder_proc *target_proc;
-         struct binder_thread *target_thread = NULL;
-         struct binder_node *target_node = NULL;
-         struct list_head *target_list;
-         wait_queue_head_t *target_wait;
-         struct binder_transaction *in_reply_to = NULL;
-
+        ...
         if (reply) {
             ...
         }else {
             if (tr->target.handle) {
                 ...
             } else {
-                // handle=0,则找到servicemanager实体
+                // handle=0则找到servicemanager实体
                 target_node = binder_context_mgr_node;
             }
             //target_proc为servicemanager进程
@@ -579,45 +569,41 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
             fp = (struct flat_binder_object *)(t->buffer->data + *offp);
             off_min = *offp + sizeof(struct flat_binder_object);
             switch (fp->type) {
-            ...
-            case BINDER_TYPE_HANDLE:
-            case BINDER_TYPE_WEAK_HANDLE: {
-                //处理引用计数情况
-                struct binder_ref *ref = binder_get_ref(proc, fp->handle);
-                if (ref->node->proc == target_proc) {
-                    if (fp->type == BINDER_TYPE_HANDLE)
-                        fp->type = BINDER_TYPE_BINDER;
-                    else
-                        fp->type = BINDER_TYPE_WEAK_BINDER;
-                    fp->binder = ref->node->ptr;
-                    fp->cookie = ref->node->cookie;
-                    binder_inc_node(ref->node, fp->type == BINDER_TYPE_BINDER, 0, NULL);
-                } else {    
-                    struct binder_ref *new_ref;
-                    new_ref = binder_get_ref_for_node(target_proc, ref->node);
-                    fp->handle = new_ref->desc;
-                    binder_inc_ref(new_ref, fp->type == BINDER_TYPE_HANDLE, NULL);
-                }
-            } break;
-            ...
+                case BINDER_TYPE_BINDER:
+                case BINDER_TYPE_WEAK_BINDER: {
+                  struct binder_ref *ref;
+                  struct binder_node *node = binder_get_node(proc, fp->binder);
 
+                  if (node == NULL) { //创建binder_node实体
+                    node = binder_new_node(proc, fp->binder, fp->cookie);
+                    ...
+                  }
+                  //查询或创建binder_ref
+                  ref = binder_get_ref_for_node(target_proc, node);
+                  ...
+                  //调整type为HANDLE类型
+                  if (fp->type == BINDER_TYPE_BINDER)
+                    fp->type = BINDER_TYPE_HANDLE;
+                  else
+                    fp->type = BINDER_TYPE_WEAK_HANDLE;
+                  fp->binder = 0;
+                  fp->handle = ref->desc; //设置handle值
+                  fp->cookie = 0;
+                  binder_inc_ref(ref, fp->type == BINDER_TYPE_HANDLE,
+                           &thread->todo);
+                } break;
+                case :...
         }
 
         if (reply) {
-            //BC_REPLY的过程
-            binder_pop_transaction(target_thread, in_reply_to);
+            ..
         } else if (!(t->flags & TF_ONE_WAY)) {
             //BC_TRANSACTION 且 非oneway,则设置事务栈信息
             t->need_reply = 1;
             t->from_parent = thread->transaction_stack;
             thread->transaction_stack = t;
         } else {
-            //BC_TRANSACTION 且 oneway,则加入异步todo队列
-            if (target_node->has_async_transaction) {
-                target_list = &target_node->async_todo;
-                target_wait = NULL;
-            } else
-                target_node->has_async_transaction = 1;
+            ...
         }
 
         //将BINDER_WORK_TRANSACTION添加到目标队列，本次通信的目标队列为target_proc->todo
@@ -634,135 +620,179 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
         return;
     }
 
+注册服务的过程，传递的是BBinder对象，故writeStrongBinder()过程中localBinder不为空，
+从而flat_binder_object.type等于BINDER_TYPE_BINDER。
 
-省略。。。， 后续再完善。
--------------
+向servicemanager的binder_proc->todo添加BINDER_WORK_TRANSACTION事务，接下来进入ServiceManager进程。
 
-### 4.4 IPC.executeCommand
-[-> IPCThreadState.cpp]
+## 五. ServiceManager
 
-    status_t IPCThreadState::executeCommand(int32_t cmd)
+由[Binder系列3—启动ServiceManager](http://gityuan.com/2015/11/07/binder-start-sm/)已介绍其原理，循环在binder_loop()过程，
+会调用binder_parse()方法。
+
+### 5.1 binder_parse
+[-> servicemanager/binder.c]
+
+    int binder_parse(struct binder_state *bs, struct binder_io *bio,
+                     uintptr_t ptr, size_t size, binder_handler func)
     {
-        BBinder* obj;
-        RefBase::weakref_type* refs;
-        status_t result = NO_ERROR;
+        int r = 1;
+        uintptr_t end = ptr + (uintptr_t) size;
 
-        switch (cmd) {
-          case BR_TRANSACTION:
-          {
-            binder_transaction_data tr;
-            result = mIn.read(&tr, sizeof(tr));
-            ...
-            Parcel buffer;
-            buffer.ipcSetDataReference(
-                reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
-                tr.data_size,
-                reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
-                tr.offsets_size/sizeof(binder_size_t), freeBuffer, this);
+        while (ptr < end) {
+            uint32_t cmd = *(uint32_t *) ptr;
+            ptr += sizeof(uint32_t);
+            switch(cmd) {
+            case BR_TRANSACTION: {
+                struct binder_transaction_data *txn = (struct binder_transaction_data *) ptr;
+                ...
+                binder_dump_txn(txn);
+                if (func) {
+                    unsigned rdata[256/4];
+                    struct binder_io msg; 
+                    struct binder_io reply;
+                    int res;
 
-            const pid_t origPid = mCallingPid;
-            const uid_t origUid = mCallingUid;
-            const int32_t origStrictModePolicy = mStrictModePolicy;
-            const int32_t origTransactionBinderFlags = mLastTransactionBinderFlags;
-
-            mCallingPid = tr.sender_pid; //发起端的pid
-            mCallingUid = tr.sender_euid; //发起端的uid
-            mLastTransactionBinderFlags = tr.flags;
-
-            int curPrio = getpriority(PRIO_PROCESS, mMyThreadId);
-            ... //调整优先级
-
-            Parcel reply;
-            status_t error;
-            // tr.cookie里存放的是BBinder，此处b是BBinder的实现子类
-            if (tr.target.ptr) {
-                sp<BBinder> b((BBinder*)tr.cookie);
-                error = b->transact(tr.code, buffer, &reply, tr.flags); //【见小节3.8】
-            } else {
-                error = the_context_object->transact(tr.code, buffer, &reply, tr.flags);
-            }
-
-            if ((tr.flags & TF_ONE_WAY) == 0) {
-                if (error < NO_ERROR) reply.setError(error);
-                sendReply(reply, 0);
-            }
-
-            mCallingPid = origPid;
-            mCallingUid = origUid;
-            mStrictModePolicy = origStrictModePolicy;
-            mLastTransactionBinderFlags = origTransactionBinderFlags;
-          }
-          break;
-          ...
-        }
-        ...
-        return result;
-    }
-
-
-### 4.5 BBinder::transact
-[-> Binder.cpp]
-
-    status_t BBinder::transact(
-        uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
-    {
-        data.setDataPosition(0);
-
-        status_t err = NO_ERROR;
-        switch (code) {
-            case PING_TRANSACTION:
-                reply->writeInt32(pingBinder());
-                break;
-            default:
-                err = onTransact(code, data, reply, flags); //【见小节3.9】
-                break;
-        }
-
-        if (reply != NULL) {
-            reply->setDataPosition(0);
-        }
-
-        return err;
-    }
-
-服务端transact事务处理
-
-### 4.6 BBinder::onTransact
-[-> Binder.cpp]
-
-    status_t BBinder::onTransact(
-        uint32_t code, const Parcel& data, Parcel* reply, uint32_t /*flags*/)
-    {
-        switch (code) {
-            case INTERFACE_TRANSACTION:
-                reply->writeString16(getInterfaceDescriptor());
-                return NO_ERROR;
-
-            case DUMP_TRANSACTION: {
-                int fd = data.readFileDescriptor();
-                int argc = data.readInt32();
-                Vector<String16> args;
-                for (int i = 0; i < argc && data.dataAvail() > 0; i++) {
-                   args.add(data.readString16());
+                    bio_init(&reply, rdata, sizeof(rdata), 4);
+                    bio_init_from_txn(&msg, txn); //从txn解析出binder_io信息
+                     // 收到Binder事务 【见小节5.2】
+                    res = func(bs, txn, &msg, &reply);
+                    // 发送reply事件【见小节5.4】
+                    binder_send_reply(bs, &reply, txn->data.ptr.buffer, res);
                 }
-                return dump(fd, args);
+                ptr += sizeof(*txn);
+                break;
             }
-
-            case SYSPROPS_TRANSACTION: {
-                report_sysprop_change();
-                return NO_ERROR;
-            }
-
-            default:
-                return UNKNOWN_TRANSACTION;
+            case : ...
         }
+        return r;
+    }
+    
+### 5.2 svcmgr_handler
+[-> service_manager.c]
+
+    int svcmgr_handler(struct binder_state *bs,
+                       struct binder_transaction_data *txn,
+                       struct binder_io *msg,
+                       struct binder_io *reply)
+    {
+        struct svcinfo *si;
+        uint16_t *s;
+        size_t len;
+        uint32_t handle;
+        uint32_t strict_policy;
+        int allow_isolated;
+        ...
+        strict_policy = bio_get_uint32(msg);
+        s = bio_get_string16(msg, &len);
+        ...
+
+        switch(txn->code) {
+          case SVC_MGR_ADD_SERVICE: 
+              s = bio_get_string16(msg, &len);
+              ...
+              handle = bio_get_ref(msg); //获取handle
+              allow_isolated = bio_get_uint32(msg) ? 1 : 0;
+               //注册指定服务 【见小节5.3】
+              if (do_add_service(bs, s, len, handle, txn->sender_euid,
+                  allow_isolated, txn->sender_pid))
+                  return -1;
+              break;
+           case :...
+        }
+
+        bio_put_uint32(reply, 0);
+        return 0;
+    }
+    
+### 5.3 do_add_service
+[-> service_manager.c]
+
+    int do_add_service(struct binder_state *bs,
+                       const uint16_t *s, size_t len,
+                       uint32_t handle, uid_t uid, int allow_isolated,
+                       pid_t spid)
+    {
+        struct svcinfo *si;
+
+        if (!handle || (len == 0) || (len > 127))
+            return -1;
+
+        //权限检查
+        if (!svc_can_register(s, len, spid)) {
+            return -1;
+        }
+
+        //服务检索
+        si = find_svc(s, len);
+        if (si) {
+            if (si->handle) {
+                svcinfo_death(bs, si); //服务已注册时，释放相应的服务
+            }
+            si->handle = handle;
+        } else {
+            si = malloc(sizeof(*si) + (len + 1) * sizeof(uint16_t));
+            if (!si) {  //内存不足，无法分配足够内存
+                return -1;
+            }
+            si->handle = handle;
+            si->len = len;
+            memcpy(si->name, s, (len + 1) * sizeof(uint16_t)); //内存拷贝服务信息
+            si->name[len] = '\0';
+            si->death.func = (void*) svcinfo_death;
+            si->death.ptr = si;
+            si->allow_isolated = allow_isolated;
+            si->next = svclist; // svclist保存所有已注册的服务
+            svclist = si;
+        }
+
+        //以BC_ACQUIRE命令，handle为目标的信息，通过ioctl发送给binder驱动
+        binder_acquire(bs, handle);
+        //以BC_REQUEST_DEATH_NOTIFICATION命令的信息，通过ioctl发送给binder驱动，主要用于清理内存等收尾工作。
+        binder_link_to_death(bs, handle, &si->death);
+        return 0;
     }
 
-以上只是默认处理过程，但对于本文的MediaPlayerService继承于BnMediaPlayerService,由间接继承于BBinder对象，
-在BnMediaPlayerService重载了onTransact()方法，故实际调用的是BnMediaPlayerService::onTransact()方法。
+svcinfo记录着服务名和handle信息，保存到svclist列表。
 
+### 5.4  binder_send_reply
+[-> servicemanager/binder.c]
 
-## 五.总结
+    void binder_send_reply(struct binder_state *bs,
+                           struct binder_io *reply,
+                           binder_uintptr_t buffer_to_free,
+                           int status)
+    {
+        struct {
+            uint32_t cmd_free;
+            binder_uintptr_t buffer;
+            uint32_t cmd_reply;
+            struct binder_transaction_data txn;
+        } __attribute__((packed)) data;
+
+        data.cmd_free = BC_FREE_BUFFER; //free buffer命令
+        data.buffer = buffer_to_free;
+        data.cmd_reply = BC_REPLY; // reply命令
+        data.txn.target.ptr = 0;
+        data.txn.cookie = 0;
+        data.txn.code = 0;
+        if (status) {
+            ...
+        } else {
+            data.txn.flags = 0;
+            data.txn.data_size = reply->data - reply->data0;
+            data.txn.offsets_size = ((char*) reply->offs) - ((char*) reply->offs0);
+            data.txn.data.ptr.buffer = (uintptr_t)reply->data0;
+            data.txn.data.ptr.offsets = (uintptr_t)reply->offs0;
+        }
+        //向Binder驱动通信
+        binder_write(bs, &data, sizeof(data));
+    }
+
+binder_write进入binder驱动后，将BC_FREE_BUFFER和BC_REPLY命令协议发送给Binder驱动，
+向client端发送reply.
+
+## 六. 总结
 
 MediaPlayerService服务注册
 

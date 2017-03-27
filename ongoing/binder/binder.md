@@ -85,3 +85,7 @@ joinThreadPool
             freeBuffer() //发送BC_FREE_BUFFER, async_todo加入当前thread-todo
     }
 }
+
+
+http://blog.csdn.net/coding_glacier/article/details/7520199
+http://blog.csdn.net/ccjhdopc/article/details/51094755

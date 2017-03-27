@@ -56,7 +56,7 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
     int main(int argc, char **argv)
     {
         struct binder_state *bs;
-        //打开binder驱动，申请128k大小的内存空间 【见小节2.2】
+        //打开binder驱动，申请128k字节大小的内存空间 【见小节2.2】
         bs = binder_open(128*1024);
         ...
 
@@ -89,7 +89,7 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
 
     struct binder_state *binder_open(size_t mapsize)
     {
-        struct binder_state *bs;
+        struct binder_state *bs;【见小节2.2.1】
         struct binder_version vers;
 
         bs = malloc(sizeof(*bs));
@@ -111,7 +111,7 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
         }
 
         bs->mapsize = mapsize;
-        //通过系统调用，mmap内存映射
+        //通过系统调用，mmap内存映射，mmap必须是page的整数倍
         bs->mapped = mmap(NULL, mapsize, PROT_READ, MAP_PRIVATE, bs->fd, 0);
         if (bs->mapped == MAP_FAILED) {
             goto fail_map; // binder设备内存无法映射
@@ -132,8 +132,16 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
 
 调用mmap()进行内存映射，同理mmap()方法经过系统调用，对应于Binder驱动层的[binder_mmap()](http://gityuan.com/2015/11/01/binder-driver/#bindermmap)方法，该方法会在Binder驱动层创建`Binder_buffer`对象，并放入当前binder_proc的`proc->buffers`链表。
 
-binder_state结构体记录着fd和mmap信息。
+#### 2.2.1 binder_state
+[-> servicemanager/binder.c]
 
+    struct binder_state
+    {
+        int fd; // dev/binder的文件描述符
+        void *mapped; //指向mmap的内存地址
+        size_t mapsize; //分配的内存大小，默认为128KB
+    };
+    
 ### 2.3 binder_become_context_manager
 [-> servicemanager/binder.c]
 
@@ -250,7 +258,7 @@ binder_state结构体记录着fd和mmap信息。
         bwr.write_buffer = 0;
 
         readbuf[0] = BC_ENTER_LOOPER;
-        //将BC_ENTER_LOOPER命令发送给binder驱动，让Service Manager进入循环 【见小节2.5】
+        //将BC_ENTER_LOOPER命令发送给binder驱动，让Service Manager进入循环 【见小节2.4.1】
         binder_write(bs, readbuf, sizeof(uint32_t));
 
         for (;;) {
@@ -263,7 +271,7 @@ binder_state结构体记录着fd和mmap信息。
                 break;
             }
 
-            // 解析binder信息 【见小节2.6】
+            // 解析binder信息 【见小节2.5】
             res = binder_parse(bs, 0, (uintptr_t) readbuf, bwr.read_consumed, func);
             if (res == 0) {
                 break;
@@ -279,7 +287,7 @@ binder_state结构体记录着fd和mmap信息。
 `binder_write`通过ioctl()将BC_ENTER_LOOPER命令发送给binder驱动，此时bwr只有write_buffer有数据，进入[binder_thread_write()](http://gityuan.com/2015/11/02/binder-driver-2//#section-1)方法。
 接下来进入for循环，执行ioctl()，此时bwr只有read_buffer有数据，那么进入[binder_thread_read()](http://gityuan.com/2015/11/02/binder-driver-2//#section-4)方法。
 
-### 2.5 binder_write
+#### 2.4.1 binder_write
 [-> servicemanager/binder.c]
 
     int binder_write(struct binder_state *bs, void *data, size_t len)
@@ -293,14 +301,14 @@ binder_state结构体记录着fd和mmap信息。
         bwr.read_size = 0;
         bwr.read_consumed = 0;
         bwr.read_buffer = 0;
-        //【见小节2.5.1】
+        //【见小节2.4.2】
         res = ioctl(bs->fd, BINDER_WRITE_READ, &bwr);
         return res;
     }
 
 根据传递进来的参数，初始化bwr，其中write_size大小为4，write_buffer指向缓冲区的起始地址，其内容为BC_ENTER_LOOPER请求协议号。通过ioctl将bwr数据发送给binder驱动，则调用其binder_ioctl方法，如下：
 
-#### 2.5.1 binder_ioctl
+#### 2.4.2 binder_ioctl
 [-> kernel/drivers/android/binder.c]
 
     static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -315,7 +323,7 @@ binder_state结构体记录着fd和mmap信息。
         thread = binder_get_thread(proc); //获取binder_thread
         switch (cmd) {
           case BINDER_WRITE_READ:  //进行binder的读写操作
-              ret = binder_ioctl_write_read(filp, cmd, arg, thread); //【见小节2.5.2】
+              ret = binder_ioctl_write_read(filp, cmd, arg, thread); //【见小节2.4.3】
               if (ret)
                   goto err;
               break;
@@ -332,7 +340,7 @@ binder_state结构体记录着fd和mmap信息。
         return ret;
     }
 
-#### 2.5.2 binder_ioctl_write_read
+#### 2.4.3 binder_ioctl_write_read
 [-> kernel/drivers/android/binder.c]
 
     static int binder_ioctl_write_read(struct file *filp,
@@ -349,7 +357,7 @@ binder_state结构体记录着fd和mmap信息。
             goto out;
         }
 
-        if (bwr.write_size > 0) { //此时写缓存有数据【见小节2.5.3】
+        if (bwr.write_size > 0) { //此时写缓存有数据【见小节2.4.4】
             ret = binder_thread_write(proc, thread,
                       bwr.write_buffer, bwr.write_size, &bwr.write_consumed);
             ...
@@ -369,7 +377,7 @@ binder_state结构体记录着fd和mmap信息。
 
 此处将用户空间的binder_write_read结构体 拷贝到内核空间.
 
-#### 2.5.3 binder_thread_write
+#### 2.4.4 binder_thread_write
 [-> kernel/drivers/android/binder.c]
 
     static int binder_thread_write(struct binder_proc *proc,
@@ -398,7 +406,7 @@ binder_state结构体记录着fd和mmap信息。
 
 从bwr.write_buffer拿出cmd数据,此处为BC_ENTER_LOOPER. 可见上层本次调用binder_write()方法，主要是完成设置当前线程的looper状态为BINDER_LOOPER_STATE_ENTERED。
 
-### 2.6 binder_parse
+### 2.5 binder_parse
 [-> servicemanager/binder.c]
 
     int binder_parse(struct binder_state *bs, struct binder_io *bio,
@@ -427,13 +435,13 @@ binder_state结构体记录着fd和mmap信息。
                 binder_dump_txn(txn);
                 if (func) {
                     unsigned rdata[256/4];
-                    struct binder_io msg;
+                    struct binder_io msg; 【见小节2.5.1】
                     struct binder_io reply;
                     int res;
 
                     bio_init(&reply, rdata, sizeof(rdata), 4);
                     bio_init_from_txn(&msg, txn); //从txn解析出binder_io信息
-                     // 收到Binder事务 【见小节2.7】
+                     // 收到Binder事务 【见小节2.6】
                     res = func(bs, txn, &msg, &reply);
                     binder_send_reply(bs, &reply, txn->data.ptr.buffer, res);
                 }
@@ -474,7 +482,23 @@ binder_state结构体记录着fd和mmap信息。
 
 解析binder信息，此处参数ptr指向BC_ENTER_LOOPER，func指向svcmgr_handler。故有请求到来，则调用svcmgr_handler。
 
-### 2.7 svcmgr_handler
+#### 2.5.1 binder_io
+[-> servicemanager/binder.h]
+
+    struct binder_io
+    {
+        char *data;            /* pointer to read/write from */
+        binder_size_t *offs;   /* array of offsets */
+        size_t data_avail;     /* bytes available in data buffer */
+        size_t offs_avail;     /* entries available in offsets array */
+
+        char *data0;           //data buffer起点位置
+        binder_size_t *offs0;  //buffer偏移量的起点位置
+        uint32_t flags;
+        uint32_t unused;
+    };
+
+### 2.6 svcmgr_handler
 [-> service_manager.c]
 
     int svcmgr_handler(struct binder_state *bs,
@@ -488,9 +512,9 @@ binder_state结构体记录着fd和mmap信息。
         uint32_t handle;
         uint32_t strict_policy;
         int allow_isolated;
-        //判断target是否是Service Manager
+        
         if (txn->target.ptr != BINDER_SERVICE_MANAGER)
-            return -1;
+            return -1; //判断target是否是Service Manager
 
         if (txn->code == PING_TRANSACTION)
             return 0;
@@ -505,13 +529,8 @@ binder_state结构体记录着fd和mmap信息。
             memcmp(svcmgr_id, s, sizeof(svcmgr_id))) {
             return -1;
         }
-
         if (sehandle && selinux_status_updated() > 0) {
-            struct selabel_handle *tmp_sehandle = selinux_android_service_context_handle();
-            if (tmp_sehandle) {
-                selabel_close(sehandle);
-                sehandle = tmp_sehandle;
-            }
+            ...
         }
 
         switch(txn->code) {
@@ -723,7 +742,7 @@ servicemanager的核心工作就是注册服务和查询服务。
         binder_write(bs, &data, sizeof(data)); //[见小节3.3.1]
     }
 
-binder_write经过跟小节2.5一样的方式, 进入Binder driver后,直接调用后进入binder_thread_write, 处理BC_REQUEST_DEATH_NOTIFICATION命令
+binder_write经过跟小节2.4.1一样的方式, 进入Binder driver后,直接调用后进入binder_thread_write, 处理BC_REQUEST_DEATH_NOTIFICATION命令
 
 
 #### 3.3.1 binder_ioctl_write_read
@@ -1003,7 +1022,7 @@ binder_write经过跟小节2.5一样的方式, 进入Binder driver后,直接调�
 【小节2.5】binder_write进入binder驱动后，将BC_FREE_BUFFER和BC_REPLY命令协议发送给Binder驱动，
 向client端发送reply.
     
-## 四. 小结
+## 四. 总结
 
 ServiceManger集中管理系统内的所有服务，通过权限控制进程是否有权注册服务,通过字符串名称来查找对应的Service;
 由于ServiceManger进程建立跟所有向其注册服务的死亡通知, 那么当服务所在进程死亡后, 会只需告知ServiceManager.
@@ -1017,3 +1036,8 @@ ServiceManger集中管理系统内的所有服务，通过权限控制进程是�
 4. 进入循环状态，等待Client端的请求：binder_loop()。
 5. 注册服务的过程，根据服务名称，但同一个服务已注册，重新注册前会先移除之前的注册信息；
 5. 死亡通知: 当binder所在进程死亡后,会调用binder_release方法,然后调用binder_node_release.这个过程便会发出死亡通知的回调.
+
+ServiceManager最核心的两个功能为查询和注册服务：
+
+- 注册服务：记录服务名和handle信息，保存到svclist列表；
+- 查询服务：根据服务名查询相应的的handle信息。
