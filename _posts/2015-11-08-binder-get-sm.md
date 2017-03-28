@@ -10,13 +10,15 @@ tags:
 ---
 > 基于Android 6.0的源码剖析， 本文详细地讲解defaultServiceManager流程
 
-    /framework/native/libs/binder/IServiceManager.cpp
-    /framework/native/libs/binder/ProcessState.cpp
-    /framework/native/libs/binder/BpBinder.cpp
-    /framework/native/libs/binder/Binder.cpp
+    framework/native/libs/binder/
+      - ProcessState.cpp
+      - BpBinder.cpp
+      - Binder.cpp
+      - IServiceManager.cpp
 
-    /framework/native/include/binder/IServiceManager.h
-    /framework/native/include/binder/IInterface.h
+    framework/native/include/binder/
+      - IServiceManager.h
+      - IInterface.h
 
 
 ## 一. 概述

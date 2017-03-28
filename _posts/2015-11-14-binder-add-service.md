@@ -170,20 +170,19 @@ ProcessState采用单例模式，保证每一个进程都只打开一次Binder D
 
 ## 三. 服务注册
 
-### 3.1 MPS.instantiate
+### 3.1 instantiate
 [-> MediaPlayerService.cpp]
 
     void MediaPlayerService::instantiate() {
         //注册服务【见小节3.2】
-        defaultServiceManager()->addService(
-               String16("media.player"), new MediaPlayerService());
+        defaultServiceManager()->addService(String16("media.player"), new MediaPlayerService());
     }
 
 注册服务MediaPlayerService：由[defaultServiceManager()](http://gityuan.com/2015/11/08/binder-get-sm/)返回的是BpServiceManager，同时会创建ProcessState对象和BpBinder对象。
 故此处等价于调用BpServiceManager->addService。其中MediaPlayerService位于libmediaplayerservice库.
 
-### 3.2 addService
-[-> IServiceManager.cp BpServiceManager]
+### 3.2 BpSM.addService
+[-> IServiceManager.cpp  ::BpServiceManager]
 
     virtual status_t addService(const String16& name, const sp<IBinder>& service,
             bool allowIsolated)
@@ -192,15 +191,79 @@ ProcessState采用单例模式，保证每一个进程都只打开一次Binder D
         //写入头信息"android.os.IServiceManager"
         data.writeInterfaceToken(IServiceManager::getInterfaceDescriptor());   
         data.writeString16(name);        // name为 "media.player"
-        data.writeStrongBinder(service); // MediaPlayerService对象
+        data.writeStrongBinder(service); // MediaPlayerService对象【见小节3.2.1】
         data.writeInt32(allowIsolated ? 1 : 0); // allowIsolated= false
         //remote()指向的是BpBinder对象【见小节3.3】
         status_t err = remote()->transact(ADD_SERVICE_TRANSACTION, data, &reply);
         return err == NO_ERROR ? reply.readExceptionCode() : err;
     }
 
-
 服务注册过程：向ServiceManager注册服务MediaPlayerService，服务名为"media.player"；
+
+#### 3.2.1 writeStrongBinder
+[-> parcel.cpp]
+
+    status_t Parcel::writeStrongBinder(const sp<IBinder>& val)
+    {
+        return flatten_binder(ProcessState::self(), val, this);
+    }
+
+#### 3.2.2 flatten_binder
+[-> parcel.cpp]
+
+    status_t flatten_binder(const sp<ProcessState>& /*proc*/,
+        const sp<IBinder>& binder, Parcel* out)
+    {
+        flat_binder_object obj;
+
+        obj.flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
+        if (binder != NULL) {
+            IBinder *local = binder->localBinder(); //本地Binder不为空
+            if (!local) {
+                BpBinder *proxy = binder->remoteBinder();
+                const int32_t handle = proxy ? proxy->handle() : 0;
+                obj.type = BINDER_TYPE_HANDLE; 
+                obj.binder = 0; 
+                obj.handle = handle;
+                obj.cookie = 0;
+            } else { //进入该分支
+                obj.type = BINDER_TYPE_BINDER; 
+                obj.binder = reinterpret_cast<uintptr_t>(local->getWeakRefs());
+                obj.cookie = reinterpret_cast<uintptr_t>(local);
+            }
+        } else {
+            ...
+        }
+        //【见小节3.2.3】
+        return finish_flatten_binder(binder, obj, out);
+    }
+
+将Binder对象扁平化，转换成flat_binder_object对象。
+
+- 对于Binder实体，则cookie记录Binder实体的指针；
+- 对于Binder代理，则用handle记录Binder代理的句柄；
+
+关于localBinder，代码见Binder.cpp。
+
+    BBinder* BBinder::localBinder()
+    {
+        return this;
+    }
+
+    BBinder* IBinder::localBinder()
+    {
+        return NULL;
+    }
+    
+#### 3.2.3 finish_flatten_binder
+
+    inline static status_t finish_flatten_binder(
+        const sp<IBinder>& , const flat_binder_object& flat, Parcel* out)
+    {
+        return out->writeObject(flat, false);
+    }
+    
+将flat_binder_object写入out。
 
 ### 3.3 BpBinder::transact
 [-> BpBinder.cpp]
@@ -323,12 +386,13 @@ IPCThreadState进行transact事务处理分3部分：
         tr.sender_pid = 0;
         tr.sender_euid = 0;
 
+        // data为记录Media服务信息的Parcel对象
         const status_t err = data.errorCheck();
         if (err == NO_ERROR) {
-            tr.data_size = data.ipcDataSize();  // data为Media服务相关的parcel通信数据包
-            tr.data.ptr.buffer = data.ipcData();
-            tr.offsets_size = data.ipcObjectsCount()*sizeof(binder_size_t);
-            tr.data.ptr.offsets = data.ipcObjects();
+            tr.data_size = data.ipcDataSize();  // mDataSize
+            tr.data.ptr.buffer = data.ipcData(); //mData
+            tr.offsets_size = data.ipcObjectsCount()*sizeof(binder_size_t); //mObjectsSize
+            tr.data.ptr.offsets = data.ipcObjects(); //mObjects
         } else if (statusBuffer) {
             ...
         } else {
@@ -410,11 +474,7 @@ transact过程，先写完binder_transaction_data数据， 接下来执行waitFo
             //通过ioctl不停的读写操作，跟Binder Driver进行通信
             if (ioctl(mProcess->mDriverFD, BINDER_WRITE_READ, &bwr) >= 0)
                 err = NO_ERROR;
-            else
-                err = -errno;
-            if (mProcess->mDriverFD <= 0) {
-                err = -EBADF;
-            }
+            ...
         } while (err == -EINTR); //当被中断，则继续执行
         ...
         return err;
@@ -506,7 +566,7 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
     static void binder_transaction(struct binder_proc *proc,
                    struct binder_thread *thread,
                    struct binder_transaction_data *tr, int reply){
-        ...
+
         if (reply) {
             ...
         }else {
@@ -572,13 +632,13 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
                 case BINDER_TYPE_BINDER:
                 case BINDER_TYPE_WEAK_BINDER: {
                   struct binder_ref *ref;
+                  //【见4.3.1】
                   struct binder_node *node = binder_get_node(proc, fp->binder);
-
-                  if (node == NULL) { //创建binder_node实体
+                  if (node == NULL) { //创建binder_node实体【见4.3.2】
                     node = binder_new_node(proc, fp->binder, fp->cookie);
                     ...
                   }
-                  //查询或创建binder_ref
+                  //查询或创建binder_ref【见4.3.3】
                   ref = binder_get_ref_for_node(target_proc, node);
                   ...
                   //调整type为HANDLE类型
@@ -620,10 +680,133 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
         return;
     }
 
-注册服务的过程，传递的是BBinder对象，故writeStrongBinder()过程中localBinder不为空，
+注册服务的过程，传递的是BBinder对象，故[小节3.2.1]的writeStrongBinder()过程中localBinder不为空，
 从而flat_binder_object.type等于BINDER_TYPE_BINDER。
 
+对于同一个binder_node，每个进程只会创建一个binder_ref对象。
+
 向servicemanager的binder_proc->todo添加BINDER_WORK_TRANSACTION事务，接下来进入ServiceManager进程。
+
+#### 4.3.1 binder_get_node
+
+    static struct binder_node *binder_get_node(struct binder_proc *proc,
+                 binder_uintptr_t ptr)
+    {
+      struct rb_node *n = proc->nodes.rb_node;
+      struct binder_node *node;
+
+      while (n) {
+        node = rb_entry(n, struct binder_node, rb_node);
+
+        if (ptr < node->ptr)
+          n = n->rb_left;
+        else if (ptr > node->ptr)
+          n = n->rb_right;
+        else
+          return node;
+      }
+      return NULL;
+    }
+
+从binder_proc来根据binder指针ptr值，查询相应的binder_node。
+
+
+#### 4.3.2 binder_new_node
+
+  static struct binder_node *binder_new_node(struct binder_proc *proc,
+                         binder_uintptr_t ptr,
+                         binder_uintptr_t cookie)
+  {
+      struct rb_node **p = &proc->nodes.rb_node;
+      struct rb_node *parent = NULL;
+      struct binder_node *node;
+      ... //红黑树位置查找
+
+      //给新创建的binder_node 分配内核空间
+      node = kzalloc(sizeof(*node), GFP_KERNEL);
+      
+      // 将新创建的node添加到proc红黑树；
+      rb_link_node(&node->rb_node, parent, p);
+      rb_insert_color(&node->rb_node, &proc->nodes);
+      node->debug_id = ++binder_last_id;
+      node->proc = proc;
+      node->ptr = ptr;
+      node->cookie = cookie;
+      node->work.type = BINDER_WORK_NODE; //设置binder_work的type
+      INIT_LIST_HEAD(&node->work.entry);
+      INIT_LIST_HEAD(&node->async_todo);
+      return node;
+  }
+
+#### 4.3.3 binder_get_ref_for_node
+
+    static struct binder_ref *binder_get_ref_for_node(struct binder_proc *proc,
+                  struct binder_node *node)
+    {
+      struct rb_node *n;
+      struct rb_node **p = &proc->refs_by_node.rb_node;
+      struct rb_node *parent = NULL;
+      struct binder_ref *ref, *new_ref;
+      //从refs_by_node红黑树，找到binder_ref则直接返回。
+      while (*p) {
+        parent = *p;
+        ref = rb_entry(parent, struct binder_ref, rb_node_node);
+
+        if (node < ref->node)
+          p = &(*p)->rb_left;
+        else if (node > ref->node)
+          p = &(*p)->rb_right;
+        else
+          return ref;
+      }
+      
+      //创建binder_ref
+      new_ref = kzalloc_preempt_disabled(sizeof(*ref));
+      
+      new_ref->debug_id = ++binder_last_id;
+      new_ref->proc = proc; //记录进程信息
+      new_ref->node = node; //记录binder节点
+      rb_link_node(&new_ref->rb_node_node, parent, p);
+      rb_insert_color(&new_ref->rb_node_node, &proc->refs_by_node);
+
+      //计算binder引用的handle值，该值返回给target_proc进程
+      new_ref->desc = (node == binder_context_mgr_node) ? 0 : 1;
+      //从红黑树最最左边的handle对比，依次递增，直到红黑树遍历结束或者找到更大的handle则结束。
+      for (n = rb_first(&proc->refs_by_desc); n != NULL; n = rb_next(n)) {
+        //根据binder_ref的成员变量rb_node_desc的地址指针n，来获取binder_ref的首地址
+        ref = rb_entry(n, struct binder_ref, rb_node_desc);
+        if (ref->desc > new_ref->desc)
+          break;
+        new_ref->desc = ref->desc + 1;
+      }
+
+      // 将新创建的new_ref 插入proc->refs_by_desc红黑树
+      p = &proc->refs_by_desc.rb_node;
+      while (*p) {
+        parent = *p;
+        ref = rb_entry(parent, struct binder_ref, rb_node_desc);
+
+        if (new_ref->desc < ref->desc)
+          p = &(*p)->rb_left;
+        else if (new_ref->desc > ref->desc)
+          p = &(*p)->rb_right;
+        else
+          BUG();
+      }
+      rb_link_node(&new_ref->rb_node_desc, parent, p);
+      rb_insert_color(&new_ref->rb_node_desc, &proc->refs_by_desc);
+      if (node) {
+        hlist_add_head(&new_ref->node_entry, &node->refs);
+      } 
+      return new_ref;
+    }
+
+
+handle值计算方法规律：
+
+- 每个进程binder_proc所记录的binder_ref的handle值是从1开始递增的；
+- 所有进程binder_proc所记录的handle=0的binder_ref都指向service manager；
+- 同一个服务的binder_node在不同进程的binder_ref的handle值可以不同；
 
 ## 五. ServiceManager
 
@@ -822,6 +1005,3 @@ MediaPlayerService服务注册
 
 整个过程中，BC_TRANSACTION和BR_TRANSACTION过程是一个完整的事务过程；BC_REPLY和BR_REPLY是一个完整的事务过程。
 到此，其他进行便可以获取该服务，使用服务提供的方法，下一篇文章将会讲述[如何获取服务](http://gityuan.com/2015/11/15/binder-get-service/)。
-
-
-    TODO: 还需要修改

@@ -11,12 +11,10 @@ tags:
 ---
 > 基于Android 6.0的源码剖析，在讲解Binder原理之前，先从kernel的角度来讲解Binder Driver.
 
-    /kernel/drivers/android/binder.c
-    /kernel/include/uapi/linux/android/binder.h
-    或者
-    /kernel/drivers/staging/android/binder.c
-    /kernel/drivers/staging/android/uapi/binder.h
-
+    kernel/drivers/ (不同Linux分支路径略有不同)
+      - staging/android/binder.c
+      - android/binder.c 
+  
 ## 一、Binder驱动概述
 
 ### 1.1 概述
@@ -436,6 +434,14 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
 这里涉及两个核心方法`binder_thread_write()`和`binder_thread_read()`方法，在Binder系列的后续文章[Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)中详细介绍。
 
+### 2.5 小节
+
+- binder_init：初始化字符设备；
+- binder_open：打开驱动设备，过程需要持有binder_main_lock同步锁；
+- binder_mmap：申请内存空间，该过程需要持有binder_mmap_lock同步锁；
+- binder_ioctl：执行相应的io操作，该过程需要持有binder_main_lock同步锁；当处于binder_thread_read过程，
+却读缓存无数据则会先释放该同步锁，并处于wait_event_freezable过程，等有数据到来则唤醒并尝试持有同步锁。
+
 ## 三、 结构体附录
 
 下面列举Binder相关的核心结构体，并解释其中的比较重要的参数。
@@ -756,11 +762,3 @@ flat_binder_object结构体代表Binder对象在两个进程间传递的扁平�
 |BINDER_TYPE_FD|binder文件描述符|
 
 当传输的flat_binder_object的成员变量type等于BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER类型时，代表该过程为Server进程向Service Manager进程进行服务注册的过程，则创建binder_node对象；当其type等于BINDER_TYPE_HANDLE或BINDER_TYPE_WEAK_HEANDLE类型时，代表该过程为Client进程向另一个进程发送Service代理，则创建binder_ref对象；当其type等于BINDER_TYPE_FD时，代表该过程为一个进程向另一个进程发送文件描述符(file descriptor)，只是打开文件，则无需创建任何对象。
-
-## 四. 常见方法
-
-    //从proc->refs_by_node中，根据node查询并创建应的binder_ref
-    binder_ref *binder_get_ref_for_node(struct binder_proc *proc, struct binder_node *node)
-    
-    //从proc->refs_by_desc中，根据desc查询对应的binder_ref
-    binder_ref *binder_get_ref(struct binder_proc *proc, uint32_t desc, bool need_strong_ref)

@@ -33,3 +33,6 @@ Kernel源代码下载如下：[https://www.kernel.org](https://www.kernel.org)
 - lib: 标准通用的C库
 - tools: 工具
 - Documentation: 文档
+
+## 结构体
+http://www.cnblogs.com/wang_yb/p/3818517.html

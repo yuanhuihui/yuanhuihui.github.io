@@ -1306,7 +1306,7 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
                 reply->writeInt32(pingBinder());
                 break;
             default:
-                err = onTransact(code, data, reply, flags); //【见流程454】
+                err = onTransact(code, data, reply, flags); //【见流程4.5】
                 break;
         }
 

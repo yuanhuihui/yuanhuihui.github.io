@@ -291,7 +291,7 @@ framework Binder架构图：查看[大图](http://gityuan.com/images/binder/java
         if (sServiceManager != null) {
             return sServiceManager;
         }
-        //【分别见3.2.1和3.2.3】
+        //【分别见3.2.1和3.3】
         sServiceManager = ServiceManagerNative.asInterface(BinderInternal.getContextObject());
         return sServiceManager;
     }
@@ -614,7 +614,7 @@ addService的核心过程：
 
 ## 四、获取服务
 
-### 4.1 getService
+### 4.1 SM.getService
 [-> ServiceManager.java]
 
     public static IBinder getService(String name) {
@@ -634,7 +634,6 @@ addService的核心过程：
 关于getIServiceManager()，在前面[小节3.2](http://gityuan.com/2015/11/21/binder-framework/#getiservicemanager)已经讲述了，等价于new ServiceManagerProxy(new BinderProxy())。
 其中sCache = new HashMap<String, IBinder>()以hashmap格式缓存已组成的名称。请求获取服务过程中，先从缓存中查询是否存在，如果缓存中不存在的话，再通过binder交互来查询相应的服务。
 
-
 ### 4.2 SMP.getService
 [-> ServiceManagerNative.java ::ServiceManagerProxy]
 
@@ -644,15 +643,15 @@ addService的核心过程：
             Parcel reply = Parcel.obtain();
             data.writeInterfaceToken(IServiceManager.descriptor);
             data.writeString(name);
-            mRemote.transact(GET_SERVICE_TRANSACTION, data, reply, 0); //mRemote为BinderProxy
-            IBinder binder = reply.readStrongBinder(); //【见4.3】
+            //mRemote为BinderProxy 【见4.3】
+            mRemote.transact(GET_SERVICE_TRANSACTION, data, reply, 0); 
+            //从reply里面解析出获取的IBinder对象【见4.8】
+            IBinder binder = reply.readStrongBinder(); 
             reply.recycle();
             data.recycle();
             return binder;
         }
     }
-
-从reply里面解析出获取的IBinder对象
 
 ### 4.3  BinderProxy.transact
 [-> Binder.java]
@@ -673,8 +672,6 @@ addService的核心过程：
         ...
         //java Parcel转为native Parcel
         Parcel* data = parcelForJavaObject(env, dataObj);
-        ...
-
         Parcel* reply = parcelForJavaObject(env, replyObj);
         ...
 
@@ -744,51 +741,80 @@ addService的核心过程：
         int32_t cmd;
         int32_t err;
         while (1) {
-            if ((err=talkWithDriver()) < NO_ERROR) break; // 【见小节2.11】
+            if ((err=talkWithDriver()) < NO_ERROR) break; 
             ...
-
             cmd = mIn.readInt32();
             switch (cmd) {
-                case BR_REPLY:
-                {
-                    binder_transaction_data tr;
-                    err = mIn.read(&tr, sizeof(tr));
-
-                    if (reply) {
-                        if ((tr.flags & TF_STATUS_CODE) == 0) {
-                            reply->ipcSetDataReference(
-                                reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
-                                tr.data_size,
-                                reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
-                                tr.offsets_size/sizeof(binder_size_t),
-                                freeBuffer, this);
-                        } else {
-                            err = *reinterpret_cast<const status_t*>(tr.data.ptr.buffer);
-                            freeBuffer(NULL,
-                                reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
-                                tr.data_size,
-                                reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
-                                tr.offsets_size/sizeof(binder_size_t), this);
-                        }
+              case BR_REPLY:
+              {
+                binder_transaction_data tr;
+                err = mIn.read(&tr, sizeof(tr));
+                if (reply) {
+                    if ((tr.flags & TF_STATUS_CODE) == 0) {
+                        //当reply对象回收时，则会调用freeBuffer来回收内存
+                        reply->ipcSetDataReference(
+                            reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
+                            tr.data_size,
+                            reinterpret_cast<const binder_size_t*>(tr.data.ptr.offsets),
+                            tr.offsets_size/sizeof(binder_size_t),
+                            freeBuffer, this);
                     } else {
                         ...
                     }
                 }
-                goto finish;
-                ...
+              }
+              case :...
             }
         }
-
-    finish:
-        if (err != NO_ERROR) {
-            if (reply) reply->setError(err); //将发送的错误代码返回给最初的调用者
-        }
+        ...
         return err;
     }
 
+那么这个reply是哪来的呢，在文章[Binder系列3—启动ServiceManager](http://gityuan.com/2015/11/07/binder-start-sm/)
 
-### 4.3 readStrongBinder
-==> Parcel.java
+#### 4.7.1 binder_send_reply
+[-> servicemanager/binder.c]
+
+    void binder_send_reply(struct binder_state *bs,
+                           struct binder_io *reply,
+                           binder_uintptr_t buffer_to_free,
+                           int status)
+    {
+        struct {
+            uint32_t cmd_free;
+            binder_uintptr_t buffer;
+            uint32_t cmd_reply;
+            struct binder_transaction_data txn;
+        } __attribute__((packed)) data;
+
+        data.cmd_free = BC_FREE_BUFFER; //free buffer命令
+        data.buffer = buffer_to_free;
+        data.cmd_reply = BC_REPLY; // reply命令
+        data.txn.target.ptr = 0;
+        data.txn.cookie = 0;
+        data.txn.code = 0;
+        if (status) {
+            ...
+        } else {=
+        
+            data.txn.flags = 0;
+            data.txn.data_size = reply->data - reply->data0;
+            data.txn.offsets_size = ((char*) reply->offs) - ((char*) reply->offs0);
+            data.txn.data.ptr.buffer = (uintptr_t)reply->data0;
+            data.txn.data.ptr.offsets = (uintptr_t)reply->offs0;
+        }
+        //向Binder驱动通信
+        binder_write(bs, &data, sizeof(data));
+    }
+
+binder_write将BC_FREE_BUFFER和BC_REPLY命令协议发送给驱动，进入驱动。binder_ioctl ->
+binder_ioctl_write_read -> binder_thread_write，由于是BC_REPLY命令协议，则进入binder_transaction，
+该方法会向请求服务的线程Todo队列插入事务。 
+
+接下来，请求服务的进程在执行talkWithDriver的过程执行到binder_thread_read()，处理Todo队列的事务。
+
+### 4.8 readStrongBinder
+[-> Parcel.java]
 
 readStrongBinder的过程基本是writeStrongBinder逆过程。
 
@@ -796,27 +822,27 @@ readStrongBinder的过程基本是writeStrongBinder逆过程。
     {
         Parcel* parcel = reinterpret_cast<Parcel*>(nativePtr);
         if (parcel != NULL) {
-            //【见小节4.4】
+            //【见小节4.8.1】
             return javaObjectForIBinder(env, parcel->readStrongBinder());
         }
         return NULL;
     }
 
-javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象。
+javaObjectForIBinder 将native层BpBinder对象转换为Java层BinderProxy对象。
 
-### 4.4 parcel->readStrongBinder
-==> Parcel.cpp
+#### 4.8.1 readStrongBinder(C++)
+[-> Parcel.cpp]
 
     sp<IBinder> Parcel::readStrongBinder() const
     {
         sp<IBinder> val;
-        //【见小节4.5】
+        //【见小节4.8.2】
         unflatten_binder(ProcessState::self(), *this, &val);
         return val;
     }
 
-### 4.5 unflatten_binder
-==> Parcel.cpp
+#### 4.8.2 unflatten_binder
+[-> Parcel.cpp]
 
     status_t unflatten_binder(const sp<ProcessState>& proc,
         const Parcel& in, sp<IBinder>* out)
@@ -828,7 +854,7 @@ javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象�
                     *out = reinterpret_cast<IBinder*>(flat->cookie);
                     return finish_unflatten_binder(NULL, *flat, in);
                 case BINDER_TYPE_HANDLE:
-                    //进入该分支【见4.6】
+                    //进入该分支【见4.8.3】
                     *out = proc->getStrongProxyForHandle(flat->handle);
                     //创建BpBinder对象
                     return finish_unflatten_binder(
@@ -838,8 +864,8 @@ javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象�
         return BAD_TYPE;
     }
 
-### 4.6 getStrongProxyForHandle
-==> ProcessState.cpp
+#### 4.8.3 getStrongProxyForHandle
+[-> ProcessState.cpp]
 
     sp<IBinder> ProcessState::getStrongProxyForHandle(int32_t handle)
     {
@@ -852,14 +878,7 @@ javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象�
         if (e != NULL) {
             IBinder* b = e->binder;
             if (b == NULL || !e->refs->attemptIncWeak(this)) {
-                if (handle == 0) {
-                    Parcel data;
-                    //通过ping操作测试binder是否准备就绪
-                    status_t status = IPCThreadState::self()->transact(
-                            0, IBinder::PING_TRANSACTION, data, NULL, 0);
-                    if (status == DEAD_OBJECT)
-                       return NULL;
-                }
+                ...
                 //当handle值所对应的IBinder不存在或弱引用无效时，则创建BpBinder对象
                 b = new BpBinder(handle);
                 e->binder = b;
@@ -873,10 +892,10 @@ javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象�
         return result;
     }
 
-经过该方法，最终创建了指向Binder服务端的BpBinder代理对象。回到[小节4.3] 经过javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象。 也就是说通过getService()最终获取了指向目标Binder服务端的代理对象BinderProxy。
+经过该方法，最终创建了指向Binder服务端的BpBinder代理对象。回到[小节4.8] 经过javaObjectForIBinder将native层BpBinder对象转换为Java层BinderProxy对象。 也就是说通过getService()最终获取了指向目标Binder服务端的代理对象BinderProxy。
 
 
-### 4.4 小结
+### 4.9 小结
 
 getService的核心过程：
 
