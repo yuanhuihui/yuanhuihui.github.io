@@ -634,11 +634,12 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
                   struct binder_ref *ref;
                   //【见4.3.1】
                   struct binder_node *node = binder_get_node(proc, fp->binder);
-                  if (node == NULL) { //创建binder_node实体【见4.3.2】
+                  if (node == NULL) { 
+                    //服务所在进程 创建binder_node实体【见4.3.2】
                     node = binder_new_node(proc, fp->binder, fp->cookie);
                     ...
                   }
-                  //查询或创建binder_ref【见4.3.3】
+                  //servicemanager进程binder_ref【见4.3.3】
                   ref = binder_get_ref_for_node(target_proc, node);
                   ...
                   //调整type为HANDLE类型
@@ -683,6 +684,7 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
 注册服务的过程，传递的是BBinder对象，故[小节3.2.1]的writeStrongBinder()过程中localBinder不为空，
 从而flat_binder_object.type等于BINDER_TYPE_BINDER。
 
+服务注册过程是在服务所在进程创建binder_node，在servicemanager进程创建binder_ref。
 对于同一个binder_node，每个进程只会创建一个binder_ref对象。
 
 向servicemanager的binder_proc->todo添加BINDER_WORK_TRANSACTION事务，接下来进入ServiceManager进程。
@@ -977,14 +979,15 @@ binder_write进入binder驱动后，将BC_FREE_BUFFER和BC_REPLY命令协议发�
 
 ## 六. 总结
 
-MediaPlayerService服务注册
+服务注册过程(addService)核心功能：在服务所在进程创建binder_node，在servicemanager进程创建binder_ref。
+其中binder_ref的desc再同一个进程内是唯一的：
 
-- 前面13个步骤的功能是MediaPlayerService服务向ServiceManager进行服务注册的过程
-- 再通过startThreadPool()方法创建了一个binder线程，该线程在不断跟Binder驱动进行交互；
-- 最后將当前主线程通过joinThreadPool，也实现了Binder进行交互；
+- 每个进程binder_proc所记录的binder_ref的handle值是从1开始递增的；
+- 所有进程binder_proc所记录的handle=0的binder_ref都指向service manager；
+- 同一个服务的binder_node在不同进程的binder_ref的handle值可以不同；
 
 
-从流程1到流程13，整个过程是`MediaPlayerService`服务向`Service Manager`进程进行服务注册的过程。在整个过程涉及到MediaPlayerService(作为Client进程)和Service Manager(作为Service进程)，通信流程图如下所示：
+Media服务注册的过程涉及到MediaPlayerService(作为Client进程)和Service Manager(作为Service进程)，通信流程图如下所示：
 
 ![media_player_service_ipc](/images/binder/addService/media_player_service_ipc.png)
 

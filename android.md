@@ -107,6 +107,7 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 |6|[理解Binder线程池的管理](http://gityuan.com/2016/10/29/binder-thread-pool/)|Binder的startThreadPool过程|
 |7|[彻底理解Android Binder通信架构](http://gityuan.com/2016/09/04/binder-start-service/)|startService为主线|
 |8|[Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)|Binder的简单总结|
+|9|[Binder IPC的权限控制](http://gityuan.com/2016/03/05/binder-clearCallingIdentity/)|clearCallingIdentity/restoreCallingIdentity|
 
 **驱动篇:**
 

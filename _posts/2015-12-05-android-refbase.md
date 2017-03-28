@@ -41,6 +41,3 @@ RefBase有一个成员变量mRefs为weakref_impl指针，weakref_impl对象便�
 - flags为LIFETIME_WEAK，强引用计数为0，弱引用计数不为0时，实际对象不会被delete。
     - 当弱引用计数减为0时，实际对象和weakref_impl对象会同时被delete。
 - flags为LIFETIME_FOREVER，对象不受强弱引用计数的控制，用不会被回收。
-
-### 5. 
-首次调用这个对象的incStrong函数，就会调用一个这个对象的onFirstRef函数

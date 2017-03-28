@@ -329,7 +329,78 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
 查询服务所对应的handle，然后再binder_send_reply()应答 发起者，发送BC_REPLY协议，然后调用binder_transaction()，再向服务请求者的Todo队列
 插入事务。
 
-#### 2.8.1 binder_thread_read
+接下来，再看看binder_transaction过程。
+
+#### 2.8.1 binder_transaction
+
+    static void binder_transaction(struct binder_proc *proc,
+                   struct binder_thread *thread,
+                   struct binder_transaction_data *tr, int reply){
+        //根据各种判定，获取以下信息：
+        struct binder_thread *target_thread； //目标线程
+        struct binder_proc *target_proc；    //目标进程
+        struct binder_node *target_node；    //目标binder节点
+        struct list_head *target_list；      //目标TODO队列
+        wait_queue_head_t *target_wait；     //目标等待队列
+        ...
+        
+        //分配两个结构体内存
+        struct binder_transaction *t = kzalloc(sizeof(*t), GFP_KERNEL);
+        struct binder_work *tcomplete = kzalloc(sizeof(*tcomplete), GFP_KERNEL);
+        //从target_proc分配一块buffer
+        t->buffer = binder_alloc_buf(target_proc, tr->data_size,
+
+        for (; offp < off_end; offp++) {
+            switch (fp->type) {
+            case BINDER_TYPE_BINDER: ...
+            case BINDER_TYPE_WEAK_BINDER: ...
+            
+            case BINDER_TYPE_HANDLE: 
+            case BINDER_TYPE_WEAK_HANDLE: {
+              struct binder_ref *ref = binder_get_ref(proc, fp->handle,
+                    fp->type == BINDER_TYPE_HANDLE);
+              ...
+              //此时运行在servicemanager进程，故ref->node是指向服务所在进程的binder实体，
+              //而target_proc为请求服务所在的进程，此时并不相等。
+              if (ref->node->proc == target_proc) {
+                if (fp->type == BINDER_TYPE_HANDLE)
+                  fp->type = BINDER_TYPE_BINDER;
+                else
+                  fp->type = BINDER_TYPE_WEAK_BINDER;
+                fp->binder = ref->node->ptr;
+                fp->cookie = ref->node->cookie; //BBinder服务的地址
+                binder_inc_node(ref->node, fp->type == BINDER_TYPE_BINDER, 0, NULL);
+                
+              } else {
+                struct binder_ref *new_ref;
+                //请求服务所在进程并非服务所在进程，则为请求服务所在进程创建binder_ref
+                new_ref = binder_get_ref_for_node(target_proc, ref->node);
+                fp->binder = 0;
+                fp->handle = new_ref->desc; //重新赋予handle值
+                fp->cookie = 0;
+                binder_inc_ref(new_ref, fp->type == BINDER_TYPE_HANDLE, NULL);
+              }
+            } break;
+            
+            case BINDER_TYPE_FD: ...
+            }
+        }
+        //分别target_list和当前线程TODO队列插入事务
+        t->work.type = BINDER_WORK_TRANSACTION;
+        list_add_tail(&t->work.entry, target_list);
+        tcomplete->type = BINDER_WORK_TRANSACTION_COMPLETE;
+        list_add_tail(&tcomplete->entry, &thread->todo);
+        if (target_wait)
+            wake_up_interruptible(target_wait);
+        return;
+    }
+
+这个过程非常重要，分两种情况来说：
+
+1. 当请求服务的进程与服务属于不同进程，则为请求服务所在进程创建binder_ref对象，指向服务进程中的binder_node;
+2. 当请求服务的进程与服务属于同一进程，则不再创建新对象，只是引用计数加1，并且修改type为BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER。
+
+#### 2.8.2 binder_thread_read
 
     binder_thread_read（...）{
         ...
@@ -437,10 +508,11 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
         if (flat) {
             switch (flat->type) {
                 case BINDER_TYPE_BINDER:
+                    // 当请求服务的进程与服务属于同一进程
                     *out = reinterpret_cast<IBinder*>(flat->cookie);
                     return finish_unflatten_binder(NULL, *flat, in);
                 case BINDER_TYPE_HANDLE:
-                    //进入该分支【见2.9.2】
+                    //请求服务的进程与服务属于不同进程【见2.9.2】
                     *out = proc->getStrongProxyForHandle(flat->handle);
                     //创建BpBinder对象
                     return finish_unflatten_binder(
@@ -458,7 +530,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
         sp<IBinder> result;
 
         AutoMutex _l(mLock);
-        //查找handle对应的资源项
+        //查找handle对应的资源项[2.9.3]
         handle_entry* e = lookupHandleLocked(handle);
 
         if (e != NULL) {
@@ -480,6 +552,25 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
 
 readStrongBinder的功能是flat_binder_object解析并创建BpBinder对象.
 
+#### 2.9.3 lookupHandleLocked
+
+    ProcessState::handle_entry* ProcessState::lookupHandleLocked(int32_t handle)
+    {
+        const size_t N=mHandleToObject.size();
+        //当handle大于mHandleToObject的长度时，进入该分支
+        if (N <= (size_t)handle) {
+            handle_entry e;
+            e.binder = NULL;
+            e.refs = NULL;
+            //从mHandleToObject的第N个位置开始，插入(handle+1-N)个e到队列中
+            status_t err = mHandleToObject.insertAt(e, N, handle+1-N);
+            if (err < NO_ERROR) return NULL;
+        }
+        return &mHandleToObject.editItemAt(handle);
+    }
+    
+根据handle值来查找对应的handle_entry.
+
 ## 二、 死亡通知
 
 死亡通知是为了让Bp端能知道Bn端的生死情况。
@@ -488,7 +579,6 @@ readStrongBinder的功能是flat_binder_object解析并创建BpBinder对象.
 - 注册：binder->linkToDeath(sDeathNotifier)是为了将sDeathNotifier死亡通知注册到Binder上。
 
 Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，则在Bn端死掉后，会回调binderDied()进行相应处理。
-
 
 ### 2.1 linkToDeath
 [-> BpBinder.cpp]
@@ -577,3 +667,12 @@ Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，
 这项工作是在[启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)时通过`binder_link_to_death(bs, ptr, &si->death)`完成。另外，每个Bp端也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。
 
 那么问题来了，Binder死亡通知是如何触发的呢？对于Binder IPC进程都会打开/dev/binder文件，当进程异常退出时，Binder驱动会保证释放将要退出的进程中没有正常关闭的/dev/binder文件，实现机制是binder驱动通过调用/dev/binder文件所对应的release回调函数，执行清理工作，并且检查BBinder是否有注册死亡通知，当发现存在死亡通知时，那么就向其对应的BpBinder端发送死亡通知消息。
+
+## 三. 总结
+
+请求服务(getService)过程，当执行binder_transaction()时，会区分请求服务所属进程情况。
+
+1. 当请求服务的进程与服务属于不同进程，则为请求服务所在进程创建binder_ref对象，指向服务进程中的binder_node;
+  - 最终readStrongBinder()，返回的是BpBinder对象；
+2. 当请求服务的进程与服务属于同一进程，则不再创建新对象，只是引用计数加1，并且修改type为BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER。
+  - 最终readStrongBinder()，返回的是BBinder对象的真实子类；

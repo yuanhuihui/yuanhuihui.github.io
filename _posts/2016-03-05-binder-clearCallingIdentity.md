@@ -37,8 +37,7 @@ clearCallingIdentity(), restoreCallingIdentity()这两个方法使用过程都�
 从定义这两个方法是native方法，通过[Binder的JNI调用](http://gityuan.com/2015/11/21/binder-framework/#registerandroidosbinder)，在`android_util_Binder.cpp`文件中定义了native方法所对应的jni方法。
 
 ### 2.1 clearCallingIdentity
-
-**[-->android_util_Binder.cpp]**
+[-> android_util_Binder.cpp]
 
     static jlong android_os_Binder_clearCallingIdentity(JNIEnv* env, jobject clazz)
     {
@@ -46,8 +45,8 @@ clearCallingIdentity(), restoreCallingIdentity()这两个方法使用过程都�
         return IPCThreadState::self()->clearCallingIdentity();
     }
 
-
-**[-->IPCThreadState.cpp]**
+#### 2.1.1 IPC.clearCallingIdentity
+[-> IPCThreadState.cpp]
 
     int64_t IPCThreadState::clearCallingIdentity()
     {
@@ -68,8 +67,7 @@ clearCallingIdentity(), restoreCallingIdentity()这两个方法使用过程都�
 UID和PID是IPCThreadState的成员变量， 都是32位的int型数据，通过移位操作，将UID和PID的信息保存到`token`，其中高32位保存UID，低32位保存PID。然后调用clearCaller()方法将当前本地进程pid和uid分别赋值给PID和UID，最后返回`token`。
 
 ### 2.2 restoreCallingIdentity
-
-**[-->android_util_Binder.cpp]**
+[-> android_util_Binder.cpp]
 
     static void android_os_Binder_restoreCallingIdentity(JNIEnv* env, jobject clazz, jlong token)
     {
@@ -85,7 +83,8 @@ UID和PID是IPCThreadState的成员变量， 都是32位的int型数据，通过
         IPCThreadState::self()->restoreCallingIdentity(token);
     }
 
-**[-->IPCThreadState.cpp]**
+#### 2.2.1 IPC.restoreCallingIdentity
+[-> IPCThreadState.cpp]
 
     void IPCThreadState::restoreCallingIdentity(int64_t token)
     {
@@ -95,6 +94,88 @@ UID和PID是IPCThreadState的成员变量， 都是32位的int型数据，通过
 
 从`token`中解析出PID和UID，并赋值给相应的变量。该方法正好是`clearCallingIdentity`的反过程。
 
+### 2.3 getCallingPid
+[-> android_util_Binder.cpp]
+
+    static jint android_os_Binder_getCallingPid(JNIEnv* env, jobject clazz)
+    {
+        return IPCThreadState::self()->getCallingPid();
+    }
+
+#### 2.3.1 IPC.getCallingPid
+[-> IPCThreadState.cpp]
+
+    pid_t IPCThreadState::getCallingPid() const
+    {
+        return mCallingPid;
+    }
+
+    uid_t IPCThreadState::getCallingUid() const
+    {
+        return mCallingUid;
+    }
+
+### 2.4 远程调用
+#### 2.4.1 binder_thread_read
+
+    binder_thread_read（）{
+        while (1) {
+          struct binder_work *w;
+          switch (w->type) {
+            case BINDER_WORK_TRANSACTION:
+                t = container_of(w, struct binder_transaction, work);
+                break;
+            case :...
+          }
+          if (!t)
+            continue; //只有BR_TRANSACTION,BR_REPLY才会往下执行
+            
+          tr.code = t->code;
+          tr.flags = t->flags;
+          tr.sender_euid = t->sender_euid; //mCallingUid
+
+          if (t->from) {
+              struct task_struct *sender = t->from->proc->tsk;
+              //当非oneway的情况下,将调用者进程的pid保存到sender_pid
+              tr.sender_pid = task_tgid_nr_ns(sender,current->nsproxy->pid_ns);
+          } else {
+              //当oneway的的情况下,则该值为0
+              tr.sender_pid = 0;
+          }
+          ...
+    }
+    
+#### 2.4.2 IPC.executeCommand
+
+    status_t IPCThreadState::executeCommand(int32_t cmd)
+    {
+        BBinder* obj;
+        RefBase::weakref_type* refs;
+        status_t result = NO_ERROR;
+
+        switch ((uint32_t)cmd) {
+            case BR_TRANSACTION:
+            {
+                const pid_t origPid = mCallingPid;
+                const uid_t origUid = mCallingUid;
+                mCallingPid = tr.sender_pid; //设置调用者pid
+                mCallingUid = tr.sender_euid;//设置调用者uid
+                ...
+                reinterpret_cast<BBinder*>(tr.cookie)->transact(tr.code, buffer,
+                            &reply, tr.flags);
+                mCallingPid = origPid; //恢复原来的pid
+                mCallingUid = origUid; //恢复原来的uid
+            }
+            
+            case :...
+        }
+    }
+
+关于mCallingPid、mCallingUid的修改过程:是在每次Binder Call的远程进程在执行binder_thread_read()过程，
+会设置pid和uid. 然后在IPCThreadState的transact收到BR_TRANSACION则会修改mCallingPid、mCallingUid。
+
+这里需要注意的是，当oneway的的情况下mCallingPid=0，不过mCallingUid可以拿到正确值。
+
 ## 三、用途
 
 ### 3.1 场景分析
@@ -102,7 +183,6 @@ UID和PID是IPCThreadState的成员变量， 都是32位的int型数据，通过
 **场景：**首先线程A通过Binder远程调用线程B，然后线程B通过Binder调用当前线程的另一个service或者activity之类的组件。
 
 **分析：**
-
 
 
 1. 线程A通过Binder远程调用线程B：则线程B的IPCThreadState中的`mCallingUid`和`mCallingPid`保存的就是线程A的UID和PID。这时在线程B中调用`Binder.getCallingPid()`和`Binder.getCallingUid()`方法便可获取线程A的UID和PID，然后利用UID和PID进行权限比对，判断线程A是否有权限调用线程B的某个方法。

@@ -598,6 +598,7 @@ BINDER_LOOPER_STATE_INVALID: 当binder_thread创建过程状态不正确时会�
 - `target`: 对于BpBinder则使用handle，对于BBinder则使用ptr，故使用union数据类型来表示；
 - `code`: 比如注册服务过程code为ADD_SERVICE_TRANSACTION，又比如获取服务code为CHECK_SERVICE_TRANSACTION
 - `data`：代表整个数据区，其中data.ptr指向的是传递给Binder驱动的数据区的起始地址，data.offsets指的是数据区中IPC数据地址的偏移量。
+- `cookie`: 记录着BBinder指针。
 
 ### 3.5 binder_transaction
 

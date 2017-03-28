@@ -577,7 +577,7 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
 
         case SVC_MGR_ADD_SERVICE: 
             s = bio_get_string16(msg, &len); //服务名
-            handle = bio_get_ref(msg); //handle
+            handle = bio_get_ref(msg); //handle【见小节3.2.3】
             allow_isolated = bio_get_uint32(msg) ? 1 : 0;
              //注册指定服务 【见小节3.2】
             if (do_add_service(bs, s, len, handle, txn->sender_euid,
@@ -805,6 +805,23 @@ servicemanager的核心工作就是注册服务和查询服务。
         }
     }
 
+#### 3.2.3 bio_get_ref
+[-> servicemanager/binder.c]
+
+    uint32_t bio_get_ref(struct binder_io *bio)
+    {
+        struct flat_binder_object *obj;
+
+        obj = _bio_get_obj(bio);
+        if (!obj)
+            return 0;
+
+        if (obj->type == BINDER_TYPE_HANDLE)
+            return obj->handle;
+
+        return 0;
+    }
+    
 ### 3.3 binder_link_to_death
 [-> servicemanager/binder.c]
 

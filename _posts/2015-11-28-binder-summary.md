@@ -69,8 +69,8 @@ Native层通过宏IMPLEMENT_META_INTERFACE来完成asInterface实现和descripto
 调用attachInterface()，完成descriptor的赋值过程。
 - 再如AIDL全自动生成asInterface和descriptor赋值过程。
 
-同一个进程，请求binder服务，是否需要经过binder call，取决于descriptor是否设置。
-
+同一个进程，请求binder服务，不需要创建binder_ref,BpBinder等这些对象，但是是否需要经过binder call，取决于descriptor是否设置。
+这就涉及到Java服务Native使用，或许Native服务在Java层使用，需要格外注意。
 
 **binder的路由原理**：BpBinder发送端，根据handler，在当前binder_proc中，找到相应的binder_ref，由binder_ref再找到目标binder_node实体，由目标binder_node再找到目标进程binder_proc。简单地方式是直接把binder_transaction节点插入到binder_proc的todo队列中，完成传输过程。
 
