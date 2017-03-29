@@ -5,7 +5,7 @@ date:   2017-3-10 20:12:30
 catalog:    true
 tags:
     - android
-        
+
 ---
 
 ## 一. 概述
@@ -15,24 +15,24 @@ tags:
 JobScheduler的schedule过程：
 
      JobScheduler scheduler = (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);  
-     ComponentName jobService = new ComponentName(this, MyJobService.class); 
-     
+     ComponentName jobService = new ComponentName(this, MyJobService.class);
+
      JobInfo jobInfo = new JobInfo.Builder(123, jobService) //任务Id等于123
              .setMinimumLatency(5000)// 任务最少延迟时间  
              .setOverrideDeadline(60000)// 任务deadline，当到期没达到指定条件也会开始执行  
              .setRequiredNetworkType(JobInfo.NETWORK_TYPE_UNMETERED)// 网络条件，默认值NETWORK_TYPE_NONE
              .setRequiresCharging(true)// 是否充电  
-             .setRequiresDeviceIdle(false)// 设备是否空闲 
+             .setRequiresDeviceIdle(false)// 设备是否空闲
              .setPersisted(true) //设备重启后是否继续执行
              .setBackoffCriteria(3000，JobInfo.BACKOFF_POLICY_LINEAR) //设置退避/重试策略
              .build();  
-     scheduler.schedule(jobInfo); 
-     
+     scheduler.schedule(jobInfo);
+
 JobScheduler的cancel过程：
 
      scheduler.cancel(123); //取消jobId=123的任务
      scheduler.cancelAll(); //取消当前uid下的所有任务
-     
+
 schedule过程说明：
 
 1. 先获取JobScheduler调度器的代理对象，要理解这个过程，那么就需要先看看JobSchedulerService的启动过程；
@@ -64,7 +64,7 @@ schedule过程说明：
         final JobSchedulerStub mJobSchedulerStub;
         final JobStore mJobs;
         ...
-        
+
         public JobSchedulerService(Context context) {
             super(context);
             mControllers = new ArrayList<StateController>();
@@ -73,7 +73,7 @@ schedule过程说明：
             mControllers.add(IdleController.get(this));
             mControllers.add(BatteryController.get(this));
             mControllers.add(AppIdleController.get(this));
-            
+
             //创建主线程的looper[见小节2.3]
             mHandler = new JobHandler(context.getMainLooper());
             //创建binder服务端[见小节2.4]
@@ -108,7 +108,7 @@ schedule过程说明：
 
     public class ConnectivityController extends StateController implements
             ConnectivityManager.OnNetworkActiveListener {
-            
+
         public static ConnectivityController get(JobSchedulerService jms) {
             synchronized (sCreationLock) {
                 if (mSingleton == null) {
@@ -118,7 +118,7 @@ schedule过程说明：
                 return mSingleton;
             }
         }
-        
+
         private ConnectivityController(StateChangedListener stateChangedListener, Context context) {
             super(stateChangedListener, context);
             //注册监听网络连接状态的广播，且采用BackgroundThread线程
@@ -198,7 +198,7 @@ JobSchedulerStub作为实现接口IJobScheduler的binder服务端。
         final ArraySet<JobStatus> mJobSet;
         private final Handler mIoHandler = IoThread.getHandler();
         ...
-        
+
         private JobStore(Context context, File dataDir) {
             mContext = context;
             mDirtyOperations = 0;
@@ -213,7 +213,7 @@ JobSchedulerStub作为实现接口IJobScheduler的binder服务端。
             readJobMapFromDisk(mJobSet);
         }
     }
-    
+
 该方法会创建job目录以及jobs.xml文件, 以及从文件中读取所有的JobStatus。
 
 ### 2.7 xml解析
@@ -268,7 +268,7 @@ JobSchedulerStub作为实现接口IJobScheduler的binder服务端。
                          JobStatus persistedJob = restoreJobFromXml(parser);
                          if (persistedJob != null) {
                              jobs.add(persistedJob);
-                         } 
+                         }
                      }
                  }
                  eventType = parser.next();
@@ -292,13 +292,13 @@ JobSchedulerStub作为实现接口IJobScheduler的binder服务端。
         jobBuilder.setPersisted(true);
         uid = Integer.valueOf(parser.getAttributeValue(null, "uid"));
         ...
-        
+
         buildConstraintsFromXml(jobBuilder, parser); //读取常量
         //读取job执行的两个时间点：delay和deadline
         Pair<Long, Long> elapsedRuntimes = buildExecutionTimesFromXml(parser);
         ...
         //[见小节2.8]
-        return new JobStatus(jobBuilder.build(), uid, 
+        return new JobStatus(jobBuilder.build(), uid,
                     elapsedRuntimes.first, elapsedRuntimes.second);
     }
 
@@ -314,7 +314,7 @@ JobSchedulerStub作为实现接口IJobScheduler的binder服务端。
         return new JobInfo.Builder(jobId, cname);
     }
 
-创建的JobInfo对象，记录着任务的jobid, package, class。 
+创建的JobInfo对象，记录着任务的jobid, package, class。
 
 #### 2.7.5 创建JobInfo
 [-> JobInfo.java]
@@ -326,13 +326,13 @@ JobSchedulerStub作为实现接口IJobScheduler的binder服务端。
                  mJobId = jobId;
             }
             public JobInfo build() {
-                mExtras = new PersistableBundle(mExtras); 
+                mExtras = new PersistableBundle(mExtras);
                 return new JobInfo(this); //创建JobInfo
             }
         }
     }
 
-    
+
 ### 2.8  创建JobStatus
 [-> JobStatus.java]
 
@@ -351,7 +351,7 @@ JobSchedulerStub作为实现接口IJobScheduler的binder服务端。
         this.tag = "*job*/" + this.name;
         this.numFailures = numFailures;
     }
-    
+
 JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败次数信息。
 
 ### 2.9 JSS.onBootPhase
@@ -387,6 +387,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
                         mControllers.get(controller).maybeStartTrackingJob(job);
                     }
                 }
+                //[见小节3.8]
                 mHandler.obtainMessage(MSG_CHECK_JOB).sendToTarget();
             }
         }
@@ -434,9 +435,9 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
             IBinder b = ServiceManager.getService(Context.JOB_SCHEDULER_SERVICE);
             return new JobSchedulerImpl(IJobScheduler.Stub.asInterface(b));
         }});
- 
+
 从这个过程,可知客户端请求获取JOB_SCHEDULER_SERVICE服务, 返回的是JobSchedulerImpl对象.JobSchedulerImpl对象继承于JobScheduler对象.
- 
+
 ### 3.2 JobService
 [-> JobService.java]
 
@@ -455,7 +456,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
                 m.sendToTarget();
             }
         };
-        
+
         void ensureHandler() {
            synchronized (mHandlerLock) {
                if (mHandler == null) {
@@ -467,7 +468,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
        public final IBinder onBind(Intent intent) {
           return mBinder.asBinder();
       }
-      
+
     }
 
 由于JobService运行在app端所在进程，那么此处的mHandler便是指app进程的主线程。
@@ -515,7 +516,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
             return JobScheduler.RESULT_FAILURE;
         }
     }
-    
+
 当app端调用JobSchedulerImpl的schedule()过程,通过binder call进入了system_server的binder线程,进入如下操作.
 
 ### 3.4 JobSchedulerStub.schedule
@@ -533,7 +534,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
             Binder.restoreCallingIdentity(ident);
         }
     }
-    
+
 ### 3.5  JSS.schedule
 
     public int schedule(JobInfo job, int uId) {
@@ -562,7 +563,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
             cancelJobImpl(toCancel);
         }
     }
-    
+
 ### 3.7 JSS.startTrackingJob
 
     private void startTrackingJob(JobStatus jobStatus) {
@@ -611,7 +612,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
             removeMessages(MSG_CHECK_JOB);
         }
     }
-    
+
 
 ### 3.9 maybeQueueReadyJobsForExecutionLockedH
 [-> JobSchedulerService.java  ::JobHandler]
@@ -653,7 +654,7 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
                 //加入到mPendingJobs队列
                 mPendingJobs.add(runnableJobs.get(i));
             }
-        } 
+        }
     }
 
 该功能:
@@ -806,13 +807,13 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
                 Message m = Message.obtain(mHandler, MSG_EXECUTE_JOB, jobParams);
                 m.sendToTarget();
             }
-            
+
             public void stopJob(JobParameters jobParams) {
                 ...
             }
         };
-        
-      
+
+
     }
 
 由于JobService运行在app端所在进程，那么此处的mHandler便是指app进程的主线程。
@@ -874,7 +875,7 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
                 Binder.restoreCallingIdentity(ident);
             }
         }
-        
+
         public void cancelAll() throws RemoteException {
             final int uid = Binder.getCallingUid();
             long ident = Binder.clearCallingIdentity();
@@ -884,7 +885,7 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
                 Binder.restoreCallingIdentity(ident);
             }
         }
-        
+
         ...
     }
 
@@ -893,7 +894,7 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
 
     public class JobSchedulerService extends com.android.server.SystemService
             implements StateChangedListener, JobCompletedListener {
-            
+
         public void cancelJob(int uid, int jobId) {
             JobStatus toCancel;
             synchronized (mJobs) {
@@ -904,7 +905,7 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
                 cancelJobImpl(toCancel);
             }
         }
-        
+
         public void cancelJobsForUid(int uid) {
             List<JobStatus> jobsForUid;
             synchronized (mJobs) {
@@ -1042,7 +1043,7 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
                 break;
         }
     }
-    
+
 #### 4.6.3 JSC.sendStopMessageH
 
     private void sendStopMessageH() {
@@ -1080,7 +1081,7 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
                 m.sendToTarget();
             }
         };
-        
+
         ...
     }
 
@@ -1108,7 +1109,7 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
 ## 四. 总结
 
 JobScheduler启动调用schedule()，结束则调用cancel(int jobId)或cancelAll(),整个JobScheduler过程涉及不少记录job的对象,关系如下:
- 
+
 ![job](/images/jobscheduler/job.jpg)
 
 JobSchedulerService通过成员遍历mJobs指向JobStore对象;JobStore的mJobSet记录着所有的JobStatus对象;
@@ -1119,7 +1120,7 @@ JobStatus通过job指向JobInfo对象; JobInfo对象里面记录着jobId, 组件
 
 ![job_scheduler_sequence](/images/jobscheduler/job_scheduler_sequence.jpg)
 
-上图整个过程涉及两次跨进程的调用, 第一次是从app进程进入system_server进程的JobSchedulerStub, 采用IJobScheduler接口. 
+上图整个过程涉及两次跨进程的调用, 第一次是从app进程进入system_server进程的JobSchedulerStub, 采用IJobScheduler接口.
 第二次则是JobScheduler通过bindService方式启动之后, 再回到system_server进程,然后调用startJob(),这是通过IJobService接口,
 这是oneway的方式,意味着不会等待对方完成便会结束.
 
