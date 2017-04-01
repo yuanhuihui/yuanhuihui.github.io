@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  " Android开篇"
+title:  " Android系统开篇"
 permalink: /android/
 date:   2016-04-01 11:49:40
 catalog:  true
@@ -52,7 +52,7 @@ Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
 
 - init进程会孵化出ueventd、logd、healthd、installd、adbd、lmkd等用户守护进程；
 - init进程还启动`servicemanager`(binder服务管家)、`bootanim`(开机动画)等重要服务
-- init进程孵化出Zygote进程，Zygote进程是Android系统的第一个Java进程，`Zygote是所有Java进程的父进程`，Zygote进程本身是由init进程孵化而来的。
+- init进程孵化出Zygote进程，Zygote进程是Android系统的第一个Java进程(即虚拟机进程)，`Zygote是所有Java进程的父进程`，Zygote进程本身是由init进程孵化而来的。
 
 #### 2.4 Framework层
 

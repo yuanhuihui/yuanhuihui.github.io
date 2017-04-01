@@ -79,7 +79,7 @@ ProcessState::self()是单例模式，主要工作是调用open()打开/dev/bind
     }
 
 获取Binder线程名，格式为`Binder_x`, 其中x为整数。每个进程中的binder编码是从1开始，依次递增; 只有通过spawnPooledThread方法来创建的线程才符合这个格式，对于直接将当前线程通过joinThreadPool加入线程池的线程名则不符合这个命名规则。
-另外,目前Android N中Binder命令已改为Binder:<pid>_x格式, 则对于分析问题很有帮忙.
+另外,目前Android N中Binder命令已改为`Binder:<pid>_x`格式, 则对于分析问题很有帮忙,通过binder名称的pid字段可以快速定位该binder线程所属的进程p.
 
 #### 2.3.2 PoolThread.run
 [-> ProcessState.cpp]

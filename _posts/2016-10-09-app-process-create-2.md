@@ -1229,9 +1229,6 @@ ATP经过binder ipc传递到ATN的onTransact过程.
 
 #### 3.14.3 rewriteRValues
 [-> LoadedApk.java]
-
-    private void rewriteRValues(ClassLoader cl, String packageName, int id) {
-        final Class<?> rClazz;
         try {
             rClazz = cl.loadClass(packageName + ".R");
         } catch (ClassNotFoundException e) {
