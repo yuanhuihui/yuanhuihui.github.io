@@ -85,45 +85,6 @@ do_fork
       copy_flags
       alloc_pid
 
-
-## COW
-
-http://blog.csdn.net/evenness/article/details/7656812
-
-## 文件引用的问题
-
-fork和dup，都只是增加file->f_count的引用计数
-
-## 解决方案：
-
-1. bionic fork
-2. copy_process, fs的文件计数
-
-3. binder_release
-4. zygote waitpit. 
-5. exit()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### 2.2 pthread_create
 
         pthread_create -> __pthread_create_2_1 -> create_thread -> do_clone
@@ -167,4 +128,19 @@ Linux 线程，也并非"轻量级进程"，在Linux看来线程是一种进程�
 到此该进程相关的所有资源都已释放，并处于EXIT_ZOMBIE状态。此时进程所占用的内存为内核栈、task_struct和hread_info结构体， 该进程存在的唯一目标就是向父进程提供信息。
 
 
+## COW
+
+http://blog.csdn.net/evenness/article/details/7656812
 http://www.ibm.com/developerworks/cn/linux/kernel/l-thread/
+
+## 文件引用的问题
+
+fork和dup，都只是增加file->f_count的引用计数
+
+## 解决方案：
+
+1. bionic fork： 直接关闭，比较合适。
+2. copy_process, fs的文件计数： 子进程不加引用会有问题，子进程死亡会导致主进程binder_release
+3. binder_release：主进程被杀，并收不到binder_flush, 子进程被杀则能。无法解决问题。
+4. zygote waitpit. 目前并不支持。
+5. exit()：设计不够合理
