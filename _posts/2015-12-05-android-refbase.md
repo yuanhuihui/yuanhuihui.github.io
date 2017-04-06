@@ -40,4 +40,4 @@ RefBase有一个成员变量mRefs为weakref_impl指针，weakref_impl对象便�
     - 强引用计数为0后，实际对象被delete。所以对于这种情况，应使用wp时要由弱生强。
 - flags为LIFETIME_WEAK，强引用计数为0，弱引用计数不为0时，实际对象不会被delete。
     - 当弱引用计数减为0时，实际对象和weakref_impl对象会同时被delete。
-- flags为LIFETIME_FOREVER，对象不受强弱引用计数的控制，用不会被回收。
+- flags为LIFETIME_FOREVER，对象不受强弱引用计数的控制，永不会被回收。

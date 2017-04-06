@@ -10,6 +10,9 @@ hwbinder 作者： owner:maco@google.com
   - platform/system/libhidl
   - platform/system/tools/hidl
 
+这个需要马上合并
+https://android.googlesource.com/platform/frameworks/native/+/ff405785386ed8bdee50c4afdc4a4f9a73bcb81e%5E%21/#F0
+
 1, https://android.googlesource.com/platform/frameworks/base/+/cc64dfcf66a19084a58372ea7f9f5139ccc93221
 
 2. binder
@@ -18,6 +21,7 @@ https://android.googlesource.com/kernel/common/+/325c5ebdb78901cd3b5dd4aa0a0726c
 https://android.googlesource.com/kernel/common/+/19d47b2b50699383c9a0869ef633d19e66448144%5E%21/#F0
 
 关于ServiceManager的死亡回调问题？ 百度地图多进程， 是否回调？ app binderDied是否回调？
+
 
 5. patch 2:
 final void appDiedLocked(ProcessRecord app, int pid, IApplicationThread thread,
