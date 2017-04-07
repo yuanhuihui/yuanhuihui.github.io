@@ -129,7 +129,7 @@ tags:
             if (container != null) {
                 ...
             } else {
-                //此处packageInfo为uLoadedApk.
+                //此处packageInfo为LoadedApk.
                 mBasePackageName = packageInfo.mPackageName;
                 ApplicationInfo ainfo = packageInfo.getApplicationInfo();
                 if (ainfo.uid == Process.SYSTEM_UID && ainfo.uid != Process.myUid()) {
@@ -198,7 +198,7 @@ tags:
         final String mPackageName;
         private final ClassLoader mBaseClassLoader;
         private ClassLoader mClassLoader;
-
+        
         LoadedApk(ActivityThread activityThread) {
             mActivityThread = activityThread;
             mApplicationInfo = new ApplicationInfo(); //创建ApplicationInfo对象
@@ -643,5 +643,5 @@ system_server收到attach操作之后, 然后再向新创建的进程执行handl
             return packageInfo;
         }
     }
-    
+
 ###
