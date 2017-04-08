@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解Context上下文"
+title:  "理解Context与Application"
 date:   2017-3-13 20:12:30
 catalog:    true
 tags:

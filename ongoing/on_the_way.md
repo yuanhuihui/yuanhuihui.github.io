@@ -28,6 +28,11 @@ http://blog.csdn.net/qq429205464/article/details/7822442
 2. 有地方的MIUI ADD，修改input flags可能存在问题。
 
 
-#### 
+####
 
 SharedPreferencesImpl的性能问题, 需要优化
+
+
+### linker文章
+
+http://m.blog.csdn.net/article/details?id=50568693
