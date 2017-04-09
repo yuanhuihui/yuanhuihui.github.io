@@ -13,6 +13,16 @@ hwbinder 作者： owner:maco@google.com
 这个需要马上合并
 https://android.googlesource.com/platform/frameworks/native/+/ff405785386ed8bdee50c4afdc4a4f9a73bcb81e%5E%21/#F0
 
+关于context问题：
+
+ContextImpl context = ContextImpl.createAppContext(
+        this, getSystemContext().mPackageInfo);
+mInitialApplication = context.mPackageInfo.makeApplication(true, null);
+
+==》 (通过断点来看看)
+mInitialApplication = getSystemContext().mPackageInfo.makeApplication(true, null);
+
+
 1, https://android.googlesource.com/platform/frameworks/base/+/cc64dfcf66a19084a58372ea7f9f5139ccc93221
 
 2. binder

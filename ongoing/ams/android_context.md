@@ -277,3 +277,210 @@ private IActivityManager.ContentProviderHolder installProvider(Context context,
 |类型|LoadedApk|ContextImpl|Application|组件|attach|回调|
 |---|---|---|---|---|---|
 |Activity|||||
+
+
+#### 其他
+
+
+## 四. CI.getApplicationContext
+
+    public Context getApplicationContext() {
+        return (mPackageInfo != null) ?
+                mPackageInfo.getApplication() : mMainThread.getApplication();
+    }
+
+另外:
+
+- LoadedApk.mApplication: mPackageInfo.getApplication(), 赋值过程:
+    - makeApplication(), 3大组件会调用该方法.
+- AT.mInitialApplication: mMainThread.getApplication(), 赋值过程:
+    - AT.handleBindApplication() 普通app进程;
+    - AT.attach  system_server进程;
+
+
+创建LoadedApk的情况, 只有Activity, Service, broadcast.
+
+### 4.1 AT.installProvider
+
+    private IActivityManager.ContentProviderHolder installProvider(Context context,
+            IActivityManager.ContentProviderHolder holder, ProviderInfo info,
+            boolean noisy, boolean noReleaseNeeded, boolean stable) {
+        ContentProvider localProvider = null;
+        IContentProvider provider;
+        if (holder == null || holder.provider == null) {
+            Context c = null;
+            ApplicationInfo ai = info.applicationInfo;
+            if (context.getPackageName().equals(ai.packageName)) {
+                c = context;
+            } else if (mInitialApplication != null &&
+                    mInitialApplication.getPackageName().equals(ai.packageName)) {
+                c = mInitialApplication;
+            } else {
+                // 进入此处创建, 多apk. 最终掉用到AT.getPackageInfo()创建LoadedApk以及ContextImpl对象.
+                c = context.createPackageContext(ai.packageName,
+                        Context.CONTEXT_INCLUDE_CODE);
+            }
+
+            try {
+                final java.lang.ClassLoader cl = c.getClassLoader();
+                //通过反射，创建目标ContentProvider对象
+                localProvider = (ContentProvider)cl.
+                    loadClass(info.name).newInstance();
+                provider = localProvider.getIContentProvider();
+                if (provider == null) {
+                    return null;
+                }
+                //回调目标ContentProvider.onCreate方法
+                localProvider.attachInfo(c, info);
+            } catch (java.lang.Exception e) {
+                return null;
+            }
+        } else {
+            ...
+        }
+
+        IActivityManager.ContentProviderHolder retHolder;
+        synchronized (mProviderMap) {
+            IBinder jBinder = provider.asBinder();
+            if (localProvider != null) {
+                ComponentName cname = new ComponentName(info.packageName, info.name);
+                ProviderClientRecord pr = mLocalProvidersByName.get(cname);
+                if (pr != null) {
+                    provider = pr.mProvider;
+                } else {
+                    holder = new IActivityManager.ContentProviderHolder(info);
+                    holder.provider = provider;
+                    holder.noReleaseNeeded = true;
+                    pr = installProviderAuthoritiesLocked(provider, localProvider, holder);
+                    mLocalProviders.put(jBinder, pr);
+                    mLocalProvidersByName.put(cname, pr);
+                }
+                retHolder = pr.mHolder;
+            } else {
+                ...
+            }
+        }
+        return retHolder;
+    }
+
+#### 4.2  CI.createPackageContext
+
+    public Context createPackageContext(String packageName, int flags)
+            throws NameNotFoundException {
+        return createPackageContextAsUser(packageName, flags,
+                mUser != null ? mUser : Process.myUserHandle());
+    }
+
+    public Context createPackageContextAsUser(String packageName, int flags, UserHandle user)
+            throws NameNotFoundException {
+        final boolean restricted = (flags & CONTEXT_RESTRICTED) == CONTEXT_RESTRICTED;
+
+        if (packageName.equals("system") || packageName.equals("android")) {
+            return new ContextImpl(this, mMainThread, mPackageInfo, mActivityToken,
+                    user, restricted, mDisplay, null, Display.INVALID_DISPLAY);
+        }
+
+        //创建LoadedApk
+        LoadedApk pi = mMainThread.getPackageInfo(packageName, mResources.getCompatibilityInfo(),
+                flags | CONTEXT_REGISTER_PACKAGE, user.getIdentifier());
+        if (pi != null) {
+            //创建ContextImpl
+            ContextImpl c = new ContextImpl(this, mMainThread, pi, mActivityToken,
+                    user, restricted, mDisplay, null, Display.INVALID_DISPLAY);
+            if (c.mResources != null) {
+                return c;
+            }
+        }
+
+    }
+
+#### 4.3  getPackageInfo
+
+    public final LoadedApk getPackageInfo(String packageName, CompatibilityInfo compatInfo,
+            int flags, int userId) {
+        final boolean differentUser = (UserHandle.myUserId() != userId);
+        synchronized (mResourcesManager) {
+            WeakReference<LoadedApk> ref;
+            if (differentUser) {
+                ref = null;
+            } else if ((flags & Context.CONTEXT_INCLUDE_CODE) != 0) {
+                ref = mPackages.get(packageName);
+            } else {
+                ref = mResourcePackages.get(packageName);
+            }
+
+            LoadedApk packageInfo = ref != null ? ref.get() : null;
+            if (packageInfo != null && (packageInfo.mResources == null
+                    || packageInfo.mResources.getAssets().isUpToDate())) {
+                ...
+                return packageInfo;
+            }
+        }
+
+        // 查询ApplicationInfo
+        ApplicationInfo ai = getPackageManager().getApplicationInfo(packageName,
+                PackageManager.GET_SHARED_LIBRARY_FILES, userId);
+
+
+        if (ai != null) {
+            return getPackageInfo(ai, compatInfo, flags);
+        }
+        return null;
+    }
+
+#### 4.4
+
+    public final LoadedApk getPackageInfo(ApplicationInfo ai, CompatibilityInfo compatInfo,
+            int flags) {
+        boolean includeCode = (flags&Context.CONTEXT_INCLUDE_CODE) != 0;
+        boolean securityViolation = includeCode && ai.uid != 0
+                && ai.uid != Process.SYSTEM_UID && (mBoundApplication != null
+                        ? !UserHandle.isSameApp(ai.uid, mBoundApplication.appInfo.uid)
+                        : true);
+        boolean registerPackage = includeCode && (flags&Context.CONTEXT_REGISTER_PACKAGE) != 0;
+        ...
+        return getPackageInfo(ai, compatInfo, null, securityViolation, includeCode,
+                registerPackage);
+    }
+
+#### 4.5
+
+    private LoadedApk getPackageInfo(ApplicationInfo aInfo, CompatibilityInfo compatInfo,
+        ClassLoader baseLoader, boolean securityViolation, boolean includeCode,
+            boolean registerPackage) {
+        final boolean differentUser = (UserHandle.myUserId() != UserHandle.getUserId(aInfo.uid));
+        synchronized (mResourcesManager) {
+            WeakReference<LoadedApk> ref;
+            if (differentUser) {
+                ref = null;
+            } else if (includeCode) {
+                ref = mPackages.get(aInfo.packageName); //从mPackages查询
+            } else {
+                ...
+            }
+
+            LoadedApk packageInfo = ref != null ? ref.get() : null;
+            if (packageInfo == null || (packageInfo.mResources != null
+                    && !packageInfo.mResources.getAssets().isUpToDate())) {
+                //创建LoadedApk对象, baseLoader为null
+                packageInfo = new LoadedApk(this, aInfo, compatInfo, baseLoader,
+                            securityViolation, includeCode &&
+                            (aInfo.flags&ApplicationInfo.FLAG_HAS_CODE) != 0, registerPackage);
+
+                if (mSystemThread && "android".equals(aInfo.packageName)) {
+                    ...
+                }
+
+                if (differentUser) {
+                    ...
+                } else if (includeCode) {
+                    //将新创建的LoadedApk加入到mPackages
+                    mPackages.put(aInfo.packageName,
+                            new WeakReference<LoadedApk>(packageInfo));
+                } else {
+                    ...
+                }
+            }
+            return packageInfo;
+        }
+    }
