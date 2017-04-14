@@ -10,32 +10,16 @@ tags:
 
 > 基于Android 6.0源码， 分析InputManagerService的启动过程
 
-    frameworks/base/services/core/java/com/android/server/input/InputManagerService.java
-    frameworks/base/services/core/java/com/android/server/wm/InputMonitor.java
-    frameworks/base/services/core/jni/com_android_server_input_InputManagerService.cpp
-    
-    frameworks/base/core/java/android/view/InputChannel.java
-    frameworks/native/libs/input/KeyCharacterMap.cpp
-      
-      
 ## 一. InputReader起点
 
-上一篇文章[Input系统—启动篇](http://gityuan.com/2016/12/10/input-manager/)，介绍IMS服务的启动过程会创建两个native线程，分别是InputReader,InputDispatcher，并且是可以调用Java代码的native线程。
-
-#### 1.1 InputReader流程图
-
-点击查看[大图](http://www.gityuan.com/images/input/input_reader_seq.jpg):
-
-![input_reader_seq](/images/input/input_reader_seq.jpg)
-
-
+上一篇文章[Input系统—启动篇](http://gityuan.com/2016/12/10/input-manager/)，介绍IMS服务的启动过程会创建两个native线程，分别是InputReader,InputDispatcher.
 接下来从InputReader线程的执行过程从threadLoop为起点开始分析。
 
-#### 1.2 threadLoop
+#### 1.1 threadLoop
 [-> InputReader.cpp]
 
     bool InputReaderThread::threadLoop() {
-        mReader->loopOnce(); //【见小节1.3】
+        mReader->loopOnce(); //【见小节1.2】
         return true;
     }
 
@@ -43,7 +27,7 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
 退出循环。整个过程是不断循环的地调用InputReader的loopOnce()方法，先来回顾一下InputReader对象构造方法。
 
 
-#### 1.3 loopOnce
+#### 1.2 loopOnce
 [-> InputReader.cpp]
 
     void InputReader::loopOnce() {
@@ -62,7 +46,7 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
 
         //从EventHub读取事件，其中EVENT_BUFFER_SIZE = 256【见小节2.1】
         size_t count = mEventHub->getEvents(timeoutMillis, mEventBuffer, EVENT_BUFFER_SIZE);
-        
+
         { // acquire lock
             AutoMutex _l(mLock);
              mReaderIsAliveCondition.broadcast();
@@ -76,7 +60,7 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
             ...
         } // release lock
 
-        
+
         if (inputDevicesChanged) { //输入设备发生改变
             mPolicy->notifyInputDevicesChanged(inputDevices);
         }
@@ -84,17 +68,10 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
         mQueuedListener->flush();
     }
 
-该方法主要功能：
 
-1. 从EventHub读取事件; [见小节2.1]getEvents()
-2. 对事件进行加工； [见小节3.1]processEventsLocked()
-2. 将发送事件到InputDispatcher线程； [见小节4.1] QueuedListener->flush()
-
-另外，整个过程还会检测配置是否改变，输出设备是否改变，如果改变则调用policy来通知。
-    
 ## 二. EventHub
 
-#### 2.1 getEvents
+### 2.1 getEvents
 [-> EventHub.cpp]
 
     size_t EventHub::getEvents(int timeoutMillis, RawEvent* buffer, size_t bufferSize) {
@@ -107,14 +84,10 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
         for (;;) {
             nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
             ...
-            while (mClosingDevices) {
-                ...
-            }
 
             if (mNeedToScanDevices) {
                 mNeedToScanDevices = false;
-                //扫描设备【见小节2.2】
-                scanDevicesLocked();
+                scanDevicesLocked(); //扫描设备【见小节2.2】
                 mNeedToSendFinishedDeviceScan = true;
             }
 
@@ -134,15 +107,9 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
 
             bool deviceChanged = false;
             while (mPendingEventIndex < mPendingEventCount) {
+                //从mPendingEventItems读取事件项
                 const struct epoll_event& eventItem = mPendingEventItems[mPendingEventIndex++];
-                if (eventItem.data.u32 == EPOLL_ID_INOTIFY) {
-                    ...
-                    continue;
-                }
-                if (eventItem.data.u32 == EPOLL_ID_WAKE) {
-                    ...
-                    continue;
-                }
+                ...
                 //获取设备ID所对应的device
                 ssize_t deviceIndex = mDevices.indexOfKey(eventItem.data.u32);
                 Device* device = mDevices.valueAt(deviceIndex);
@@ -150,8 +117,9 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
                     //从设备不断读取事件，放入到readBuffer
                     int32_t readSize = read(device->fd, readBuffer,
                             sizeof(struct input_event) * capacity);
+
                     if (readSize == 0 || (readSize < 0 && errno == ENODEV)) {
-                        deviceChanged = true; 
+                        deviceChanged = true;
                         closeDeviceLocked(device);//设备已被移除则执行关闭操作
                     } else if (readSize < 0) {
                         ...
@@ -160,10 +128,11 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
                     } else {
                         int32_t deviceId = device->id == mBuiltInKeyboardId ? 0 : device->id;
                         size_t count = size_t(readSize) / sizeof(struct input_event);
-                        
+
                         for (size_t i = 0; i < count; i++) {
+                            //获取readBuffer的数据
                             struct input_event& iev = readBuffer[i];
-                            ...
+                            //将input_event信息, 封装成RawEvent
                             event->when = nsecs_t(iev.time.tv_sec) * 1000000000LL
                                     + nsecs_t(iev.time.tv_usec) * 1000LL;
                             event->deviceId = deviceId;
@@ -182,43 +151,28 @@ threadLoop返回值true代表的是会不断地循环调用loopOnce()。另外�
                 ...
             }
             ...
-
-            //立刻报告设备增加或移除事件
-            if (deviceChanged) {
-                continue;
-            }
-
-            if (event != buffer || awoken) {
-                break;
-            }
-            mPendingEventIndex = 0;
-
             mLock.unlock(); //poll之前先释放锁
-            release_wake_lock(WAKE_LOCK_ID);
             //等待input事件的到来
             int pollResult = epoll_wait(mEpollFd, mPendingEventItems, EPOLL_MAX_EVENTS, timeoutMillis);
-
-            acquire_wake_lock(PARTIAL_WAKE_LOCK, WAKE_LOCK_ID);
+            ...
             mLock.lock(); //poll之后再次请求锁
 
-            
-            if (pollResult < 0) {
-                //出现错误
+            if (pollResult < 0) { //出现错误
                 mPendingEventCount = 0;
                 if (errno != EINTR) {
-                    usleep(100000); //系统发生错误，则休眠1s
+                    usleep(100000); //系统发生错误则休眠1s
                 }
             } else {
                 mPendingEventCount = size_t(pollResult);
             }
         }
 
-        //返回所读取的事件个数
-        return event - buffer;
+        return event - buffer; //返回所读取的事件个数
     }
-    
-EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节点，经过EventHub将input_event结构体 + deviceId 转换成RawEvent结构体，如下：
 
+EventHub采用INotify + epoll机制实现监听目录`/dev/input`下的设备节点，经过EventHub将input_event结构体 + deviceId 转换成RawEvent结构体，如下：
+
+#### 2.1.1 RawEvent
 [-> InputEventReader.h]
 
     struct input_event {
@@ -236,19 +190,27 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
         int32_t value;
     };
 
-此处事件类型有DEVICE_ADDED(添加)，DEVICE_REMOVED(删除)，FINISHED_DEVICE_SCAN(扫描完成)，以及(type<FIRST_SYNTHETIC_EVENT)其他事件。
+此处事件类型:
 
-#### 2.2 scanDevicesLocked
+- DEVICE_ADDED(添加)
+- DEVICE_REMOVED(删除)
+- FINISHED_DEVICE_SCAN(扫描完成)
+- type<FIRST_SYNTHETIC_EVENT(其他事件)
+
+
+getEvents()已完成转换事件转换工作, 接下来,顺便看看设备扫描过程.
+
+### 2.2 设备扫描
+
+#### 2.2.1 scanDevicesLocked
 
     void EventHub::scanDevicesLocked() {
-        //【见小节2.3】
+        //此处DEVICE_PATH="/dev/input"【见小节2.3】
         status_t res = scanDirLocked(DEVICE_PATH);
         ...
     }
-    
-此处DEVICE_PATH="/dev/input" 
 
-#### 2.3 scanDirLocked
+#### 2.2.2 scanDirLocked
 
     status_t EventHub::scanDirLocked(const char *dirname)
     {
@@ -257,7 +219,7 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
         DIR *dir;
         struct dirent *de;
         dir = opendir(dirname);
-        
+
         strcpy(devname, dirname);
         filename = devname + strlen(devname);
         *filename++ = '/';
@@ -268,14 +230,14 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
                 (de->d_name[1] == '.' && de->d_name[2] == '\0')))
                 continue;
             strcpy(filename, de->d_name);
-            //打开相应的设备节点【2.4】
+            //打开相应的设备节点【2.2.3】
             openDeviceLocked(devname);
         }
         closedir(dir);
         return 0;
     }
 
-#### 2.4 openDeviceLocked
+#### 2.2.3 openDeviceLocked
 
     status_t EventHub::openDeviceLocked(const char *devicePath) {
         char buffer[80];
@@ -288,12 +250,12 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
             buffer[sizeof(buffer) - 1] = '\0';
             identifier.name.setTo(buffer);
         }
-        
+
         identifier.bus = inputId.bustype;
         identifier.product = inputId.product;
         identifier.vendor = inputId.vendor;
         identifier.version = inputId.version;
-        
+
         //获取设备物理地址
         if(ioctl(fd, EVIOCGPHYS(sizeof(buffer) - 1), &buffer) < 1) {
         } else {
@@ -311,12 +273,12 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
         assignDescriptorLocked(identifier);
         //设置fd为非阻塞方式
         fcntl(fd, F_SETFL, O_NONBLOCK);
-        
+
         //获取设备ID，分配设备对象内存
         int32_t deviceId = mNextDeviceId++;
         Device* device = new Device(fd, deviceId, String8(devicePath), identifier);
         ...
-        
+
         //注册epoll
         struct epoll_event eventItem;
         memset(&eventItem, 0, sizeof(eventItem));
@@ -330,11 +292,11 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
             return -1;
         }
         ...
-        //【见小节2.5】
+        //【见小节2.2.4】
         addDeviceLocked(device);
     }
 
-#### 2.5 addDeviceLocked
+#### 2.2.4 addDeviceLocked
 
     void EventHub::addDeviceLocked(Device* device) {
         mDevices.add(device->id, device); //添加到mDevices队列
@@ -344,10 +306,10 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
 
 
 介绍了EventHub从设备节点获取事件的流程，当收到事件后接下里便开始处理事件。
-    
+
 ## 三. InputReader
 
-#### 3.1 processEventsLocked
+### 3.1 processEventsLocked
 [-> InputReader.cpp]
 
     void InputReader::processEventsLocked(const RawEvent* rawEvents, size_t count) {
@@ -363,7 +325,7 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
                     }
                     batchSize += 1; //同一设备的事件打包处理
                 }
-                //数据事件的处理【见小节3.4】
+                //数据事件的处理【见小节3.3】
                 processEventsForDeviceLocked(deviceId, rawEvent, batchSize);
             } else {
                 switch (rawEvent->type) {
@@ -389,16 +351,18 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
         }
     }
 
-事件处理总共哟以下几类类型：
+事件处理总共有下几类类型：
 
 - DEVICE_ADDED(设备增加), [见小节3.2]
 - DEVICE_REMOVED(设备移除)
 - FINISHED_DEVICE_SCAN(设备扫描完成)
-- 数据事件, [见小节3.4]
+- 数据事件[见小节3.4]
 
 先来说说DEVICE_ADDED设备增加的过程。
 
-#### 3.2 addDeviceLocked
+### 3.2 设备增加
+
+#### 3.2.1 addDeviceLocked
 
     void InputReader::addDeviceLocked(nsecs_t when, int32_t deviceId) {
         ssize_t deviceIndex = mDevices.indexOfKey(deviceId);
@@ -409,16 +373,15 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
         InputDeviceIdentifier identifier = mEventHub->getDeviceIdentifier(deviceId);
         uint32_t classes = mEventHub->getDeviceClasses(deviceId);
         int32_t controllerNumber = mEventHub->getDeviceControllerNumber(deviceId);
-        //【见小节3.3】
+        //【见小节3.2.2】
         InputDevice* device = createDeviceLocked(deviceId, controllerNumber, identifier, classes);
         device->configure(when, &mConfig, 0);
         device->reset(when);
-
         mDevices.add(deviceId, device); //添加设备到mDevices
         ...
     }
 
-#### 3.3 createDeviceLocked
+#### 3.2.2 createDeviceLocked
 
     InputDevice* InputReader::createDeviceLocked(int32_t deviceId, int32_t controllerNumber,
             const InputDeviceIdentifier& identifier, uint32_t classes) {
@@ -426,7 +389,7 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
         InputDevice* device = new InputDevice(&mContext, deviceId, bumpGenerationLocked(),
                 controllerNumber, identifier, classes);
         ...
-        
+
         //获取键盘源类型
         uint32_t keyboardSource = 0;
         int32_t keyboardType = AINPUT_KEYBOARD_TYPE_NON_ALPHABETIC;
@@ -442,7 +405,7 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
         if (classes & INPUT_DEVICE_CLASS_GAMEPAD) {
             keyboardSource |= AINPUT_SOURCE_GAMEPAD;
         }
-        
+
         //添加键盘类设备InputMapper
         if (keyboardSource != 0) {
             device->addMapper(new KeyboardInputMapper(device, keyboardSource, keyboardType));
@@ -464,7 +427,7 @@ EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节�
     }
 
 该方法主要功能：
-    
+
 - 创建InputDevice对象，将InputReader的mContext赋给InputDevice对象所对应的变量
 - 根据设备类型来创建并添加相对应的InputMapper，同时设置mContext.
 
@@ -477,22 +440,24 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
 介绍完设备增加过程，继续回到[小节3.1]除了设备的增删，更常见事件便是数据事件，那么接下来介绍数据事件的
 处理过程。
 
-#### 3.4 processEventsForDeviceLocked
+### 3.3 事件处理
+
+#### 3.3.1 processEventsForDeviceLocked
 
     void InputReader::processEventsForDeviceLocked(int32_t deviceId,
             const RawEvent* rawEvents, size_t count) {
         ssize_t deviceIndex = mDevices.indexOfKey(deviceId);
         ...
-        
+
         InputDevice* device = mDevices.valueAt(deviceIndex);
         if (device->isIgnored()) {
             return; //可忽略则直接返回
         }
-        //【见小节3.5】
+        //【见小节3.3.2】
         device->process(rawEvents, count);
     }
 
-#### 3.5 InputDevice.process
+#### 3.3.2 InputDevice.process
 
     void InputDevice::process(const RawEvent* rawEvents, size_t count) {
         size_t numMappers = mMappers.size();
@@ -500,24 +465,26 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
             if (mDropUntilNextSync) {
                 if (rawEvent->type == EV_SYN && rawEvent->code == SYN_REPORT) {
                     mDropUntilNextSync = false;
-                } 
+                }
             } else if (rawEvent->type == EV_SYN && rawEvent->code == SYN_DROPPED) {
-                mDropUntilNextSync = true; 
+                mDropUntilNextSync = true;
                 reset(rawEvent->when);
             } else {
                 for (size_t i = 0; i < numMappers; i++) {
                     InputMapper* mapper = mMappers[i];
-                    //调用具体mapper来处理【见小节3.6】
+                    //调用具体mapper来处理【见小节3.4】
                     mapper->process(rawEvent);
                 }
             }
         }
     }
 
-小节[3.3]createDeviceLocked创建设备并添加InputMapper，提到会有多种InputMapper。
-这里以KeyboardInputMapper为例来展开说明
+小节[3.2]createDeviceLocked创建设备并添加InputMapper，提到会有多种InputMapper。
+这里以KeyboardInputMapper(按键事件)为例来展开说明
 
-#### 3.6 KeyboardInputMapper.process
+### 3.4 按键事件处理
+
+#### 3.4.1 KeyboardInputMapper.process
 [-> InputReader.cpp ::KeyboardInputMapper]
 
     void KeyboardInputMapper::process(const RawEvent* rawEvent) {
@@ -529,13 +496,12 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
 
             if (isKeyboardOrGamepadKey(scanCode)) {
                 int32_t keyCode;
-                uint32_t flags;
-                //获取所对应的KeyCode【见小节3.7】
+                //获取所对应的KeyCode【见小节3.4.2】
                 if (getEventHub()->mapKey(getDeviceId(), scanCode, usageCode, &keyCode, &flags)) {
                     keyCode = AKEYCODE_UNKNOWN;
                     flags = 0;
                 }
-                //【见小节3.9】
+                //【见小节3.4.4】
                 processKey(rawEvent->when, rawEvent->value != 0, keyCode, scanCode, flags);
             }
             break;
@@ -545,7 +511,7 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
         }
     }
 
-#### 3.7 EventHub::mapKey
+#### 3.4.2 EventHub::mapKey
 [-> EventHub.cpp]
 
     status_t EventHub::mapKey(int32_t deviceId,
@@ -558,13 +524,12 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
         if (device) {
             sp<KeyCharacterMap> kcm = device->getKeyCharacterMap();
             if (kcm != NULL) {
-                //根据scanCode找到keyCode【见小节3.8】
+                //根据scanCode找到keyCode【见小节3.4.3】
                 if (!kcm->mapKey(scanCode, usageCode, outKeycode)) {
                     *outFlags = 0;
                     status = NO_ERROR;
                 }
             }
-            ...
         }
         ...
         return status;
@@ -572,13 +537,11 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
 
 将事件的扫描码(scanCode)转换成键盘码(Keycode)
 
-#### 3.8 KeyCharacterMap::mapKey
+#### 3.4.3 KeyCharacterMap::mapKey
 [-> KeyCharacterMap.cpp]
-    
+
     status_t KeyCharacterMap::mapKey(int32_t scanCode, int32_t usageCode, int32_t* outKeyCode) const {
-        if (usageCode) { 
-            ... // usageCode=0，此时不走该分支
-        }
+        ...
         if (scanCode) {
             ssize_t index = mKeysByScanCode.indexOfKey(scanCode);
             if (index >= 0) {
@@ -590,9 +553,10 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
         *outKeyCode = AKEYCODE_UNKNOWN;
         return NAME_NOT_FOUND;
     }
-    
 
-#### 3.9 InputMapper.processKey
+再回到[3.4.1],接下来进入如下过程:
+
+#### 3.4.4 InputMapper.processKey
 [-> InputReader.cpp]
 
     void KeyboardInputMapper::processKey(nsecs_t when, bool down, int32_t keyCode,
@@ -615,7 +579,7 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
                 keyDown.scanCode = scanCode;
             }
             mDownTime = when; //记录按下时间点
-            
+
         } else {
             ssize_t keyDownIndex = findKeyDown(scanCode);
             if (keyDownIndex >= 0) {
@@ -626,26 +590,25 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
                 return;  //键盘没有按下操作，则直接忽略抬起操作
             }
         }
-        ...
         nsecs_t downTime = mDownTime;
         ...
-        
+
         //创建NotifyKeyArgs对象, when记录eventTime, downTime记录按下时间；
         NotifyKeyArgs args(when, getDeviceId(), mSource, policyFlags,
                 down ? AKEY_EVENT_ACTION_DOWN : AKEY_EVENT_ACTION_UP,
                 AKEY_EVENT_FLAG_FROM_SYSTEM, keyCode, scanCode, newMetaState, downTime);
-        //通知key事件【见小节3.10】
+        //通知key事件【见小节3.4.5】
         getListener()->notifyKey(&args);
     }
-    
-其中：
 
-- mKeyDowns记录着所有按下的键
-- mDownTime记录按下时间点
+参数说明：
+
+- mKeyDowns记录着所有按下的键;
+- mDownTime记录按下时间点;
 - 此处KeyboardInputMapper的mContext指向InputReader，getListener()获取的便是mQueuedListener。
 接下来调用该对象的notifyKey.
 
-#### 3.10 notifyKey
+#### 3.4.5 QueuedInputListener.notifyKey
 [-> InputListener.cpp]
 
     void QueuedInputListener::notifyKey(const NotifyKeyArgs* args) {
@@ -699,32 +662,12 @@ mArgsQueue的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶
         }
 
         if (metaState & AMETA_META_ON && args->action == AKEY_EVENT_ACTION_DOWN) {
-            int32_t newKeyCode = AKEYCODE_UNKNOWN;
-            if (keyCode == AKEYCODE_DEL) {
-                newKeyCode = AKEYCODE_BACK;
-            } else if (keyCode == AKEYCODE_ENTER) {
-                newKeyCode = AKEYCODE_HOME;
-            }
-            if (newKeyCode != AKEYCODE_UNKNOWN) {
-                AutoMutex _l(mLock);
-                struct KeyReplacement replacement = {keyCode, args->deviceId};
-                mReplacedKeys.add(replacement, newKeyCode);
-                keyCode = newKeyCode;
-                metaState &= ~AMETA_META_ON;
-            }
+            ...
         } else if (args->action == AKEY_EVENT_ACTION_UP) {
-            AutoMutex _l(mLock);
-            struct KeyReplacement replacement = {keyCode, args->deviceId};
-            ssize_t index = mReplacedKeys.indexOfKey(replacement);
-            if (index >= 0) {
-                keyCode = mReplacedKeys.valueAt(index);
-                mReplacedKeys.removeItemsAt(index);
-                metaState &= ~AMETA_META_ON;
-            }
+            ...
         }
 
-        KeyEvent event;
-        //初始化KeyEvent对象
+        KeyEvent event; //初始化KeyEvent对象
         event.initialize(args->deviceId, args->source, args->action,
                 flags, keyCode, args->scanCode, metaState, 0,
                 args->downTime, args->eventTime);
@@ -737,9 +680,9 @@ mArgsQueue的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶
             if (shouldSendKeyToInputFilterLocked(args)) {
                 mLock.unlock();
                 policyFlags |= POLICY_FLAG_FILTERED;
-                //【见小节4.3.2】
+                //当inputEventObj不为空, 则事件被filter所拦截【见小节4.3.2】
                 if (!mPolicy->filterInputEvent(&event, policyFlags)) {
-                    return; //事件被filter所消费掉
+                    return;
                 }
                 mLock.lock();
             }
@@ -773,7 +716,7 @@ mArgsQueue的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶
 3. 生成KeyEvent，并调用enqueueInboundEventLocked，将该事件加入到InputDispatcherd的成员变量mInboundQueue。
 
 
-      
+
 #### 4.3.1 interceptKeyBeforeQueueing
 
     void NativeInputManager::interceptKeyBeforeQueueing(const KeyEvent* keyEvent,
@@ -820,10 +763,10 @@ mArgsQueue的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶
         }
 
         if (!inputEventObj) {
-            return true; // 走事件正常的分发流程
+            return true; // 当inputEventObj为空, 则走事件正常的分发流程
         }
 
-        //调用Java层的IMS.filterInputEvent()
+        //当inputEventObj不为空,则调用Java层的IMS.filterInputEvent()
         jboolean pass = env->CallBooleanMethod(mServiceObj, gServiceClassInfo.filterInputEvent,
                 inputEventObj, policyFlags);
         if (checkAndClearExceptionFromCallback(env, "filterInputEvent")) {
@@ -832,17 +775,18 @@ mArgsQueue的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶
         env->DeleteLocalRef(inputEventObj);
         return pass;
     }
-  
-该方法会调用Java层的InputManagerService的filterInputEvent()方法。
-再回到【小节4.3】可知，接下来执行enqueueInboundEventLocked。
+
+当inputEventObj不为空,则调用Java层的IMS.filterInputEvent(). 经过层层调用后,
+最终会再调用InputDispatcher.injectInputEvent(),该基本等效于该方法的后半段:
+
+- enqueueInboundEventLocked
+- wakeup
 
 #### 4.3.3 enqueueInboundEventLocked
 
     bool InputDispatcher::enqueueInboundEventLocked(EventEntry* entry) {
         bool needWake = mInboundQueue.isEmpty();
-        //将该事件放入mInboundQueue队列尾部
-        mInboundQueue.enqueueAtTail(entry);
-        traceInboundQueueLengthLocked();
+        mInboundQueue.enqueueAtTail(entry); //将该事件放入mInboundQueue队列尾部
 
         switch (entry->type) {
         case EventEntry::TYPE_KEY: {
@@ -893,7 +837,7 @@ mArgsQueue的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶
 AppSwitchKeyEvent是指keyCode等于以下值：
 
 - AKEYCODE_HOME
-- AKEYCODE_ENDCALL 
+- AKEYCODE_ENDCALL
 - AKEYCODE_APP_SWITCH
 
 
@@ -932,7 +876,7 @@ AppSwitchKeyEvent是指keyCode等于以下值：
 
     void Looper::wake() {
         uint64_t inc = 1;
-        
+
         ssize_t nWrite = TEMP_FAILURE_RETRY(write(mWakeEventFd, &inc, sizeof(uint64_t)));
         if (nWrite != sizeof(uint64_t)) {
             if (errno != EAGAIN) {
@@ -940,7 +884,7 @@ AppSwitchKeyEvent是指keyCode等于以下值：
             }
         }
     }
-    
+
 [小节4.3]的过程会调用enqueueInboundEventLocked()方法来决定是否需要将数字1写入句柄mWakeEventFd来唤醒InputDispatcher线程.
 满足唤醒的条件:
 
@@ -950,24 +894,30 @@ AppSwitchKeyEvent是指keyCode等于以下值：
 
 ## 五. 总结
 
-用一张图来整体概况InputReader线程的主要工作：
+### 5.1 核心工作
+
+InputReader整个过程涉及多次事件封装转换，其主要工作核心是以下三大步骤:
+
+- getEvents：通过EventHub(监听目录/dev/input)读取事件放入mEventBuffer,而mEventBuffer是一个大小为256的数组, 再将事件input_event转换为RawEvent; [见小节2.1]
+- processEventsLocked: 对事件进行加工, 转换RawEvent -> NotifyKeyArgs(NotifyArgs) [见小节3.1]
+- QueuedListener->flush：将事件发送到InputDispatcher线程, 转换NotifyKeyArgs -> KeyEntry(EventEntry) [见小节4.1]
+
+InputReader线程不断循环地执行InputReader.loopOnce(), 每次处理完生成的是EventEntry(比如KeyEntry, MotionEntry), 接下来的工作就交给InputDispatcher线程。
+
+### 5.2 流程图
+
+点击查看[大图](http://www.gityuan.com/images/input/input_reader_seq.jpg):
+
+![input_reader_seq](/images/input/input_reader_seq.jpg)
+
+InputReader的核心工作就是从EventHub获取数据后生成EventEntry事件，加入到InputDispatcher的mInboundQueue队列，再唤醒InputDispatcher线程。
 
 ![input_reader](/images/input/input_reader.jpg)
 
-小技巧IMS.filterInputEvent可以过滤无需上报的事件，当该方法返回值为false则代表是需要被过滤掉的事件，无机会交给InputDispatcher来分发。
+说明:
 
-InputReader的核心工作就是从EventHub获取数据后生成EventEntry事件，加入到InputDispatcher的mInboundQueue队列，再唤醒InputDispatcher线程。
-EventHub采用INotify + epoll机制实现监听目录/dev/input下的设备节点，经过EventHub将input_event结构体 + deviceId 转换成RawEvent结构体。
-对于/dev/input节点的event事件所对应的输入设备信息位于`/proc/bus/input/devices`，也可以通过`getevent`来获取事件. 不同的input事件所对应的物理input节点，比如常见的情形：
-
-- 屏幕触摸和(MENU,HOME,BACK)3按键：对应一个input设备节点；
-- power键和音量(下)键：对应一个input设备节点；
-- 音量(上)键：对应一个input设备节点；
-
-InputReader整个过程涉及多次事件封装转换，如下：
-
-- getEvents：读取/dev/input节点，转换 input_event -> RawEvent
-- processEventsLocked: 转换RawEvent -> NotifyKeyArgs(NotifyArgs)
-- QueuedListener->flush：转换NotifyKeyArgs -> KeyEntry(EventEntry)
-
-InputReader线程不断循环地执行InputReader.loopOnce(), 每次处理完生成的是EventEntry(比如KeyEntry, MotionEntry), 接下来的工作就交给InputDispatcher线程。
+- IMS.filterInputEvent可以过滤无需上报的事件，当该方法返回值为false则代表是需要被过滤掉的事件，无机会交给InputDispatcher来分发。
+- 节点/dev/input的event事件所对应的输入设备信息位于`/proc/bus/input/devices`，也可以通过`getevent`来获取事件. 不同的input事件所对应的物理input节点，比如常见的情形：
+    - 屏幕触摸和(MENU,HOME,BACK)3按键：对应同一个input设备节点；
+    - POWER和音量(下)键：对应同一个input设备节点；
+    - 音量(上)键：对应同一个input设备节点；

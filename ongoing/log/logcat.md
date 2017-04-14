@@ -12,7 +12,7 @@ tags:
     /frameworks/base/core/jni/android_util_Log.cpp
     /system/core/liblog/logd_write.c
     /system/core/liblog/uio.c
-    
+
 ## 一、概述
 
 无论是Android系统开发，还是应用开发，都离不开log，Androd采用logcat输出log。
@@ -55,7 +55,7 @@ Log.java
    /** @hide */ public static final int LOG_ID_EVENTS = 2;
    /** @hide */ public static final int LOG_ID_SYSTEM = 3;
    /** @hide */ public static final int LOG_ID_CRASH = 4;
-  
+
 logd_write.c
 
    static const char *LOG_NAME[LOG_ID_MAX] = {
@@ -66,7 +66,7 @@ logd_write.c
        [LOG_ID_CRASH] = "crash",
        [LOG_ID_KERNEL] = "kernel",
    };
-    
+
 
 #### buffer大小
 
@@ -83,7 +83,7 @@ radio = 4M, 其他都为2M.
 #### 其他
 
 6个log级别，5个log缓存区
-      
+
 http://blog.csdn.net/kc58236582/article/category/6246436
 http://blog.csdn.net/luoshengyang/article/details/6606957
 http://blog.csdn.net/luoshengyang/article/details/6595744
@@ -96,7 +96,7 @@ http://blog.csdn.net/luoshengyang/article/details/6595744
 Linux Kernel最常使用的是printk，用法如下：
 
     //第一个参数是级别， 第二个是具体log内容
-    printk(KERN_INFO x); 
+    printk(KERN_INFO x);
 
 日志级别的定义位于kernel/include/linux/printk.h文件，如下：
 

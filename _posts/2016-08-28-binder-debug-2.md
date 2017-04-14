@@ -243,7 +243,12 @@ tags:
 
 遍历进程的thread/node/ref/buffer信息.  当然如果存在,还会有pending transaction信息.
 
-Tips: `pending transaction`记录当前所有进程和线程TODO队列的transaction.
+Tips:
+
+- pending transaction: 记录当前所有进程和线程 TODO队列的transaction.
+- outgoing transaction: 当前线程transaction_stack, 由该线程发出的事务;
+- incoming transaction: 当前线程transaction_stack, 由需要线程接收的事务;
+- pending transactions: 记录当前进程总的pending事务;
 
 ### 相关说明
 

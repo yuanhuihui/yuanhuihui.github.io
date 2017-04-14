@@ -10,25 +10,12 @@ tags:
 
 > 基于Android 6.0源码， 分析InputManagerService的启动过程
 
-    frameworks/base/services/core/java/com/android/server/input/InputManagerService.java
-    frameworks/base/services/core/jni/com_android_server_input_InputManagerService.cpp
-    frameworks/native/services/inputflinger/InputDispatcher.cpp
-    frameworks/native/include/android/input.h
-    frameworks/native/include/input/InputTransport.h
-    frameworks/native/libs/input/InputTransport.cpp
-    
+
 ## 一. InputDispatcher起点
 
-上篇文章[输入系统之InputReader线程](http://gityuan.com/2016/12/11/input-reader/)，介绍InputReader利用EventHub获取数据后生成EventEntry事件，加入到InputDispatcher的mInboundQueue队列，再唤醒InputDispatcher线程。本文将介绍
-InputDispatcher，同样从threadLoop为起点开始分析。
+上篇文章[输入系统之InputReader线程](http://gityuan.com/2016/12/11/input-reader/)，介绍InputReader利用EventHub获取数据后生成EventEntry事件，加入到InputDispatcher的mInboundQueue队列，再唤醒InputDispatcher线程。本文将介绍InputDispatcher，同样从threadLoop为起点开始分析。
 
-#### 1.1 InputDispatcher执行流
-
-点击查看[大图](http://www.gityuan.com/images/input/input_dispatcher_seq.jpg):
-
-![input_dispatcher_seq](/images/input/input_dispatcher_seq.jpg)
-        
-        
+#### 1.1 threadLoop
 先来回顾一下InputDispatcher对象的初始化过程:
 
     InputDispatcher::InputDispatcher(const sp<InputDispatcherPolicyInterface>& policy) :
@@ -45,23 +32,23 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         //获取分发超时参数
         policy->getDispatcherConfiguration(&mConfig);
     }
-    
+
 该方法主要工作：
 
 - 创建属于自己线程的Looper对象；
 - 超时参数来自于IMS，参数默认值keyRepeatTimeout = 500，keyRepeatDelay = 50。
 
-#### 1.2 threadLoop
+
 [-> InputDispatcher.cpp]
 
     bool InputDispatcherThread::threadLoop() {
-        mDispatcher->dispatchOnce(); //【见小节1.3】
+        mDispatcher->dispatchOnce(); //【见小节1.2】
         return true;
     }
 
 整个过程不断循环地调用InputDispatcher的dispatchOnce()来分发事件
 
-#### 1.3 dispatchOnce
+#### 1.2 dispatchOnce
 [-> InputDispatcher.cpp]
 
     void InputDispatcher::dispatchOnce() {
@@ -71,7 +58,6 @@ InputDispatcher，同样从threadLoop为起点开始分析。
             //唤醒等待线程，monitor()用于监控dispatcher是否发生死锁
             mDispatcherIsAliveCondition.broadcast();
 
-            
             if (!haveCommandsLocked()) {
                 //当mCommandQueue不为空时处理【见小节2.1】
                 dispatchOnceInnerLocked(&nextWakeupTime);
@@ -160,7 +146,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
           ...
         }
         ...
-        
+
         //分发操作完成，则进入该分支
         if (done) {
             if (dropReason != DROP_REASON_NOT_DROPPED) {
@@ -168,7 +154,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
                 dropInboundEventLocked(mPendingEvent, dropReason);
             }
             mLastDropReason = dropReason;
-            releasePendingEventLocked(); //释放pending事件 []见小节2.10]
+            releasePendingEventLocked(); //释放pending事件见小节2.10]
             *nextWakeupTime = LONG_LONG_MIN; //强制立刻执行轮询
         }
     }
@@ -182,9 +168,21 @@ InputDispatcher，同样从threadLoop为起点开始分析。
 1. mDispatchFrozen用于决定是否冻结事件分发工作不再往下执行;
 2. 当事件分发的时间点距离该事件加入mInboundQueue的时间超过500ms,则认为app切换过期,即isAppSwitchDue=true;
 3. mInboundQueue不为空,则取出头部的事件,放入mPendingEvent变量;并重置ANR时间;
-4. 根据情况设置dropReason;
-5. 根据EventEntry的type类型分别处理，比如按键调用dispatchKeyLocked分发事件;
-6. 执行完成后，根据dropReason来决定是否丢失事件，以及释放当前事件；
+5. 根据EventEntry的type类型分别处理，比如按键调用dispatchKeyLocked分发事件;再根据分发结果来决定是否进入done;
+6. 执行完成(done)的处理:
+    - 根据dropReason(默认NOT_DROPPED不处理)来决定是否丢失事件; dropInboundEventLocked
+    - 释放当前正在处理的事件(即mPendingEvent)； releasePendingEventLocked
+
+关于dispatchKeyLocked分发事件,
+
+1. 不会执行done过情况:
+    - 当前Event时间小于唤醒时间;
+    - 让policy有机会执行拦截操作;
+    - 调用findFocusedWindowTargetsLocked方法的返回结果是INPUT_EVENT_INJECTION_PENDING, 即targets没有处于Ready状态;
+2. 会执行done的情况:
+    - 该事件需要丢弃, 即dropReason != DROP_REASON_NOT_DROPPED;
+    - findFocusedWindowTargetsLocked的返回结果不是INPUT_EVENT_INJECTION_PENDING(没有正在处理的事件);
+
 
 接下来以按键为例来展开说明, 则进入[小节2.2] dispatchKeyLocked.
 
@@ -243,8 +241,8 @@ InputDispatcher，同样从threadLoop为起点开始分析。
     bool InputDispatcher::dispatchKeyLocked(nsecs_t currentTime, KeyEntry* entry,
             DropReason* dropReason, nsecs_t* nextWakeupTime) {
         ...
-        if (entry->interceptKeyResult ==    KeyEntry::INTERCEPT_KEY_RESULT_TRY_AGAIN_LATER) {
-            //当前时间小于唤醒时间，则进入等待状态。
+        if (entry->interceptKeyResult == KeyEntry::INTERCEPT_KEY_RESULT_TRY_AGAIN_LATER) {
+            // case1: 当前时间小于唤醒时间，则进入等待状态。
             if (currentTime < entry->interceptKeyWakeupTime) {
                 if (entry->interceptKeyWakeupTime < *nextWakeupTime) {
                     *nextWakeupTime = entry->interceptKeyWakeupTime;
@@ -256,7 +254,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         }
 
         if (entry->interceptKeyResult == KeyEntry::INTERCEPT_KEY_RESULT_UNKNOWN) {
-            //让policy有机会执行拦截操作
+            //case2: 让policy有机会执行拦截操作
             if (entry->policyFlags & POLICY_FLAG_PASS_TO_USER) {
                 CommandEntry* commandEntry = postCommandLocked(
                         & InputDispatcher::doInterceptKeyBeforeDispatchingLockedInterruptible);
@@ -275,7 +273,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
             }
         }
 
-        //如果需要丢弃该事件，则执行清理操作
+        //case3: 如果需要丢弃该事件，则执行清理操作
         if (*dropReason != DROP_REASON_NOT_DROPPED) {
             setInjectionResultLocked(entry, *dropReason == DROP_REASON_POLICY
                     ? INPUT_EVENT_INJECTION_SUCCEEDED : INPUT_EVENT_INJECTION_FAILED);
@@ -283,7 +281,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         }
 
         Vector<InputTarget> inputTargets;
-        // 【见小节2.3】
+        //case4: 寻找焦点 【见小节2.3】
         int32_t injectionResult = findFocusedWindowTargetsLocked(currentTime,
                 entry, inputTargets, nextWakeupTime);
         if (injectionResult == INPUT_EVENT_INJECTION_PENDING) {
@@ -300,16 +298,16 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         dispatchEventLocked(currentTime, entry, inputTargets);
         return true;
     }
-    
+
 在以下场景下，有可能无法分发事件：
 
-- 当前时间小于唤醒时间(nextWakeupTime)的情况；
-- policy需要提前拦截事件的情况；
-- 需要drop事件的情况；
-- 寻找聚焦窗口失败的情况；
+1. 当前时间小于唤醒时间(nextWakeupTime)的情况；
+2. policy需要提前拦截事件的情况；
+3. 需要drop事件的情况；
+4. 寻找聚焦窗口失败的情况；
 
 如果成功跳过以上所有情况，则会进入执行事件分发的过程。
-    
+
 ### 2.3 findFocusedWindowTargetsLocked
 
     int32_t InputDispatcher::findFocusedWindowTargetsLocked(nsecs_t currentTime,
@@ -350,7 +348,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         }
 
         injectionResult = INPUT_EVENT_INJECTION_SUCCEEDED;
-        //成功找到目标窗口，添加到目标窗口
+        //成功找到目标窗口，添加到目标窗口 [见小节2.3.3]
         addWindowTargetLocked(mFocusedWindowHandle,
                 InputTarget::FLAG_FOREGROUND | InputTarget::FLAG_DISPATCH_AS_IS, BitSet32(0),
                 inputTargets);
@@ -363,14 +361,16 @@ InputDispatcher，同样从threadLoop为起点开始分析。
               injectionResult, timeSpentWaitingForApplication);
         return injectionResult;
     }
-    
+
+此处mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()方法，具体见下一篇文章[Input系统—UI线程]().
+
 寻找聚焦窗口失败的情况：
 
 - 无窗口，无应用：Dropping event because there is no focused window or focused application.(这并不导致ANR的情况，因为没有机会调用handleTargetsNotReadyLocked)
 - 无窗口, 有应用：Waiting because no window has focus but there is a focused application that may eventually add a window when it finishes starting up.
 
 另外，还有更多多的失败场景见checkWindowReadyForMoreInputLocked的过程，如下：
-   
+
 #### 2.3.1 checkWindowReadyForMoreInputLocked
 
     String8 InputDispatcher::checkWindowReadyForMoreInputLocked(nsecs_t currentTime,
@@ -428,7 +428,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         }
         return String8::empty();
     }
-    
+
 #### 2.3.2 handleTargetsNotReadyLocked
 
     int32_t InputDispatcher::handleTargetsNotReadyLocked(nsecs_t currentTime,
@@ -473,7 +473,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
         if (mInputTargetWaitTimeoutExpired) {
             return INPUT_EVENT_INJECTION_TIMED_OUT; //等待超时已过期,则直接返回
         }
-        
+
         //当超时5s则进入ANR流程
         if (currentTime >= mInputTargetWaitTimeoutTime) {
             onANRLocked(currentTime, applicationHandle, windowHandle,
@@ -493,7 +493,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
 也就是说ANR时间段是指input等待理由处于INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY(应用没有准备就绪)的时间长达5s的场景.而前面resetANRTimeoutsLocked()
 过程是唯一用于重置等待理由的地方.
 
-那么, ANR时间区别便是指当前这次的事件dispatch过程中执行findFocusedWindowTargetsLocked()方法到下一次执行resetANRTimeoutsLocked()的时间区间.
+那么, ANR时间区间是指当前这次的事件dispatch过程中执行findFocusedWindowTargetsLocked()方法到下一次执行resetANRTimeoutsLocked()的时间区间.
 
 
 - 当applicationHandle和windowHandle同时为空, 且system准备就绪的情况下
@@ -509,23 +509,7 @@ InputDispatcher，同样从threadLoop为起点开始分析。
 
  继续回到[小节2.3]findFocusedWindowTargetsLocked，如果没有发生ANR，则addWindowTargetLocked()将该事件添加到inputTargets。
 
-### 2.3 findFocusedWindowTargetsLocked
-
-    int32_t InputDispatcher::findFocusedWindowTargetsLocked(nsecs_t currentTime,
-            const EventEntry* entry, Vector<InputTarget>& inputTargets, nsecs_t* nextWakeupTime) {
-        ...
-        //成功找到目标窗口，添加到目标窗口【见小节2.3.1】
-        injectionResult = INPUT_EVENT_INJECTION_SUCCEEDED;
-        addWindowTargetLocked(mFocusedWindowHandle,
-                InputTarget::FLAG_FOREGROUND | InputTarget::FLAG_DISPATCH_AS_IS, BitSet32(0),
-                inputTargets);
-        ...
-        return injectionResult;
-    }
-    
-mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()方法，具体见下一篇文章[Input系统—UI线程]()
-
-#### 2.3.1 addWindowTargetLocked
+#### 2.3.3 addWindowTargetLocked
 
     void InputDispatcher::addWindowTargetLocked(const sp<InputWindowHandle>& windowHandle,
             int32_t targetFlags, BitSet32 pointerIds, Vector<InputTarget>& inputTargets) {
@@ -540,7 +524,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
         target.scaleFactor = windowInfo->scaleFactor;
         target.pointerIds = pointerIds;
     }
-    
+
 将当前聚焦窗口mFocusedWindowHandle的inputChannel传递到inputTargets。
 
 ### 2.4 dispatchEventLocked
@@ -583,7 +567,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
         commandEntry->eventTime = eventEntry->eventTime;
         commandEntry->userActivityEventType = eventType;
     }
-    
+
 #### 2.4.2 postCommandLocked
 
     InputDispatcher::CommandEntry* InputDispatcher::postCommandLocked(Command command) {
@@ -592,7 +576,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
         mCommandQueue.enqueueAtTail(commandEntry);
         return commandEntry;
     }
-    
+
 #### 2.4.3 getConnectionIndexLocked
 
     ssize_t InputDispatcher::getConnectionIndexLocked(const sp<InputChannel>& inputChannel) {
@@ -617,8 +601,8 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
             return;　//当连接已破坏,则直接返回
         }
         ...
-        
-        //[见小节2.6] 
+
+        //[见小节2.6]
         enqueueDispatchEntriesLocked(currentTime, connection, eventEntry, inputTarget);
     }
 
@@ -668,7 +652,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
         inputTargetFlags = (inputTargetFlags & ~InputTarget::FLAG_DISPATCH_MASK) | dispatchMode;
 
         //生成新的事件, 加入connection的outbound队列
-        DispatchEntry* dispatchEntry = new DispatchEntry(eventEntry, 
+        DispatchEntry* dispatchEntry = new DispatchEntry(eventEntry,
                 inputTargetFlags, inputTarget->xOffset, inputTarget->yOffset,
                 inputTarget->scaleFactor);
 
@@ -692,15 +676,15 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
         //添加到outboundQueue队尾
         connection->outboundQueue.enqueueAtTail(dispatchEntry);
     }
-    
+
 该方法主要功能:
 
 - 根据dispatchMode来决定是否需要加入outboundQueue队列;
 - 根据EventEntry,来生成DispatchEntry事件;
 - 将dispatchEntry加入到connection的outbound队列.
 
-执行到这里,其实等于由做了一次搬运的工作,将InputDispatcher中mInboundQueue中的事件取出后, 
-找到目标window后,封装dispatchEntry加入到connection的outbound队列. 
+执行到这里,其实等于由做了一次搬运的工作,将InputDispatcher中mInboundQueue中的事件取出后,
+找到目标window后,封装dispatchEntry加入到connection的outbound队列.
 
 ### 2.8 startDispatchCycleLocked
 
@@ -753,7 +737,7 @@ mFocusedWindowHandle是何处赋值呢？是在InputDispatcher.setInputWindows()
 
         }
     }
-    
+
 startDispatchCycleLocked的主要功能: 从outboundQueue中取出事件,重新放入waitQueue队列
 
 - startDispatchCycleLocked触发时机：当起初connection.outboundQueue等于空, 经enqueueDispatchEntryLocked处理后, outboundQueue不等于空。
@@ -788,7 +772,7 @@ startDispatchCycleLocked的主要功能: 从outboundQueue中取出事件,重新�
         //通过InputChannel来发送消息
         return mChannel->sendMessage(&msg);
     }
-    
+
 InputChannel通过socket向远端的socket发送消息。socket通道是如何建立的呢？
 InputDispatcher又是如何与前台的window通信的呢？ 见下一篇文章[Input系统—进程交互](http://gityuan.com/2016/12/31/input-ipc/),
 从文章的小节2.1开始继续往下说.
@@ -817,8 +801,8 @@ InputDispatcher又是如何与前台的window通信的呢？ 见下一篇文章[
             CommandEntry* commandEntry = mCommandQueue.dequeueAtHead();
 
             Command command = commandEntry->command;
-            //此处调用的命令隐式地包含'LockedInterruptible' 
-            (this->*command)(commandEntry); 
+            //此处调用的命令隐式地包含'LockedInterruptible'
+            (this->*command)(commandEntry);
 
             commandEntry->connection.clear();
             delete commandEntry;
@@ -831,7 +815,7 @@ InputDispatcher又是如何与前台的window通信的呢？ 见下一篇文章[
     typedef void (InputDispatcher::*Command)(CommandEntry* commandEntry);
     struct CommandEntry : Link<CommandEntry> {
         CommandEntry(Command command);
-      
+
         Command command;
         sp<Connection> connection;
         nsecs_t eventTime;
@@ -897,7 +881,7 @@ InputDispatcher又是如何与前台的window通信的呢？ 见下一篇文章[
             }
         }
     }
-    
+
 runCommandsLockedInterruptible是不断地从mCommandQueue队列取出命令，然后执行直到全部执行完成。 除了doPokeUserActivityLockedInterruptible，还有其他如下命令：
 
 - doNotifyANRLockedInterruptible
@@ -908,9 +892,21 @@ runCommandsLockedInterruptible是不断地从mCommandQueue队列取出命令，�
 
 ## 四. 总结
 
+
+### 4.1 流程图
+
+点击查看[大图](http://www.gityuan.com/images/input/input_dispatcher_seq.jpg):
+
+![input_dispatcher_seq](/images/input/input_dispatcher_seq.jpg)
+
+
+### 4.2 核心方法
+
 用一张图来整体概况InputDispatcher线程的主要工作：
 
 ![input_dispatcher](/images/input/input_dispatcher.jpg)
+
+图解:
 
 1. dispatchOnceInnerLocked(): 从InputDispatcher的`mInboundQueue`队列，取出事件EventEntry。另外该方法开始执行的时间点(currentTime)便是后续事件dispatchEntry的分发时间(deliveryTime）
 2. dispatchKeyLocked()：满足一定条件时会添加命令doInterceptKeyBeforeDispatchingLockedInterruptible；

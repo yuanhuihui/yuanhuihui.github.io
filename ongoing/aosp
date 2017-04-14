@@ -3,8 +3,8 @@
 - "Riddle Hsu"      <riddle_hsu@htc.com>
 - owner:"Zoran Jovanovic"   sonymobile.com
 
-hwbinder 作者： owner:maco@google.com 
-  
+hwbinder 作者： owner:maco@google.com
+
   - platform/system/libhwbinder (process, ipc这些类都在这里)
   - platform/system/hwservicemanager
   - platform/system/libhidl
@@ -12,6 +12,10 @@ hwbinder 作者： owner:maco@google.com
 
 这个需要马上合并
 https://android.googlesource.com/platform/frameworks/native/+/ff405785386ed8bdee50c4afdc4a4f9a73bcb81e%5E%21/#F0
+
+
+https://android-review.googlesource.com/#/c/249721/
+
 
 关于context问题：
 

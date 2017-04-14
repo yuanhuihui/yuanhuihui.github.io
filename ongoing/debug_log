@@ -1,8 +1,8 @@
 
 ### 1. process
-Start proc 
-Killing 
-Force stopping 
+Start proc
+Killing
+Force stopping
 am_proc_start [Event]
 am_kill [Event]
 
@@ -30,14 +30,14 @@ cann't getContentProviderImpl
 Unable to launch app
 No package info for content provider
 
-resolve content provider: 
+resolve content provider:
 
 //应该是新加的log
 acquire killed Provider
 Existing provider
 force acquire UnstableProvider
 
-### 6. binder 
+### 6. binder
 starved for
 system_server maxThreads
 binder_sample [Event]
@@ -46,13 +46,13 @@ binder_sample [Event]
 ### 7. 开机启动过程
 Zygote  :
 SystemServer:
- 
+
 #### 7.1 init
 
 init: init started!
 init: init second stage started!  [kernel log]
 init: Starting service 'logd'...  [各种服务]
- 
+
 #### 7.2 system_server
 Entered the Android system server
 Starting phase
@@ -73,9 +73,12 @@ PowerManagerService: Waking up from sleep
 
 ### 10. key event
  keyCode:
- 
 
-### 11. phone 
+### input
+
+Window '%s' spent %0.1fms processing the last input event: 耗时超过2s的log
+
+### 11. phone
 up time:
 ro.product.mod_device
 ro.product.model
@@ -120,6 +123,8 @@ sample_percent:以500ms为准,如果等待时间为250ms,那么这个值为50,�
 android.util.EventLog.writeEvent(30089,skippedFrames);
 
 Eventlog: 30089. (这个也是主线程的情况)
+
+30099, 是状态栏的问题.
 
 ## 其他
 
