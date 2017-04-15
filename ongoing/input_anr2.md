@@ -95,6 +95,10 @@ InputDispatcher.dispatchOnceInnerLocked (本身自带)  (没有mPendingEvent,则
 5. startDispatchCycleLocked的过程, 设置dispatchEntry->deliveryTime.
         MotionEvent( age=5318.2ms, wait=5316.4ms). age是指事件触发到当前的时间, wait是指deliveryTime到现在的时间.
 
+
+通过 android_bWriteLog(LOGTAG_BINDER_OPERATION, buf, pos - buf);方法来输出native的Event log.
+
+
 InputFilterHost mHost是在如下过程创建的:  
 
     IMS.setInputFilter

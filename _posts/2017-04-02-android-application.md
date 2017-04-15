@@ -63,10 +63,10 @@ system进程和app进程都运行着一个或多个app，每个app都会有一�
         Application mInitialApplication;
         final ArrayList<Application> mAllApplications;
         //标记当前进程是否为system进程
-        boolean mSystemThread = false; 
+        boolean mSystemThread = false;
         //记录system进程的ContextImpl对象
         private ContextImpl mSystemContext;
-        
+
         final ArrayMap<String, WeakReference<LoadedApk>> mPackages;
         static Handler sMainThreadHandler;
         private static ActivityThread sCurrentActivityThread;
@@ -94,7 +94,7 @@ AT.currentApplication返回的便是mInitialApplication对象。创建完Activit
             ...
         } else { //system进程才执行该流程
             //创建Instrumentation
-            mInstrumentation = new Instrumentation(); 
+            mInstrumentation = new Instrumentation();
             //[见小节2.6]
             ContextImpl context = ContextImpl.createAppContext(
                     this, getSystemContext().mPackageInfo);
@@ -104,7 +104,7 @@ AT.currentApplication返回的便是mInitialApplication对象。创建完Activit
             ...
         }
     }
-    
+
 attach的主要功能：
 
 - 根据LoadedApk对象来创建ContextImpl，对于system进程LoadedApk对象取值为mSystemContext；
@@ -146,7 +146,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
 
     static ContextImpl createSystemContext(ActivityThread mainThread) {
         //创建LoadedApk对象 【见小节2.6.3】
-        LoadedApk packageInfo = new LoadedApk(mainThread); 
+        LoadedApk packageInfo = new LoadedApk(mainThread);
         // 创建ContextImpl【见小节2.6.4】
         ContextImpl context = new ContextImpl(null, mainThread,
                 packageInfo, null, null, false, null, null, Display.INVALID_DISPLAY);
@@ -163,14 +163,14 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
         final String mPackageName;
         private final ClassLoader mBaseClassLoader;
         private ClassLoader mClassLoader;
-        
+
         LoadedApk(ActivityThread activityThread) {
             mActivityThread = activityThread; //ActivityThread对象
             mApplicationInfo = new ApplicationInfo(); //创建ApplicationInfo对象
             mApplicationInfo.packageName = "android";
             mPackageName = "android";  //默认包名为"android"
             ...
-            mBaseClassLoader = null; 
+            mBaseClassLoader = null;
             mClassLoader = ClassLoader.getSystemClassLoader(); //创建ClassLoader
             ...
         }
@@ -210,7 +210,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
     public Application makeApplication(boolean forceDefaultAppClass,
             Instrumentation instrumentation) {
         //保证一个LoadedApk对象只创建一个对应的Application对象
-        if (mApplication != null) { 
+        if (mApplication != null) {
             return mApplication;
         }
 
@@ -220,7 +220,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
         }
 
         //创建ClassLoader对象【见小节2.8】
-        java.lang.ClassLoader cl = getClassLoader(); 
+        java.lang.ClassLoader cl = getClassLoader();
         if (!mPackageName.equals("android")) {
             initializeJavaContextClassLoader();  //[见小节2.9]
         }
@@ -255,7 +255,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
                 }
                 return mClassLoader;
             }
-            
+
             // 当包名不为"android"的情况
             if (mRegisterPackage) {
                 //【见小节2.8.1】
@@ -274,7 +274,8 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
                 ...
             }
 
-            final String librarySearchPath = TextUtils.join(File.pathSeparator, libPaths);
+            final String zip = TextUtils.join(File.pathSeparator, zipPaths);
+
             //获取ClassLoader对象【见小节2.8.2】
             mClassLoader = ApplicationLoaders.getDefault().getClassLoader(zip,
                     mApplicationInfo.targetSdkVersion, isBundledApp, librarySearchPath,
@@ -310,8 +311,8 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
 [-> ApplicationLoaders.java]
 
     public ClassLoader getClassLoader(String zip, int targetSdkVersion, boolean isBundled,
-                                      String librarySearchPath, String libraryPermittedPath,
-                                      ClassLoader parent) {
+                                  String librarySearchPath, String libraryPermittedPath,
+                                  ClassLoader parent) {
         //获取父类的类加载器
         ClassLoader baseParent = ClassLoader.getSystemClassLoader().getParent();
 
@@ -325,14 +326,15 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
                 if (loader != null) {
                     return loader;
                 }
+                //创建PathClassLoader对象
                 PathClassLoader pathClassloader = PathClassLoaderFactory.createClassLoader(
-                                                      zip,
-                                                      librarySearchPath,
-                                                      libraryPermittedPath,
-                                                      parent,
-                                                      targetSdkVersion,
-                                                      isBundled);
-
+                                              zip,
+                                              librarySearchPath,
+                                              libraryPermittedPath,
+                                              parent,
+                                              targetSdkVersion,
+                                              isBundled);
+                //
                 mLoaders.put(zip, pathClassloader);
                 return pathClassloader;
             }
@@ -342,7 +344,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
         }
     }
 
-创建PathClassLoader。
+
 
 ### 2.9 initializeJavaContextClassLoader
 [-> LoadedApk.java]
@@ -364,7 +366,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
         //设置当前线程的Context ClassLoader
         Thread.currentThread().setContextClassLoader(contextClassLoader);
     }
-    
+
 ### 2.10 newApplication
 [-> Instrumentation.java]
 
@@ -401,11 +403,14 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
 [-> Application.java]
 
     final void attach(Context context) {
-        attachBaseContext(context); //设置Application的mBase
+        attachBaseContext(context); //Application的mBase
         mLoadedApk = ContextImpl.getImpl(context).mPackageInfo;
     }
-    
-设置mBase和mLoadedApk对象。
+
+该方法主要功能:
+
+1. 将新创建的ContextImpl对象保存到Application的父类成员变量mBase;
+2. 将新创建的LoadedApk对象保存到Application的父员变量mLoadedApk;
 
 ## 三. App进程
 
@@ -448,7 +453,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
                 app = mPidsSelfLocked.get(pid); // 根据pid获取ProcessRecord
             }
         }
-        
+
         ...
         ApplicationInfo appInfo = app.instrumentationInfo != null
                 ? app.instrumentationInfo : app.info;
@@ -461,10 +466,10 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
                 getCommonServicesLocked(app.isolated),
                 mCoreSettingsObserver.getCoreSettingsLocked());
         ...
-        
+
         return true;
     }
-    
+
 system_server收到attach操作, 然后再向新创建的进程执行handleBindApplication()过程:
 
 ### 3.4 AT.handleBindApplication
