@@ -10,15 +10,19 @@ tags:
 
 > 基于Android 6.0源码剖析，本文涉及的相关源码：
 
-    frameworks/base/core/java/android/app/ActivityThread.java
-    frameworks/base/core/java/android/app/ContextImpl.java
-    frameworks/base/core/java/android/app/IActivityManager.java
-    frameworks/base/core/java/android/content/ContentResolver.java
-    frameworks/base/services/core/java/com/android/server/am/ContentProviderRecord.java
+    frameworks/base/core/java/android/app/
+        - ActivityThread.java
+        - ContextImpl.java
+        - IActivityManager.java
 
-    frameworks/base/core/java/android/content/IContentProvider.java
-    frameworks/base/core/java/android/content/ContentProvider.java
-    frameworks/base/core/java/android/content/ContentProviderNative.java
+    frameworks/base/core/java/android/content/
+        - ContentResolver.java
+        - IContentProvider.java
+        - ContentProvider.java
+        - ContentProviderNative.java
+
+    frameworks/base/services/core/java/com/android/server/am/
+        - ContentProviderRecord.java
 
 ## 一、概述
 ContentProvider(内容提供者)用于提供数据的统一访问格式，封装底层的具体实现。对于数据的使用者来说，无需知晓数据的来源是数据库、文件，或者网络，只需简单地使用ContentProvider提供的数据操作接口，也就是增(insert)、删(delete)、改(update)、查(query)四个过程。

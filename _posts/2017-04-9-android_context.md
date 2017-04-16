@@ -676,7 +676,7 @@ Tips:
 
 (一) 下面用一幅图来看看核心组件的初始化过程会创建哪些对象:
 
-|类型|LoadedApk|ContextImpl|Application|对象|回调方法|
+|类型|LoadedApk|ContextImpl|Application|创建相应对象|回调方法|
 |---|---|---|---|---|---|
 |Activity|√|√|√| Activity|onCreate|
 |Service|√|√|√| Service|onCreate|
@@ -693,6 +693,7 @@ Tips:
 (二) 关于Context attach过程:
 
 - Activity/Service/Application: 调用attachBaseContext(), 将新创建的ContextImpl赋值到父类ContextWrapper.mBase变量;
+    - 可通过getBaseContext()获取该ContextImpl;
 - ContentProvider: 调用attachInfo(),将新创建ContextImpl对象保存到ContentProvider对象的成员变量mContext;
     - 可通过getContext()获取该ContextImpl;
 - BroadcastReceiver: 在onCreate过程通过参数将ReceiverRestrictedContext传递过去的.
@@ -700,17 +701,19 @@ Tips:
 
 (三) 最后, 说一说Context的使用场景
 
-|类型|startActivity|startService|bindService|sendBroadcast|registerReceiver|
+|类型|startActivity|startService|bindService|sendBroadcast|registerReceiver|getContentResolver|
 |---|---|---|---|---|---|
-|Activity|√|√|√| √| √|
-|Service|-|√|√| √| √|
-|Receiver|-|√|×| √| -|
-|Provider|-|√|√| √| √|
-|Application|-|√|√| √| √|
+|Activity|√|√|√| √| √|√|
+|Service|-|√|√| √| √|√|
+|Receiver|-|√|×| √| -|√|
+|Provider|-|√|√| √| √|√|
+|Application|-|√|√| √| √|√|
 
 说明:
 
-- Receiver不允许bindService/registerReceiver, 这是由于限制性上下文(ReceiverRestrictedContext)所决定的,会直接抛出异常.
-- Receiver不允许registerReceiver,也并非绝对的. 当receiver == null用于获取sticky广播;
+- Receiver不允许bindService, 这是由于限制性上下文(ReceiverRestrictedContext)所决定的,会直接抛出异常.
+- Receiver: registerReceiver是否允许使用取决于receiver;
+    - 当receiver == null用于获取sticky广播, 允许使用;
+    - 否则,不允许使用registerReceiver;
 - startActivity在Activity中可正常使用, 如果是其他组件的话需要startActivity则必须带上FLAG_ACTIVITY_NEW_TASK flags.
 - 另外UI相关则要Activity中使用.
