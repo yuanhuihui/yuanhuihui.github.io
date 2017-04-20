@@ -62,3 +62,16 @@ system    4253  557   1504552 102516 SyS_epoll_ 7f7ebedbe4 S com.android.setting
 u0_a20    4442  557   2195832 147300 SyS_epoll_ 7f7ebedbe4 S com.miui.home
 
 RenderThread, EventThread(surfaceflinger),主线程？
+
+## 其他
+
+如下调用栈代码的是等待锁:Monitor.Lock
+
+"Binder:1037_1" sysTid=1056
+  #00 pc 000000000001c06c  /system/lib64/libc.so (syscall+28)
+  #01 pc 00000000001396dc  /system/lib64/libart.so (_ZN3art17ConditionVariable4WaitEPNS_6ThreadE+136)
+  #02 pc 00000000003919b0  /system/lib64/libart.so (_ZN3art7Monitor4LockEPNS_6ThreadE+504)
+  #03 pc 0000000000393854  /system/lib64/libart.so (_ZN3art7Monitor12MonitorEnterEPNS_6ThreadEPNS_6mirror6ObjectE+476)
+  #04 pc 0000000000534dd0  /system/lib64/libart.so (artLockObjectFromCode+24)
+  #05 pc 000000000011e57c  /system/lib64/libart.so (art_quick_lock_object+172)
+  #06 pc 0000000000d69d5c  /data/dalvik-cache/arm64/system@framework@services.jar@classes.dex (offset 0xa91000)

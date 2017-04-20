@@ -33,3 +33,15 @@ gityuan::methodA();
 5. 虚函数
 虚函数
 纯虚函数
+
+
+6. 几个重要的东西
+http://blog.csdn.net/fengbingchun/article/details/51235498
+
+static_cast语法：static_cast<type-id>(expression)
+
+- const_cast: 用来去除变量的const限定
+- reinterpret_cast: 在任意指针之间进行互相转换
+- static_cast: 指向基类的指针和指向子类的指针之间的互相转换
+
+static_cast和reinterpret_cast一样，在面对const的时候都无能为力：两者都不能去除const限定

@@ -470,21 +470,21 @@ Input事件流程：Linux Kernel -> IMS(InputReader -> InputDispatcher) -> WMS -
 #### 4.2.3 EventEntry
 
     struct EventEntry : Link<EventEntry> {
-         enum {
-             TYPE_CONFIGURATION_CHANGED,
-             TYPE_DEVICE_RESET,
-             TYPE_KEY,
-             TYPE_MOTION
-         };
-
          mutable int32_t refCount;
-         int32_t type;
+         int32_t type; //时间类型
          nsecs_t eventTime; //事件时间
          uint32_t policyFlags;
          InjectionState* injectionState;
 
          bool dispatchInProgress; //初始值为false, 分发过程则设置成true
      };
+
+此处type的可取值为:
+
+- TYPE_CONFIGURATION_CHANGED
+- TYPE_DEVICE_RESET
+- TYPE_KEY: 按键事件
+- TYPE_MOTION: 触摸时间
 
 #### 4.2.4 INPUT_EVENT_INJECTION
 

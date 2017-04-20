@@ -1,3 +1,6 @@
+http://www.cnblogs.com/yangjies145/p/6512740.html
+
+
 addr2line
 
 ## Native地址转换
@@ -5,7 +8,7 @@ addr2line
 1. 首先获取symbols表
 
 http://ota.pt.miui.com/?r=eng&dir=/symbols
-
+http://eng.pt.miui.com/?r=eng
 要找到对应的版本的symbols，以及对应版本的addr2line，这样才能确保完全匹配。
 
 2. 其次，执行如下命令：

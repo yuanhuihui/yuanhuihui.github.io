@@ -593,7 +593,7 @@ buffer大小的优先级顺序为:
 1. persist.logd.size.xxx; 比如persist.logd.size.system;
 2. persist.logd.size;
 3. ro.logd.size;
-4. LOG_BUFFER_SIZE,即256k;
+4. LOG_BUFFER_SIZE, 即256k;
 5. LOG_BUFFER_MIN_SIZE, 即64k.
 
 
