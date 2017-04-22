@@ -9,23 +9,24 @@ tags:
 
 ---
 
-> 基于Android 6.0的源码剖析， 分析android Service启动流程中ActivityManagerService所扮演的角色
+> 基于Android 6.0的源码剖析， 分析android Service启动流程，相关源码：
 
+    frameworks/base/services/core/java/com/android/server/am/
+      - ActivityManagerService.java
+      - ActiveServices.java
+      - ServiceRecord.java
+      - ProcessRecord.java
 
-    /frameworks/base/services/core/java/com/android/server/am/ActiveServices.java
-    /frameworks/base/services/core/java/com/android/server/am/ServiceRecord.java
-    /frameworks/base/services/core/java/com/android/server/am/ProcessRecord.java
-
-    /frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
-    /frameworks/base/core/java/android/app/IActivityManager.java
-    /frameworks/base/core/java/android/app/ActivityManagerNative.java (内含ActivityManagerProxy类)
-    /frameworks/base/core/java/android/app/ActivityManager.java
-
-    /frameworks/base/core/java/android/app/IApplicationThread.java
-    /frameworks/base/core/java/android/app/ApplicationThreadNative.java (内含ApplicationThreadProxy类)
-    /frameworks/base/core/java/android/app/ActivityThread.java (内含ApplicationThread类)
-
-    /frameworks/base/core/java/android/app/ContextImpl.java
+    frameworks/base/core/java/android/app/
+      - IActivityManager.java
+      - ActivityManagerNative.java (内含AMP)
+      - ActivityManager.java
+      
+      - IApplicationThread.java
+      - ApplicationThreadNative.java (内含ATP)
+      - ActivityThread.java (内含ApplicationThread)
+      
+      - ContextImpl.java
 
 ## 一、概述
 

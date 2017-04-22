@@ -2,6 +2,35 @@
 2.properties
 
 
+计划：
+
+1. Process Stat/analysis，开机进程管理，延迟等工作；
+2. 组件指标
+3. 自动化分析
+4. system进程机制调制
+5. 现有injector机制改进
+6. handler消息管理
+7. 异常问题分析(Service, Broadcast异常) 这个归谁来负责？？ top问题开始分析
+
+top ANR的广播，top的receive？
+
+分工：(不是绝对的分工，相互帮助，平衡工作量，知识体系深度和广度)
+
+1. 感觉到手头bug的工作量负载重，随时跟我沟通；
+2. 长线计划，与短线计划。
+3. 品质为先。
+4. 本地验证，小心猪头。
+
+Process
+Broadcast
+Service
+Provider
+Activity
+综合问题
+
+优化1：registerReceiver(), 强制将onReceive调整到非主线程。待验证
+优化2：http://localhost:4000/2016/07/03/android-anr/，broadcastTimeoutLocked()
+mService.mProcessesReady --> 改为looper ready.
 
 ### 其他
 

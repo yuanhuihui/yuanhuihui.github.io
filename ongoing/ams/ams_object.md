@@ -135,40 +135,32 @@ UserSwitchingDialog
 
 
 
-### 5. pendings
+### 5. pending事件
 
-#### Activity  当binderDied 需要提交
-
+#### 1. Activity
 ASS.java
 - mPendingActivityLaunches
 
-#### Service  ok
+#### 2. Service
 ActiveServices.java
 - mPendingServices
 - mRestartingServices
 
-#### Broadcast  force-stop需要提交 skipCurrentReceiverLocked
+#### 3. Broadcast  
 BroadcastQueue.java
 - mFgBroadcastQueue.mPendingBroadcast
 - mBgBroadcastQueue.mPendingBroadcast
 
-#### Provider ok
+#### 4. Provider
 AMS.java
 - mLaunchingProviders
 
 
-#### Process force-stop需要提交
+#### 5. Process
 AMS.java
 - mProcessesOnHold
 - mPersistentStartingProcesses
 
-
-#### 5. AMS
-
-HashMap<PendingIntentRecord.Key, WeakReference<PendingIntentRecord>> mIntentSenderRecords,这个也要清除才对
-ArrayList<ProcessChangeItem> mPendingProcessChanges
-
-mProcessNames
 
 #### 关系链表
 
@@ -229,4 +221,3 @@ AS.removeTask:
 - "appDied"    
 - "setTask"
 - "moveTaskToStack"
-

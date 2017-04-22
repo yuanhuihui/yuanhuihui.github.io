@@ -8,7 +8,6 @@ tags:
 
 ---
 
-
     frameworks/base/core/java/android/util/
         - Log.java
         - Slog.java
@@ -1274,7 +1273,7 @@ buffer大小的优先级顺序为:
                 SocketListener::runOnEachSocket
                 FlushCommand::runSocketCommand
 
-参数
+参数说明：
 
     name                       type default  description
     logd.auditd                 bool  true   Enable selinux audit daemon

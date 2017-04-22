@@ -11,21 +11,27 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析android广播的发送与接收流程。
 
-    framework/base/core/java/android/content/BroadcastReceiver.java
-    framework/base/core/java/android/content/Context.java
-    framework/base/core/java/android/content/IntentFilter.java
+    framework/base/services/core/java/com/android/server/
+      - ActivityManagerService.java
+      - BroadcastQueue.java
+      - BroadcastFilter.java
+      - BroadcastRecord.java
+      - ReceiverList.java
+      - ProcessRecord.java
+      
+    framework/base/core/java/android/content/
+      - BroadcastReceiver.java
+      - IntentFilter.java
 
-    framework/base/core/java/android/app/ContextImpl.java
-    framework/base/core/java/android/app/LoadedApk
-    framework/base/core/java/android/app/ActivityManagerNative.java
-    framework/base/core/java/android/app/ApplicationThreadNative.java
-    framework/base/core/java/android/app/ActivityThread.java
+    framework/base/core/java/android/app/
+      - ActivityManagerNative.java (内含AMP)
+      - ActivityManager.java
+      - ApplicationThreadNative.java (内含ATP)
+      - ActivityThread.java (内含ApplicationThread)
+      
+      - ContextImpl.java
+      - LoadedApk
 
-    framework/base/services/core/java/com/android/server/ActivityManagerService.java
-    framework/base/services/core/java/com/android/server/am/BroadcastQueue.java
-    framework/base/services/core/java/com/android/server/am/BroadcastFilter.java
-    framework/base/services/core/java/com/android/server/am/BroadcastRecord.java
-    framework/base/services/core/java/com/android/server/am/ReceiverList.java
 
 ## 一、概述
 
@@ -345,8 +351,7 @@ ReceiverDispatcher(广播分发者)有一个内部类`InnerReceiver`，该类继
                 final int stickyCount = allSticky.size();
                 for (int i = 0; i < stickyCount; i++) {
                     Intent intent = allSticky.get(i);
-                    //当intent为前台广播，则返回mFgBroadcastQueue
-                    //当intent为后台广播，则返回mBgBroadcastQueue
+                    //根据intent返回前台或后台广播队列【见2.5.3】
                     BroadcastQueue queue = broadcastQueueForIntent(intent);
                     //创建BroadcastRecord
                     BroadcastRecord r = new BroadcastRecord(queue, intent, null,
@@ -415,14 +420,25 @@ mLruProcesses数据类型为`ArrayList<ProcessRecord>`，而ProcessRecord对象�
 
 该方法用于匹配发起的Intent数据是否匹配成功，匹配项共有4项action, type, data, category，任何一项匹配不成功都会失败。
 
+#### 2.5.3 AMS.broadcastQueueForIntent
 
-### 2.6 小结
+    BroadcastQueue broadcastQueueForIntent(Intent intent) {
+        final boolean isFg = (intent.getFlags() & Intent.FLAG_RECEIVER_FOREGROUND) != 0;
+        return (isFg) ? mFgBroadcastQueue : mBgBroadcastQueue;
+    }
+
+- 当Intent的flags包含FLAG_RECEIVER_FOREGROUND，则返回mFgBroadcastQueue
+- 当Intent没有指定该flag，则返回mFgBroadcastQueue
+
+### 2.6 广播注册小结
 
 注册广播的过程，主要功能：
 
 - 创建ReceiverList(接收者队列)，并添加到AMS.mRegisteredReceivers(已注册广播队列)；
 - 创建BroadcastFilter(广播过滤者)，并添加到AMS.mReceiverResolver；
-- 当注册的是Sticky广播，则创建BroadcastRecord，并添加到BroadcastQueue的mParallelBroadcasts(并行广播队列)，注册后调用AMS来尽快处理该广播。
+- 当注册的是Sticky广播：
+  - 创建BroadcastRecord，并添加到BroadcastQueue的mParallelBroadcasts(并行广播队列)，注册后调用AMS来尽快处理该广播。
+  - 根据注册广播的Intent是否包含FLAG_RECEIVER_FOREGROUND，则mFgBroadcastQueue
 
 广播注册完, 另一个操作便是在广播发送过程.
 
