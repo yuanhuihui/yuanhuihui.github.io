@@ -17,7 +17,7 @@ tags:
 - WMS: 添加window的过程主要功能是添加Surface,管理所有的Surface布局,以及Z轴排序问题;
 - SurfaceFinger: 将Surface按次序混合并显示到物理屏幕上;
 
-### 1.1 类图
+### 1.1 WMS全貌
 
 
 ![wms_relation](/images/wms/wms_relation.jpg)
