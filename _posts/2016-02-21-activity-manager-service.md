@@ -628,24 +628,6 @@ AMS.systemReady()方法的参数为Runable类型的goingCallback， 该方法执
         return true;
     }
 
-
-### 小节
-
-#### 3.8.4 mProcessesReady
-
-startProcessLocked()过程对于非persistent进程必须等待mProcessesReady = true才会真正创建进程，否则进程放入mProcessesOnHold队列。
-当然以下情况不会判断mProcessesReady：
-
-- addAppLocked()启动persistent进程; //但此时已经mProcessesReady；
-- finishBooting()启动on-hold进程; //但此时已经mProcessesReady；
-- cleanUpApplicationRecordLock() //启动需要restart进程，前提是进程已创建；
-- attachApplicationLocked() //绑定Bind死亡通告失败，前台同样是进程要已创建。
-
-还有一个特殊情况，可以创建进程：processNextBroadcast()过程对于flag为FLAG_RECEIVER_BOOT_UPGRADE的广播拉进程
-，只在小节3.1.1的升级过程会出现。
-
-由此可见，mProcessesReady为没有处于ready状态之前则基本没有其他进程。
-
 ## 四. 总结
 
 1. 创建AMS实例对象，创建Andoid Runtime，ActivityThread和Context对象；
@@ -690,3 +672,18 @@ startProcessLocked()过程对于非persistent进程必须等待mProcessesReady =
             mStackSupervisor.resumeTopActivitiesLocked(); //恢复栈顶的Activity
         }
     }
+
+再说一说`mProcessesReady`：
+
+startProcessLocked()过程对于非persistent进程必须等待mProcessesReady = true才会真正创建进程，否则进程放入mProcessesOnHold队列。
+当然以下情况不会判断mProcessesReady：
+
+- addAppLocked()启动persistent进程; //但此时已经mProcessesReady；
+- finishBooting()启动on-hold进程; //但此时已经mProcessesReady；
+- cleanUpApplicationRecordLock() //启动需要restart进程，前提是进程已创建；
+- attachApplicationLocked() //绑定Bind死亡通告失败，前台同样是进程要已创建。
+
+还有一个特殊情况，可以创建进程：processNextBroadcast()过程对于flag为FLAG_RECEIVER_BOOT_UPGRADE的广播拉进程
+，只在小节3.1.1的升级过程会出现。
+
+由此可见，mProcessesReady为没有处于ready状态之前则基本没有其他进程。
