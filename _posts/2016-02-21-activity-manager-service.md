@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "ActivityManagerService启动过程(一)"
+title:  "ActivityManagerService启动过程"
 date:   2016-02-21 21:12:40
 catalog:  true
 tags:
@@ -12,101 +12,71 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android系统服务ActivityManagerService，简称AMS
 
-    frameworks/base/core/java/android/app/ActivityThread.java
-    frameworks/base/core/java/android/app/LoadedApk.java
-    frameworks/base/core/java/android/app/ContextImpl.java
-    frameworks/base/core/java/com/android/server/LocalServices.java
-    frameworks/base/services/java/com/android/server/SystemServer.java
-    frameworks/base/services/core/java/com/android/server/SystemServiceManager.java
-    frameworks/base/services/core/java/com/android/server/ServiceThread.java
-    frameworks/base/services/core/java/com/android/server/pm/Installer.java
-    frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+    frameworks/base/core/java/android/app/
+      - ActivityThread.java
+      - LoadedApk.java
+      - ContextImpl.java
+      
+    frameworks/base/services/java/com/android/server/
+      - SystemServer.java
+    
+    frameworks/base/services/core/java/com/android/server/
+      - SystemServiceManager.java
+      - ServiceThread.java
+      - pm/Installer.java
+      - am/ActivityManagerService.java
 
 
-### 一、概述
+## 一、概述
 
 [Android系统启动-SystemServer篇(二)](http://gityuan.com/2016/02/20/android-system-server-2/)中有讲到AMS，本文以AMS为主线，讲述system_server进程中AMS服务的启动过程，以startBootstrapServices()方法为起点，紧跟着startCoreServices(), startOtherServices()共3个方法。
 
 
-### 1. startBootstrapServices
+## 二. AMS启动过程
 
-[-->SystemServer.java]
+### 2.1 startBootstrapServices
+[-> SystemServer.java]
 
     private void startBootstrapServices() {
         ...
-        //启动AMS服务【见小节2】
+        //启动AMS服务【见小节2.2】
         mActivityManagerService = mSystemServiceManager.startService(
                 ActivityManagerService.Lifecycle.class).getService();
+                
         //设置AMS的系统服务管理器
         mActivityManagerService.setSystemServiceManager(mSystemServiceManager);
-
         //设置AMS的APP安装器
         mActivityManagerService.setInstaller(installer);
-
         //初始化AMS相关的PMS
         mActivityManagerService.initPowerManagement();
         ...
 
-        //设置SystemServer【见小节4】
+        //设置SystemServer【见小节2.3】
         mActivityManagerService.setSystemProcess();
-
     }
 
-### 2. SystemServiceManager
+### 2.2 启动AMS服务
 
-**2-1. startService**
+SystemServiceManager.startService(ActivityManagerService.Lifecycle.class) 功能主要：
 
-[-->SystemServiceManager.java]
+1. 创建ActivityManagerService.Lifecycle对象；
+2. 调用Lifecycle.onStart()方法。
 
-    public <T extends SystemService> T startService(Class<T> serviceClass) {
-        final String name = serviceClass.getName();
-
-        if (!SystemService.class.isAssignableFrom(serviceClass)) {
-            throw new RuntimeException("");
-        }
-        final T service;
-        try {
-            Constructor<T> constructor = serviceClass.getConstructor(Context.class);
-            // 创建ActivityManagerService.Lifecycle对象 【见小节2-3】
-            service = constructor.newInstance(mContext);
-        } catch (Exception ex) {
-            throw new RuntimeException();
-            ...
-        }
-        //注册Lifecycle服务，并添加到成员变量mServices
-        mServices.add(service);
-
-        try {
-            //启动ActivityManagerService.Lifecycle的onStart() 【见小节2-3】
-            service.onStart();
-        } catch (RuntimeException ex) {
-            throw new RuntimeException("",ex);
-        }
-        return service;
-    }
-
-mSystemServiceManager.startService(xxx.class) 功能主要：
-
-1. 创建xxx类的对象；
-2. 将刚创建的对象添加到mSystemServiceManager的成员变量mServices；
-3. 调用刚创建对象的onStart()方法。
-
-**2-3. Lifecycle**
-
-[-->ActivityManagerService.java]
+#### 2.1.1 AMS.Lifecycle
+[-> ActivityManagerService.java]
 
     public static final class Lifecycle extends SystemService {
         private final ActivityManagerService mService;
 
         public Lifecycle(Context context) {
             super(context);
-            //创建ActivityManagerService【见小节3-1】
+            //创建ActivityManagerService【见小节2.1.2】
             mService = new ActivityManagerService(context);
         }
 
         @Override
         public void onStart() {
-            mService.start();  //【见小节3-2】
+            mService.start();  //【见小节2.1.3】
         }
 
         public ActivityManagerService getService() {
@@ -114,22 +84,16 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
         }
     }
 
-该过程：
+该过程：创建AMS内部类的Lifecycle，已经创建AMS对象，并调用AMS.start();
 
-1. 创建AMS内部类的Lifecycle对象，以及创建AMS对象；
-2. 将Lifecycle对象添加到mSystemServiceManager的成员变量mServices；
-3. 调用AMS.start();
-
-### 3 ActivityManagerService
-
-**3-1 构造函数**
+#### 2.1.2 AMS创建
 
     public ActivityManagerService(Context systemContext) {
         mContext = systemContext;
         mFactoryTest = FactoryTest.getMode();//默认为FACTORY_TEST_OFF
         mSystemThread = ActivityThread.currentActivityThread();
 
-        //创建名为TAG（值为"ActivityManager"）的线程，并获取mHandler
+        //创建名为"ActivityManager"的前台线程，并获取mHandler
         mHandlerThread = new ServiceThread(TAG, android.os.Process.THREAD_PRIORITY_FOREGROUND, false);
         mHandlerThread.start();
 
@@ -141,7 +105,6 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
         //前台广播接收器，在运行超过10s将放弃执行
         mFgBroadcastQueue = new BroadcastQueue(this, mHandler,
                 "foreground", BROADCAST_FG_TIMEOUT, false);
-
         //后台广播接收器，在运行超过60s将放弃执行
         mBgBroadcastQueue = new BroadcastQueue(this, mHandler,
                 "background", BROADCAST_BG_TIMEOUT, true);
@@ -152,7 +115,7 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
         mServices = new ActiveServices(this);
         mProviderMap = new ProviderMap(this);
 
-        //新建目录/data/system
+        //创建目录/data/system
         File dataDir = Environment.getDataDirectory();
         File systemDir = new File(dataDir, "system");
         systemDir.mkdirs();
@@ -160,78 +123,60 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
         //创建服务BatteryStatsService
         mBatteryStatsService = new BatteryStatsService(systemDir, mHandler);
         mBatteryStatsService.getActiveStatistics().readLocked();
-        mBatteryStatsService.scheduleWriteToDisk(); //回写到磁盘
-        mOnBattery = DEBUG_POWER ? true
-                : mBatteryStatsService.getActiveStatistics().getIsOnBattery();
-        mBatteryStatsService.getActiveStatistics().setCallback(this);
-
+        ...
+        
         //创建进程统计服务，信息保存在目录/data/system/procstats，
         mProcessStats = new ProcessStatsService(this, new File(systemDir, "procstats"));
 
         mAppOpsService = new AppOpsService(new File(systemDir, "appops.xml"), mHandler);
-
         mGrantFile = new AtomicFile(new File(systemDir, "urigrants.xml"));
 
         // User 0是第一个，也是唯一的一个开机过程中运行的用户
         mStartedUsers.put(UserHandle.USER_OWNER, new UserState(UserHandle.OWNER, true));
         mUserLru.add(UserHandle.USER_OWNER);
         updateStartedUserArrayLocked();
-
-        GL_ES_VERSION = SystemProperties.getInt("ro.opengles.version",
-            ConfigurationInfo.GL_ES_VERSION_UNDEFINED);
-        mTrackingAssociations = "1".equals(SystemProperties.get("debug.track-associations"));
-
-        mConfiguration.setToDefaults();
-        mConfiguration.setLocale(Locale.getDefault());
-        mConfigurationSeq = mConfiguration.seq = 1;
-
-        //进程CPU使用情况的追踪器的初始化
+        ...
+            
+        //CPU使用情况的追踪器执行初始化
         mProcessCpuTracker.init();
-
-        mCompatModePackages = new CompatModePackages(this, systemDir, mHandler);
-        mIntentFirewall = new IntentFirewall(new IntentFirewallInterface(), mHandler);
+        ...
         mRecentTasks = new RecentTasks(this);
-        // 创建Activity栈的对象
+        // 创建ActivityStackSupervisor对象
         mStackSupervisor = new ActivityStackSupervisor(this, mRecentTasks);
         mTaskPersister = new TaskPersister(systemDir, mStackSupervisor, mRecentTasks);
 
         //创建名为"CpuTracker"的线程
         mProcessCpuThread = new Thread("CpuTracker") {
-            @Override
             public void run() {
-                while (true) {
-                    try {
-                        try {
-                            synchronized(this) {
-                                final long now = SystemClock.uptimeMillis();
-                                long nextCpuDelay = (mLastCpuTime.get()+MONITOR_CPU_MAX_TIME)-now;
-                                long nextWriteDelay = (mLastWriteTime+BATTERY_STATS_TIME)-now;
-                                if (nextWriteDelay < nextCpuDelay) {
-                                    nextCpuDelay = nextWriteDelay;
-                                }
-                                if (nextCpuDelay > 0) {
-                                    mProcessCpuMutexFree.set(true);
-                                    this.wait(nextCpuDelay);
-                                }
-                            }
-                        } catch (InterruptedException e) {
-                        }
-                        updateCpuStatsNow(); //更新CPU状态
-                    } catch (Exception e) {
-                        Slog.e(TAG, "Unexpected exception collecting process stats", e);
+              while (true) {
+                try {
+                  try {
+                    synchronized(this) {
+                      final long now = SystemClock.uptimeMillis();
+                      long nextCpuDelay = (mLastCpuTime.get()+MONITOR_CPU_MAX_TIME)-now;
+                      long nextWriteDelay = (mLastWriteTime+BATTERY_STATS_TIME)-now;
+                      if (nextWriteDelay < nextCpuDelay) {
+                          nextCpuDelay = nextWriteDelay;
+                      }
+                      if (nextCpuDelay > 0) {
+                          mProcessCpuMutexFree.set(true);
+                          this.wait(nextCpuDelay);
+                      }
                     }
+                  } catch (InterruptedException e) {
+                  }
+                  updateCpuStatsNow(); //更新CPU状态
+                } catch (Exception e) {
                 }
+              }
             }
         };
-
-        //Watchdog添加对AMS的监控
-        Watchdog.getInstance().addMonitor(this);
-        Watchdog.getInstance().addThread(mHandler);
+        ...
     }
 
-该过程共创建了3个线程：分别为"ActivityManager"，"android.ui"，"CpuTracker"。
+该过程共创建了3个线程，分别为"ActivityManager"，"android.ui"，"CpuTracker"。
 
-**3-2. AMS.start()**
+#### 2.1.3 AMS.start
 
     private void start() {
         Process.removeAllProcessGroups(); //移除所有的进程组
@@ -244,9 +189,7 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
     }
 
 
-### 4 setSystemProcess
-
-[-->ActivityManagerService.java]
+### 2.3 AMS.setSystemProcess
 
     public void setSystemProcess() {
         try {
@@ -263,12 +206,12 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
             ApplicationInfo info = mContext.getPackageManager().getApplicationInfo(
                     "android", STOCK_PM_FLAGS);
 
-            //调用ActivityThread的installSystemApplicationInfo()方法 【见小节4-2】
+            //【见小节2.3.1】
             mSystemThread.installSystemApplicationInfo(info, getClass().getClassLoader());
             synchronized (this) {
-                //创建ProcessRecord对象 【见小节4-3】
+                //创建ProcessRecord对象
                 ProcessRecord app = newProcessRecordLocked(info, info.processName, false, 0);
-                app.persistent = true;
+                app.persistent = true; //设置为persistent进程
                 app.pid = MY_PID;
                 app.maxAdj = ProcessList.SYSTEM_ADJ;
                 app.makeActive(mSystemThread.getApplicationThread(), mProcessStats);
@@ -283,148 +226,60 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
         }
     }
 
-该方法主要工作，注册下面的服务：
+该方法主要工作是注册各种服务。
 
-|服务名|类名|功能
-|---|----|
-|activity|ActivityManagerService|AMS
-|procstats|ProcessStatsService|进程统计
-|meminfo|MemBinder|内存
-|gfxinfo|GraphicsBinder|graphics
-|dbinfo|DbBinder|数据库
-|cpuinfo|CpuBinder|CPU
-|permission|PermissionController|权限
-|processinfo|ProcessInfoService|进程服务
-
-想要查看这些服务的信息，可通过`dumpsys <服务名>`命令。比如查看CPU信息命令`dumpsys cpuinfo`，查看graphics信息命令`dumpsys gfxinfo`。
-
-**4-2 installSystemApplicationInfo**
-
-[-->ActivityThread.java]
+#### 2.3.1 AT.installSystemApplicationInfo
+[-> ActivityThread.java]
 
     public void installSystemApplicationInfo(ApplicationInfo info, ClassLoader classLoader) {
         synchronized (this) {
-            //调用ContextImpl的nstallSystemApplicationInfo()方法，
-            //最终调用LoadedApk的installSystemApplicationInfo，加载名为“android”的package
+            //
             getSystemContext().installSystemApplicationInfo(info, classLoader);
-
             //创建用于性能统计的Profiler对象
             mProfiler = new Profiler();
         }
     }
+    
+该方法调用ContextImpl的nstallSystemApplicationInfo()方法，最终调用LoadedApk的installSystemApplicationInfo，加载名为“android”的package
 
-**4-3 newProcessRecordLocked**
+#### 2.3.2  installSystemApplicationInfo
+[-> LoadedApk.java]
 
-    final ProcessRecord newProcessRecordLocked(ApplicationInfo info, String customProcess,
-            boolean isolated, int isolatedUid) {
-        String proc = customProcess != null ? customProcess : info.processName;
-        BatteryStatsImpl stats = mBatteryStatsService.getActiveStatistics();
-        final int userId = UserHandle.getUserId(info.uid);
-        int uid = info.uid;
-        if (isolated) {
-            if (isolatedUid == 0) {
-                int stepsLeft = Process.LAST_ISOLATED_UID - Process.FIRST_ISOLATED_UID + 1;
-                while (true) {
-                    if (mNextIsolatedProcessUid < Process.FIRST_ISOLATED_UID
-                            || mNextIsolatedProcessUid > Process.LAST_ISOLATED_UID) {
-                        mNextIsolatedProcessUid = Process.FIRST_ISOLATED_UID;
-                    }
-                    uid = UserHandle.getUid(userId, mNextIsolatedProcessUid);
-                    mNextIsolatedProcessUid++;
-                    if (mIsolatedProcesses.indexOfKey(uid) < 0) {
-                        //该uid下没有进程，则使用该uid
-                        break;
-                    }
-                    stepsLeft--;
-                    if (stepsLeft <= 0) {
-                        return null;
-                    }
-                }
-            } else {
-                uid = isolatedUid;
-            }
-        }
-        // 创建ProcessRecord对象
-        final ProcessRecord r = new ProcessRecord(stats, info, proc, uid);
-        if (!mBooted && !mBooting
-                && userId == UserHandle.USER_OWNER
-                && (info.flags & PERSISTENT_MASK) == PERSISTENT_MASK) {
-            r.persistent = true; //设置该进程常驻内存，被杀后会自动重启。
-        }
-        addProcessNameLocked(r);
-        return r;
+    void installSystemApplicationInfo(ApplicationInfo info, ClassLoader classLoader) {
+        assert info.packageName.equals("android");
+        mApplicationInfo = info; //将包名为"android"的应用信息保存到mApplicationInfo
+        mClassLoader = classLoader;
     }
 
-### 5. startCoreServices
-
-    private void startCoreServices() {
-            //设置AMS的App使用情况统计服务
-            mActivityManagerService.setUsageStatsManager(
-                    LocalServices.getService(UsageStatsManagerInternal.class));
-    }
-
-可通过`dumpys usagestats`查看用户的每个应用的使用情况
-
-### 6. startOtherServices
+### 2.4 startOtherServices
 
     private void startOtherServices() {
-        //安装系统Provider 【见小节7】
-        mActivityManagerService.installSystemProviders();
-
-        //初始看门狗，来监控AMS
-        final Watchdog watchdog = Watchdog.getInstance();
-        watchdog.init(context, mActivityManagerService);
-
-        //初始化WMS，并设置到AMS中
-        wm = WindowManagerService.main(context, inputManager,
-                mFactoryTestMode != FactoryTest.FACTORY_TEST_LOW_LEVEL,
-                !mFirstBoot, mOnlyCore);
-        mActivityManagerService.setWindowManager(wm);
-
-        ...
-        mActivityManagerService.systemReady(new Runnable() {
-            @Override
-            public void run() {
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_ACTIVITY_MANAGER_READY);
-
-                mActivityManagerService.startObservingNativeCrashes();
-
-                WebViewFactory.prepareWebViewInSystemServer();
-                //启动系统UI 【8】
-                startSystemUi(context);
-                // 执行一系列服务的systemReady方法
-                if (networkScoreF != null) networkScoreF.systemReady();
-                if (networkManagementF != null) networkManagementF.systemReady();
-                if (networkStatsF != null) networkStatsF.systemReady();
-                if (networkPolicyF != null) networkPolicyF.systemReady();
-                if (connectivityF != null) connectivityF.systemReady();
-                if (audioServiceF != null) audioServiceF.systemReady();
-                Watchdog.getInstance().start();
-
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);
-
-                if (wallpaperF != null) wallpaperF.systemRunning();
-                if (immF != null) immF.systemRunning(statusBarF);
-                if (locationF != null) locationF.systemRunning();
-                if (countryDetectorF != null) countryDetectorF.systemRunning();
-                if (networkTimeUpdaterF != null) networkTimeUpdaterF.systemRunning();
-                if (commonTimeMgmtServiceF != null) {
-                    commonTimeMgmtServiceF.systemRunning();
-                }
-                if (textServiceManagerServiceF != null)
-                    textServiceManagerServiceF.systemRunning();
-                if (atlasF != null) atlasF.systemRunning();
-                if (inputManagerF != null) inputManagerF.systemRunning();
-                if (telephonyRegistryF != null) telephonyRegistryF.systemRunning();
-                if (mediaRouterF != null) mediaRouterF.systemRunning();
-                if (mmsServiceF != null) mmsServiceF.systemRunning();
-            }
-        });
+      ...
+      //安装系统Provider 【见小节2.4.1】
+      mActivityManagerService.installSystemProviders();
+      ...
+      
+      //phase480 && 500
+      mSystemServiceManager.startBootPhase(SystemService.PHASE_LOCK_SETTINGS_READY);
+      mSystemServiceManager.startBootPhase(SystemService.PHASE_SYSTEM_SERVICES_READY);
+      ...
+      
+      //【见小节3.1】
+      mActivityManagerService.systemReady(new Runnable() {
+         public void run() {
+             //phase550
+             mSystemServiceManager.startBootPhase(
+                     SystemService.PHASE_ACTIVITY_MANAGER_READY);
+             ...
+             //phase600
+             mSystemServiceManager.startBootPhase(
+                     SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);
+             ...
+          }
+      }
     }
-
-### 7. installSystemProviders
+    
+#### 2.4.1 AMS.installSystemProviders
 
     public final void installSystemProviders() {
         List<ProviderInfo> providers;
@@ -434,6 +289,7 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
             if (providers != null) {
                 for (int i=providers.size()-1; i>=0; i--) {
                     ProviderInfo pi = (ProviderInfo)providers.get(i);
+                    //移除非系统的provider
                     if ((pi.applicationInfo.flags&ApplicationInfo.FLAG_SYSTEM) == 0) {
                         providers.remove(i);
                     }
@@ -441,17 +297,231 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
             }
         }
         if (providers != null) {
-            //为ActivityThread安装系统provider【】
+            //安装所有的系统provider
             mSystemThread.installSystemProviders(providers);
         }
 
         // 创建核心Settings Observer，用于监控Settings的改变。
         mCoreSettingsObserver = new CoreSettingsObserver(this);
     }
+    
+## 三. AMS.systemReady
 
-启动SettingsProvider
+AMS.systemReady()方法的参数为Runable类型的goingCallback， 该方法执行简单划分以下几部分：
 
-### 8. startSystemUi
+    public void systemReady(final Runnable goingCallback) {
+        before goingCallback;
+        goingCallback.run();
+        after goingCallback;
+    }
+    
+### 3.1 before goingCallback
+
+    synchronized(this) {
+        if (mSystemReady) { //首次为flase，则不进入该分支
+            if (goingCallback != null) {
+                    goingCallback.run();
+                }
+            return;
+        }
+
+        mRecentTasks.clear();
+        //恢复最近任务栏的task
+        mRecentTasks.addAll(mTaskPersister.restoreTasksLocked());
+        mRecentTasks.cleanupLocked(UserHandle.USER_ALL);
+        mTaskPersister.startPersisting();
+
+        if (!mDidUpdate) {
+            if (mWaitingUpdate) {
+                return;
+            }
+            final ArrayList<ComponentName> doneReceivers = new ArrayList<ComponentName>();
+            //处于升级过程【见小节3.1.1】
+            mWaitingUpdate = deliverPreBootCompleted(new Runnable() {
+                public void run() {
+                    synchronized (ActivityManagerService.this) {
+                        mDidUpdate = true;
+                    }
+                    showBootMessage(mContext.getText(
+                            R.string.android_upgrading_complete),
+                            false);
+                    writeLastDonePreBootReceivers(doneReceivers);
+                    systemReady(goingCallback);
+                }
+            }, doneReceivers, UserHandle.USER_OWNER);
+
+            if (mWaitingUpdate) {
+                return;
+            }
+            mDidUpdate = true;
+        }
+
+        mAppOpsService.systemReady();
+        mSystemReady = true;
+    }
+    
+    ArrayList<ProcessRecord> procsToKill = null;
+    synchronized(mPidsSelfLocked) {
+        for (int i=mPidsSelfLocked.size()-1; i>=0; i--) {
+            ProcessRecord proc = mPidsSelfLocked.valueAt(i);
+            //非persistent进程,加入procsToKill
+            if (!isAllowedWhileBooting(proc.info)){
+                if (procsToKill == null) {
+                    procsToKill = new ArrayList<ProcessRecord>();
+                }
+                procsToKill.add(proc);
+            }
+        }
+    }
+
+    synchronized(this) {
+        if (procsToKill != null) {
+            //杀掉procsToKill中的进程, 杀掉进程且不允许重启
+            for (int i=procsToKill.size()-1; i>=0; i--) {
+                ProcessRecord proc = procsToKill.get(i);
+                removeProcessLocked(proc, true, false, "system update done");
+            }
+        }
+        mProcessesReady = true; //process处于ready状态
+    }
+    Slog.i(TAG, "System now ready");
+
+该阶段的主要功能：
+
+- 向PRE_BOOT_COMPLETED的接收者发送广播；
+- 杀掉procsToKill中的进程, 杀掉进程且不允许重启；
+- 此时，系统和进程都处于ready状态；
+
+#### 3.1.1 deliverPreBootCompleted
+
+    private boolean deliverPreBootCompleted(final Runnable onFinishCallback,
+            ArrayList<ComponentName> doneReceivers, int userId) {
+        Intent intent = new Intent(Intent.ACTION_PRE_BOOT_COMPLETED);
+        List<ResolveInfo> ris = AppGlobals.getPackageManager().queryIntentReceivers(
+                    intent, null, 0, userId);
+
+        //对于FLAG_SYSTEM=false的app直接过滤掉
+        for (int i=ris.size()-1; i>=0; i--) {
+            if ((ris.get(i).activityInfo.applicationInfo.flags
+                    &ApplicationInfo.FLAG_SYSTEM) == 0) {
+                ris.remove(i);
+            }
+        }
+        intent.addFlags(Intent.FLAG_RECEIVER_BOOT_UPGRADE);
+
+        if (userId == UserHandle.USER_OWNER) {
+            ArrayList<ComponentName> lastDoneReceivers = readLastDonePreBootReceivers();
+            for (int i=0; i<ris.size(); i++) {
+                ActivityInfo ai = ris.get(i).activityInfo;
+                ComponentName comp = new ComponentName(ai.packageName, ai.name);
+                if (lastDoneReceivers.contains(comp)) {
+                    ris.remove(i);
+                    i--;
+                    doneReceivers.add(comp);
+                }
+            }
+        }
+        ...
+
+        PreBootContinuation cont = new PreBootContinuation(intent, onFinishCallback, 
+                doneReceivers, ris, users);  //【见小节3.1.2】
+        cont.go(); //【见小节3.1.3】
+        return true;
+    }
+
+#### 3.1.2 PreBootContinuation
+[-> ActivityManagerService.java ::PreBootContinuation]
+
+    final class PreBootContinuation extends IIntentReceiver.Stub {
+
+        PreBootContinuation(Intent _intent, Runnable _onFinishCallback,
+                ArrayList<ComponentName> _doneReceivers, List<ResolveInfo> _ris, int[] _users) {
+            intent = _intent;
+            onFinishCallback = _onFinishCallback;
+            doneReceivers = _doneReceivers;
+            ris = _ris;
+            users = _users;
+        }
+    }
+
+#### 3.1.3 PreBootContinuation.go
+
+    void go() {
+        if (lastRi != curRi) {
+            ActivityInfo ai = ris.get(curRi).activityInfo;
+            ComponentName comp = new ComponentName(ai.packageName, ai.name);
+            intent.setComponent(comp);
+            doneReceivers.add(comp);
+            lastRi = curRi;
+            CharSequence label = ai.loadLabel(mContext.getPackageManager());
+            showBootMessage(mContext.getString(R.string.android_preparing_apk, label), false);
+        }
+        
+        Slog.i(TAG, "Pre-boot of " + intent.getComponent().toShortString()
+                            + " for user " + users[curUser]);
+        EventLogTags.writeAmPreBoot(users[curUser], intent.getComponent().getPackageName());
+        //发送广播
+        broadcastIntentLocked(null, null, intent, null, this,
+                0, null, null, null, AppOpsManager.OP_NONE,
+                null, true, false, MY_PID, Process.SYSTEM_UID, users[curUser]);
+    }
+
+### 3.2 goingCallback.run()
+
+此处的goingCallback,便是在startOtherServices()过程中传递进来的参数
+
+    private void startOtherServices() {
+      ...
+      mActivityManagerService.systemReady(new Runnable() {
+        public void run() {
+          //phase550
+          mSystemServiceManager.startBootPhase(
+                  SystemService.PHASE_ACTIVITY_MANAGER_READY);
+
+          mActivityManagerService.startObservingNativeCrashes();
+          //启动WebView
+          WebViewFactory.prepareWebViewInSystemServer();
+          //启动系统UI【见小节3.2.1】
+          startSystemUi(context);
+
+          // 执行一系列服务的systemReady方法
+          networkScoreF.systemReady();
+          networkManagementF.systemReady();
+          networkStatsF.systemReady();
+          networkPolicyF.systemReady();
+          connectivityF.systemReady();
+          audioServiceF.systemReady();
+          Watchdog.getInstance().start(); //Watchdog开始工作
+          
+          //phase600
+          mSystemServiceManager.startBootPhase(
+                  SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);
+                  
+          //执行一系列服务的systemRunning方法
+          wallpaper.systemRunning();
+          inputMethodManager.systemRunning(statusBarF);
+          location.systemRunning();
+          countryDetector.systemRunning();
+          networkTimeUpdater.systemRunning();
+          commonTimeMgmtService.systemRunning();
+          textServiceManagerService.systemRunning();
+          assetAtlasService.systemRunning();
+          inputManager.systemRunning();
+          telephonyRegistry.systemRunning();
+          mediaRouter.systemRunning();
+          mmsService.systemRunning();
+        }
+      });
+    }
+
+该过程启动各种进程：
+
+- 启动阶段550，回调相应onBootPhase()方法；
+- 启动WebView，并且会创建进程，这是zygote正式创建的第一个进程；
+- 启动systemui服务；
+- ...
+
+#### 3.2.1 startSystemUi
 
     static final void startSystemUi(Context context) {
         Intent intent = new Intent();
@@ -462,14 +532,161 @@ mSystemServiceManager.startService(xxx.class) 功能主要：
 
 启动服务"com.android.systemui/.SystemUIService"
 
+### 3.3 after goingCallback
 
-### AMS总结
+    //启动【见小节3.3.1】
+    mSystemServiceManager.startUser(mCurrentUserId);
+    synchronized (this) {
+        if (mFactoryTest != FactoryTest.FACTORY_TEST_LOW_LEVEL) {
+            //通过pms获取所有的persistent进程
+            List apps = AppGlobals.getPackageManager().
+                getPersistentApplications(STOCK_PM_FLAGS);
+            if (apps != null) {
+                int N = apps.size();
+                int i;
+                for (i=0; i<N; i++) {
+                    ApplicationInfo info = (ApplicationInfo)apps.get(i);
+                    if (info != null && !info.packageName.equals("android")) {
+                        //启动persistent进程
+                        addAppLocked(info, false, null);
+                    }
+                }
+            }
+        }
+
+        mBooting = true; 
+        // 启动桌面Activity 【见小节3.3.2】
+        startHomeActivityLocked(mCurrentUserId, "systemReady");
+
+        ...
+        long ident = Binder.clearCallingIdentity();
+        try {
+            //system发送广播USER_STARTED
+            Intent intent = new Intent(Intent.ACTION_USER_STARTED);
+            intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY
+                    | Intent.FLAG_RECEIVER_FOREGROUND);
+            intent.putExtra(Intent.EXTRA_USER_HANDLE, mCurrentUserId);
+            broadcastIntentLocked(...);  
+
+            //system发送广播USER_STARTING
+            intent = new Intent(Intent.ACTION_USER_STARTING);
+            intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
+            intent.putExtra(Intent.EXTRA_USER_HANDLE, mCurrentUserId);
+            broadcastIntentLocked(...); 
+        } finally {
+            Binder.restoreCallingIdentity(ident);
+        }
+        
+        mStackSupervisor.resumeTopActivitiesLocked();
+        sendUserSwitchBroadcastsLocked(-1, mCurrentUserId);
+    }
+
+该阶段主要功能：
+
+- 回调所有SystemService的onStartUser()方法；
+- 启动persistent进程；
+- 启动home Activity;
+- 发送广播USER_STARTED和USER_STARTING；
+- 恢复栈顶Activity;
+- 发送广播USER_SWITCHED；
+
+#### 3.3.1 SSM.startUser
+[-> SystemServiceManager.java]
+
+    public void startUser(final int userHandle) {
+        final int serviceLen = mServices.size();
+        for (int i = 0; i < serviceLen; i++) {
+            final SystemService service = mServices.get(i);
+            try {
+                //回调所有SystemService的onStartUser()方法
+                service.onStartUser(userHandle);
+            } catch (Exception ex) {
+                ...
+            }
+        }
+    }
+
+#### 3.3.2 AMS.startHomeActivityLocked
+
+    boolean startHomeActivityLocked(int userId, String reason) {
+        //home intent有CATEGORY_HOME
+        Intent intent = getHomeIntent();
+        ActivityInfo aInfo = resolveActivityInfo(intent, STOCK_PM_FLAGS, userId);
+        if (aInfo != null) {
+            intent.setComponent(new ComponentName(
+                    aInfo.applicationInfo.packageName, aInfo.name));
+            aInfo = new ActivityInfo(aInfo);
+            aInfo.applicationInfo = getAppInfoForUser(aInfo.applicationInfo, userId);
+            ProcessRecord app = getProcessRecordLocked(aInfo.processName,
+                    aInfo.applicationInfo.uid, true);
+            if (app == null || app.instrumentationClass == null) {
+                intent.setFlags(intent.getFlags() | Intent.FLAG_ACTIVITY_NEW_TASK);
+                //启动桌面Activity
+                mStackSupervisor.startHomeActivity(intent, aInfo, reason);
+            }
+        }
+        return true;
+    }
+
+
+### 小节
+
+#### 3.8.4 mProcessesReady
+
+startProcessLocked()过程对于非persistent进程必须等待mProcessesReady = true才会真正创建进程，否则进程放入mProcessesOnHold队列。
+当然以下情况不会判断mProcessesReady：
+
+- addAppLocked()启动persistent进程; //但此时已经mProcessesReady；
+- finishBooting()启动on-hold进程; //但此时已经mProcessesReady；
+- cleanUpApplicationRecordLock() //启动需要restart进程，前提是进程已创建；
+- attachApplicationLocked() //绑定Bind死亡通告失败，前台同样是进程要已创建。
+
+还有一个特殊情况，可以创建进程：processNextBroadcast()过程对于flag为FLAG_RECEIVER_BOOT_UPGRADE的广播拉进程
+，只在小节3.1.1的升级过程会出现。
+
+由此可见，mProcessesReady为没有处于ready状态之前则基本没有其他进程。
+
+## 四. 总结
 
 1. 创建AMS实例对象，创建Andoid Runtime，ActivityThread和Context对象；
-2. setSystemProcess：注册AMS、meminfo、cpuinfo等服务到ServiceManager；再创建ProcessRecord对象；
+2. setSystemProcess：注册AMS、meminfo、cpuinfo等服务到ServiceManager；
 3. installSystemProviderss，加载SettingsProvider；
 4. 启动SystemUIService，再调用一系列服务的systemReady()方法；
 
-当这些都创建完毕后，便启动HomeActivity界面。
+### 4.1 发布Binder服务
 
-先写到这，后面再继续更新。
+[小节2.3]的AMS.setSystemProcess()过程向servicemanager注册了如下这个binder服务
+
+|服务名|类名|功能
+|---|----|
+|activity|ActivityManagerService|AMS
+|procstats|ProcessStatsService|进程统计
+|meminfo|MemBinder|内存
+|gfxinfo|GraphicsBinder|图像信息
+|dbinfo|DbBinder|数据库
+|cpuinfo|CpuBinder|CPU
+|permission|PermissionController|权限
+|processinfo|ProcessInfoService|进程服务
+|usagestats|UsageStatsService|应用的使用情况
+
+想要查看这些服务的信息，可通过`dumpsys <服务名>`命令。比如查看CPU信息命令`dumpsys cpuinfo`。
+
+### 4.2 AMS.systemReady
+另外，AMS.systemReady()的大致过程如下:
+
+    public final class ActivityManagerService{
+            
+        public void systemReady(final Runnable goingCallback) {
+            ...//更新操作
+            mSystemReady = true; //系统处于ready状态
+            removeProcessLocked(proc, true, false, "system update done");//杀掉所有非persistent进程
+            mProcessesReady = true;  //进程处于ready状态
+
+            goingCallback.run(); //这里有可能启动进程
+            
+            addAppLocked(info, false, null); //启动所有的persistent进程
+            mBooting = true;  //正在启动中
+            startHomeActivityLocked(mCurrentUserId, "systemReady"); //启动桌面
+            mStackSupervisor.resumeTopActivitiesLocked(); //恢复栈顶的Activity
+        }
+    }

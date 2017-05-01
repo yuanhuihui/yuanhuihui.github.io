@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "理解Application初始化"
+title:  "理解Application创建过程"
 date:   2017-04-02 20:12:30
 catalog:    true
 tags:
@@ -10,9 +10,8 @@ tags:
 
 ## 一. 概述
 
-system进程和app进程都运行着一个或多个app，每个app都会有一个对应的Application对象，这个LoadedApk一一对应。
-
-下面分别以下两种进程创建Application的过程：
+system进程和app进程都运行着一个或多个app，每个app都会有一个对应的Application对象(该对象
+跟LoadedApk一一对应)。下面分别以下两种进程创建Application的过程：
 
 - system_server进程；
 - app进程；
@@ -26,8 +25,7 @@ system进程和app进程都运行着一个或多个app，每个app都会有一�
         private void run() {
             ...
             createSystemContext(); //[见2.2]
-            ...
-            startBootstrapServices();
+            startBootstrapServices(); //开始启动服务
             ...
         }
     }
@@ -37,8 +35,8 @@ system进程和app进程都运行着一个或多个app，每个app都会有一�
 
     private void createSystemContext() {
         ActivityThread activityThread = ActivityThread.systemMain(); //[见2.3]
-        mSystemContext = activityThread.getSystemContext();  //[见2.x]
-        ...
+        mSystemContext = activityThread.getSystemContext();  //[见2.6.1]
+        mSystemContext.setTheme(android.R.style.Theme_DeviceDefault_Light_DarkActionBar);
     }
 
 ### 2.3 AT.systemMain
@@ -127,7 +125,8 @@ attach的主要功能：
     createApplicationContext(ApplicationInfo application, int flags)
     createPackageContext(String packageName, int flags)
 
-packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemContext过程。
+此处，packageInfo是getSystemContext().mPackageInfo，getSystemContext()获取的ContextImpl对象，
+其成员变量mPackageInfo便是LoadedApk对象。所以先来看看getSystemContext()过程。
 
 #### 2.6.1 AT.getSystemContext
 
@@ -301,7 +300,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
                 if (proc.pkgDeps == null) {
                     proc.pkgDeps = new ArraySet<String>(1);
                 }
-                //将当前
+                //将目标包名加入到调用者进程的pkgDeps
                 proc.pkgDeps.add(packageName);
             }
         }
@@ -334,7 +333,6 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
                                               parent,
                                               targetSdkVersion,
                                               isBundled);
-                //
                 mLoaders.put(zip, pathClassloader);
                 return pathClassloader;
             }
@@ -376,6 +374,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
         return newApplication(cl.loadClass(className), context);
     }
 
+此处cl便是前面getClassLoader所获取的PathClassLoader对象。通过其方法loadClass()来加载目标Application对象；
 
 #### 2.10.1 newApplication
 [-> Instrumentation.java]
@@ -424,7 +423,7 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
         ,,,
     }
 
-这是运行在app进程
+这是运行在app进程，当进程由zygote fork后执行ActivityThread的main方法。
 
 ### 3.2 AT.attach
 [-> ActivityThread.java]
@@ -436,15 +435,26 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
             //初始化RuntimeInit.mApplicationObject值
             RuntimeInit.setApplicationObject(mAppThread.asBinder());
             final IActivityManager mgr = ActivityManagerNative.getDefault();
-            mgr.attachApplication(mAppThread); //
+            mgr.attachApplication(mAppThread); //[见小节3.3]
         } else {
             ...
         }
     }
 
-### 3.3 AMS.attachApplicationLocked
+经过binder调用，进入system_server进程，执行如下操作。
+
+### 3.3 AMS.attachApplication
 [-> ActivityManagerService.java]
 
+    public final void attachApplication(IApplicationThread thread) {
+        synchronized (this) {
+            int callingPid = Binder.getCallingPid();
+            final long origId = Binder.clearCallingIdentity();
+            attachApplicationLocked(thread, callingPid);
+            Binder.restoreCallingIdentity(origId);
+        }
+    }
+    
     private final boolean attachApplicationLocked(IApplicationThread thread,
             int pid) {
         ProcessRecord app;
@@ -453,8 +463,8 @@ packageInfo是getSystemContext().mPackageInfo，所以先来看看getSystemConte
                 app = mPidsSelfLocked.get(pid); // 根据pid获取ProcessRecord
             }
         }
-
         ...
+        
         ApplicationInfo appInfo = app.instrumentationInfo != null
                 ? app.instrumentationInfo : app.info;
         //[见流程3.4]
@@ -558,4 +568,20 @@ system_server收到attach操作, 然后再向新创建的进程执行handleBindA
 创建LoadedApk对象,并将将新创建的LoadedApk加入到mPackages. 也就是说每个app都会创建唯一的LoadedApk对象.
 此处aInfo来源于ProcessRecord.info变量, 也就是进程中的第一个app.
 
-App进程的Application创建过程，跟system进程的核心逻辑都差不多。只是app进程的多了两次binder调用。
+## 四. 总结
+
+(一)system_server进程 [查看大图](http://www.gityuan.com/images/application/system_application.jpg)
+
+其application创建过程都创建对象有ActivityThread，Instrumentation, ContextImpl，LoadedApk，Application。
+流程图如下：
+
+![system_application](/images/application/system_application.jpg)
+
+(二) app进程 [查看大图](http://www.gityuan.com/images/application/app_application.jpg)
+
+其application创建过程都创建对象有ActivityThread，ContextImpl，LoadedApk，Application。
+流程图如下：
+
+![app_application](/images/application/app_application.jpg)
+
+App进程的Application创建过程，跟system进程的核心逻辑都差不多。只是app进程多了两次binder调用。

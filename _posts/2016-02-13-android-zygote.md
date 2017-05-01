@@ -12,11 +12,14 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程的Zygote进程
 
-    /frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
+    /frameworks/base/cmds/app_process/App_main.cpp
     /frameworks/base/core/jni/AndroidRuntime.cpp
-    /frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
-    /frameworks/base/core/java/com/android/internal/os/Zygote.java
 
+    /frameworks/base/core/java/com/android/internal/os/
+      - ZygoteInit.java
+      - Zygote.java
+      - ZygoteConnection.java
+      
     /frameworks/base/core/java/android/net/LocalServerSocket.java
     /system/core/libutils/Threads.cpp
 

@@ -11,15 +11,19 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程的system_server进程
 
-    /frameworks/base/core/java/com/android/internal/os/ZygoteInit.java
-    /frameworks/base/core/java/com/android/internal/os/RuntimeInit.java
-    /frameworks/base/core/services/java/com/android/server/SystemServer.java
+    /frameworks/base/core/java/com/android/internal/os/
+      - ZygoteInit.java
+      - RuntimeInit.java
+      - Zygote.java
 
-    /frameworks/base/core/java/com/android/internal/os/Zygote.java
-    /frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
-
-    /frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
-    /frameworks/base/core/jni/AndroidRuntime.cpp
+    /frameworks/base/core/services/java/com/android/server/
+      - SystemServer.java
+    
+    /frameworks/base/core/jni/
+      - com_android_internal_os_Zygote.cpp
+      - AndroidRuntime.cpp
+      
+    /frameworks/base/cmds/app_process/App_main.cpp
 
 ### 启动流程
 
@@ -100,7 +104,7 @@ SystemServer的在Android体系中所处的地位，SystemServer由Zygote fork�
         return pid;
     }
 
-nativeForkSystemServer()，该native方法事在AndroidRuntime.cpp中注册的，然后调用com_android_internal_os_Zygote.cpp中的register_com_android_internal_os_Zygote()方法完成nativeForkSystemServer()与com_android_internal_os_Zygote_nativeForkSystemServer()方法的一一映射关系，也就是会进入下面的方法。
+nativeForkSystemServer()方法在AndroidRuntime.cpp中注册的，调用com_android_internal_os_Zygote.cpp中的register_com_android_internal_os_Zygote()方法建立native方法的映射关系，所以接下来进入如下方法。
 
 ### 3. nativeForkSystemServer
 

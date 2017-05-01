@@ -24,9 +24,6 @@ Android从5.0开始就采用art虚拟机, 该虚拟机有些类似Java虚拟机,
 
 ![](/images/classloader/classloader.jpg)
 
-
-Android中最为常用的便是PathClassLoader.
-
 ## 二. ClassLoader构造函数
 
 ### 2.1 PathClassLoader
@@ -164,18 +161,12 @@ DexPathList初始化过程,主要功能是收集以下两个变量信息:
         }
 
         private static ClassLoader createSystemClassLoader() {
+            //此处classPath默认值为"."
             String classPath = System.getProperty("java.class.path", ".");
             return new PathClassLoader(classPath, BootClassLoader.getInstance());
         }
     }
 
-
-### 2.6 小节
-
-- PathClassLoader: 主要用于系统和app的类加载器,其中optimizedDirectory为null, 则采用默认目录/data/dalvik-cache/
-- DexClassLoader: 可以从包含classes.dex的jar/apk中加载类的类加载器, 可用于执行动态加载,但必须是app私有可写目录来缓存odx文件. 能够加载系统没有安装的apk/jar
-- BaseDexClassLoader: 比较基础的类加载器, PathClassLoader和DexClassLoader都只是在构造函数上对其简单封装而已.
-- BootClassLoader: 作为父类的类构造器.
 
 ## 三. loadClass
 
@@ -314,3 +305,12 @@ defineClassNative()这是native方法, 进入如下方法.
       }
       return nullptr; //没有找到目标类
     }
+
+    
+
+## 四. 总结
+
+- PathClassLoader: 主要用于系统和app的类加载器,其中optimizedDirectory为null, 采用默认目录/data/dalvik-cache/
+- DexClassLoader: 可以从包含classes.dex的jar或者apk中，加载类的类加载器, 可用于执行动态加载,但必须是app私有可写目录来缓存odex文件. 能够加载系统没有安装的apk或者jar文件， 因此很多插件化方案都是采用DexClassLoader;
+- BaseDexClassLoader: 比较基础的类加载器, PathClassLoader和DexClassLoader都只是在构造函数上对其简单封装而已.
+- BootClassLoader: 作为父类的类构造器.

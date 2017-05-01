@@ -23,111 +23,7 @@
             r.maxAdj = ProcessList.PERSISTENT_PROC_ADJ;
         }
     }
-    
-#### goingCallback.run()
 
-    private void startOtherServices() {
-        ...
-        mActivityManagerService.systemReady(new Runnable() {
-            public void run() {
-                
-              //phase550
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_ACTIVITY_MANAGER_READY);
-
-                mActivityManagerService.startObservingNativeCrashes();
-                //启动WebView
-                WebViewFactory.prepareWebViewInSystemServer();
-                //启动系统UI
-                startSystemUi(context);
-
-                // 执行一系列服务的systemReady方法
-                networkScoreF.systemReady();
-                networkManagementF.systemReady();
-                networkStatsF.systemReady();
-                networkPolicyF.systemReady();
-                connectivityF.systemReady();
-                audioServiceF.systemReady();
-                Watchdog.getInstance().start(); //Watchdog开始工作
-                
-              //phase600
-                mSystemServiceManager.startBootPhase(
-                        SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);
-                        
-                // 执行一系列服务的systemRunning方法
-                wallpaper.systemRunning();
-                inputMethodManager.systemRunning(statusBarF);
-                location.systemRunning();
-                countryDetector.systemRunning();
-                networkTimeUpdater.systemRunning();
-                commonTimeMgmtService.systemRunning();
-                textServiceManagerService.systemRunning();
-                assetAtlasService.systemRunning();
-                inputManager.systemRunning();
-                telephonyRegistry.systemRunning();
-                mediaRouter.systemRunning();
-                mmsService.systemRunning();
-            }
-        });
-    }
-
-### 3.8 AMS.systemReady
-
-#### 3.8.0 deliverPreBootCompleted
-
-    private boolean deliverPreBootCompleted(final Runnable onFinishCallback,
-            ArrayList<ComponentName> doneReceivers, int userId) {
-        Intent intent = new Intent(Intent.ACTION_PRE_BOOT_COMPLETED);
-        List<ResolveInfo> ris = AppGlobals.getPackageManager().queryIntentReceivers(
-                    intent, null, 0, userId);
-
-        //对于FLAG_SYSTEM=false的app直接过滤掉
-        for (int i=ris.size()-1; i>=0; i--) {
-            if ((ris.get(i).activityInfo.applicationInfo.flags
-                    &ApplicationInfo.FLAG_SYSTEM) == 0) {
-                ris.remove(i);
-            }
-        }
-        intent.addFlags(Intent.FLAG_RECEIVER_BOOT_UPGRADE);
-
-        if (userId == UserHandle.USER_OWNER) {
-            ArrayList<ComponentName> lastDoneReceivers = readLastDonePreBootReceivers();
-            for (int i=0; i<ris.size(); i++) {
-                ActivityInfo ai = ris.get(i).activityInfo;
-                ComponentName comp = new ComponentName(ai.packageName, ai.name);
-                if (lastDoneReceivers.contains(comp)) {
-                    ris.remove(i);
-                    i--;
-                    doneReceivers.add(comp);
-                }
-            }
-        }
-        ...
-
-        PreBootContinuation cont = new PreBootContinuation(intent, onFinishCallback, doneReceivers,
-                ris, users);
-        cont.go(); //见下文
-        return true;
-    }
-
-PreBootContinuation.go
-
-    void go() {
-        if (lastRi != curRi) {
-            ActivityInfo ai = ris.get(curRi).activityInfo;
-            ComponentName comp = new ComponentName(ai.packageName, ai.name);
-            intent.setComponent(comp);
-            doneReceivers.add(comp);
-            lastRi = curRi;
-            CharSequence label = ai.loadLabel(mContext.getPackageManager());
-            showBootMessage(mContext.getString(R.string.android_preparing_apk, label), false);
-        }
-
-        EventLogTags.writeAmPreBoot(users[curUser], intent.getComponent().getPackageName());
-        broadcastIntentLocked(null, null, intent, null, this,
-                0, null, null, null, AppOpsManager.OP_NONE,
-                null, true, false, MY_PID, Process.SYSTEM_UID, users[curUser]);
-    }
 
 #### 3.8.1 removeProcessLocked
 
@@ -228,9 +124,9 @@ PreBootContinuation.go
 只有以下场景会跳过上述检查过程,其他场景非persistent进程必须等待mProcessesReady = true. 可以看出几乎所有进程都需要这个监测.
 
 - addAppLocked()启动persistent进程; //此时已经mProcessesReady
-- finishBooting()启动on-hold进程; //此时才会启动
+- finishBooting()启动on-hold进程; //此时已经mProcessesReady
 - cleanUpApplicationRecordLock() 启动需要restart进程; //前提是进程已创建
-- attachApplicationLocked() 绑定Bind死亡通告失败,则启动进程;
+- attachApplicationLocked() //绑定Bind死亡通告失败,则启动进程;
 
 
 
@@ -239,23 +135,20 @@ PreBootContinuation.go
 
 ### 进程相关
 
-进程启动的场景hostingType所对应的值
+进程启动的场景hostingType取值：
 
-addAppLocked,  "added application"
+    addAppLocked,  "added application"
+    attachApplicationLocked,  "link fail"
+    cleanUpApplicationRecordLocked, "restart"
+    finishBooting,  "on-hold"
+    startIsolatedProcess, ""
 
-attachApplicationLocked,  "link fail"
-cleanUpApplicationRecordLocked, "restart"
-finishBooting,  "on-hold",    这个是在finishBooting()之后处理的
-
-startIsolatedProcess, ""
-
-
-AS.bringUpServiceLocked, "service"
-ASS.startSpecificActivityLocked, "activity"
-getContentProviderImpl "content provider"
-BQ.processNextBroadcast, "broadcast"
-appDiedLocked, "activity"
-bindBackupAgent, "backup"
+    ASS.startSpecificActivityLocked, "activity"
+    AS.bringUpServiceLocked, "service"
+    getContentProviderImpl "content provider"
+    BQ.processNextBroadcast, "broadcast"
+    appDiedLocked, "activity"
+    bindBackupAgent, "backup"
 
 hostingNameStr值一般地是组件名
 
@@ -279,39 +172,43 @@ EventLog.writeEvent(EventLogTags.AM_KILL, userId, pid, processName, setAdj, reas
 
 #### 其他
 
-是binder线程
-12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.checkFinishBootingLocked(ActivityStackSupervisor.java:2608)
-12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.activityIdleInternalLocked(ActivityStackSupervisor.java:2653)
-12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityManagerService.activityIdle(ActivityManagerService.java:6387)
-12-16 10:00:38.503 24654 25606 I ActivityManager: 	at android.app.ActivityManagerNative.onTransact(ActivityManagerNative.java:522)
-12-16 10:00:38.503 24654 25606 I ActivityManager: 	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2519)
-12-16 10:00:38.503 24654 25606 I ActivityManager: 	at android.os.Binder.execTransact(Binder.java:453)
+运行在binder线程
+
+ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.checkFinishBootingLocked(ActivityStackSupervisor.java:2608)
+ActivityManager: 	at com.android.server.am.ActivityStackSupervisor.activityIdleInternalLocked(ActivityStackSupervisor.java:2653)
+ActivityManager: 	at com.android.server.am.ActivityManagerService.activityIdle(ActivityManagerService.java:6387)
+ActivityManager: 	at android.app.ActivityManagerNative.onTransact(ActivityManagerNative.java:522)
+ActivityManager: 	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2519)
+ActivityManager: 	at android.os.Binder.execTransact(Binder.java:453)
 
 
 
 case 1:
 1294是"android.display"线程
 
-12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.am.ActivityManagerService.finishBooting(ActivityManagerService.java:6524)
-12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.am.ActivityManagerService.bootAnimationComplete(ActivityManagerService.java:6595)
-12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.wm.WindowManagerService.performEnableScreen(WindowManagerService.java:5912)
-12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.wm.WindowManagerService$H.handleMessage(WindowManagerService.java:8091)
-12-16 10:19:19.102  1275  1294 I ActivityManager: 	at android.os.Handler.dispatchMessage(Handler.java:102)
-12-16 10:19:19.102  1275  1294 I ActivityManager: 	at android.os.Looper.loop(Looper.java:148)
-12-16 10:19:19.102  1275  1294 I ActivityManager: 	at android.os.HandlerThread.run(HandlerThread.java:61)
-12-16 10:19:19.102  1275  1294 I ActivityManager: 	at com.android.server.ServiceThread.run(ServiceThread.java:46)
-12-16 10:19:19.102  1275  1294 I SystemServiceManager: Starting phase 1000
+ActivityManager: 	at com.android.server.am.ActivityManagerService.finishBooting(ActivityManagerService.java:6524)
+ActivityManager: 	at com.android.server.am.ActivityManagerService.bootAnimationComplete(ActivityManagerService.java:6595)
+ActivityManager: 	at com.android.server.wm.WindowManagerService.performEnableScreen(WindowManagerService.java:5912)
+ActivityManager: 	at com.android.server.wm.WindowManagerService$H.handleMessage(WindowManagerService.java:8091)
+ActivityManager: 	at android.os.Handler.dispatchMessage(Handler.java:102)
+ActivityManager: 	at android.os.Looper.loop(Looper.java:148)
+ActivityManager: 	at android.os.HandlerThread.run(HandlerThread.java:61)
+ActivityManager: 	at com.android.server.ServiceThread.run(ServiceThread.java:46)
+SystemServiceManager: Starting phase 1000
 
 
 case 2:
-2652是"ActivityManager"线程
-12-16 13:28:36.456  2621  2652 I ActivityManager: 	at com.android.server.am.ActivityManagerService.finishBooting(ActivityManagerService.java:6524)
-12-16 13:28:36.456  2621  2652 I ActivityManager: 	at com.android.server.am.ActivityManagerService$MainHandler.handleMessage(ActivityManagerService.java:1934)
-12-16 13:28:36.456  2621  2652 I ActivityManager: 	at android.os.Handler.dispatchMessage(Handler.java:102)
-12-16 13:28:36.456  2621  2652 I ActivityManager: 	at android.os.Looper.loop(Looper.java:148)
-12-16 13:28:36.456  2621  2652 I ActivityManager: 	at android.os.HandlerThread.run(HandlerThread.java:61)
-12-16 13:28:36.456  2621  2652 I ActivityManager: 	at com.android.server.ServiceThread.run(ServiceThread.java:46)
-12-16 13:28:36.456  2621  2652 I SystemServiceManager: Starting phase 1000
+2652是"ActivityManager"线程 （常规）
+
+ActivityManager: 	at com.android.server.am.ActivityManagerService.finishBooting(ActivityManagerService.java:6524)
+ActivityManager: 	at com.android.server.am.ActivityManagerService$MainHandler.handleMessage(ActivityManagerService.java:1934)
+ActivityManager: 	at android.os.Handler.dispatchMessage(Handler.java:102)
+ActivityManager: 	at android.os.Looper.loop(Looper.java:148)
+ActivityManager: 	at android.os.HandlerThread.run(HandlerThread.java:61)
+ActivityManager: 	at com.android.server.ServiceThread.run(ServiceThread.java:46)
+SystemServiceManager: Starting phase 1000
+
+
 ### 其他
 
 lsof,这是一个重要的命令

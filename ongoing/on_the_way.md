@@ -1,8 +1,15 @@
 1.SharedPreference
 2.properties
 
+## 下一步
 
-计划：
+1. binder parcel size打点；
+2. get provider打点；
+3. 从finishKeyguardDrawn的代码来看，调用waitForAllWindowsDrawn是不需要加mLock锁的，而且m10上调waitForAllWindowsDrawn时也没加mLock锁
+但是Android 6.0的代码将waitForAllWindowsDrawn移到了finishKeyguardDrawn里，外面调用finishKeyguardDrawn时加了mLock锁，有可能引发死锁？？
+4. ANR问题进一步分析： http://wiki.n.miui.com/pages/viewpage.action?pageId=26412002
+5. input http://wiki.n.miui.com/pages/viewpage.action?pageId=33095532
+6. 学习 http://wiki.n.miui.com/pages/viewpage.action?pageId=28116306
 
 1. Process Stat/analysis，开机进程管理，延迟等工作；
 2. 组件指标
