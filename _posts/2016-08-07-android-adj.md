@@ -26,18 +26,20 @@ tags:
 |SERVICE_B_AD| 8| B List中的Service（较老的、使用可能性更小）
 |PREVIOUS_APP_ADJ| 7|上一个App的进程(往往通过按返回键)
 |HOME_APP_ADJ | 6|Home进程
-|SERVICE_ADJ | 5|服务进程(Service process)
+|SERVICE_ADJ | 5|服务进程(**Service process**)
 |HEAVY_WEIGHT_APP_ADJ | 4|后台的重量级进程，system/rootdir/init.rc文件中设置
 |BACKUP_APP_ADJ | 3|备份进程
 |PERCEPTIBLE_APP_ADJ | 2|可感知进程，比如后台音乐播放  
-|VISIBLE_APP_ADJ | 1|可见进程(Visible process)
-|FOREGROUND_APP_ADJ | 0|前台进程（Foreground process
+|VISIBLE_APP_ADJ | 1|可见进程(**Visible process**)
+|FOREGROUND_APP_ADJ | 0|前台进程（**Foreground process**)
 |PERSISTENT_SERVICE_ADJ | -11|关联着系统或persistent进程
 |PERSISTENT_PROC_ADJ | -12|系统persistent进程，比如telephony
 |SYSTEM_ADJ |-16|系统进程
 |NATIVE_ADJ | -17|native进程（不被系统管理）
 
 lmkd会根据会根据当前系统可能内存的情况，来决定杀掉不同adj级别的进程，[Android进程生命周期与ADJ](http://gityuan.com/2015/10/01/process-lifecycle/)。
+
+FOREGROUND_APP_ADJ
 
 #### 1.2 ProcessState
 

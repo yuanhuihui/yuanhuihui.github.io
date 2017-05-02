@@ -565,10 +565,17 @@ ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
 - 当oom_adj = 15, 则oom_score_adj=1000;
 - 当oom_adj < 15, 则oom_score_adj= oom_adj * 1000/17;
 
+例如
+
+- oom_score_adj取值: 0, 58, 117, 176, 529, 700, 1000
+- oom_adj对应值: 0, 1, 2, 3, 9, 12, 15
 
 ### 5.2 driver参数
 
     /sys/module/lowmemorykiller/parameters/minfree (代表page个数)
     /sys/module/lowmemorykiller/parameters/adj (代表oom_score_adj)
 
-例如：将`1,6`写入节点/sys/module/lowmemorykiller/parameters/adj，将`1024,8192`写入节点/sys/module/lowmemorykiller/parameters/minfree。策略：当系统可用内存低于`8192`个pages时，则会杀掉oom_score_adj>=`6`的进程；当系统可用内存低于`1024`个pages时，则会杀掉oom_score_adj>=`1`的进程。
+举例说明：
+
+－　例如：将`1,6`写入节点/sys/module/lowmemorykiller/parameters/adj，将`1024,8192`写入节点/sys/module/lowmemorykiller/parameters/minfree。
+－　策略：当系统可用内存低于`8192`个pages时，则会杀掉oom_score_adj>=`6`的进程；当系统可用内存低于`1024`个pages时，则会杀掉oom_score_adj>=`1`的进程。

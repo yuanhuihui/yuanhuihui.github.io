@@ -145,3 +145,32 @@ adb shell monkey -v --throttle 300 --pct-touch 30 --pct-motion 20 --pct-nav 20 -
 
 https://android-review.googlesource.com/#/c/144191/
 https://android-review.googlesource.com/#/c/148199/
+
+
+### MIUI Event log
+
+30099, 是状态栏的问题.
+30089, 这是主线程skippedFrames个数
+
+cpu:  格式total, user,system, iowait, irq, softirq
+
+sf_frame_dur: 当前帧结束才输出的信息. 是由EventLog::doLogFrameDurations()输出的,  含义 (window|3),(dur0|1),(dur1|1),(dur2|1),(dur3|1),(dur4|1),(dur5|1),(dur6|1)
+
+screen_toggled (screen_state|1|5) : 含义:0 for screen off, 1 for screen on, 2 for key-guard done
+
+am_pss:  格式 pid, uid, process name, pssKb, ussKb. (uss是进程独占物理内存, pss包含共享库的比例. 两者差值在于共享库的比例大小)
+
+power_sleep_requested: 用户按下power键
+
+notification_enqueue: 进入通知队列. 格式 uid, pid, pkg, id, tag, userid, notification, status
+例如:notification_enqueue: [1000,3184,com.miui.securitycenter,2131296947,NULL,0,
+    Notification(pri=0 contentView=null vibrate=null sound=null defaults=0x0 flags=0x20 color=0x00000000 vis=PRIVATE),1]
+
+以下都是位于MetricsLogger.java文件调用:(记录一些指标的log)
+SYSUI_VIEW_VISIBILITY:  (category|1|5),(visible|1|6)
+SYSUI_ACTION:  (category|1|5),(pkg|3). 例如 sysui_action: [323,com.miui.home/.launcher.Launcher]
+SYSUI_COUNT:  (name|3),(increment|1). 例如 sysui_count: [DevelopmentSettings/adb_install|true,1]
+SYSUI_HISTOGRAM:  (name|3),(bucket|1). 例如 sysui_histogram: [screen_timeout,2147483]
+
+
+ wm_task_moved: 格式 (TaskId|1|5),(ToTop|1),(Index|1)
