@@ -1,15 +1,15 @@
 ---
 layout: post
 title:  "Android动画之插值器（三）"
-date:   2015-9-5 22:20:00
-catalog:  true
+date:   2015-09-05 19:00:00
+catalog:    true
 tags:
     - android
-    - 动画
 
-----------
 
- >本文从源码的角度，来展开对动画的深入解析，关于动画基本用法，可查看[**Android动画之入门篇(一）**](http://gityuan.com/2015/09/03/android-anaimator-1/)，[**Android动画之入门篇（二）**](http://gityuan.com/2015/09/04/android-anaimator-2/)。
+---
+
+> 本文从源码的角度，来展开对动画的深入解析，关于动画基本用法，可查看[**Android动画之入门篇(一）**](http://gityuan.com/2015/09/03/android-anaimator-1/)，[**Android动画之入门篇（二）**](http://gityuan.com/2015/09/04/android-anaimator-2/)。
 
 
 关于动画有两个非常重要的类，那就是插值器(Interpolators)与 估值器（Evaluators），下面将详细讲解。

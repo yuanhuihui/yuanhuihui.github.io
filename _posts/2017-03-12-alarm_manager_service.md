@@ -5,18 +5,18 @@ date:   2017-3-12 20:12:30
 catalog:    true
 tags:
     - android
-        
+
 ---
 
 ## 一. 概述    
 
 上一篇文章[理解JobScheduler机制](http://gityuan.com/2017/03/10/job_scheduler_service/), 介绍了根据一定条件而触发的任务可以采用JobScheduler.
-那么对于只是定时的任务, 而非考虑网络/时间之类的条件,也可以直接采用AlarmManager来完成. 
+那么对于只是定时的任务, 而非考虑网络/时间之类的条件,也可以直接采用AlarmManager来完成.
 
 AlarmManager的用法  
 
     PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_JOB_EXPIRED), 0);
-    AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE); 
+    AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE);
     alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), pi);  
 
 对于alarmManager关于alarm的类型, 以及时间到达后可以选择发送广播, 启动Activity或许启动服务等自由组合.
@@ -53,7 +53,7 @@ AlarmManagerService的初始化比JobScheduler更早。
             updateAllowWhileIdleMinTimeLocked();
             updateAllowWhileIdleWhitelistDurationLocked();
         }
-        
+
         public void updateAllowWhileIdleMinTimeLocked() {
             mAllowWhileIdleMinTime = mPendingIdleUntil != null
                     ? ALLOW_WHILE_IDLE_LONG_TIME : ALLOW_WHILE_IDLE_SHORT_TIME;
@@ -96,24 +96,24 @@ AlarmManagerService的初始化比JobScheduler更早。
         intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
         mDateChangeSender = PendingIntent.getBroadcastAsUser(getContext(), 0, intent,
                 Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT, UserHandle.ALL);
-                
+
         //【见小节2.5】
         mClockReceiver = new ClockReceiver();
         //首次调度一次，后面每分钟执行一次【见小节2.6】
         mClockReceiver.scheduleTimeTickEvent();
         //日期改变的广播，流程同上
         mClockReceiver.scheduleDateChangedEvent();
-        
+
         //用于监听亮屏/灭屏广播
         mInteractiveStateReceiver = new InteractiveStateReceiver();
         //用于监听package移除/重启，sdcard不可用的广播
         mUninstallReceiver = new UninstallReceiver();
-        
+
         if (mNativeData != 0) {
             //创建"AlarmManager"【见小节2.8】
             AlarmThread waitThread = new AlarmThread();
             waitThread.start();
-        } 
+        }
         //发布alarm服务
         publishBinderService(Context.ALARM_SERVICE, mService);
     }
@@ -162,7 +162,7 @@ AlarmManagerService的初始化比JobScheduler更早。
         epollfd = epoll_create(N_ANDROID_TIMERFDS);
         for (size_t i = 0; i < N_ANDROID_TIMERFDS; i++) {
             fds[i] = timerfd_create(android_alarm_to_clockid[i], 0);
-            
+
         }
 
         //创建AlarmImplTimerFd对象
@@ -229,7 +229,7 @@ AlarmManagerService的初始化比JobScheduler更早。
                 0, mTimeTickSender, AlarmManager.FLAG_STANDALONE, workSource, null,
                 Process.myUid());
     }
-    
+
 
 ### 2.7 ALMS.setImpl
 [-> AlarmManagerService.java]
@@ -355,7 +355,7 @@ AlarmManagerService的初始化比JobScheduler更早。
         {
             super("AlarmManager");
         }
-        
+
         public void run()
         {
             ArrayList<Alarm> triggerList = new ArrayList<Alarm>();
@@ -443,7 +443,7 @@ AlarmManagerService的初始化比JobScheduler更早。
 
     //【见小节3.1】
     PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_JOB_EXPIRED), 0);
-    AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE); 
+    AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE);
     //[见小节3.3]
     alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), pi);  
 
@@ -544,7 +544,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
             }
         }
         ...
-        
+
         synchronized(this) {
             int callingUid = Binder.getCallingUid();
             int origUserId = userId;
@@ -616,7 +616,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
             IAlarmManager service = IAlarmManager.Stub.asInterface(b);
             return new AlarmManager(service, ctx);
         }});
-        
+
 由此可知，getSystemService(Service.ALARM_SERVICE)获取的是AlarmManager对象，再来看看其创建过程。
 
 [-> AlarmManager.java]
@@ -628,7 +628,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
         mAlwaysExact = (mTargetSdkVersion < Build.VERSION_CODES.KITKAT);
         mMainThreadHandler = new Handler(ctx.getMainLooper());
     }
-    
+
 此处mMainThreadHandler是运行在app进程的主线程。
 
 ### 3.3 AlarmManager.set
@@ -708,7 +708,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
         } else {
            //[见小节4.4]
            alarm.listener.doAlarm(this);
-           // 5s的超时时长 
+           // 5s的超时时长
            mHandler.sendMessageDelayed(
                    mHandler.obtainMessage(AlarmHandler.LISTENER_TIMEOUT,
                            alarm.listener.asBinder()),
@@ -748,7 +748,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
             throw new CanceledException(e);
         }
     }
-         
+
 由小节3.1, 可知mTarget代表的是远端PendingIntentRecord对象. 可知接下来进入到system_server的如下方法.
 
 #### 4.3.1 pendingIntentRecord.send
@@ -841,9 +841,8 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
 - INTENT_SENDER_ACTIVITY_RESULT: 则执行sendActivityResultLocked
 - INTENT_SENDER_SERVICE: 则执行startServiceInPackage
 - INTENT_SENDER_BROADCAST: 则执行broadcastIntentInPackage
-    - 当广播发送不成功, 且需要发送广播,则直接执行startServiceInPackage
     
-再回到小节4.2 deliverLocked,可知当没有指定PendingIntent时,则会回调listener的doAlarm()过程. 
+再回到小节4.2 deliverLocked,可知当没有指定PendingIntent时,则会回调listener的doAlarm()过程.
 由[小节3.4]创建的ListenerWrapper对象.
 
 ### 4.4 ListenerWrapper.doAlarm
@@ -872,7 +871,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
 #### 4.4.1 ListenerWrapper.run
 
     final class ListenerWrapper extends IAlarmListener.Stub implements Runnable {
-        
+
         public void run() {
             //从wrapper的缓存中移除该listener, 由于服务端已经认为它不存在
             synchronized (AlarmManager.class) {
@@ -881,7 +880,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
                 }
             }
 
-            
+
             try {
                 //分发目标监听者的onAlarm[4.4.2]
                 mListener.onAlarm();
@@ -890,7 +889,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
             }
         }
     }
-    
+
 这里以TimeController为例, 可知接下来,便会进入mNextDelayExpiredListener.onAlarm()的过程
 
 #### 4.4.2 TimeController
@@ -937,7 +936,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
     set(int type，long startTime，PendingIntent pi)，//设置一次闹钟
     setRepeating(int type，long startTime，long intervalTime，PendingIntent pi)，//设置重复闹钟
     setInexactRepeating（int type，long startTime，long intervalTime，PendingIntent pi），//设置重复闹钟,但不准确
-    
+
 Type有4种类型：
 
 |类型|是否能唤醒系统|是否包含休眠时间|

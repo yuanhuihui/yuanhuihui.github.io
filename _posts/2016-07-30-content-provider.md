@@ -318,6 +318,7 @@ getAuthorityWithoutUserId()的过程是字符截断过程，即去掉auth中的U
     }
 
 ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传递给AMS来完成相应工作, 从这里开始便进入了system_server进程。
+清理,此处name就是前面的auth, 即com.gityuan.articles. 对应于AndroidManifest.xml中provider标签里面的`android:authorities`的值.
 
 ### 2.7 AMS.getContentProviderImpl
 [-> ActivityManagerService.java]
@@ -364,6 +365,11 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
 - 循环等待provider发布完成;
 
 此处name,也就是ComponentName的mClass=`com.gityuan.articles`.
+
+另外,
+
+- mProviderMap.putProviderByClass(comp, cpr): 以ComponentName(组件名)为key,  ContentProviderRecord为value;
+- mProviderMap.putProviderByName(name, cpr): 以auth(即com.gityuan.articles)为key, ContentProviderRecord为value;
 
 #### 2.7.1  目标provider已存在
 

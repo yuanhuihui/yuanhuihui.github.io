@@ -1,15 +1,15 @@
 ---
 layout: post
 title:  "Android动画之入门篇（二）"
-date:   2015-9-4 21:20:00
+date:   2015-09-04 19:00:00
 catalog:    true
 tags:
     - android
 
 
-----------
+---
 
- >本文重点讲述属性动画，关于逐帧动画与补间动画，可查看上一篇文章[**Android动画之入门篇（一）**](http://gityuan.com/2015/09/03/android-anaimator-1/)。
+> 本文重点讲述属性动画，关于逐帧动画与补间动画，可查看上一篇文章[**Android动画之入门篇（一）**](http://gityuan.com/2015/09/03/android-anaimator-1/)。
 
 属性动画功能非常强大，也是最常用的动画方法。可自定义如下属性：
 

@@ -18,7 +18,7 @@ tags:
       - BroadcastRecord.java
       - ReceiverList.java
       - ProcessRecord.java
-      
+
     framework/base/core/java/android/content/
       - BroadcastReceiver.java
       - IntentFilter.java
@@ -28,7 +28,7 @@ tags:
       - ActivityManager.java
       - ApplicationThreadNative.java (内含ATP)
       - ActivityThread.java (内含ApplicationThread)
-      
+
       - ContextImpl.java
       - LoadedApk
 
@@ -60,13 +60,13 @@ BroadcastReceiver分为两类：
         int nextReceiver;  // 下一个被执行的接收者
         IBinder receiver; // 当前正在处理的接收者
         int anrCount;   //广播ANR次数
-        
+
         long enqueueClockTime;  //入队列时间
-        long dispatchTime;      //分发时间 
+        long dispatchTime;      //分发时间
         long dispatchClockTime; //分发时间
         long receiverTime;      //接收时间(首次等于dispatchClockTime)
         long finishTime;        //广播完成时间
-        
+
     }
 
 - enqueueClockTime 伴随着 scheduleBroadcastsLocked
@@ -237,7 +237,8 @@ ReceiverDispatcher(广播分发者)有一个内部类`InnerReceiver`，该类继
         return intent;
     }
 
-这里有两个Binder服务端对象`caller`和`receiver`，AMP通过Binder驱动将这些信息发送给system_server进程中的AMS对象，接下来进入AMS.registerReceiver。
+这里有两个Binder服务端对象`caller`和`receiver`，都代表执行注册广播动作所在的进程.
+AMP通过Binder驱动将这些信息发送给system_server进程中的AMS对象，接下来进入AMS.registerReceiver。
 
 ### 2.5 AMS.registerReceiver
 
@@ -634,13 +635,13 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
             case Intent.ACTION_PACKAGE_REMOVED: //package移除
             case Intent.ACTION_PACKAGE_ADDED: //增加package
             case Intent.ACTION_PACKAGE_CHANGED: //package改变
-            
+
             case Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE: //外部设备不可用
             case Intent.ACTION_EXTERNAL_APPLICATIONS_AVAILABLE: //外部设备可用
 
             case Intent.ACTION_TIMEZONE_CHANGED: //时区改变，通知所有运行中的进程
             case Intent.ACTION_TIME_CHANGED: //时间改变，通知所有运行中的进程
-            
+
             case Intent.ACTION_CLEAR_DNS_CACHE: //DNS缓存清空
             case Proxy.PROXY_CHANGE_ACTION: //网络代理改变
         }
@@ -791,7 +792,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
         mParallelBroadcasts.add(r);
         r.enqueueClockTime = System.currentTimeMillis();
     }
-    
+
 #### 3.4.7 合并registeredReceivers到receivers
 
     int ir = 0;
@@ -922,7 +923,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
                 "background", BROADCAST_BG_TIMEOUT, true);
         ...
     }
-    
+
 
     BroadcastQueue(ActivityManagerService service, Handler handler,
             String name, long timeoutPeriod, boolean allowDelayBehindServices) {
@@ -933,7 +934,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
         mTimeoutPeriod = timeoutPeriod;
         mDelayBehindServices = allowDelayBehindServices;
     }
-    
+
 由此可见BroadcastHandler采用的是"ActivityManager"线程的Looper
 
     private final class BroadcastHandler extends Handler {
@@ -946,7 +947,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
                 ...
         }
     }
-    
+
 ### 4.2 processNextBroadcast
 
 [-> BroadcastQueue.java]
@@ -966,9 +967,18 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
                 }
                 addBroadcastToHistoryLocked(r);//将广播添加历史统计
             }
-            
+
             //part2: 处理当前有序广播
             do {
+                if (mOrderedBroadcasts.size() == 0) {
+                    mService.scheduleAppGcsLocked(); //没有更多的广播等待处理
+                    if (looped) {
+                        mService.updateOomAdjLocked();
+                    }
+                    return;
+                }
+                r = mOrderedBroadcasts.get(0); //获取串行广播的第一个广播
+                boolean forceReceive = false;
                 int numReceivers = (r.receivers != null) ? r.receivers.size() : 0;
                 if (mService.mProcessesReady && r.dispatchTime > 0) {
                     long now = SystemClock.uptimeMillis();
@@ -985,14 +995,14 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
                             new Intent(r.intent), r.resultCode,
                             r.resultData, r.resultExtras, false, false, r.userId);
                     }
-                    
+
                     cancelBroadcastTimeoutLocked(); //取消BROADCAST_TIMEOUT_MSG消息
                     addBroadcastToHistoryLocked(r);
                     mOrderedBroadcasts.remove(0);
                     continue;
                 }
             } while (r == null);
-            
+
             //part3: 获取下一个receiver
             r.receiverTime = SystemClock.uptimeMillis();
             if (recIdx == 0) {
@@ -1003,7 +1013,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
                 long timeoutTime = r.receiverTime + mTimeoutPeriod;
                 setBroadcastTimeoutLocked(timeoutTime); //设置广播超时延时消息
             }
-            
+
             //part4: 处理下条有序广播
             ProcessRecord app = mService.getProcessRecordLocked(targetProcess,
                     info.activityInfo.applicationInfo.uid, false);
@@ -1030,7 +1040,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 此处mService为AMS，整个流程还是比较长的，全程持有AMS锁，所以广播效率低的情况下，直接会严重影响这个手机的性能与流畅度，这里应该考虑细化同步锁的粒度。
 
-- 设置广播超时延时消息: setBroadcastTimeoutLocked: 
+- 设置广播超时延时消息: setBroadcastTimeoutLocked:
 - 当广播接收者等待时间过长，则调用broadcastTimeoutLocked(false);
 - 当执行完广播,则调用cancelBroadcastTimeoutLocked;
 
@@ -1362,7 +1372,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
            ...
         }
     }
-    
+
 此处方法LoadedApk()属于LoadedApk.ReceiverDispatcher.InnerReceiver, 也就是LoadedApk内部类的内部类InnerReceiver.
 
 ### 4.8 ReceiverDispatcher.performReceive
@@ -1547,7 +1557,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
         return state == BroadcastRecord.APP_RECEIVE
                 || state == BroadcastRecord.CALL_DONE_RECEIVE;
     }
- 
+
 ## 五、总结
 
 ### 5.1 基础知识
@@ -1556,7 +1566,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 - 静态广播接收者：通过AndroidManifest.xml的标签来申明的BroadcastReceiver;
 - 动态广播接收者：通过AMS.registerReceiver()方式注册的BroadcastReceiver, 不需要时记得调用unregisterReceiver();
 
-2.广播发送方式可分为三类: 
+2.广播发送方式可分为三类:
 
 |类型|方法|serialized|sticky|
 |---|---|---|
@@ -1579,7 +1589,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 ![send_broadcast](/images/ams/send_broadcast.jpg)
 
 
-图解: 
+图解:
 
 ### 5.2.1 并行广播
 
