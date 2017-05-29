@@ -26,15 +26,9 @@ layout: default
             <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 postlist-container">
                 {{ content }}
 								<hr>
-                <!-- 多说评论框 start -->
-                <div class="comment">
-                    <div class="ds-thread"
-                        data-thread-key="{{page.id}}"
-                        data-title="{{page.title}}"
-                        data-url="{{site.url}}{{site.baseurl}}{{page.url}}" >
-                    </div>
-                </div>
-                <!-- 多说评论框 end -->
+                <!-- 网易云跟帖 START-->
+                <div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
+                <!-- 网易云跟帖 END-->
             </div>
             
             
@@ -76,15 +70,9 @@ layout: default
     			
 
 					<hr>
-            <!-- 多说评论框 start -->
-            <div class="comment">
-                <div class="ds-thread"
-                    data-thread-key="{{page.id}}"
-                    data-title="{{page.title}}"
-                    data-url="{{site.url}}{{site.baseurl}}{{page.url}}" >
-                </div>
-            </div>
-            <!-- 多说评论框 end -->
+          <!-- 网易云跟帖 START-->
+          <div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
+          <!-- 网易云跟帖 END-->
 					
     		</div>
     <!-- Sidebar Container -->
@@ -192,11 +180,11 @@ layout: default
                     </div>
                 </section>               
                 
-                <!-- 多说最新评论 start -->
+                <!-- 多说最新评论 start
                 <hr>
                 <h5>最新评论</h5>
 								<div class="ds-recent-comments" data-num-items="6" data-show-avatars="1" data-show-time="0" data-show-title="0" data-show-admin="1" data-excerpt-length="48"></div>
-								<!-- 多说最新评论 end -->
+								多说最新评论 end -->
 								
 								
 								<!-- 热门文章 -->
@@ -240,52 +228,18 @@ layout: default
         {% endif %}
 	</div>
 </div>
+<div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
 
-<!--多说js加载开始，一个页面只需要加载一次 -->
-<script type="text/javascript">
-var duoshuoQuery = {short_name:"{{site.duoshuo_username}}"};
-(function() {
-    var ds = document.createElement('script');
-    ds.type = 'text/javascript';ds.async = true;
-    ds.src = 'http://static.duoshuo.com/embed.js';
-    ds.charset = 'UTF-8';
-    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
-})();
+<!-- 网易云跟帖 （web版） START-->
+<script src="https://img1.cache.netease.com/f2e/tie/yun/sdk/loader.js"></script>
+<script>
+var cloudTieConfig = {
+  url: document.location.href, 
+  sourceId: "",
+  productKey: "1fd00c5a27ee4cf1a6aa85f5e3896670",
+  target: "cloud-tie-wrapper"
+};
+var yunManualLoad = true;
+Tie.loader("aHR0cHM6Ly9hcGkuZ2VudGllLjE2My5jb20vcGMvbGl2ZXNjcmlwdC5odG1s", true);
 </script>
-<!--多说js加载结束，一个页面只需要加载一次 -->
-
-<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
-<script type="text/javascript">
-var duoshuoQuery = {short_name:"gityuan"};
-	(function() {
-		var ds = document.createElement('script');
-		ds.type = 'text/javascript';ds.async = true;
-		ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
-		ds.charset = 'UTF-8';
-		(document.getElementsByTagName('head')[0] 
-		 || document.getElementsByTagName('body')[0]).appendChild(ds);
-	})();
-	</script>
-<!-- 多说公共JS代码 end -->
-
-
-
-{% if site.duoshuo_username %}
-<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
-<script type="text/javascript">
-    // dynamic User
-    var _user = '{{site.duoshuo_username}}';
-
-    // duoshuo comment query.
-    var duoshuoQuery = {short_name: _user };
-    (function() {
-        var ds = document.createElement('script');
-        ds.type = 'text/javascript';ds.async = true;
-        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
-        ds.charset = 'UTF-8';
-        (document.getElementsByTagName('head')[0]
-         || document.getElementsByTagName('body')[0]).appendChild(ds);
-    })();
-</script>
-<!-- 多说公共JS代码 end -->
-{% endif %}
+<!-- 网易云跟帖 （web版） END-->

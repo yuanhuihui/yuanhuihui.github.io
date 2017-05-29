@@ -36,6 +36,7 @@ header-img: "img/nav-about.jpg"
       <li>2016.5.29, 改进代码高亮风格为AndroidStudio默认风格;</li>
       <li>2016.7.22, 博客新增<a target="_blank" href="http://gityuan.com/friends/">Friends</a>子栏目，提供优秀学习资源</li>
       <li>2016.10.23，博客新增<a target="_blank"  href="http://gityuan.com/job/">Job</a>子栏目，用于提供内推职位；</li>
+      <li>2017.05.29，由于多说评论即将关闭，本博客评论正在切换中...</li>
     </ul>
 
     <h5>知乎热门回答</h5>
@@ -64,37 +65,19 @@ header-img: "img/nav-about.jpg"
       
 </div>
 
+<!-- 网易云跟帖 START-->
+<div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
+<!-- 网易云跟帖 END-->
 
-{% if site.duoshuo_username %}
-<!-- 多说评论框 start -->
-<div class="comment">
-    <div class="ds-thread"
-    {% if site.duoshuo_username == "huxblog" %}
-        data-thread-id="1187623191091085319"
-    {% else %}
-        data-thread-key="{{site.duoshuo_username}}/about"
-    {% endif %}
-
-    data-title="{{page.title}}"
-    data-url="{{site.url}}/about/"></div>
-</div>
-<!-- 多说评论框 end -->
-
-<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
-<script type="text/javascript">
-    // dynamic User hacking by Hux
-    var _user = '{{site.duoshuo_username}}';
-
-    // duoshuo comment query.
-    var duoshuoQuery = {short_name: _user };
-    (function() {
-        var ds = document.createElement('script');
-        ds.type = 'text/javascript';ds.async = true;
-        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
-        ds.charset = 'UTF-8';
-        (document.getElementsByTagName('head')[0]
-         || document.getElementsByTagName('body')[0]).appendChild(ds);
-    })();
+<!-- 网易云跟帖 （通用版） START-->
+<div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
+<script>
+  var cloudTieConfig = {
+    url: document.location.href, 
+    sourceId: "",
+    productKey: "1fd00c5a27ee4cf1a6aa85f5e3896670",
+    target: "cloud-tie-wrapper"
+  };
 </script>
-<!-- 多说公共JS代码 end -->
-{% endif %}
+<script src="https://img1.cache.netease.com/f2e/tie/yun/sdk/loader.js"></script>
+<!-- 网易云跟帖 （通用版） END-->

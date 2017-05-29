@@ -1,10 +1,10 @@
 # Site settings
 title: Gityuan
-SEOTitle: Gityuan博客
+SEOTitle: Gityuan博客 | 袁辉辉博客
 header-img: img/nav-home.jpg
 email: gityuan@gmail.com
-description: "Android,gityuan,Android技术博客,Android源码分析,袁辉辉"
-keyword: "Android,gityuan,Android技术博客,Android源码分析,袁辉辉"
+description: "Android,Gityuan,Android技术博客,Android源码分析,袁辉辉"
+keyword: "Android,Gityuan,Android技术博客,Android源码分析,袁辉辉"
 url: "http://gityuan.com"              # your host, for absolute URL
 baseurl: ""                             # for example, '/blog' if your blog hosted on 'host/blog'
 
@@ -52,7 +52,7 @@ kramdown:
 # Duoshuo settings
 duoshuo_username: gityuan
 # Share component is depend on Comment so we can NOT use share only.
-duoshuo_share: true                     # set to false if you want to use Comment without Sharing
+duoshuo_share: false                     # set to false if you want to use Comment without Sharing
 
 
 
