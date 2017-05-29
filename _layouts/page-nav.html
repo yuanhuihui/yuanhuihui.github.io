@@ -26,15 +26,9 @@ layout: default
             <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 postlist-container">
                 {{ content }}
 								<hr>
-                <!-- 多说评论框 start -->
-                <div class="comment">
-                    <div class="ds-thread"
-                        data-thread-key="{{page.id}}"
-                        data-title="{{page.title}}"
-                        data-url="{{site.url}}{{site.baseurl}}{{page.url}}" >
-                    </div>
-                </div>
-                <!-- 多说评论框 end -->
+                <!-- 网易云跟帖 START-->
+                <div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
+                <!-- 网易云跟帖 END-->
             </div>
             
             
@@ -75,16 +69,9 @@ layout: default
     			{{ content }}
     			
 					  <hr>
-            <!-- 多说评论框 start -->
-            <div class="comment">
-                <div class="ds-thread"
-                    data-thread-key="{{page.id}}"
-                    data-title="{{page.title}}"
-                    data-url="{{site.url}}{{site.baseurl}}{{page.url}}" >
-                </div>
-            </div>
-            <!-- 多说评论框 end -->
-
+            <!-- 网易云跟帖 START-->
+            <div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
+            <!-- 网易云跟帖 END-->
 					
     		</div>
     <!-- Sidebar Container -->
@@ -241,12 +228,22 @@ layout: default
                 </section>
                 {% endif %}
                 
-                <!--Begin Last Visitor -->
-                <hr>
-                <h5>最近访客</h5>
-                <ul class="ds-recent-visitors" data-num-items="20" style="padding-left:0px;"></ul>
-                <!--End Last Visitor -->
     		</div>
         {% endif %}
 	</div>
 </div>
+
+
+<!-- 网易云跟帖 （web版） START-->
+<script src="https://img1.cache.netease.com/f2e/tie/yun/sdk/loader.js"></script>
+<script>
+var cloudTieConfig = {
+  url: document.location.href, 
+  sourceId: "",
+  productKey: "1fd00c5a27ee4cf1a6aa85f5e3896670",
+  target: "cloud-tie-wrapper"
+};
+var yunManualLoad = true;
+Tie.loader("aHR0cHM6Ly9hcGkuZ2VudGllLjE2My5jb20vcGMvbGl2ZXNjcmlwdC5odG1s", true);
+</script>
+<!-- 网易云跟帖 （web版） END-->

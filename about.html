@@ -36,7 +36,7 @@ header-img: "img/nav-about.jpg"
       <li>2016.5.29, 改进代码高亮风格为AndroidStudio默认风格;</li>
       <li>2016.7.22, 博客新增<a target="_blank" href="http://gityuan.com/friends/">Friends</a>子栏目，提供优秀学习资源</li>
       <li>2016.10.23，博客新增<a target="_blank"  href="http://gityuan.com/job/">Job</a>子栏目，用于提供内推职位；</li>
-      <li>2017.05.29，由于多说评论即将关闭，本博客评论正在切换中...</li>
+      <li>2017.05.29，多说评论于6月1日正式关闭，本博客评论迁移到网易云跟帖</li>
     </ul>
 
     <h5>知乎热门回答</h5>
@@ -64,7 +64,12 @@ header-img: "img/nav-about.jpg"
 		</ul>
       
 </div>
+<hr>
+<!-- 网易云跟帖 START-->
+<div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
+<!-- 网易云跟帖 END-->
 
+<<<<<<< dfdb5417bedbea7a48384c5a4641e8f54947db1a
 <!-- 网易云跟帖 START-->
 <div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
 <!-- 网易云跟帖 END-->
@@ -81,3 +86,18 @@ header-img: "img/nav-about.jpg"
 </script>
 <script src="https://img1.cache.netease.com/f2e/tie/yun/sdk/loader.js"></script>
 <!-- 网易云跟帖 （通用版） END-->
+=======
+<!-- 网易云跟帖 （web版） START-->
+<script src="https://img1.cache.netease.com/f2e/tie/yun/sdk/loader.js"></script>
+<script>
+var cloudTieConfig = {
+  url: document.location.href, 
+  sourceId: "",
+  productKey: "1fd00c5a27ee4cf1a6aa85f5e3896670",
+  target: "cloud-tie-wrapper"
+};
+var yunManualLoad = true;
+Tie.loader("aHR0cHM6Ly9hcGkuZ2VudGllLjE2My5jb20vcGMvbGl2ZXNjcmlwdC5odG1s", true);
+</script>
+<!-- 网易云跟帖 （web版） END-->
+>>>>>>> switch duoshuo to wangyi gentie

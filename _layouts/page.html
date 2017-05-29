@@ -219,28 +219,24 @@ layout: default
                 </section>
                 {% endif %}
                 
-                <!--Begin Last Visitor -->
-                <hr>
-                <h5>最近访客</h5>
-                <ul class="ds-recent-visitors" data-num-items="20" style="padding-left:0px;"></ul>
-                <!--End Last Visitor -->
         </div>
         {% endif %}
   </div>
 </div>
 
-<!--多说js加载开始，一个页面只需要加载一次 -->
-<script type="text/javascript">
-var duoshuoQuery = {short_name:"{{site.duoshuo_username}}"};
-(function() {
-    var ds = document.createElement('script');
-    ds.type = 'text/javascript';ds.async = true;
-    ds.src = 'http://static.duoshuo.com/embed.js';
-    ds.charset = 'UTF-8';
-    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
-})();
+<!-- 网易云跟帖 （web版） START-->
+<script src="https://img1.cache.netease.com/f2e/tie/yun/sdk/loader.js"></script>
+<script>
+var cloudTieConfig = {
+  url: document.location.href, 
+  sourceId: "",
+  productKey: "1fd00c5a27ee4cf1a6aa85f5e3896670",
+  target: "cloud-tie-wrapper"
+};
+var yunManualLoad = true;
+Tie.loader("aHR0cHM6Ly9hcGkuZ2VudGllLjE2My5jb20vcGMvbGl2ZXNjcmlwdC5odG1s", true);
 </script>
-<!--多说js加载结束，一个页面只需要加载一次 -->
+<!-- 网易云跟帖 （web版） END-->
 
 <!-- Google站内搜索-->
 <script>
