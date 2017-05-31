@@ -28,7 +28,6 @@ tags:
       - ActivityManager.java
       - ApplicationThreadNative.java (内含ATP)
       - ActivityThread.java (内含ApplicationThread)
-
       - ContextImpl.java
       - LoadedApk
 
@@ -54,6 +53,10 @@ BroadcastReceiver分为两类：
 广播在系统中以BroadcastRecord对象来记录, 该对象有几个时间相关的成员变量.
 
     final class BroadcastRecord extends Binder {
+        final ProcessRecord callerApp; //广播发送者所在进程
+        final String callerPackage; //广播发送者所在包名
+        final List receivers;   // 包括动态注册的BroadcastFilter和静态注册的ResolveInfo
+        
         final String callerPackage; //广播发送者
         final int callingPid;   // 广播发送者pid
         final List receivers;   // 广播接收者
@@ -68,12 +71,10 @@ BroadcastReceiver分为两类：
         long finishTime;        //广播完成时间
 
     }
-
+        
 - enqueueClockTime 伴随着 scheduleBroadcastsLocked
 - dispatchClockTime伴随着 deliverToRegisteredReceiverLocked
 - finishTime 位于 addBroadcastToHistoryLocked方法内
-
-
 
 ## 二、注册广播
 
@@ -428,16 +429,25 @@ mLruProcesses数据类型为`ArrayList<ProcessRecord>`，而ProcessRecord对象�
         return (isFg) ? mFgBroadcastQueue : mBgBroadcastQueue;
     }
 
-- 当Intent的flags包含FLAG_RECEIVER_FOREGROUND，则返回mFgBroadcastQueue
-- 当Intent没有指定该flag，则返回mFgBroadcastQueue
+broadcastQueueForIntent(Intent intent)通过判断intent.getFlags()是否包含FLAG_RECEIVER_FOREGROUND
+来决定是前台或后台广播，进而返回相应的广播队列mFgBroadcastQueue或者mBgBroadcastQueue。
+
+- 当Intent的flags包含FLAG_RECEIVER_FOREGROUND，则返回mFgBroadcastQueue；
+- 当Intent的flags不包含FLAG_RECEIVER_FOREGROUND，则返回mBgBroadcastQueue；
 
 ### 2.6 广播注册小结
 
-注册广播的过程，主要功能：
+注册广播： 
 
-- 创建ReceiverList(接收者队列)，并添加到AMS.mRegisteredReceivers(已注册广播队列)；
-- 创建BroadcastFilter(广播过滤者)，并添加到AMS.mReceiverResolver；
-- 当注册的是Sticky广播：
+1. 传递的参数为广播接收者BroadcastReceiver和Intent过滤条件IntentFilter；
+2. 创建对象LoadedApk.ReceiverDispatcher.InnerReceiver，该对象继承于IIntentReceiver.Stub；
+3. 通过AMS把当前进程的ApplicationThread和InnerReceiver对象的代理类，注册登记到system_server进程；
+4. 当广播receiver没有注册过，则创建广播接收者队列ReceiverList，该对象继承于ArrayList<BroadcastFilter>，
+并添加到AMS.mRegisteredReceivers(已注册广播队列)；
+5. 创建BroadcastFilter，并添加到AMS.mReceiverResolver；
+6. 将BroadcastFilter添加到该广播接收者的ReceiverList
+
+另外，当注册的是Sticky广播：
   - 创建BroadcastRecord，并添加到BroadcastQueue的mParallelBroadcasts(并行广播队列)，注册后调用AMS来尽快处理该广播。
   - 根据注册广播的Intent是否包含FLAG_RECEIVER_FOREGROUND，则mFgBroadcastQueue
 
@@ -880,11 +890,17 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 ### 3.5 小结
 
-发送广播过程, 都会先创建BroadcastRecord对象,并将该对象加入到相应的广播队列, 然后调用BroadcastQueue的`scheduleBroadcastsLocked`()方法来完成的不同广播处理:
+发送广播过程:
 
-- 处理Sticky广播, 见注册广播的[2.5];
-- 处理并行广播, 见发送广播的[3.4.6];
-- 处理串行广播, 见发送广播的[3.4.8];
+1. 默认不发送给已停止（Intent.FLAG_EXCLUDE_STOPPED_PACKAGES）的应用包；
+2. 处理各种PACKAGE,TIMEZONE等相关的系统广播；
+3. 当为粘性广播，则将sticky广播增加到list，并放入mStickyBroadcasts里面；
+4. 当广播的Intent没有设置FLAG_RECEIVER_REGISTERED_ONLY，则允许静态广播接收者来处理该广播；
+创建BroadcastRecord对象,并将该对象加入到相应的广播队列, 然后调用BroadcastQueue的`scheduleBroadcastsLocked`()方法来完成的不同广播处理:
+
+- 处理Sticky广播的处理过程: 见广播的AMS.registerReceiver[2.5];
+- 处理并行广播： 见发送广播的AMS.broadcastIntentLocked()的小节[3.4.6];
+- 处理串行广播： 见发送广播的AMS.broadcastIntentLocked()的小节[3.4.8];
 
 
 ## 四、 处理广播
