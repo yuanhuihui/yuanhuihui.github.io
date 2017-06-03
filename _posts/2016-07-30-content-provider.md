@@ -960,18 +960,21 @@ ActivityManagerNative.getDefault()返回的是AMP，AMP经过binder IPC通信传
 query过程更为繁琐,本文就不再介绍,到这里便真正调用到了目标provider的query方法.
 
 
-##  三、发布ContentProvider
+##  三、Provider进程
 
+### 3.1 两种场景
 
-有两种场景会触发发布ContentProvider, 最终都会进入[小节3.3]installContentProviders操作
+发布ContentProvider分两种情况：Provider进程尚未启动，Provider进程已启动但未发布。
 
-### 3.1 场景一(进程不存在)
+1. 场景一（Provider进程尚未启动）：system_server进程调用[startProcessLocked()](startProcessLocked)创建provider进程且attach到system_server后, 通过binder call到provider进程执行AT.bindApplication()方法【见小节3.2】；
+2. 场景二（Provider进程已启动但未发布）: 获取provider的过程[小节2.7.2], 发现provider进程已存在且attach到system_server，但所对应的provider还没有发布, 通过binder call到provider进程执行AT.scheduleInstallProvider方法【见小节3.6】。
 
-system_server进程调用[startProcessLocked()](http://localhost:4000/2016/10/10/app-process-create-2/)创建子进程,并attach到system_server之后, 便会再通过binder IPC会调用到该子进程AT.bindApplication()方法
+殊途同归，这两种途径最终都会合入【小节3.3】installContentProviders过程。
 
-#### 3.1.1 AT.bindApplication
+这里先来说说目标provider进程尚未启动的情况。
+ 
+### 3.2 AT.bindApplication
 [-> ActivityThread.java]
-
 
     public final void bindApplication(...) {
         ...
@@ -983,7 +986,7 @@ system_server进程调用[startProcessLocked()](http://localhost:4000/2016/10/10
 
 当主线程收到`H.BIND_APPLICATION`消息后，会调用handleBindApplication方法。
 
-#### 3.1.2 AT.handleBindApplication
+#### 3.2.1 AT.handleBindApplication
 [-> ActivityThread.java]
 
     private void handleBindApplication(AppBindData data) {
@@ -1003,31 +1006,6 @@ system_server进程调用[startProcessLocked()](http://localhost:4000/2016/10/10
         //回调app.onCreate()
         mInstrumentation.callApplicationOnCreate(app);
     }
-
-### 3.2 场景二(provider未发布)
-获取provider的过程,发现所对应的provider还没有发布,则进入小节[2.7.2], 此时当目标进程不存在是则触发创建进程的过程,跟场景一类似.当目标进程存在并且attach过,则需要触发provider来执行publish的操作.
-
-#### 3.2.1 AT.scheduleInstallProvider
-[-> ActivityThread.java]
-
-    public void scheduleInstallProvider(ProviderInfo provider) {
-        sendMessage(H.INSTALL_PROVIDER, provider);
-    }
-
-#### 3.2.2  AT.handleInstallProvider
-[-> ActivityThread.java]
-
-    public void handleInstallProvider(ProviderInfo info) {
-        final StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskWrites();
-        try {
-            //[见流程3.3]
-            installContentProviders(mInitialApplication, Lists.newArrayList(info));
-        } finally {
-            StrictMode.setThreadPolicy(oldPolicy);
-        }
-    }
-
-无论是场景一, 还是场景二, 最后都会进入主线程来执行installContentProviders的操作,如下:
 
 ### 3.3 AT.installContentProviders
 [-> ActivityThread.java]
@@ -1207,42 +1185,66 @@ Transport继承于ContentProviderNative, 而ContentProviderNative实现接口ICo
        }
    }
 
-一旦publish成功,则会移除provider发布超时的消息,并且调用notifyAll()来唤醒所有等待的Client端进程.
+一旦publish成功,则会移除provider发布超时的消息,并且调用notifyAll()来唤醒所有等待的Client端进程。
+Provider进程的工作便是完成，接下来便开始执行【2.8】installProvider过程。
 
-## 四、小结
+再来看看场景二，如下：
+
+### 3.6 AT.scheduleInstallProvider
+[-> ActivityThread.java]
+
+    public void scheduleInstallProvider(ProviderInfo provider) {
+        sendMessage(H.INSTALL_PROVIDER, provider);
+    }
+
+#### 3.6.1  AT.handleInstallProvider
+[-> ActivityThread.java]
+
+    public void handleInstallProvider(ProviderInfo info) {
+        final StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskWrites();
+        try {
+            //[见流程3.3]
+            installContentProviders(mInitialApplication, Lists.newArrayList(info));
+        } finally {
+            StrictMode.setThreadPolicy(oldPolicy);
+        }
+    }
+
+场景二，跟场景一后面的过程一样，再执行【小节3.3-3.5】过程。
+
+## 四、总结
 
 本文以ContentProvider的查询过程为例展开了对Provider的整个使用过程的源码分析.先获取provider,然后安装provider信息,最后便是真正的查询操作.
 
-### 4.1 场景一
+### 4.1 场景一（进程不存在）
 
-进程不存在: 当provider进程不存在时,先创建进程并publish相关的provider:
+Provider进程不存在: 当provider进程不存在时,先创建进程并publish相关的provider:
 
 ![content_provider_ipc](/images/contentprovider/content_provider_ipc.jpg)
 
 图解:
 
-1. 图中左侧则是client端进程向system_server请求获取provider的过程, 最右侧则是provider所在进程发布provier信息的一个过程. 这两个过程都需要通过Binder向system_server进行通信.
-2. 图中有两个installProvider()的调用过程:
-    - 当第二个参数holder为空，则用于ContentProvider所在进程的发布provider过程；
-    - 当第二个参数holder不为空，则用于Client所在进程来安装provider的过程(对象记录,引用计数维护等工作)
-3. 流程说明:
-   - client进程调用AMP.getContentProvider,经过binder call进入system_server进程AMS.getContentProvider;
-   -
-3. 调用AMS.getContentProviderImpl获取provider的过程:
-    - 当cpr.provider ==null则进入wait()状态,直到notifyAll()事件的到来;
-4. 进程在启动过程便会publish该进程相应的provider信息,并调用notifyAll()来唤醒所有在等待该provider的进程/线程.
-5. 关于`CONTENT_PROVIDER_PUBLISH_TIMEOUT`超时时机是指在startProcessLocked之后会调用AMS.attachApplicationLocked为起点，一直到AMS.publishContentProviders的过程。
+1. client进程：通过binder(调用AMS.getContentProviderImpl)向system_server进程请求相应的provider；
+2. system进程：如果目标provider所对应的进程尚未启动，system_server会调用startProcessLocked来启动provider进程；
+当进程启动完成，此时cpr.provider ==null，则system_server便会进入wait()状态，等待目标provider发布；
+4. provider进程：进程启动后执行完attch到system_server，紧接着执行bindApplication；在这个过程会installProvider以及
+publishContentProviders；再binder call到system_server进程；
+5. system进程：再回到system_server，发布provider信息，并且通过notify机制，唤醒前面处于wait状态的binder线程；并将
+getContentProvider的结果返回给client进程；
+6. client进程：接着执行installProvider操作，安装provider的(包含对象记录,引用计数维护等工作)；
 
-### 4.2 场景二
+另外，关于`CONTENT_PROVIDER_PUBLISH_TIMEOUT`超时机制所统计的时机区间是指在startProcessLocked之后会调用AMS.attachApplicationLocked为起点，一直到AMS.publishContentProviders的过程。
 
-provider未发布:有时在请求provider的时,provider进程存在,但provide的记录对象cpr ==null,这时的流程如下:
+### 4.2 场景二（进程已存在）
+
+provider未发布: 请求provider时,provider进程存在但provide的记录对象cpr ==null,这时的流程如下:
 
 ![content_provider_ipc2](/images/contentprovider/content_provider_ipc2.jpg)
-
 
 - Client进程在获取provider的过程,发现cpr为空,则调用scheduleInstallProvider来向provider所在进程发出一个oneway的binder请求,并进入wait()状态.
 - provider进程安装完provider信息,则notifyAll()处于等待状态的进程/线程;
 
 如果provider在publish完成之后, 这时再次请求该provider,那就便没有的最右侧的这个过程,直接在AMS.getContentProviderImpl之后便进入AT.installProvider的过程,而不会再次进入wait()过程.
 
-最后,关于provider分为stable provider和unstable provider, 一句话来说就是stable provider建立的是强连接, 客户端进程的与provider进程是存在依赖关系, 即provider进程死亡则会导致客户端进程被杀.
+最后, 关于provider分为stable provider和unstable provider, 在于[引用计数
+](http://gityuan.com/2016/05/03/content_provider_release/)的不同，一句话来说就是stable provider建立的是强连接, 客户端进程的与provider进程是存在依赖关系, 即provider进程死亡则会导致客户端进程被杀.
