@@ -23,7 +23,9 @@ Android系统中最为重要的服务便是AMS, AMS管理着framework层面四�
     stopService(Intent service)
     bindService(Intent service, ServiceConnection conn, int flags)
     unbindService(ServiceConnection conn)
-
+    startForeground(int id, Notification notification)
+    stopForeground(boolean removeNotification)
+    
 其中:
 
     public interface ServiceConnection {
@@ -31,6 +33,17 @@ Android系统中最为重要的服务便是AMS, AMS管理着framework层面四�
         public void onServiceDisconnected(ComponentName name);
     }
     
+### 1.2 生命周期
+
+onCreate
+onStartCommand
+onDestroy
+
+onBind
+onUnbind
+onRebind
+
+
 http://www.tuicool.com/articles/eaMNnyz
 http://blog.csdn.net/windskier/article/details/7203293
 
