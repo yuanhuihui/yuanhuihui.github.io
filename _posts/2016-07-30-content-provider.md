@@ -1084,6 +1084,7 @@ system_server进程调用[startProcessLocked()](http://localhost:4000/2016/10/10
                 //通过反射，创建目标ContentProvider对象
                 localProvider = (ContentProvider)cl.
                     loadClass(info.name).newInstance();
+                //[见小节3.4.1]
                 provider = localProvider.getIContentProvider();
                 if (provider == null) {
                     return null;
@@ -1122,6 +1123,29 @@ system_server进程调用[startProcessLocked()](http://localhost:4000/2016/10/10
     }
 
 该过程主要是通过反射，创建目标ContentProvider对象,并调用该对象onCreate方法.
+
+#### 3.4.1 getIContentProvider
+[-> ContentProvider.java]
+
+    public abstract class ContentProvider implements ComponentCallbacks2 {
+
+        private Transport mTransport = new Transport();
+
+        class Transport extends ContentProviderNative {
+            ContentProvider getContentProvider() {
+                return ContentProvider.this;
+            }
+        }
+
+        //获取Transport
+        public IContentProvider getIContentProvider() {
+            return mTransport;
+        }
+
+    }
+
+Transport继承于ContentProviderNative, 而ContentProviderNative实现接口IContentProvider.
+
 
 ### 3.5 AMS.publishContentProviders
 由AMP.publishContentProviders经过binder IPC，交由AMS.publishContentProviders来处理
@@ -1195,11 +1219,19 @@ system_server进程调用[startProcessLocked()](http://localhost:4000/2016/10/10
 
 ![content_provider_ipc](/images/contentprovider/content_provider_ipc.jpg)
 
-- 图中左侧则是client端进程向system_server请求获取provider的过程, 最右侧则是provider所在进程发布provier信息的一个过程. 这两个过程都需要通过Binder向system_server进行通信.
-- 图中有两个installProvider()的调用过程, 当第二个参数holder为空，则用于ContentProvider所在进程的发布provider过程；第二个参数holder不为空，则用于Client端安装provider的过。
-- 调用AMS.getContentProviderImpl获取provider的过程中,当cpr.provider ==null则进入wait()状态,直到notifyAll()事件的到来;否则直接进入AT.installProvider.
-- 进程在启动过程便会publish该进程相应的provider信息,并调用notifyAll()来唤醒所有在等待该provider的进程/线程.
-- 关于`CONTENT_PROVIDER_PUBLISH_TIMEOUT`超时时机是指在startProcessLocked之后会调用AMS.attachApplicationLocked为起点，一直到AMS.publishContentProviders的过程。
+图解:
+
+1. 图中左侧则是client端进程向system_server请求获取provider的过程, 最右侧则是provider所在进程发布provier信息的一个过程. 这两个过程都需要通过Binder向system_server进行通信.
+2. 图中有两个installProvider()的调用过程:
+    - 当第二个参数holder为空，则用于ContentProvider所在进程的发布provider过程；
+    - 当第二个参数holder不为空，则用于Client所在进程来安装provider的过程(对象记录,引用计数维护等工作)
+3. 流程说明:
+   - client进程调用AMP.getContentProvider,经过binder call进入system_server进程AMS.getContentProvider;
+   -
+3. 调用AMS.getContentProviderImpl获取provider的过程:
+    - 当cpr.provider ==null则进入wait()状态,直到notifyAll()事件的到来;
+4. 进程在启动过程便会publish该进程相应的provider信息,并调用notifyAll()来唤醒所有在等待该provider的进程/线程.
+5. 关于`CONTENT_PROVIDER_PUBLISH_TIMEOUT`超时时机是指在startProcessLocked之后会调用AMS.attachApplicationLocked为起点，一直到AMS.publishContentProviders的过程。
 
 ### 4.2 场景二
 

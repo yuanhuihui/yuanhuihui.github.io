@@ -1417,11 +1417,83 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 
 ### 六、总结
 
-调整进程的adj的3大护法：
+调整进程的adj的3大护法：`updateOomAdjLocked`是更新adj中最为核心的方法, computeOomAdjLocked和applyOomAdjLocked方法是供updateOomAdjLocked所调用的.
+
 
 - `updateOomAdjLocked`：更新adj，当目标进程为空，或者被杀则返回false；否则返回true;
 - `computeOomAdjLocked`：计算adj，返回计算后RawAdj值;
 - `applyOomAdjLocked`：应用adj，当需要杀掉目标进程则返回false；否则返回true。
 
+#### 6.1 computeOomAdjLocked
+计算进程的curAdj(位于文件ProcessList.java)和curProcState(位于文件ActivityManager.java)
 
-`updateOomAdjLocked`是更新adj中最为核心的方法, computeOomAdjLocked和applyOomAdjLocked方法是供updateOomAdjLocked所调用的.
+情况一:
+
+|Case|进程类型|curSchedGroup
+|1|空进程 |BACKGROUND
+|2|maxAdj<=0进程 |DEFAULT
+|2|maxAdj<=0 && TOP_APP |TOP_APP
+|3|TOP_APP   |TOP_APP
+|4|isReceivingBroadcast |DEFAULT /BACKGROUND  
+|5|executingServices |DEFAULT /BACKGROUND  
+|6|以上皆不是          |BACKGROUND
+|6|以上皆不是 &&被杀的home进程  |DEFAULT
+|7|非前台activity && r.visible      |DEFAULT
+|7|非前台activity && r.state为PAUSING/PAUSE |DEFAULT
+|7|非前台activity && r.state为STOPPING   |-|
+|7|非前台activity && 以上皆不是    |-|
+|8|adj>2或procState>4情况 && app.foregroundServices  |DEFAULT
+|8|adj>2或procState>4情况 && app.forcingToForeground  |DEFAULT
+|9|mHeavyWeightProcess  |BACKGROUND  
+|10|mHomeProcess  |BACKGROUND
+|11|mPreviousProcess && app.activities   |BACKGROUND
+|12|mBackupTarget |- |
+
+THREAD_GROUP_xxx.
+
+情况一:
+
+||进程类型|adjType|curAdj|curProcState|
+|1|app.thread == null  |-  |CACHED_APP_MAX_ADJ    |PROCESS_STATE_CACHED_EMPTY(16)       
+|2|maxAdj<=0进程     |fixed|  maxAdj|  PROCESS_STATE_PERSISTENT(0)                       
+|2|maxAdj<=0 && TOP_APP  |pers-top-activity|  maxAdj        |PROCESS_STATE_PERSISTENT_UI(1)  |
+|3|TOP_APP  |top-activity |FOREGROUND_APP_ADJ |PROCESS_STATE_TOP(2)                   
+|4|isReceivingBroadcast |broadcast |FOREGROUND_APP_ADJ |PROCESS_STATE_RECEIVER(11) |
+|5|executingServices  |exec-service  |FOREGROUND_APP_ADJ     |PROCESS_STATE_SERVICE(10)
+|6|以上皆不是          |cch-empty |cachedAdj      |PROCESS_STATE_CACHED_EMPTY(16)
+|6|以上皆不是 &&被杀的home进程  |top-activity |PERSISTENT_PROC_ADJ |PROCESS_STATE_CACHED_EMPTY(16)
+|7|非前台activity && r.visible  |visible       |VISIBLE_APP_ADJ   |PROCESS_STATE_TOP   
+|7|非前台activity && r.state为PAUSING/PAUSED |pausing |PERCEPTIBLE_APP_ADJ |PROCESS_STATE_TOP  
+|7|非前台activity && r.state为STOPPING   |stopping     |PERCEPTIBLE_APP_ADJ |PROCESS_STATE_LAST_ACTIVITY(13) |
+|7|非前台activity && 以上皆不是     |cch-act  |- |PROCESS_STATE_CACHED_ACTIVITY(14)
+|8|adj>2或procState>4情况 && app.foregroundServices  |fg-service |PERCEPTIBLE_APP_ADJ   |PROCESS_STATE_FOREGROUND_SERVICE(4)  
+|8|adj>2或procState>4情况 && app.forcingToForeground |force-fg |PERCEPTIBLE_APP_ADJ  |PROCESS_STATE_IMPORTANT_FOREGROUND(6)
+|9|mHeavyWeightProcess  |heavy  |HEAVY_WEIGHT_APP_ADJ  |PROCESS_STATE_HEAVY_WEIGHT(9)  
+|10|mHomeProcess |home |HOME_APP_ADJ    |PROCESS_STATE_HOME(12)
+|11|mPreviousProcess && app.activities |previous |PREVIOUS_APP_ADJ  |PROCESS_STATE_LAST_ACTIVITY(13)  
+|12|mBackupTarget  |backup |BACKUP_APP_ADJ   |PROCESS_STATE_BACKUP(8)
+
+情况二: Service
+
+||进程类型|adjType|curAdj|curProcState|
+|13|service已启动 && hasShownUi && adj> SERVICE_ADJ   |cch-started-ui-services|-|  PROCESS_STATE_SERVICE(10)
+|13|service已启动 && 无UI && 活动时间<30min |started-services| SERVICE_ADJ | PROCESS_STATE_SERVICE(10)
+|13|service已启动 && 无UI && 活动时间>30min |cch-started-services|-|  PROCESS_STATE_SERVICE(10)
+
+情况三: Provider
+
+if (procState > clientProcState) {
+    procState = clientProcState;
+}
+
+保证provider所在进程的优先级高于或等于 客户端进程. 所以appindex应该为top才对, 使用结束后再恢复为空.
+
+incProviderCountLocked的过程是建立provider的连接.
+
+
+- 广播: 前台广播队列 则SCHED_GROUP_DEFAULT; 后台广播队列 则SCHED_GROUP_BACKGROUND
+- 服务: execServicesFg 则SCHED_GROUP_DEFAULT; 后台服务 则SCHED_GROUP_BACKGROUND
+- cachedAdj一般地都是大于或等于CACHED_APP_MIN_ADJ, 很多情况下为UNKNOWN_ADJ;
+- cch-empty的情况下, 进程的empty和cached都为true
+
+未完...

@@ -1,0 +1,191 @@
+
+### getContentProviderImpl
+
+    getContentProviderImpl(){
+        synchronized (cpr) {
+            while (cpr.provider == null) {
+                if (cpr.launchingApp == null) {
+                    return null; //provider的宿主进程被杀,则返回null
+                }
+                try {
+                    conn.waiting = true;
+                    cpr.wait();
+                } catch (InterruptedException ex) {
+                } finally {
+                    conn.waiting = false;
+                }
+            }
+        }
+        return cpr != null ? cpr.newHolder(conn) : null;
+    }
+
+###  removeDyingProviderLocked
+
+    private final boolean removeDyingProviderLocked(ProcessRecord proc,
+            ContentProviderRecord cpr, boolean always) {
+        final boolean inLaunching = mLaunchingProviders.contains(cpr);
+
+        if (!inLaunching || always) {
+            synchronized (cpr) {
+                cpr.launchingApp = null;
+                cpr.notifyAll(); //唤醒provider的wait过程
+            }
+            mProviderMap.removeProviderByClass(cpr.name, UserHandle.getUserId(cpr.uid));
+            String names[] = cpr.info.authority.split(";");
+            for (int j = 0; j < names.length; j++) {
+                mProviderMap.removeProviderByName(names[j], UserHandle.getUserId(cpr.uid));
+            }
+        }
+        ...
+        if (inLaunching && always) { //正在启动的provider, 并且其所在进程类型为bad=true 或 allowRestart=false
+            mLaunchingProviders.remove(cpr);
+        }
+        return inLaunching;
+    }
+
+    //进程启动超时, 或许provider publish超时,则停止等待.
+    boolean cleanupAppInLaunchingProvidersLocked(ProcessRecord app, boolean alwaysBad) {
+        boolean restart = false;
+        for (int i = mLaunchingProviders.size() - 1; i >= 0; i--) {
+            ContentProviderRecord cpr = mLaunchingProviders.get(i);
+            if (cpr.launchingApp == app) {
+                if (!alwaysBad && !app.bad && cpr.hasConnectionOrHandle()) {
+                    restart = true;
+                } else {
+                    removeDyingProviderLocked(app, cpr, true);
+                }
+            }
+        }
+        return restart;
+    }
+
+调用removeDyingProviderLocked的时机:
+
+- 进程启动超时: always=true;  mLaunchingProviders
+- provider发布超时: always=true;  mLaunchingProviders
+- force-stop时:  always=true;
+- ACTION_PACKAGE_REMOVED或ACTION_PACKAGE_CHANGED的广播:  always=true;
+
+- 进程启动startProcessLocked: always= app.bad || !allowRestart;
+- 进程被杀handleAppDiedLocked: always= app.bad || !allowRestart;
+- 内存紧缩trimApplications: always= app.bad || !allowRestart;
+
+###  publishContentProviders
+
+    public final void publishContentProviders(IApplicationThread caller,
+            List<ContentProviderHolder> providers) {
+        if (providers == null) {
+            return;
+        }
+
+        synchronized (this) {
+            final ProcessRecord r = getRecordForAppLocked(caller);
+
+            final long origId = Binder.clearCallingIdentity();
+            final int N = providers.size();
+            for (int i = 0; i < N; i++) {
+                ContentProviderHolder src = providers.get(i);
+                if (src == null || src.info == null || src.provider == null) {
+                    continue;
+                }
+                ContentProviderRecord dst = r.pubProviders.get(src.info.name);
+                if (dst != null) {
+                    ComponentName comp = new ComponentName(dst.info.packageName, dst.info.name);
+                    mProviderMap.putProviderByClass(comp, dst);
+                    String names[] = dst.info.authority.split(";");
+                    for (int j = 0; j < names.length; j++) {
+                        mProviderMap.putProviderByName(names[j], dst);
+                    }
+
+                    int launchingCount = mLaunchingProviders.size();
+                    int j;
+                    boolean wasInLaunchingProviders = false;
+                    for (j = 0; j < launchingCount; j++) {
+                        if (mLaunchingProviders.get(j) == dst) {
+                            mLaunchingProviders.remove(j);
+                            wasInLaunchingProviders = true;
+                            j--;
+                            launchingCount--;
+                        }
+                    }
+                    if (wasInLaunchingProviders) {
+                        mHandler.removeMessages(CONTENT_PROVIDER_PUBLISH_TIMEOUT_MSG, r);
+                    }
+                    synchronized (dst) {
+                        dst.provider = src.provider;
+                        dst.proc = r;
+                        dst.notifyAll(); //唤醒provider
+                    }
+                    updateOomAdjLocked(r);
+                    maybeUpdateProviderUsageStatsLocked(r, src.info.packageName,
+                            src.info.authority);
+                }
+            }
+            Binder.restoreCallingIdentity(origId);
+        }
+    }
+
+
+### 其他
+
+public final int delete(@RequiresPermission.Write @NonNull Uri url, @Nullable String where,
+        @Nullable String[] selectionArgs) {
+    Preconditions.checkNotNull(url, "url");
+    IContentProvider provider = acquireProvider(url);
+    if (provider == null) {
+        throw new IllegalArgumentException("Unknown URL " + url);
+    }
+
+
+
+    ----- pid 4481 at 2017-05-18 16:37:34 -----
+    Cmd line: com.android.settings
+    "main" prio=5 tid=1 Waiting
+      | group="main" sCount=1 dsCount=0 obj=0x75957a40 self=0x7f87896a00
+      | sysTid=4481 nice=-10 cgrp=default sched=0/0 handle=0x7f8b6eeaa0
+      | state=S schedstat=( 567928688328 64594491598 637811 ) utm=48406 stm=8386 core=3 HZ=100
+      | stack=0x7fde2d5000-0x7fde2d7000 stackSize=8MB
+      | held mutexes=
+      at java.lang.Object.wait!(Native method)
+      - waiting on <0x078281de> (a android.app.ActivityThread$ContentProviderCallbackImpl)
+      at android.app.ActivityThread.acquireProvider(ActivityThread.java:5602)
+      - locked <0x078281de> (a android.app.ActivityThread$ContentProviderCallbackImpl)
+      at android.app.ContextImpl$ApplicationContentResolver.acquireUnstableProvider(ContextImpl.java:2281)
+      at android.content.ContentResolver.acquireUnstableProvider(ContentResolver.java:1531)
+      at android.content.ContentResolver.query(ContentResolver.java:516)
+      at android.content.ContentResolver.query(ContentResolver.java:473)
+      at com.android.settings.search.o.LB(BaseSearchUpdateHelper.java:279)
+      at com.android.settings.search.o.Lz(BaseSearchUpdateHelper.java:148)
+      at com.android.settings.search.o.Ly(BaseSearchUpdateHelper.java:77)
+      at com.android.settings.search.s.LN(SoundUpdateHelper.java:61)
+      at com.android.settings.search.h.KW(SearchUpdaterReceiver.java:25)
+      at com.android.settings.SettingsFragment.onResume(SettingsFragment.java:148)
+      at android.app.Fragment.performResume(Fragment.java:2398)
+      at android.app.FragmentManagerImpl.moveToState(FragmentManager.java:1032)
+      at android.app.FragmentManagerImpl.moveToState(FragmentManager.java:1171)
+      at android.app.FragmentManagerImpl.moveToState(FragmentManager.java:1153)
+      at android.app.FragmentManagerImpl.dispatchResume(FragmentManager.java:2051)
+      at android.app.FragmentController.dispatchResume(FragmentController.java:198)
+      at android.app.Activity.performResume(Activity.java:6870)
+      at android.app.ActivityThread.performResumeActivity(ActivityThread.java:3474)
+      at android.app.ActivityThread.handleResumeActivity(ActivityThread.java:3537)
+      at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1583)
+      at android.os.Handler.dispatchMessage(Handler.java:102)
+      at android.os.Looper.loop(Looper.java:160)
+      at android.app.ActivityThread.main(ActivityThread.java:6293)
+      at java.lang.reflect.Method.invoke!(Native method)
+      at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:874)
+      at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:764)
+
+    05-18 02:37:34.362 10613 10613 I binder_sample: [android.hardware.input.IInputManager,5,5037,com.android.commands.monkey,0]
+    05-18 02:37:34.388  2137  2190 I cpu     : [26,14,10,0,1,0]
+    05-18 02:37:34.388  2137  2190 I am_anr  : [0,4481,com.android.settings,952745541,Input dispatching timed out (
+    AppWindowToken{1fcad2d token=Token{3a54844 ActivityRecord{7279557 u0 com.android.settings/.MainSettings t7}}},
+    Waiting because no window has focus but there is a focused application that may eventually add a window when it finishes starting up.)]
+
+    05-18 02:37:38.620  4481  4481 I am_on_resume_called: [0,com.android.settings.MainSettings,RESUME_ACTIVITY]
+    05-18 02:37:38.621  4481  4481 I am_lifecycle_sample: [0,com.android.settings,107,10170]
+    05-18 02:37:38.622  4481  4481 I [30089] : 610
+    05-18 02:37:38.626  4553  4553 I [30099] : 0
+    05-18 02:37:38.628  4553  4553 I [30099] : 576
+    05-18 02:37:38.630 10613 10613 I binder_sample: [android.hardware.input.IInputManager,5,4267,com.android.commands.monkey,0]

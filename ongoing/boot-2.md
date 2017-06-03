@@ -14,7 +14,7 @@
             return app;
         }
     }
-    
+
     final ProcessRecord newProcessRecordLocked(...){
         if (((!mBooted && !mBooting) ||ProcessPolicyManager.isDelayBootPersistentApp(r.processName))
                 && userId == UserHandle.USER_OWNER
@@ -92,7 +92,7 @@
 
         return app;
     }
-    
+
 #### 3.8.4 startProcessLocked
 
     final ProcessRecord startProcessLocked(String processName, ApplicationInfo info,
@@ -160,7 +160,7 @@ EventLog.writeEvent(EventLogTags.AM_PROC_START,
                     UserHandle.getUserId(uid), startResult.pid, uid,
                     app.processName, hostingType,
                     hostingNameStr != null ? hostingNameStr : "");
-                    
+
 
 Slog.i(TAG,"Start proc " pid, processName, uid, hostingType,  hostingNameStr);
 
@@ -180,6 +180,8 @@ ActivityManager: 	at com.android.server.am.ActivityManagerService.activityIdle(A
 ActivityManager: 	at android.app.ActivityManagerNative.onTransact(ActivityManagerNative.java:522)
 ActivityManager: 	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2519)
 ActivityManager: 	at android.os.Binder.execTransact(Binder.java:453)
+
+
 
 
 
