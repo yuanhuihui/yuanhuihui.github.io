@@ -98,6 +98,7 @@ AT.currentApplication返回的便是mInitialApplication对象。创建完Activit
                     this, getSystemContext().mPackageInfo);
             //[见小节2.7]
             mInitialApplication = context.mPackageInfo.makeApplication(true, null);
+            //回调onCreate方法[见小节2.5.1]
             mInitialApplication.onCreate();
             ...
         }
@@ -108,6 +109,12 @@ attach的主要功能：
 - 根据LoadedApk对象来创建ContextImpl，对于system进程LoadedApk对象取值为mSystemContext；
 - 初始化Application信息。
 
+#### 2.5.1 onCreate
+[-> Application.java]
+
+    public void onCreate() {
+        ... //该方法为空, 一般地都是由其子类所覆写该方法
+    }
 
 ### 2.6 CI.createAppContext
 [-> ContextImpl.java]
@@ -454,7 +461,7 @@ attach的主要功能：
             Binder.restoreCallingIdentity(origId);
         }
     }
-    
+
     private final boolean attachApplicationLocked(IApplicationThread thread,
             int pid) {
         ProcessRecord app;
@@ -464,7 +471,7 @@ attach的主要功能：
             }
         }
         ...
-        
+
         ApplicationInfo appInfo = app.instrumentationInfo != null
                 ? app.instrumentationInfo : app.info;
         //[见流程3.4]
@@ -505,6 +512,7 @@ system_server收到attach操作, 然后再向新创建的进程执行handleBindA
             mInitialApplication = app;
             ...
             mInstrumentation.onCreate(data.instrumentationArgs);
+            //回调onCreate [见小节3.4.1]
             mInstrumentation.callApplicationOnCreate(app);
 
         } finally {
@@ -516,6 +524,13 @@ system_server收到attach操作, 然后再向新创建的进程执行handleBindA
 
 - LoadedApk.mApplication
 - ActivityThread.mInitialApplication
+
+#### 3.4.1 onCreate
+[-> Instrumentation.java]
+
+    public void callApplicationOnCreate(Application app) {
+        app.onCreate();
+    }
 
 ### 3.5 getPackageInfoNoCheck
 [-> ActivityThread.java]

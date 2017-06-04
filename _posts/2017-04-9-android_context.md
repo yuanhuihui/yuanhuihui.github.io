@@ -76,7 +76,7 @@ tags:
             Context appContext = createBaseContextForActivity(r, activity);
             CharSequence title = r.activityInfo.loadLabel(appContext.getPackageManager());
             Configuration config = new Configuration(mCompatConfiguration);
-            //step5: 将Application/ContextImpl都attach到Activity对象 [见小节4.3.1]
+            //step5: 将Application/ContextImpl都attach到Activity对象 [见小节4.1]
             activity.attach(appContext, this, getInstrumentation(), r.token,
                     r.ident, app, r.intent, r.activityInfo, title, r.parent,
                     r.embeddedID, r.lastNonConfigurationInstances, config,
