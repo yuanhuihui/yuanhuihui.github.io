@@ -114,9 +114,14 @@ getContentProviderImpl()过程返回的对象ContentProviderRecord中有成员�
         public ContentResolver getContentResolver() {
             return mContentResolver;
         }
+
+        private ContextImpl(...) {
+            ...
+            mContentResolver = new ApplicationContentResolver(this, mainThread, user);
+        }
     }
 
-Context中调用getContentResolver，经过层层调用来到ContextImpl类。返回值`mContentResolver`赋值是在`ContextImpl`对象实例化过程完成的.mContentResolver的真实类型为`ApplicationContentResolver`，接下来再来看看query查询操作。
+Context中调用getContentResolver，经过层层调用来到ContextImpl类。返回值`mContentResolver`赋值是在`ContextImpl`对象创建过程完成赋值.接下来看看query查询操作。
 
 ### 2.2 CR.query
 
@@ -972,7 +977,7 @@ query过程更为繁琐,本文就不再介绍,到这里便真正调用到了目�
 殊途同归，这两种途径最终都会合入【小节3.3】installContentProviders过程。
 
 这里先来说说目标provider进程尚未启动的情况。
- 
+
 ### 3.2 AT.bindApplication
 [-> ActivityThread.java]
 
