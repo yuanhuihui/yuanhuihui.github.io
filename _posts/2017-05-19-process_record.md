@@ -29,7 +29,7 @@ GityuanService这个服务运行在remote进程。
 
 ## 二. 进程管理
 
-先以一幅图来展示AMS管理进程的相关成员变量与ProcessRecord：
+先以一幅图来展示AMS管理进程的相关成员变量以及ProcessRecord对象：
 
 [点击查看大图](http://www.gityuan.com/images/ams/process_record.jpg)
 
