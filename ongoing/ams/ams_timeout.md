@@ -41,3 +41,10 @@ SLEEP_TIMEOUT = 5 * 1000; SLEEP_TIMEOUT_MSG
 
 IDLE_TIMEOUT = 10 * 1000; IDLE_TIMEOUT_MSG
 LAUNCH_TIMEOUT = 10 * 1000; LAUNCH_TIMEOUT_MSG,释放wakelock
+
+
+## Broadcast
+
+- ACTION_SCREEN_ON: Notifier.java中的 sendWakeUpBroadcast, 亮灭屏广播. 这是order广播;
+- ACTION_TIME_TICK:  AlarmManagerService.java的onStart, 发送time_tick广播;
+- ACTION_BOOT_COMPLETED:  UserController.java的 finishUserUnlockedCompleted, 这是order广播;

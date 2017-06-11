@@ -1,4 +1,4 @@
----
+ ---
 layout: post
 title:  "Android Broadcast广播机制分析"
 date:   2016-06-04 17:32:50
@@ -56,7 +56,7 @@ BroadcastReceiver分为两类：
         final ProcessRecord callerApp; //广播发送者所在进程
         final String callerPackage; //广播发送者所在包名
         final List receivers;   // 包括动态注册的BroadcastFilter和静态注册的ResolveInfo
-        
+
         final String callerPackage; //广播发送者
         final int callingPid;   // 广播发送者pid
         final List receivers;   // 广播接收者
@@ -71,7 +71,7 @@ BroadcastReceiver分为两类：
         long finishTime;        //广播完成时间
 
     }
-        
+
 - enqueueClockTime 伴随着 scheduleBroadcastsLocked
 - dispatchClockTime伴随着 deliverToRegisteredReceiverLocked
 - finishTime 位于 addBroadcastToHistoryLocked方法内
@@ -437,7 +437,7 @@ broadcastQueueForIntent(Intent intent)通过判断intent.getFlags()是否包含F
 
 ### 2.6 广播注册小结
 
-注册广播： 
+注册广播：
 
 1. 传递的参数为广播接收者BroadcastReceiver和Intent过滤条件IntentFilter；
 2. 创建对象LoadedApk.ReceiverDispatcher.InnerReceiver，该对象继承于IIntentReceiver.Stub；
@@ -1098,7 +1098,7 @@ fromMsg是指processNextBroadcast()是否由BroadcastHandler所调用的.
         mSummaryHistoryNext = ringAdvance(mSummaryHistoryNext, 1, MAX_BROADCAST_SUMMARY_HISTORY);
     }
 
-#### 4.2.2 处理有序广播
+#### 4.2.2 处理串行广播
 
     if (mPendingBroadcast != null) {
         boolean isDead;
