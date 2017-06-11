@@ -1,0 +1,25 @@
+
+
+一. 如何分析anr
+
+
+1. 理解anr原理. 如何产生anr.
+
+
+1. 难在现有log很多时候无法解决问题.
+2. 基于概率来解决;
+
+2. 案例分享
+
+一类是系统的anr; 另一个类是非系统的;
+
+3. 建议
+
+- 不要在主线程 做过多的耗时操作;
+- register broadcast receiver到工作线程.
+- 用apply, 而非commit;
+- io, network.
+- 有些binder call会比较耗时.
+
+- dvm_lock问题
+- binder call的问题;
