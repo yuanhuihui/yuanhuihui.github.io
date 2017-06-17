@@ -618,6 +618,9 @@ input设备类型有很多种，以上代码只列举部分常见的设备以及
 mArgsQueue的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶。 到此,整个事件加工完成,
 再然后就是将事件发送给InputDispatcher线程.
 
+接下来,再回调小节[1.2] InputReader的loopOnce过程, 可知当执行完processEventsLocked()过程,
+然后便开始执行mQueuedListener->flush()过程, 如下文.
+
 ## 四. QueuedListener
 
 ### 4.1 QueuedInputListener.flush
@@ -634,6 +637,15 @@ mArgsQueue的数据类型为Vector<NotifyArgs*>，将该key事件压人该栈顶
         mArgsQueue.clear();
     }
 
+遍历整个mArgsQueue数组, 在input架构中NotifyArgs的实现子类主要有以下几类:
+
+- NotifyConfigurationChangedArgs
+- NotifyKeyArgs
+- NotifyMotionArgs
+- NotifySwitchArgs
+- NotifyDeviceResetArgs
+
+紧接着上述的小节[3.4.5], 可知此处是NotifyKeyArgs对象.
 从InputManager对象初始化的过程可知，`mInnerListener`便是InputDispatcher对象。
 
 ### 4.2 NotifyKeyArgs.notify
