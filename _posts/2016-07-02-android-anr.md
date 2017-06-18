@@ -212,9 +212,9 @@ Service Timeout是位于"ActivityManager"线程中的AMS.MainHandler收到`SERVI
 其中anrMessage的内容为"executing service [发送超时serviceRecord信息]";
 
 
-## 三 BroadcastQueue
+## 三 BroadcastReceiver
 
-BroadcastQueue Timeout是位于"ActivityManager"线程中的BroadcastQueue.BroadcastHandler收到`BROADCAST_TIMEOUT_MSG`消息时触发。
+BroadcastReceiver Timeout是位于"ActivityManager"线程中的BroadcastQueue.BroadcastHandler收到`BROADCAST_TIMEOUT_MSG`消息时触发。
 
 
 对于广播队列有两个: foreground队列和background队列:
@@ -344,14 +344,20 @@ processNextBroadcast来处理广播.其流程为先处理并行广播,再处理�
         long now = SystemClock.uptimeMillis();
         BroadcastRecord r = mOrderedBroadcasts.get(0);
         if (fromMsg) {
-            ...
+            if (mService.mDidDexOpt) {
+                mService.mDidDexOpt = false;
+                long timeoutTime = SystemClock.uptimeMillis() + mTimeoutPeriod;
+                setBroadcastTimeoutLocked(timeoutTime);
+                return;
+            }
+            
             if (!mService.mProcessesReady) {
                 return; //当系统还没有准备就绪时，广播处理流程中不存在广播超时
             }
 
             long timeoutTime = r.receiverTime + mTimeoutPeriod;
             if (timeoutTime > now) {
-                //过早的timeout，重新设置广播超时
+                //如果当前正在执行的receiver没有超时，则重新设置广播超时
                 setBroadcastTimeoutLocked(timeoutTime);
                 return;
             }
@@ -373,14 +379,10 @@ processNextBroadcast来处理广播.其流程为先处理并行广播,再处理�
         if (r.nextReceiver <= 0) {
             return;
         }
-
-        ProcessRecord app = null;
-        String anrMessage = null;
-
+        ...
+        
         Object curReceiver = r.receivers.get(r.nextReceiver-1);
-         Slog.w(TAG, "Receiver during timeout: " + curReceiver);
-        //根据情况记录广播接收者丢弃的EventLog
-        logBroadcastReceiverDiscardLocked(r);
+        //查询App进程
         if (curReceiver instanceof BroadcastFilter) {
             BroadcastFilter bf = (BroadcastFilter)curReceiver;
             if (bf.receiverList.pid != 0
@@ -412,6 +414,11 @@ processNextBroadcast来处理广播.其流程为先处理并行广播,再处理�
             mHandler.post(new AppNotResponding(app, anrMessage));
         }
     }
+
+1. mOrderedBroadcasts已处理完成，则不会anr;
+2. 正在执行dexopt，则不会anr;
+3. 系统还没有进入ready状态(mProcessesReady=false)，则不会anr;
+4. 如果当前正在执行的receiver没有超时，则重新设置广播超时，不会anr;
 
 #### 3.3.3 AppNotResponding
 [-> BroadcastQueue.java]
@@ -626,14 +633,27 @@ removeDyingProviderLocked()的功能跟进程的存活息息相关：详见[Cont
 
 当出现ANR时，都是调用到AMS.appNotResponding()方法，详细过程见文章[理解Android ANR的信息收集过程](http://gityuan.com/2016/12/02/app-not-response/). 当然这里介绍的provider例外.
 
+#### Timeout时长
+
 - 对于前台服务，则超时为SERVICE_TIMEOUT = 20s；
 - 对于后台服务，则超时为SERVICE_BACKGROUND_TIMEOUT = 200s
 - 对于前台广播，则超时为BROADCAST_FG_TIMEOUT = 10s；
 - 对于后台广播，则超时为BROADCAST_BG_TIMEOUT = 60s;
 - ContentProvider超时为CONTENT_PROVIDER_PUBLISH_TIMEOUT = 10s;
 
-说明:
+#### 超时检测
+
+Service超时检测机制：
+  - 超过一定时间没有执行完相应操作来触发移除延时消息，则会触发anr;
+
+BroadcastReceiver超时检测机制：
+  - 有序广播的总执行时间超过 2* receiver个数 * timeout时长，则会触发anr;
+  - 有序广播的某一个receiver执行过程超过 timeout时长，则会触发anr;
+  
+
+
+另外:
 
 - 对于Service, Broadcast, Input发生ANR之后,最终都会调用AMS.appNotResponding;
 - 对于provider,在其进程启动时publish过程可能会出现ANR, 则会直接杀进程以及清理相应信息,而不会弹出ANR的对话框.
-当然provider也是可能有走appNotResponding()流程的case,不过超时时间是由用户自定义.
+appNotRespondingViaProvider()过程会走appNotResponding(), 这个就不介绍了，很少使用，由用户自定义超时时间.

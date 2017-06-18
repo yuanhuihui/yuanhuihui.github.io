@@ -13,6 +13,8 @@ hwbinder 作者： owner:maco@google.com
 这个需要马上合并
 https://android.googlesource.com/platform/frameworks/native/+/ff405785386ed8bdee50c4afdc4a4f9a73bcb81e%5E%21/#F0
 
+broadcastTimeoutLocked，应该区分是否fromMsg
+
 
 https://android-review.googlesource.com/#/c/249721/
 

@@ -707,40 +707,17 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 #### 3.4.5 查询receivers和registeredReceivers
 
-    int[] users;
-    if (userId == UserHandle.USER_ALL) {
-        users = mStartedUserArray; //广播给所有已启动用户
-    } else {
-        users = new int[] {userId}; //广播给指定用户
-    }
-
     List receivers = null;
     List<BroadcastFilter> registeredReceivers = null;
-    //找出所有能接收该广播的receivers
+    //当允许静态接收者处理该广播，则通过PKMS根据Intent查询相应的静态receivers
     if ((intent.getFlags()&Intent.FLAG_RECEIVER_REGISTERED_ONLY) == 0) {
-        //根据intent查找相应的receivers
         receivers = collectReceiverComponents(intent, resolvedType, callingUid, users);
     }
     if (intent.getComponent() == null) {
         if (userId == UserHandle.USER_ALL && callingUid == Process.SHELL_UID) {
-            UserManagerService ums = getUserManagerLocked();
-            for (int i = 0; i < users.length; i++) {
-                //shell用户是否开启允许debug功能
-                if (ums.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES, users[i])) {
-                    continue;
-                }
-                // 查询动态注册的广播
-                List<BroadcastFilter> registeredReceiversForUser =
-                        mReceiverResolver.queryIntent(intent,
-                                resolvedType, false, users[i]);
-                if (registeredReceivers == null) {
-                    registeredReceivers = registeredReceiversForUser;
-                } else if (registeredReceiversForUser != null) {
-                    registeredReceivers.addAll(registeredReceiversForUser);
-                }
-            }
+            ...
         } else {
-            // 查询动态注册的广播
+            // 查询相应的动态注册的广播
             registeredReceivers = mReceiverResolver.queryIntent(intent,
                     resolvedType, false, userId);
         }
@@ -749,7 +726,10 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 - receivers：记录着匹配当前intent的所有静态注册广播接收者；
 - registeredReceivers：记录着匹配当前的所有动态注册的广播接收者。
 
-其中，`mReceiverResolver`是AMS的成员变量，记录着已注册的广播接收者的resolver.
+其他说明：
+
+- 根据userId来决定广播是发送给全部的接收者，还是指定的userId;
+- mReceiverResolver是AMS的成员变量，记录着已注册的广播接收者的resolver.
 
 **AMS.collectReceiverComponents**：
 
@@ -791,6 +771,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
             //处理广播【见小节4.1】
             queue.scheduleBroadcastsLocked();
         }
+        //动态注册的广播接收者处理完成，则会置空该变量；
         registeredReceivers = null;
         NR = 0;
     }
@@ -860,6 +841,8 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
         ir++;
     }
 
+动态注册的registeredReceivers，全部合并都receivers，再统一按串行方式处理。
+
 #### 3.4.8 处理串行广播
 
     if ((receivers != null && receivers.size() > 0)
@@ -898,10 +881,24 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 4. 当广播的Intent没有设置FLAG_RECEIVER_REGISTERED_ONLY，则允许静态广播接收者来处理该广播；
 创建BroadcastRecord对象,并将该对象加入到相应的广播队列, 然后调用BroadcastQueue的`scheduleBroadcastsLocked`()方法来完成的不同广播处理:
 
-- 处理Sticky广播的处理过程: 见广播的AMS.registerReceiver[2.5];
-- 处理并行广播： 见发送广播的AMS.broadcastIntentLocked()的小节[3.4.6];
-- 处理串行广播： 见发送广播的AMS.broadcastIntentLocked()的小节[3.4.8];
+处理方式：
 
+1. Sticky广播: 广播注册过程处理AMS.registerReceiver，开始处理粘性广播，见小节[2.5];
+  - 创建BroadcastRecord对象；
+  - 并添加到mParallelBroadcasts队列；
+  - 然后执行queue.scheduleBroadcastsLocked；
+2. 并行广播： 广播发送过程处理，见小节[3.4.6]
+  - 只有动态注册的mRegisteredReceivers才会并行处理；
+  - 会创建BroadcastRecord对象;
+  - 并添加到mParallelBroadcasts队列；
+  - 然后执行queue.scheduleBroadcastsLocked;
+3. 串行广播： 广播发送广播处理，见小节[3.4.8]
+  - 所有静态注册的receivers以及动态注册mRegisteredReceivers合并到一张表处理；
+  - 创建BroadcastRecord对象；
+  - 并添加到mOrderedBroadcasts队列；
+  - 然后执行queue.scheduleBroadcastsLocked；
+
+可见不管哪种广播方式，接下来都会执行scheduleBroadcastsLocked方法来处理广播；
 
 ## 四、 处理广播
 
@@ -1400,6 +1397,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
                 sticky, sendingUser);
         //通过handler消息机制发送args.
         if (!mActivityThread.post(args)) {
+            //消息成功post到主线程，则不会走此处。
             if (mRegistered && ordered) {
                 IActivityManager mgr = ActivityManagerNative.getDefault();
                 args.sendFinished(mgr);
@@ -1411,7 +1409,6 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 
 这里mActivityThread.post(args)
 消息机制，关于Handler消息机制，见[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)，把消息放入MessageQueue，再调用Args的run()方法。
-
 
 ### 4.9 Args.run
 
@@ -1502,6 +1499,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
                         ? mFgBroadcastQueue : mBgBroadcastQueue;
                 r = queue.getMatchingOrderedReceiver(who);
                 if (r != null) {
+                    //[见小节4.12]
                     doNext = r.queue.finishReceiverLocked(r, resultCode,
                         resultData, resultExtras, resultAbort, true);
                 }
@@ -1584,7 +1582,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 
 2.广播发送方式可分为三类:
 
-|类型|方法|serialized|sticky|
+|类型|方法|ordered|sticky|
 |---|---|---|
 |普通广播|sendBroadcast|false|false|
 |有序广播|sendOrderedBroadcast|true|false|
@@ -1598,16 +1596,13 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 - 如果是静态广播接收者，且对应进程已经创建，则调用processCurBroadcastLocked处理；
 - 如果是静态广播接收者，且对应进程尚未创建，则调用startProcessLocked创建进程。
 
-### 5.2 流程梳理
+### 5.2 流程图
 
 最后,通过一幅图来总结整个广播处理过程. 点击查看[大图](http://gityuan.com//images/ams/send_broadcast.jpg)
 
 ![send_broadcast](/images/ams/send_broadcast.jpg)
 
-
-图解:
-
-### 5.2.1 并行广播
+#### 5.2.1 并行广播
 
 整个过程涉及过程进程间通信, 先来说说并行广播处理过程:
 
@@ -1618,7 +1613,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 5. 广播接收端所在进程的主线程: 步骤14~15,以及23;
 6. system_server的binder线程: 步骤24~25.
 
-### 5.2.2 串行广播
+#### 5.2.2 串行广播
 
 可以看出整个流程中,步骤8~15是并行广播, 而步骤16~22则是串行广播.那么再来说说串行广播的处理过程.
 
@@ -1635,12 +1630,25 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 - dispatchClockTime: 位于步骤8 deliverToRegisteredReceiverLocked(),这是在system_server的ActivityManager线程.
 - finishTime : 位于步骤11 addBroadcastToHistoryLocked()之后, 这是在并行广播向所有receivers发送完成后的时间点,而串行广播则是一个一个发送完成才会继续.
 
-### 5.3 ANR
+### 5.3 广播处理机制
 
-AMS.java
-mFgBroadcastQueue : mBgBroadcastQueue
+1. 当发送并行广播(ordered=false)的情况下：
+    - 动态注册的广播接收者(registeredReceivers)，会采用并行处理；
+    - 静态注册的广播接收者(receivers)，依然是串行处理；
+    - 不会发生ANR;
+2. 当发送串行广播(ordered=true)的情况下：
+    - 动态注册的广播接收者(registeredReceivers)，会采用串行处理；
+    - 静态注册的广播接收者(receivers)，依然是串行处理；
+    - 对于串行处理，以上两类都会在onReceive执行
 
-BroadcastQueue.java
-mParallelBroadcasts, mOrderedBroadcasts
+简单来说，静态注册的receivers始终采用串行方式来处理（processNextBroadcast）；
+动态注册的registeredReceivers处理方式取决于广播的发送方式(processNextBroadcast)。
 
-未完...
+静态注册的广播往往其所在进程还没有创建，而进程创建相对比较耗费系统资源的操作，所以
+让静态注册的广播串行化，能防止出现瞬间启动大量进程的喷井效应。
+
+**ANR时机：**只有串行广播才需要考虑超时，因为接收者是串行处理的，前一个receiver处理慢，会影响后一个receiver；并行广播
+通过一个循环一次性向所有的receiver分发广播事件，所以不存在彼此影响的问题，则没有广播超时；
+
+- 串行广播超时情况1：某个广播总处理时间 > 2* receiver总个数 * mTimeoutPeriod, 其中mTimeoutPeriod，前台队列默认为10s，后台队列默认为60s;
+- 串行广播超时情况2：某个receiver的执行时间超过mTimeoutPeriod；
