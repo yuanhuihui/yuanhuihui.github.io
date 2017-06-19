@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "四大组件之ContentProvider机制"
-date:   2017-06-02 22:19:12
+title:  "四大组件之ContentProviderRecord"
+date:   2017-06-04 22:19:12
 catalog:  true
 tags:
     - android
@@ -19,9 +19,9 @@ tags:
 ## 二. ContentProvider数据结构
 
 先以一幅图来展示AMS管理ContentProvider所涉及的相关数据结构：
-[点击查看大图](http://www.gityuan.com/images/ams/content_provider_record.jpg)
+[点击查看大图](http://www.gityuan.com/images/ams/provider/content_provider_record.jpg)
 
-![content_provider_record](/images/ams/content_provider_record.jpg)
+![content_provider_record](/images/ams/provider/content_provider_record.jpg)
 
 ### 2.1 ContentProviderRecord
 
@@ -45,4 +45,24 @@ tags:
 ### 2.3 ProcessRecord
 
 - pubProviders: ArrayMap<String, ContentProviderRecord>
+  - 记录当前进程所有已发布的provider;
 - conProviders: ArrayList<ContentProviderConnection>
+  - 记录当前进程跟其他进程provider所建立的连接
+  
+### 2.4 AMS
+
+- mProviderMap记录系统所有的provider信息；
+- mLaunchingProviders记录当前正在启动的provider;
+
+### 2.5 ActivityThread
+
+- mProviderMap: 记录App端的所有provider信息；
+- mProviderRefCountMap：记录App端的所有provider引用信息；
+
+
+## 三. Provider使用过程
+
+
+[点击查看大图](http://www.gityuan.com/images/ams/provider/Seq_provider.jpg)
+
+![Seq_provider](/images/ams/provider/Seq_provider.jpg)

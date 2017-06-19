@@ -11,15 +11,14 @@ tags:
 
 > 本文基于Android 6.0的源代码，来分析Java层的handler消息处理机制
 
-**相关源码**
-
-    framework/base/core/java/andorid/os/Handler.java
-    framework/base/core/java/andorid/os/Looper.java
-    framework/base/core/java/andorid/os/Message.java
-    framework/base/core/java/andorid/os/MessageQueue.java
-    libcore/luni/src/main/java/java/lang/ThreadLocal.java
+    framework/base/core/java/andorid/os/
+      - Handler.java
+      - Looper.java
+      - Message.java
+      - MessageQueue.java
 
 ## 一、概述
+
 在整个Android的源码世界里，有两大利剑，其一是Binder IPC机制，，另一个便是消息机制(由Handler/Looper/MessageQueue等构成的)。关于Binder在[Binder系列](http://gityuan.com/2015/10/31/binder-prepare/)中详细讲解过，有兴趣看看。
 
 Android有大量的消息驱动方式来进行交互，比如Android的四剑客`Activity`, `Service`, `Broadcast`, `ContentProvider`的启动过程的交互，都离不开消息机制，Android某种意义上也可以说成是一个以消息驱动的系统。消息机制涉及MessageQueue/Message/Looper/Handler这4个类。
@@ -573,7 +572,7 @@ MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心�
 添加一条消息到消息队列
 
     boolean enqueueMessage(Message msg, long when) {
-        // 每一个Message必须有一个target
+        // 每一个普通Message必须有一个target
         if (msg.target == null) {
             throw new IllegalArgumentException("Message must have a target.");
         }
@@ -658,6 +657,72 @@ MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心�
 
 这个移除消息的方法，采用了两个while循环，第一个循环是从队头开始，移除符合条件的消息，第二个循环是从头部移除完连续的满足条件的消息之后，再从队列后面继续查询是否有满足条件的消息需要被移除。
 
+### 4.5 postSyncBarrier
+
+  public int postSyncBarrier() {
+      return postSyncBarrier(SystemClock.uptimeMillis());
+  }
+
+  private int postSyncBarrier(long when) {
+      synchronized (this) {
+          final int token = mNextBarrierToken++;
+          final Message msg = Message.obtain();
+          msg.markInUse();
+          msg.when = when;
+          msg.arg1 = token;
+
+          Message prev = null;
+          Message p = mMessages;
+          if (when != 0) {
+              while (p != null && p.when <= when) {
+                  prev = p;
+                  p = p.next;
+              }
+          }
+          if (prev != null) { // invariant: p == prev.next
+              msg.next = p;
+              prev.next = msg;
+          } else {
+              msg.next = p;
+              mMessages = msg;
+          }
+          return token;
+      }
+  }
+
+前面小节[4.3]已说明每一个普通Message必须有一个target，对于特殊的message是没有target，即同步barrier token。
+这个消息的价值就是用于拦截同步消息，所以并不会唤醒Looper.
+
+    public void removeSyncBarrier(int token) {
+         synchronized (this) {
+             Message prev = null;
+             Message p = mMessages;
+             //从消息队列找到 target为空,并且token相等的Message
+             while (p != null && (p.target != null || p.arg1 != token)) {
+                 prev = p;
+                 p = p.next;
+             }
+             if (p == null) {
+                 throw new IllegalStateException("The specified message queue synchronization "
+                         + " barrier token has not been posted or has already been removed.");
+             }
+             final boolean needWake;
+             if (prev != null) {
+                 prev.next = p.next;
+                 needWake = false;
+             } else {
+                 mMessages = p.next;
+                 needWake = mMessages == null || mMessages.target != null;
+             }
+             p.recycleUnchecked();
+
+             if (needWake && !mQuitting) {
+                 nativeWake(mPtr);
+             }
+         }
+     }
+
+postSyncBarrier只对同步消息产生影响，对于异步消息没有任何差别。
 
 ## 五、 Message
 
