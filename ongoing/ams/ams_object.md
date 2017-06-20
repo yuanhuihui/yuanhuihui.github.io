@@ -92,13 +92,10 @@ home的栈ID等于0,即HOME_STACK_ID = 0;
 
 ### 6. Broadcast
 
-
-
-
-
 ### 7. Service
 
 ActiveServices.mServiceMap 运行在ActivityManager线程
+
 
 ## Handler角度
 运行在ActivityManager线程
