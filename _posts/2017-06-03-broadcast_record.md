@@ -39,7 +39,8 @@ tags:
 2. ordered:是否有序广播；
 3. sticky:是否粘性广播；
 4. receivers:广播接收器，包括动态注册(BroadcastFilter)和静态注册(ResolveInfo)；
-5. 时间点：
+5. receiver：数据类型为IBinder，保存的广播所在进程的ApplicationThread对象的代理端
+6. 时间点：
   - enqueueClockTime: 广播入队列时间点；
   - dispatchTime：广播分发时间点；
   - receiverTime：当前receiver开始处理时间点；
