@@ -58,7 +58,7 @@ SharedPreferences与Editor只是两个接口. SharedPreferencesImpl和EditorImpl
 1. putxxx()操作: 把数据写入到EditorImpl.mModified;
 2. apply()或者commit()操作:
     - 先调用commitToMemory(), 将数据同步到SharedPreferencesImpl的mMap, 并保存到MemoryCommitResult的mapToWriteToDisk,
-    - 再调用enqueueDiskWrite(), 写入到磁盘文件.
+    - 再调用enqueueDiskWrite(), 写入到磁盘文件; 先之前把原有数据保存到.bak为后缀的文件,用于在写磁盘的过程出现任何异常可恢复数据;
 3. getxxx()操作: 从SharedPreferencesImpl.mMap读取数据.
 
 ## 二. SharedPreferences
