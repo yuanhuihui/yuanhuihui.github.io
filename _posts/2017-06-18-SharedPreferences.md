@@ -34,23 +34,32 @@ SP采用xml文件格式来保存数据, 该文件所在目录位于/data/data/<p
     </map>
 
 
-### 1.2 数据结构说明
+### 1.2 架构图
 
-![shared_preference](http://www.gityuan.com/images/sp/shared_preference.jpg)
-
+[点击查看大图](http://www.gityuan.com/images/sp/shared_preference.jpg)
 
 ![shared_preference](/images/sp/shared_preference.jpg)
 
 SharedPreferences与Editor只是两个接口. SharedPreferencesImpl和EditorImpl分别实现了对应接口.
 另外, ContextImpl记录着SharedPreferences的重要数据, 如下:
 
-- sSharedPrefsCache:以包名为key, 二级key是以SP文件, 以SharedPreferencesImpl为value的嵌套map结构
+- sSharedPrefsCache:以包名为key, 二级key是以SP文件, 以SharedPreferencesImpl为value的嵌套map结构.
+这里需要sSharedPrefsCache是静态类成员变量, 每个进程是保存唯一一份, 且由ContextImpl.class锁保护.
 - mSharedPrefsPaths:记录所有的SP文件, 以文件名为key, 具体文件为value的map结构;
 - mPreferencesDir:是指SP所在目录, 是指/data/data/<package name>/shared_prefs/
 
 
-一次数据修改到提交的流程: 先写入到EditorImpl.mModified, 经过commit更新到SharedPreferencesImpl的mMap, 然后再保存到MemoryCommitResult的mapToWriteToDisk,
-最后提交到磁盘文件.
+[点击查看大图](http://www.gityuan.com/images/sp/shared_preferences_arch.jpg)
+
+![shared_preferences_arch](/images/sp/shared_preferences_arch.jpg)
+
+图解:
+
+1. putxxx()操作: 把数据写入到EditorImpl.mModified;
+2. apply()或者commit()操作:
+    - 先调用commitToMemory(), 将数据同步到SharedPreferencesImpl的mMap, 并保存到MemoryCommitResult的mapToWriteToDisk,
+    - 再调用enqueueDiskWrite(), 写入到磁盘文件.
+3. getxxx()操作: 从SharedPreferencesImpl.mMap读取数据.
 
 ## 二. SharedPreferences
 
@@ -665,14 +674,17 @@ apply 与commit的对比
 - 多并发的提交commit时，需等待正在处理的commit数据更新到磁盘文件后才会继续往下执行，从而降低效率;
 而apply只是原子更新到内存，后调用apply函数会直接覆盖前面内存数据，从一定程度上提高很多效率。
 
+获取SP与Editor:
+
+- getSharedPreferences()是从ContextImpl.sSharedPrefsCache唯一的SPI对象;
+- edit()每次都是创建新的EditorImpl对象.
 
 优化建议:
 
 - 强烈建议不要在sp里面存储特别大的key/value, 有助于减少卡顿/anr
-- 请不要高频地使用apply, 尽可能地批量提交
-- commit直接在主线程操作, 更要注意了
+- 请不要高频地使用apply, 尽可能地批量提交;commit直接在主线程操作, 更要注意了
 - 不要使用MODE_MULTI_PROCESS
-- 高频操作的key与低频率操作的, 可以适当考虑分开存放不同文件.
+- 高频操作的key适当考虑拆分;
 - 不要一上来就执行getSharedPreferences().edit(), 应该分成两大步骤来做.
 - 不要连续多次edit(), 应该获取一次获取edit(),然后多次执行putxxx(), 减少内存波动; 经常看到大家喜欢封装方法, 结果就导致这种情况的出现.
 - 每次commit时会把全部的数据更新的文件, 所以整个文件是不应该过大的, 影响整体性能;
