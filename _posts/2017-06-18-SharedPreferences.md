@@ -683,8 +683,8 @@ apply 与commit的对比
 
 - 强烈建议不要在sp里面存储特别大的key/value, 有助于减少卡顿/anr
 - 请不要高频地使用apply, 尽可能地批量提交;commit直接在主线程操作, 更要注意了
-- 不要使用MODE_MULTI_PROCESS
-- 高频操作的key适当考虑拆分;
-- 不要一上来就执行getSharedPreferences().edit(), 应该分成两大步骤来做.
+- 不要使用MODE_MULTI_PROCESS;
+- 高频写操作的key与高频读操作的key可以适当地拆分文件, 由于减少同步锁竞争;
+- 不要一上来就执行getSharedPreferences().edit(), 应该分成两大步骤来做, 中间可以执行其他代码.
 - 不要连续多次edit(), 应该获取一次获取edit(),然后多次执行putxxx(), 减少内存波动; 经常看到大家喜欢封装方法, 结果就导致这种情况的出现.
 - 每次commit时会把全部的数据更新的文件, 所以整个文件是不应该过大的, 影响整体性能;

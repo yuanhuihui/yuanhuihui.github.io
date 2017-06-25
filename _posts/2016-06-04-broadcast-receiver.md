@@ -1410,7 +1410,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 这里mActivityThread.post(args)
 消息机制，关于Handler消息机制，见[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)，把消息放入MessageQueue，再调用Args的run()方法。
 
-### 4.9 Args.run
+### 4.9 ReceiverDispatcher.Args.run
 
 [-> LoadedApk.java]
 
@@ -1454,37 +1454,63 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 接下来,便进入主线程,最终调用`BroadcastReceiver`具体实现类的`onReceive()`方法。
 
 ### 4.10 PendingResult.finish
-
-[-> BroadcastReceiver.java]
+[-> BroadcastReceiver.java ::PendingResult]
 
     public final void finish() {
-        final IActivityManager mgr = ActivityManagerNative.getDefault();
-        sendFinished(mgr);
-        ...
+      if (mType == TYPE_COMPONENT) { //代表是静态注册的广播
+          final IActivityManager mgr = ActivityManagerNative.getDefault();
+          if (QueuedWork.hasPendingWork()) {
+              QueuedWork.singleThreadExecutor().execute( new Runnable() {
+                  void run() {
+                      sendFinished(mgr); //[见小节4.10.1]
+                  }
+              });
+          } else {
+              sendFinished(mgr); //[见小节4.10.1]
+          }
+      } else if (mOrderedHint && mType != TYPE_UNREGISTERED) { //动态注册的串行广播
+          final IActivityManager mgr = ActivityManagerNative.getDefault();
+          sendFinished(mgr); //[见小节4.10.1]
+      }
     }
+
+主要功能:
+
+- 静态注册的广播接收者:
+    - 当QueuedWork工作未完成, 即SharedPreferences写入磁盘的操作没有完成, 则等待完成再执行sendFinished方法;
+    - 当QueuedWork工作已完成, 则直接调用sendFinished方法;
+- 动态注册的广播接收者:
+    - 当发送的是串行广播, 则直接调用sendFinished方法.
+
+另外常量参数说明:
+
+- TYPE_COMPONENT: 静态注册
+- TYPE_REGISTERED: 动态注册
+- TYPE_UNREGISTERED: 取消注册
+
+#### 4.10.1 sendFinished
+[-> BroadcastReceiver.java ::PendingResult]
 
     public void sendFinished(IActivityManager am) {
         synchronized (this) {
-            try {
-                if (mResultExtras != null) {
-                    mResultExtras.setAllowFds(false);
-                }
-                if (mOrderedHint) {
-                    //串行广播
-                    am.finishReceiver(mToken, mResultCode, mResultData, mResultExtras,
-                            mAbortBroadcast, mFlags);
-                } else {
-                    //并行广播
-                    am.finishReceiver(mToken, 0, null, null, false, mFlags);
-                }
-            } catch (RemoteException ex) {
+            mFinished = true;
+            ...
+            // mOrderedHint代表发送是否为串行广播 [见小节4.10.2]
+            if (mOrderedHint) {
+                am.finishReceiver(mToken, mResultCode, mResultData, mResultExtras,
+                        mAbortBroadcast, mFlags);
+            } else {
+                //并行广播, 但属于静态注册的广播, 仍然需要告知AMS. [见小节4.10.2]
+                am.finishReceiver(mToken, 0, null, null, false, mFlags);
             }
+            ...
         }
     }
 
+
 此处AMP.finishReceiver，经过binder调用，进入AMS.finishReceiver方法
 
-### 4.11 AMS.finishReceiver
+#### 4.10.2 AMS.finishReceiver
 
     public void finishReceiver(IBinder who, int resultCode, String resultData,
             Bundle resultExtras, boolean resultAbort, int flags) {
@@ -1499,7 +1525,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
                         ? mFgBroadcastQueue : mBgBroadcastQueue;
                 r = queue.getMatchingOrderedReceiver(who);
                 if (r != null) {
-                    //[见小节4.12]
+                    //[见小节4.10.3]
                     doNext = r.queue.finishReceiverLocked(r, resultCode,
                         resultData, resultExtras, resultAbort, true);
                 }
@@ -1515,7 +1541,7 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
         }
     }
 
-### 4.12 finishReceiverLocked
+#### 4.10.3 BQ.finishReceiverLocked
 [-> BroadcastQueue.java]
 
     public boolean finishReceiverLocked(BroadcastRecord r, int resultCode,
@@ -1632,17 +1658,16 @@ ATP位于system_server进程，是Binder Bp端通过Binder驱动向Binder Bn端�
 
 ### 5.3 广播处理机制
 
-1. 当发送并行广播(ordered=false)的情况下：
-    - 动态注册的广播接收者(registeredReceivers)，会采用并行处理；
-    - 静态注册的广播接收者(receivers)，依然是串行处理；
-    - 不会发生ANR;
-2. 当发送串行广播(ordered=true)的情况下：
-    - 动态注册的广播接收者(registeredReceivers)，会采用串行处理；
-    - 静态注册的广播接收者(receivers)，依然是串行处理；
-    - 对于串行处理，以上两类都会在onReceive执行
+
+1. 当发送串行广播(ordered=true)的情况下：
+    - 静态注册的广播接收者(receivers)，采用串行处理；
+    - 动态注册的广播接收者(registeredReceivers)，采用串行处理；
+2. 当发送并行广播(ordered=false)的情况下：
+    - 静态注册的广播接收者(receivers)，依然采用串行处理；
+    - 动态注册的广播接收者(registeredReceivers)，采用并行处理；
 
 简单来说，静态注册的receivers始终采用串行方式来处理（processNextBroadcast）；
-动态注册的registeredReceivers处理方式取决于广播的发送方式(processNextBroadcast)。
+动态注册的registeredReceivers处理方式是串行还是并行方式, 取决于广播的发送方式(processNextBroadcast)。
 
 静态注册的广播往往其所在进程还没有创建，而进程创建相对比较耗费系统资源的操作，所以
 让静态注册的广播串行化，能防止出现瞬间启动大量进程的喷井效应。
