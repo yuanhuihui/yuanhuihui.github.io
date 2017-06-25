@@ -231,6 +231,14 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |7|[理解ContentProvider原理](http://gityuan.com/2016/07/30/content-provider/)|ContentProvider|
 |8|[ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/)|ContentProvider|
 |9|[Activity与Service生命周期](http://gityuan.com/2015/05/31/android-lifecycle/)|Activity&&Service|
+|10|[简述Activity与Window关系](http://gityuan.com/2017/04/16/activity-with-window/)|Activity&&Window|
+|11|[四大组件之ProcessRecord](http://gityuan.com/2017/05/19/process_record/)|Process|
+|12|[四大组件之ServiceRecord](http://gityuan.com/2017/05/25/service_record/)|Service|
+|13|[四大组件之BroadcastRecord](http://gityuan.com/2017/06/03/broadcast_record/)|Broadcast|
+|14|[四大组件之ContentProviderRecord](http://gityuan.com/2017/06/04/content_provider_record/)|ContentProvider|
+|15|[理解Android Context](http://gityuan.com/2017/04/09/android_context/)|Context|
+|16|[理解Application创建过程](http://gityuan.com/2017/04/02/android-application/)|Application|
+|17|[Android类加载器ClassLoader](http://gityuan.com/2017/03/19/android-classloader/)|classloader|
 
 #### 4.5 图形系统系列
 图形也是整个系统非常复杂且重要的一个系列，涉及WindowManager,SurfaceFlinger.
@@ -249,7 +257,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 
 系统服务的注册过程, 见[Android系统服务的注册方式](http://gityuan.com/2016/10/01/system_service_common/)
 
-- Android服务篇-ActivityManagerService
+- AMS服务
   - [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
   - 更多组件篇[见小节4.3]
 - Input系统
@@ -259,15 +267,19 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
   - [Input系统—UI线程](http://gityuan.com/2016/12/24/input-ui/)
   - [Input系统—进程交互](http://gityuan.com/2016/12/31/input-ipc/)
   - [Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)
-- Android服务篇-PackageManagerService
+- PKMS服务
   - [PackageManager启动篇](http://gityuan.com/2016/11/06/packagemanagerservice)
   - [Installd守护进程](http://gityuan.com/2016/11/13/android-installd)
-- Android服务篇-BatteryService
+- Alarm服务
+  - [理解AlarmManager机制](http://gityuan.com/2017/03/12/alarm_manager_service/)
+- JobScheduler服务
+  - [理解JobScheduler机制](http://gityuan.com/2017/03/10/job_scheduler_service/)
+- BatteryService
   - [Android耗电统计算法](http://gityuan.com/2016/01/10/power_rank/)
-- Android服务篇-PowerManagerService
-- Android服务篇-DropBoxManagerService
+- PMS服务
+- DropBox服务
   - [DropBoxManager启动篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
-- Android多用户服务-UserManagerService
+- UserManagerService
   - [多用户管理UserManager](http://gityuan.com/2016/11/20/user_manager/)
 - 更多服务介绍, 敬请期待...
 
@@ -303,7 +315,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 ---
 
 **计划：** 后续持续新增和完善整个大纲，不限于进程、内存、IO、系统服务框架，整体架构以及各种系统分析实战等文章。
-博客会持续更新，各个击破，本文最近更新时间点: `2017.03.18`.
+博客会持续更新，各个击破，本文最近更新时间点: `2017.06.25`.
 
 ---
 
