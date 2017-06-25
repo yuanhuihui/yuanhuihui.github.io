@@ -17,42 +17,8 @@ tags:
 
 ## 1.  广播
 
-应用程序内部广播通信，优先采用LocalBroadcastManager，安全性更好，运行效率更高。
-
-**优势：**平时常说BroadcastReceiver，采用的是Binder通信方式，这是跨进程的通信方式，系统资源消耗固然更多。而广播LocalBroadcastManager，采用的是Handler通信机制，Handler的实现是应用内的通信方式，所以效率与安全性都更高。
-
-**用法：**
-
-**(1) 创建广播接收者**
-
-    //广播类型
-    public static final String ACTION_SEND = "1";
-
-    //自定义广播接收者
-    public class AppBroadcastReceiver extends BroadcastReceiver {
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            //TODO
-        }
-    }
-
-    //创建广播接收者
-    AppBroadcastReceiver appReceiver = new AppBroadcastReceiver();
-
-**(2) 注册广播**
-
-    LocalBroadcastManager.getInstance(context).registerReceiver(appReceiver, new IntentFilter(ACTION_SEND));
-
-注：LocalBroadcastManager注册广播只能通过代码注册的方式，而不能通过xml中静态配置，本地广播并没有走系统广播的流程。
-
-**(3) 发送广播**
-
-    LocalBroadcastManager.getInstance(context).sendBroadcast(new Intent(ACTION_SEND));
-
-**(4) 取消广播**
-
-    LocalBroadcastManager.getInstance(context).unregisterReceiver(appReceiver);
+应用程序内部广播通信，优先采用LocalBroadcastManager，安全性更好，运行效率更高。 
+见文章[LocalBroadcastManager原理分析](http://www.gityuan.com/2017/4/23/local_broadcast_manager)
 
 
 ## 2.  线程池
