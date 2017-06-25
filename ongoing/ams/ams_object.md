@@ -21,9 +21,6 @@ ActivityManagerService(简称AMS)运行在system_server进程. 当AMS服务启�
 
 ### 一 基本对象
 
-ActivityRecord
-ServiceRecord
-
 #### 重要变量:
 
 mBooted: 默认false, startHomeActivityLocked的时候则认为是true;
@@ -79,7 +76,6 @@ ActivityContainer mActivityContainer
 
 #### 4. ActivityStackSupervisor
 
-
 ActivityStack mHomeStack //桌面的stack
 ActivityStack mFocusedStack //当前聚焦stack
 ActivityStack mLastFocusedStack //正在切换
@@ -89,33 +85,18 @@ SparseArray<ActivityContainer> mActivityContainers // mStackId为key
 
 home的栈ID等于0,即HOME_STACK_ID = 0;
 
-
-### 6. Broadcast
-
-### 7. Service
-
-ActiveServices.mServiceMap 运行在ActivityManager线程
+## 三. Handler角度
 
 
-## Handler角度
-运行在ActivityManager线程
-
-### 1 Activity
-
-ActivityManagerService.mHandler  --> MainHandler
-
-ActivityStackSupervisor.mHandler  -->  ActivityStackSupervisorHandler
-ActivityStack.mHandler  -->  ActivityStackHandler
-
-### 2 Broadcast
-BroadcastQueue.mHandler  -->  BroadcastHandler
-
-### 3 Service
-ActiveServices.mServiceMap --> ServiceMap extends Handler 
-
-
-### 4 else
-CompatModePackages.mHandler -> CompatHandler
+|Handler|数据类型|所属线程|
+|---|---|---|
+|AMS.mHandler|MainHandler|ActivityManager|
+|AMS.mUiHandler|UiHandler|android.ui|
+|AMS.mHandler|Handler|android.bg|
+|ASS.mHandler|ActivityStackSupervisorHandler|ActivityManager|
+|AS.mHandler|ActivityStackHandler|ActivityManager|
+|BroadcastQueue.mHandler|BroadcastHandler|ActivityManager|
+|ActiveServices.mServiceMap|ServiceMap|ActivityManager|
 
 ### 其他
 

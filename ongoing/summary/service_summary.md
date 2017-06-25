@@ -33,7 +33,7 @@ handler线程便有40-50个.
 1. "android.display", 优先级 THREAD_PRIORITY_DISPLAY, 用于WMS, IMS
 2. "android.ui", 优先级 THREAD_PRIORITY_FOREGROUND, 用于WMS, AMS, DisplayManagerService
 3. "android.fg", 优先级 THREAD_PRIORITY_DEFAULT, 用于Account，Network, Dream，Battery, UsbDevice, MountService, PKMS
-4. ""android.io", 优先级 THREAD_PRIORITY_DEFAULT, 用于PackageInstaller, connectivity, BT, MountService, JobStore
+4. "android.io", 优先级 THREAD_PRIORITY_DEFAULT, 用于PackageInstaller, connectivity, BT, MountService, JobStore
 5. "android.bg", 优先级 THREAD_PRIORITY_BACKGROUND, 用于SyncManager,BatteryStats等
 
 ### 2.2 其他的handler线程
@@ -79,7 +79,6 @@ main
 4. MiuiBackup
 5. PowerKeeperPolicy
 6. backup
-
 7. SyncHandler-0
 8. AsyncQueryWorker
 9. IzatServiceBase
