@@ -82,6 +82,9 @@ ActiveServices.java
 
 ## Broadcast
 
-- ACTION_SCREEN_ON: Notifier.java中的 sendWakeUpBroadcast, 亮灭屏广播. 这是order广播;
+- ACTION_SCREEN_ON/ ACTION_SCREEN_OFF:
+    - Notifier.java中的 sendWakeUpBroadcast, 亮灭屏广播.
+    - 这是order广播;
+    - 并且是前台的;
 - ACTION_TIME_TICK:  AlarmManagerService.java的onStart, 发送time_tick广播;
 - ACTION_BOOT_COMPLETED:  UserController.java的 finishUserUnlockedCompleted, 这是order广播;
