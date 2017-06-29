@@ -90,13 +90,29 @@ home的栈ID等于0,即HOME_STACK_ID = 0;
 
 |Handler|数据类型|所属线程|
 |---|---|---|
-|AMS.mHandler|MainHandler|ActivityManager|
 |AMS.mUiHandler|UiHandler|android.ui|
-|AMS.mHandler|Handler|android.bg|
+|AMS.mBgHandler|Handler|android.bg|
+|AMS.mHandler|MainHandler|ActivityManager|
 |ASS.mHandler|ActivityStackSupervisorHandler|ActivityManager|
 |AS.mHandler|ActivityStackHandler|ActivityManager|
 |BroadcastQueue.mHandler|BroadcastHandler|ActivityManager|
 |ActiveServices.mServiceMap|ServiceMap|ActivityManager|
+
+说明：
+
+- AMS.MainHandler
+  - 处理service、process、provider的超时问题；
+- ActivityStackSupervisorHandler：
+  - 处理IDLE_TIMEOUT，SLEEP_TIMEOUT，LAUNCH_TIMEOUT
+- ActivityStackHandler：
+  - 处理PAUSE_TIMEOUT，STOP_TIMEOUT，DESTROY_TIMEOUT
+  - TRANSLUCENT_TIMEOUT，LAUNCH_TICK
+- ActiveServices.ServiceMap：
+  - 处理BG_START_TIMEOUT
+- BroadcastHandler：
+  - 处理broadcast的超时问题；
+  
+可见，以上的超时都是在"ActivityManager", 也有例外，那就是input的超时是在inputDispatcher线程发生的。
 
 ### 其他
 

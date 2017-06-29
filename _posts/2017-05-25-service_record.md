@@ -202,3 +202,5 @@ Service的启动方式主要有startService和bindService的方式.
 一个通知；对于stopForeground()，当removeNotification=true,则通过 cancelNotification()来取消通知。
 
 作为前台service，必须要有一个status bar的通知，并且通知不会消失直到service停止或许主动移除前台优先级。
+
+更多源码详细过程，见[startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)

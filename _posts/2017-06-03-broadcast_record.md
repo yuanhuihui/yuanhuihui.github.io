@@ -117,4 +117,4 @@ queryIntentReceivers()方法来查询指定Intent所对应的ResolveInfo列表�
 - 位于mParallelBroadcasts中的并行广播, 一次性全部发出.
 - 位于mOrderedBroadcasts中的串行广播，一次处理一个，等待上一个receive完成才继续处理；
 
-更多源码详细过程，见[理解ContentProvider原理](http://gityuan.com/2016/06/04/broadcast-receiver/)
+更多源码详细过程，见[Android Broadcast广播机制分析](http://gityuan.com/2016/06/04/broadcast-receiver/)
