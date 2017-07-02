@@ -10,12 +10,6 @@ tags:
 
 ---
 
-
-
-1. home -> ss -> target
-2. ss -> target
-3. 
-
 ## 一.概述
 
 
@@ -24,9 +18,6 @@ tags:
 
 ## service启动过程
 
-
-
-
 - 主动调用stopService;
 - 当包被移除或改变时;
 - 当进程启动超时;
@@ -34,8 +25,6 @@ tags:
 - 执行trimApplications操作;
 - 其他异常情况等.
 
-
-## restart
 
 ## delay start
 

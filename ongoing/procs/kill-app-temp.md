@@ -189,13 +189,3 @@ AMS.forceStopPackage
 	pm.setPackageStoppedState(packageName, true, user);
 	AMS.forceStopPackageLocked
 		AMS.killPackageProcessesLocked
-
-
-
-
-
-#### ProcessMap.java
-
-ArrayMap<String, SparseArray<E>> mMap
-
-以进程名为key，再以userId为key。

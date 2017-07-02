@@ -98,7 +98,6 @@ Linux Kernel最常使用的是printk，用法如下：
 
 LogBuffer.cpp
 
-
 [persist.logd.size]: [2M]
 [persist.logd.size.radio]: [4M]
 

@@ -61,7 +61,7 @@ system    4219  557   2286420 164732 SyS_epoll_ 7f7ebedbe4 S com.android.systemu
 system    4253  557   1504552 102516 SyS_epoll_ 7f7ebedbe4 S com.android.settings
 u0_a20    4442  557   2195832 147300 SyS_epoll_ 7f7ebedbe4 S com.miui.home
 
-RenderThread, EventThread(surfaceflinger),主线程？
+RenderThread, EventThread(surfaceflinger)
 
 ## 其他
 

@@ -112,11 +112,6 @@ ownerfile:这个锁被哪个文件占用
 ownerline:这个锁被占用的行数
 sample_percent:以500ms为准,如果等待时间为250ms,那么这个值为50,表示50%
 
-341static bool runtime_isSensitiveThread() {
-342    IPCThreadState* state = IPCThreadState::selfOrNull();
-343    return state && state->getStrictModePolicy() != 0;
-344}
-
 ### 14. 卡顿情况
 
 //输出当前掉帧个数
