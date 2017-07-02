@@ -98,20 +98,12 @@ tags:
 
 ### 2.1  启动方式：
 
-service有两种启动方式：
-
-- startService() 启动本地服务Local Service
-- bindService() 启动远程服务Remote Service
-
-
-### 2.2  生命周期
-
-两种不同的启动方式决定了Service具有两种生命周期的可能（并非互斥的两种）。
+service有两种启动方式, 不同的启动方式决定了Service具有两种生命周期的可能（并非互斥的两种）。
 
 1. start方式：onCreate()，onStartCommand()。onDestroy释放资源。
 2. bind方式： onCreate()，onBind()方法。需要所有client全部调用unbindService()才能将Service释放资源，等待系统回收。
 
-### 2.3  代码实践
+### 2.2  代码实践
 利用下面的`DemoService`代码，通过logcat自行感受每一个阶段的状态与场景的关系。
 
     import android.app.Service;

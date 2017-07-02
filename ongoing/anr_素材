@@ -1,0 +1,26 @@
+"pool-1-thread-1" prio=5 tid=18 Native
+  | group="main" sCount=1 dsCount=0 obj=0x12e62790 self=0x7f72ee4800
+  | sysTid=29155 nice=0 cgrp=default sched=0/0 handle=0x7f617ea450
+  | state=S schedstat=( 33431150307 2402199883 26291 ) utm=2653 stm=690 core=5 HZ=100
+  | stack=0x7f616e8000-0x7f616ea000 stackSize=1037KB
+  | held mutexes=
+  kernel: __switch_to+0x94/0xa0
+  kernel: futex_wait_queue_me+0xcc/0x124
+  kernel: futex_wait+0xec/0x200
+  kernel: do_futex+0xcc/0x47c
+  kernel: SyS_futex+0xf0/0x168
+  kernel: el0_svc_naked+0x24/0x28
+  native: #00 pc 000000000001beec  /system/lib64/libc.so (syscall+28)
+  native: #01 pc 00000000000e9938  /system/lib64/libart.so (_ZN3art17ConditionVariable16WaitHoldingLocksEPNS_6T
+  native: #02 pc 00000000005a2a0c  /system/lib64/libart.so (_ZN3artL12GoToRunnableEPNS_6ThreadE+328)
+  native: #03 pc 00000000005a2880  /system/lib64/libart.so (_ZN3art12JniMethodEndEjPNS_6ThreadE+28)
+  native: #04 pc 0000000000027b00  /system/framework/arm64/boot.oat (Java_java_io_FileDescriptor_sync__+140)
+  at java.io.FileDescriptor.sync(Native method)
+  at android.os.FileUtils.sync(FileUtils.java:181)
+  at android.app.SharedPreferencesImpl.writeToFile(SharedPreferencesImpl.java:601)
+  at android.app.SharedPreferencesImpl.-wrap2(SharedPreferencesImpl.java:-1)
+  at android.app.SharedPreferencesImpl$2.run(SharedPreferencesImpl.java:515)
+  - locked <0x0d778330> (a java.lang.Object)
+  at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1133)
+  at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:607)
+  at java.lang.Thread.run(Thread.java:761) 

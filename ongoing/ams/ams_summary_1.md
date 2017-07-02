@@ -79,6 +79,7 @@
 
 |事件|Timeout|文件|
 |---|---|
+<<<<<<< HEAD
 |LAUNCH_TICK|0.5s|ActivityStack|
 |PAUSE_TIMEOUT|0.5s|ActivityStack|
 |STOP_TIMEOUT|10s|ActivityStack|
@@ -131,3 +132,24 @@ AppWaitingForDebuggerDialog
 UserSwitchingDialog
 
 除了上述的,基本上所有的Anr/Crash/error等弹出都是运行在android.ui线程.
+=======
+|LAUNCH_TICK|0.5s|AS|
+|PAUSE_TIMEOUT|0.5s|AS|
+|STOP_TIMEOUT|10s|AS|
+|DESTROY_TIMEOUT|10s|AS|
+|APP_SWITCH_DELAY_TIME  |5s| AMS, APP切换|
+|SLEEP_TIMEOUT| 5s| ASS, SLEEP_TIMEOUT_MSG|
+|IDLE_TIMEOUT|10s| IDLE_TIMEOUT_MSG
+|LAUNCH_TIMEOUT |10s| LAUNCH_TIMEOUT_MSG,释放wakelock|
+
+
+
+## Broadcast
+
+- ACTION_SCREEN_ON/ ACTION_SCREEN_OFF:
+    - Notifier.java中的 sendWakeUpBroadcast, 亮灭屏广播.
+    - 这是order广播;
+    - 并且是前台的;
+- ACTION_TIME_TICK:  AlarmManagerService.java的onStart, 发送time_tick广播;
+- ACTION_BOOT_COMPLETED:  UserController.java的 finishUserUnlockedCompleted, 这是order广播;
+>>>>>>> b75009a3079d2c55d5d6407d59565365a2bfe4be
