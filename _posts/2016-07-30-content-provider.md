@@ -91,7 +91,7 @@ ContentProvider作为Android四大组件之一，并没有Activity那样复杂�
 - `mProviderMap`： AMS和AT都有一个同名的成员变量, AMS的数据类型为ProviderMap,而AT则是以ProviderKey为key的ArrayMap类型.
 - `mLocalProviders`和`mLocalProvidersByName`：都是用于记录所有本地的ContentProvider,不同的只是key.
 
-### 1.5 query流图图
+### 1.5 query流程图
 
 点击查看[大图](http://www.gityuan.com/images/ams/get_content_provider.jpg)
 
