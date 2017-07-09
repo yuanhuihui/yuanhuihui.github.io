@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "AMS总结(一)"
+title:  "AMS总结(二)"
 date:   2017-06-25 22:11:12
 catalog:  true
 tags:
@@ -10,7 +10,9 @@ tags:
 
 > 从另一个维度，简要总结下四大组件的超时统计区间，以及Handler情况。
 
-## 一. Serivce
+## 一. 组件超时统计
+
+### 1.1 Service
 
 |序号|App端方法|生命周期|计时起点|计时终点
 |---|---|---|---|
@@ -36,7 +38,7 @@ tags:
 
 另外, AS.bringDownServiceLocked过程也会触发handleUnbindService.
 
-## 二. Broadcast
+### 1.2 Broadcast
 
 |序号|App端方法|生命周期|System端方法|计数终点
 |---|---|---|---|
@@ -65,24 +67,26 @@ tags:
 - 必须等到QueuedWork执行完成才结束的生命周期：
   - handleReceiver
 
-## 三. ContentProvider
+### 1.3 ContentProvider
 
 |序号|App端方法|生命周期|计数起点|计数终点|
 |---|---|---|---|
 |1|installProvider|onCreate|AMS.attachApplicationLocked|AMS.publishContentProviders|
 
-说明：Provider发布过程，从计数起点到终点，当超过10s(AMS.CONTENT_PROVIDER_PUBLISH_TIMEOUT)没有执行完成，则会弹出ANR;
+说明：
 
+- Provider发布过程，从计数起点到终点，当超过10s没有执行完成，则会弹出ANR;
+- 其中AMS.CONTENT_PROVIDER_PUBLISH_TIMEOUT=10s;
 
-## 四. Activity
+### 1.4 Activity
 
 |序号|App端方法|生命周期|计时起点|计时终点
 |---|---|---|---|
 |1|handleLaunchActivity|onCreate/onStart/onResume||||
 |2|handleResumeActivity|onResume|||
-|3|handlePauseActivity|onPause||startPausingLocked|activityPausedLocked|
+|3|handlePauseActivity|onPause|startPausingLocked|activityPausedLocked|
 |4|handleStopActivity|onStop|stopActivityLocked|activityStoppedLocked|
-|5|handleDestroyActivity|onDestroy||destroyActivityLocked|activityDestroyedLocked|
+|5|handleDestroyActivity|onDestroy|destroyActivityLocked|activityDestroyedLocked|
 |6|handleRelaunchActivity||||
 |7|handleNewIntent|onNewIntent|||
 |8|handleSleeping||||
@@ -98,7 +102,7 @@ tags:
   - handleStopActivity
   - handleSleeping
 
-#### 4.2 Activity超时常量
+#### 1.4.1 Activity超时常量
 
 |事件|Timeout|文件|
 |---|---|
@@ -114,9 +118,9 @@ tags:
 注：ASS是指ActivityStackSupervisor.
 
 
-## 三. Handler角度
+## 二. Handler角度
 
-### 3.1 四大组件相关Handler
+### 2.1 四大组件相关Handler
 
 |Handler|数据类型|运行线程|
 |---|---|---|
@@ -128,7 +132,7 @@ tags:
 |BroadcastQueue.mHandler|BroadcastHandler|ActivityManager|
 |ActiveServices.mServiceMap|ServiceMap|ActivityManager|
 
-说明：(以下所有跟超时相关的工作都运行在ActivityManager线程)
+说明：
 
 - AMS.MainHandler
   - 处理service、process、provider的超时问题；
@@ -142,11 +146,11 @@ tags:
 - ActiveServices.ServiceMap：
   - 处理BG_START_TIMEOUT
   
-唯独input的超时处理过程并非发生在ActivityManager线程，而是inputDispatcher线程发生的。
+以上所有跟超时相关的工作都运行在ActivityManager线程，唯独input的超时处理过程并非发生在ActivityManager线程，而是inputDispatcher线程发生的。
 
-### 3.2 UI相关Handler
+### 2.2 UI相关Handler
 
-对于Anr/Crash/error等基本所有错误、警告灯相关弹出框都运行在android.ui线程
+对于ANR/Crash/Error等几乎所有错误、警告相关的对话框都运行在android.ui线程，例如：
 
 - BaseErrorDialog.mHandler
 - AppErrorDialog
