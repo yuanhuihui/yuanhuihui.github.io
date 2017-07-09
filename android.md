@@ -232,7 +232,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |8|[ContentProvider引用计数](http://gityuan.com/2016/05/03/content_provider_release/)|ContentProvider|
 |9|[Activity与Service生命周期](http://gityuan.com/2015/05/31/android-lifecycle/)|Activity&&Service|
 |10|[简述Activity与Window关系](http://gityuan.com/2017/04/16/activity-with-window/)|Activity&&Window|
-|11|[四大组件之ProcessRecord](http://gityuan.com/2017/05/19/process_record/)|Process|
+|11|[四大组件之综述](http://gityuan.com/2017/05/19/ams-abstract/)|AMS|
 |12|[四大组件之ServiceRecord](http://gityuan.com/2017/05/25/service_record/)|Service|
 |13|[四大组件之BroadcastRecord](http://gityuan.com/2017/06/03/broadcast_record/)|Broadcast|
 |14|[四大组件之ContentProviderRecord](http://gityuan.com/2017/06/04/content_provider_record/)|ContentProvider|
@@ -315,7 +315,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 ---
 
 **计划：** 后续持续新增和完善整个大纲，不限于进程、内存、IO、系统服务框架，整体架构以及各种系统分析实战等文章。
-博客会持续更新，各个击破，本文最近更新时间点: `2017.06.25`.
+博客会持续更新，各个击破，本文最近更新时间点: `2017.07.09`.
 
 ---
 
