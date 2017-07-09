@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "ActivityManagerService"
+title:  "AMS综述"
 date:   2016-01-01 14:09:12
 categories: android
 excerpt:  ActivityManagerService
@@ -10,9 +10,6 @@ excerpt:  ActivityManagerService
 {:toc}
 
 ---
-
-> 本文基于Android 6.0的源代码，来分析ActivityManagerService服务
-
 
 ## ActivityManagerService
 
