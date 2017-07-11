@@ -1,3 +1,5 @@
+logcat -b all | egrep -i "fingersense_touch_up|GITYUAN|broadcastqueue|am_anr"
+
 ## HUA
 mate 9 , android 7.0, kernel 4.1.18, hisilicon kirin 960
 4.0GB内存, 32GB存储
@@ -28,7 +30,7 @@ HWMHA:/ $ ps -t | grep " 1192 " -c
 //自动分析anr
 06-28 12:06:51.889   525  1011 I logserver: ANR, proc_name:com.gityuan.providertest, f1_name: at java.lang.Thread.sleep!(Native method), topcpu_proc:system_server
 
-06-28 13:55:40.779  1192  2147 I HwBroadcastQueue: pset default proxy broadcast actions:
+06-28 13:55:40.779  1192  2147 I HwBroadcastQueue: set default proxy broadcast actions:
 android.intent.action.ANY_DATA_STATE,
 android.intent.action.TIME_TICK,
 android.intent.action.BATTERY_CHANGED,
