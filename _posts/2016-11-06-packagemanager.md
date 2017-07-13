@@ -22,7 +22,7 @@ tags:
 
     frameworks/base/services/core/java/com/android/server/pm/Installer.java
     frameworks/base/core/java/com/android/internal/os/InstallerConnection.java
-  
+
 ## 一.概述
 
 PackageManagerService(简称PKMS)，是Android系统中核心服务之一，管理着所有跟package相关的工作，常见的比如安装、卸载应用。
@@ -52,13 +52,13 @@ SystemServer启动过程中涉及到的PKMS如下：
         } else if (ENCRYPTED_STATE.equals(cryptState)) {
             mOnlyCore = true; // ENCRYPTED_STATE = "1"
         }
-        
+
         //创建PKMS对象【见小节2.1】
         mPackageManagerService = PackageManagerService.main(mSystemContext, installer,
                     mFactoryTestMode != FactoryTest.FACTORY_TEST_OFF, mOnlyCore);
         //PKMS是否首次启动
         mFirstBoot = mPackageManagerService.isFirstBoot();
-        
+
         //【见小节3.1】
         mPackageManager = mSystemContext.getPackageManager();
         ...
@@ -106,7 +106,7 @@ PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家
 
     public PackageManagerService(Context context, Installer installer,
             boolean factoryTest, boolean onlyCore) {
-              
+
         阶段1：BOOT_PROGRESS_PMS_START
         ...
         synchronized (mInstallLock) {
@@ -117,16 +117,16 @@ PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家
             阶段4：BOOT_PROGRESS_PMS_SCAN_END
             阶段5：BOOT_PROGRESS_PMS_READY
             ...
-        } 
         }
-        
+        }
+
         Runtime.getRuntime().gc();
         //暴露私有服务，用于系统组件的使用
         LocalServices.addService(PackageManagerInternal.class, new PackageManagerInternalImpl());
     }
 
 接下里分别说说这5个阶段：
-        
+
 ### 2.1 PMS_START
 
 阶段1 PMS_START有两部分组成，由无需加锁的前部分和同时持有两个锁的后半部分，先来说说前半部分：
@@ -140,7 +140,7 @@ PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家
     mLazyDexOpt = "eng".equals(SystemProperties.get("ro.build.type"));
     mMetrics = new DisplayMetrics();
     mSettings = new Settings(mPackages); //创建Settings对象【见小节2.1.1】
-    
+
     // 添加system, phone, log, nfc, bluetooth, shell这六种shareUserId到mSettings；
     mSettings.addSharedUserLPw("android.uid.system", Process.SYSTEM_UID,
             ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
@@ -184,7 +184,7 @@ PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家
 
 - 对于Eng版本，则只会对30分钟之内使用过的app执行dex优化；
 - 对于非Eng版本，则会将用户最近一周内使用过的app执行dex优化；
-   
+
 接下来，再来看看后半部分：
 
     synchronized (mInstallLock) {
@@ -258,9 +258,9 @@ PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家
          mStoppedPackagesFilename = new File(mSystemDir, "packages-stopped.xml");
          mBackupStoppedPackagesFilename = new File(mSystemDir, "packages-stopped-backup.xml");
      }
- 
- 此处mSystemDir是指目录`/data/system`，在该目录有以下5个文件：
- 
+
+此处mSystemDir是指目录`/data/system`，在该目录有以下5个文件：
+
 |文件|功能|
 |---|---|
 |packages.xml|记录所有安装app的信息|
@@ -280,7 +280,7 @@ PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家
              return sInstance;
          }
      }
- 
+
     SystemConfig() {
         //读取权限目录【见小节2.1.3】
         readPermissions(Environment.buildPath(
@@ -292,7 +292,7 @@ PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家
         readPermissions(Environment.buildPath(
                 Environment.getOemDirectory(), "etc", "permissions"), true);
     }
-    
+
 readPermissions()解析指定目录下的所有xml文件，比如将标签`<library>`所指的动态库保存到
 PKMS的成员变量mSharedLibraries。可见，SystemConfig创建过程是对以下这四个目录中的所有xml进行解析:
 
@@ -317,7 +317,7 @@ PKMS的成员变量mSharedLibraries。可见，SystemConfig创建过程是对以
              if (!f.getPath().endsWith(".xml")) {
                  continue;
              }
-             
+
              if (!f.canRead()) {
                  continue;
              }
@@ -330,7 +330,7 @@ PKMS的成员变量mSharedLibraries。可见，SystemConfig创建过程是对以
      }
 
 该方法是解析指定目录下所有的具有可读权限的，且以xml后缀文件。    
-    
+
 ### 2.2 PMS_SYSTEM_SCAN_START
 
     long startTime = SystemClock.uptimeMillis();
@@ -351,7 +351,7 @@ PKMS的成员变量mSharedLibraries。可见，SystemConfig创建过程是对以
             alreadyDexOpted.add(element);
         }
     }
-    
+
     //将环境变量SYSTEMSERVERCLASSPATH所执行的文件加入alreadyDexOpted
     if (systemServerClassPath != null) {
         String[] systemServerClassPathElements = splitString(systemServerClassPath, ':');
@@ -500,7 +500,7 @@ PKMS的成员变量mSharedLibraries。可见，SystemConfig创建过程是对以
             }
         }
     }
-    
+
     //清理所有安装不完整的包
     ArrayList<PackageSetting> deletePkgsList = mSettings.getListOfIncompleteInstallPackagesLPr();
     for(int i = 0; i < deletePkgsList.size(); i++) {
@@ -554,7 +554,7 @@ PKMS的成员变量mSharedLibraries。可见，SystemConfig创建过程是对以
         return dexopt(apkPath, uid, "*", instructionSet, dexoptNeeded,
                 null, dexFlags);
     }
-    
+
     public int dexopt(String apkPath, int uid, String pkgName, String instructionSet,
          int dexoptNeeded, String outputPath, int dexFlags) {
        StringBuilder builder = new StringBuilder("dexopt");
@@ -577,7 +577,7 @@ PKMS的成员变量mSharedLibraries。可见，SystemConfig创建过程是对以
 
 
 通过socket发送给installd守护进程来执行相应的dexopt操作。
-   
+
 
 ### 2.3 PMS_DATA_SCAN_START
 
@@ -761,19 +761,19 @@ PKMS初始化过程，分为5个阶段：
   - 创建名为“PackageManager”的handler线程`mHandlerThread`;
   - 创建UserManagerService多用户管理服务；
   - 通过解析4大目录中的xmL文件构造共享mSharedLibraries；
-  
+
 2. PMS_SYSTEM_SCAN_START阶段：
   - mSharedLibraries共享库中的文件执行dexopt操作；
   - system/framework目录中满足条件的apk或jar文件执行dexopt操作；
   - 扫描系统apk;
-  
+
 3. PMS_DATA_SCAN_START阶段：
   - 扫描/data/app目录下的apk;
   - 扫描/data/app-private目录下的apk;
 
 4. PMS_SCAN_END阶段：
   - 将上述信息写回/data/system/packages.xml;
-  
+
 5. PMS_READY阶段：
   - 创建服务PackageInstallerService；
 
@@ -862,11 +862,11 @@ PKMS初始化过程，分为5个阶段：
                    it.remove();
                }
            }
-           
+
            //获取监听PRE_BOOT_COMPLETE的系统app集合
            Intent intent = new Intent(Intent.ACTION_PRE_BOOT_COMPLETED);
            ArraySet<String> pkgNames = getPackageNamesForIntent(intent);
-           
+
            for (Iterator<PackageParser.Package> it = pkgs.iterator(); it.hasNext();) {
                PackageParser.Package pkg = it.next();
                //将pkg中监听PRE_BOOT_COMPLETE的app添加到sortedPkgs
@@ -875,8 +875,8 @@ PKMS初始化过程，分为5个阶段：
                    it.remove();
                }
            }
-           
-           //获取pkgs中最近一周使用过的app[见小节3.2.1] 
+
+           //获取pkgs中最近一周使用过的app[见小节3.2.1]
            filterRecentlyUsedApps(pkgs);
 
            //将最近一周的app添加到sortedPkgs
@@ -893,7 +893,7 @@ PKMS初始化过程，分为5个阶段：
            File dataDir = Environment.getDataDirectory();
            long lowThreshold = StorageManager.from(mContext).getStorageLowBytes(dataDir);
            ...
-           
+
            for (PackageParser.Package pkg : sortedPkgs) {
                long usableSpace = dataDir.getUsableSpace();
                if (usableSpace < lowThreshold) {
@@ -910,13 +910,13 @@ PKMS初始化过程，分为5个阶段：
 - 当处于升级或者3天未执行fstrim，则本次会否执行fstrim操作；
 - 对sortedPkgs中的app执行dexopt优化，其中包含：
   - mDeferredDexOpt中的核心app；
-  - mDeferredDexOpt中监听PRE_BOOT_COMPLETE的app； 
+  - mDeferredDexOpt中监听PRE_BOOT_COMPLETE的app；
   - mDeferredDexOpt中最近一周使用过的app;
-  
+
 #### 3.2.1 PKMS.filterRecentlyUsedApps
 
     private void filterRecentlyUsedApps(Collection<PackageParser.Package> pkgs) {
-         
+
          if (mLazyDexOpt || (!isFirstBoot() && mPackageUsage.isHistoricalPackageUsageAvailable())) {
              int total = pkgs.size();
              int skipped = 0;
@@ -932,14 +932,14 @@ PKMS初始化过程，分为5个阶段：
              }
          }
      }
-     
+
 获取最近使用的app,其中mDexOptLRUThresholdInMills：
 
 - 对于Eng版本，则只会对30分钟之内使用过的app执行dex优化；
 - 对于用户版本，则会将用户最近一周内使用过的app执行dex优化；
 
 #### 3.2.2 PKMS.performBootDexOpt
- 
+
      private void performBootDexOpt(PackageParser.Package pkg, int curr, int total) {
         if (!isFirstBoot()) {
             ActivityManagerNative.getDefault().showBootMessage(
@@ -985,9 +985,9 @@ PKMS初始化过程，分为5个阶段：
              }
          }
      }
- 
+
  这个过程最终还是调用[小节2.2.1]的dexopt操作.
- 
+
 ### 3.3 PKMS.systemReady
 
     public void systemReady() {
@@ -1021,7 +1021,7 @@ PKMS初始化过程，分为5个阶段：
                 }
             }
         }
-        
+
         sUserManager.systemReady(); //多用户服务
 
         //升级所有已获取的默认权限
@@ -1086,7 +1086,7 @@ Android系统有很多目录可以存放app，如下所示：
   - /system/etc/permissions
   - /oem/etc/sysconfig
   - /oem/etc/permissions
-- /system/framework：该目录的所有apk和jar文件，去除位于alreadyDexOpted中的文件，其中alreadyDexOpted： 
+- /system/framework：该目录的所有apk和jar文件，去除位于alreadyDexOpted中的文件，其中alreadyDexOpted：
   - SYSTEMSERVERCLASSPATH环境变量：/system/framework目录下services.jar，ethernet-service.jar，wifi-service.jar这3个文件
   - BOOTCLASSPATH环境变量：/system/framework目录下的framework.jar，ext.jar，core-libart.jar等等
   - /system/framework/framework-res.apk
@@ -1095,7 +1095,7 @@ Android系统有很多目录可以存放app，如下所示：
 `startOtherServices`()执行到PKMS.performBootDexOpt过程，也是进行dexopt操作：
 
 - mDeferredDexOpt中的核心app；
-- mDeferredDexOpt中监听PRE_BOOT_COMPLETE的app； 
+- mDeferredDexOpt中监听PRE_BOOT_COMPLETE的app；
 - mDeferredDexOpt中最近一周使用过的app;
 
 最后，dexopt操作通过socket发送给守护进程installd来完成，下一篇文章介绍installd的功能。
