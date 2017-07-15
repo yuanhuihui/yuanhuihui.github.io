@@ -50,7 +50,7 @@ http://eng.pt.miui.com/?r=eng
 对于kernel来说都是通过vmlinux来获取的
 
 
-### demo 2
+### demo
 
 1. gityuan@13203:~/gityuan/projects/a1$ prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-nm out/target/product/gemini/obj/KERNEL_OBJ/vmlinux | grep binder_thread_read
 2. prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-addr2line -f -C -e out/target/product/gemini/obj/KERNEL_OBJ/vmlinux ffffffc000aa8cb4
