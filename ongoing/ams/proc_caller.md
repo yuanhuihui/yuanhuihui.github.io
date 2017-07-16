@@ -1,6 +1,16 @@
-ProcessStatsService
+Activity
+  - launchedFromPackage
 
+Broadcast
+  - callerPackage
+  - caller
 
+Service
+  - CI.startServiceCommon过程会把caller package传递过来
+
+Provider
+  - AMS.getContentProviderImpl()方法的参数 带有caller
+  
 ## 一. 启动
 ### 1.1 AMS
 [-> ActivityManagerService.java]
