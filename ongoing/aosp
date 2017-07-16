@@ -18,36 +18,12 @@ broadcastTimeoutLocked，应该区分是否fromMsg
 
 https://android-review.googlesource.com/#/c/249721/
 
-
-关于context问题：
-
-ContextImpl context = ContextImpl.createAppContext(
-        this, getSystemContext().mPackageInfo);
-mInitialApplication = context.mPackageInfo.makeApplication(true, null);
-
-==》 (通过断点来看看)
-mInitialApplication = getSystemContext().mPackageInfo.makeApplication(true, null);
-
-
 1, https://android.googlesource.com/platform/frameworks/base/+/cc64dfcf66a19084a58372ea7f9f5139ccc93221
 
 2. binder
 https://android.googlesource.com/kernel/common/+/8e5822fdabbb55608b62a100156e17612b590d39%5E%21/#F0
 https://android.googlesource.com/kernel/common/+/325c5ebdb78901cd3b5dd4aa0a0726c61cb0959d%5E%21/#F0
 https://android.googlesource.com/kernel/common/+/19d47b2b50699383c9a0869ef633d19e66448144%5E%21/#F0
-
-关于ServiceManager的死亡回调问题？ 百度地图多进程， 是否回调？ app binderDied是否回调？
-
-
-5. patch 2:
-final void appDiedLocked(ProcessRecord app, int pid, IApplicationThread thread,
-            boolean fromBinderDied) {
-						if(app.killed){
-						   Slog.i(TAG, "Process " + app.processName + " (pid " + pid
-                        + ") has already died, killed=" + app.killed + ", killedByAm=" + app.killedByAm);
-							return;
-						}
-
 
 8. setPackageStoppedState 是否存在优化的地方 ？
 
@@ -58,18 +34,6 @@ final void appDiedLocked(ProcessRecord app, int pid, IApplicationThread thread,
 
 13. 同步问题
 https://android-review.googlesource.com/#/c/187880/
-
-14. ASS.startActivityLocked
-
-callingPid = callerApp.pid;
-               callingUid = callerApp.info.uid;
-
-方案:
-callingUid = callerApp.info.uid; ==> callingUid = callerApp.uid;
-
-14. onPause优化方案
-
-FLAG_RESUME_WHILE_PAUSING
 
 15. set EXTRA_REPLACING correctly in ACTION_PACKAGE_ADDED
 https://android-review.googlesource.com/#/c/235091/

@@ -25,6 +25,9 @@
   at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:607)
   at java.lang.Thread.run(Thread.java:761)
 
+  http://gerrit.pt.miui.com/#/c/140404/3/src/com/miui/optimizecenter/common/PreferenceStore.java
+  这个不合理
+  
 ## 学习
 
 <我的Android学习之路>

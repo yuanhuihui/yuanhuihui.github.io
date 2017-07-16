@@ -1,3 +1,0 @@
-source build/envsetup.sh
-lunch    
-make -j4   target-files-package  

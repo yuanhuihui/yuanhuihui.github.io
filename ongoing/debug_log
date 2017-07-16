@@ -99,28 +99,6 @@ Binder:2755_8线程位于16670行代码612ms,等待AMS.java的16423行代码持�
 
 process, main, thread, time,   file, line, ownerfile,ownerline,  sample_percent
 
-格式定义在system/core/logcat/event.logtags
-20003 dvm_lock_sample (process|3),(main|1|5),(thread|3),(time|1|3),(file|3),(line|1|5),(ownerfile|3),(ownerline|1|5),(sample_percent|1|6)
-从中可以看出,dvm_lock_sample的几个参数包括:
-process:进程名
-main:是否是敏感线程(被设置了strictmode policy的线程),取值0或1
-thread:线程名
-time:等待锁的时间,毫秒为单位
-file:请求的lock在哪个文件
-line:请求的锁在代码哪一行
-ownerfile:这个锁被哪个文件占用
-ownerline:这个锁被占用的行数
-sample_percent:以500ms为准,如果等待时间为250ms,那么这个值为50,表示50%
-
-### 14. 卡顿情况
-
-//输出当前掉帧个数
-android.util.EventLog.writeEvent(30089,skippedFrames);
-
-Eventlog: 30089. (这个也是主线程的情况)
-
-30099, 是状态栏的问题.
-
 ## 其他
 
 调试技巧:
@@ -137,18 +115,15 @@ adb shell monkey -v --throttle 300 --pct-touch 30 --pct-motion 20 --pct-nav 20 -
 
 ### provider问题
 
-
 https://android-review.googlesource.com/#/c/144191/
 https://android-review.googlesource.com/#/c/148199/
 
 
 ### MIUI Event log
 
-30099, 是状态栏的问题.
-30089, 这是主线程skippedFrames个数
-
+30099: 是状态栏的问题.
+30089: 这是主线程skippedFrames个数
 cpu:  格式total, user,system, iowait, irq, softirq
-
 sf_frame_dur: 当前帧结束才输出的信息. 是由EventLog::doLogFrameDurations()输出的,  含义 (window|3),(dur0|1),(dur1|1),(dur2|1),(dur3|1),(dur4|1),(dur5|1),(dur6|1)
 
 screen_toggled (screen_state|1|5) : 含义:0 for screen off, 1 for screen on, 2 for key-guard done

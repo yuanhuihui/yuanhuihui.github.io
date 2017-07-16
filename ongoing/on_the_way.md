@@ -2,6 +2,13 @@
 2.properties
 
 
+binder 是不是可以减少向servicemanager来查询的操作, 直接缓存起来.
+
+
+https://source.android.com/devices/tech/debug/jank_jitter#fd-contention
+https://android.googlesource.com/kernel/msm/+/1a7a93bd33f48a369de29f6f2b56251127bf6ab4%5E!/
+
+
 ## 下一步
 
 1. binder parcel size打点；
@@ -72,12 +79,6 @@ http://blog.csdn.net/qq429205464/article/details/7822442
 #### input两次问题
 
 1. 超时提前统计的功能；
-2. 有地方的MIUI ADD，修改input flags可能存在问题。
-
-
-####
-
-SharedPreferencesImpl的性能问题, 需要优化
 
 
 ### linker文章
