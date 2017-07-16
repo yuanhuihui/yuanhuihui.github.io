@@ -74,6 +74,7 @@ pattern正则表达式主要参数：
 - 显示多条件匹配
 
         grep -E "android|linux“ .
+ 
 ## 二、 find
 
 搜索文件的命令

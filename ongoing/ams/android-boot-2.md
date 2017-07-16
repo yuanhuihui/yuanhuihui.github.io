@@ -1,5 +1,51 @@
 开机过程的进程启动顺序
 
+systemReady
+12342                mWaitingUpdate = deliverPreBootCompleted(new Runnable() {
+12343                    public void run() {
+12344                        synchronized (ActivityManagerService.this) {
+12345                            mDidUpdate = true;
+12346                        }
+12347                        showBootMessage(mContext.getText(
+12348                                R.string.android_upgrading_complete),
+12349                                false);
+12350                        writeLastDonePreBootReceivers(doneReceivers);
+12351                        systemReady(goingCallback);
+12352                    }
+12353                }, doneReceivers, UserHandle.USER_OWNER);
+
+
+
+deliverPreBootCompleted
+12307        PreBootContinuation cont = new PreBootContinuation(intent, onFinishCallback, doneReceivers,
+12308                ris, users);
+12309        cont.go();
+12310        return true;
+
+
+
+PreBootContinuation
+12235        public void performReceive(Intent intent, int resultCode,
+12236                String data, Bundle extras, boolean ordered,
+12237                boolean sticky, int sendingUser) {
+12238            curUser++;
+12239            if (curUser >= users.length) {
+12240                curUser = 0;
+12241                curRi++;
+12242                if (curRi >= ris.size()) {
+12243                    // All done sending broadcasts!
+12244                    if (onFinishCallback != null) {
+12245                        // The raw IIntentReceiver interface is called
+12246                        // with the AM lock held, so redispatch to
+12247                        // execute our code without the lock.
+12248                        mHandler.post(onFinishCallback);
+12249                    }
+12250                    return;
+12251                }
+12252            }
+12253            go();
+12254        }
+12255    }
 
 
 ## 一. 进程启动
@@ -151,6 +197,21 @@
     bindBackupAgent, "backup"
 
 hostingNameStr值一般地是组件名
+
+更多信息:
+
+Activity
+  - launchedFromPackage
+
+Broadcast
+  - callerPackage
+  - caller
+
+Service
+  - CI.startServiceCommon过程会把caller package传递过来
+
+Provider
+  - AMS.getContentProviderImpl()方法的参数 带有caller
 
 #### 启进程
 

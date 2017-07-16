@@ -1,6 +1,98 @@
 adb shell monkey -v --throttle 300 --pct-touch 30 --pct-motion 20 --pct-nav 20 --pct-majornav 15 --pct-appswitch 5 --pct-anyevent 5 --pct-trackball 0 --pct-syskeys 0 --bugreport 10000000  > monkeytest.txt
 
 
-adb shell monkey --throttle 500 
---pct-touch 20 --pct-motion 25 --pct-nav 20 --pct-majornav 15 --pct-appswitch 5 --pct-anyevent 15 
+adb shell monkey --throttle 500
+--pct-touch 20 --pct-motion 25 --pct-nav 20 --pct-majornav 15 --pct-appswitch 5 --pct-anyevent 15
 --ignore-crashes --ignore-timeouts --ignore-native-crashes --bugreport 500000000
+
+
+-v 用于输出调试信息
+
+adb shell monkey -p com.gityuan.providertest  --throttle 100  -v -v -v 300000
+
+
+## monkey说明
+
+默认只会过滤包含以下两类的activity.
+
+    if (mMainCategories.size() == 0) {
+        mMainCategories.add(Intent.CATEGORY_LAUNCHER);
+        mMainCategories.add(Intent.CATEGORY_MONKEY);
+    }
+
+另外, 可通过-c添加执行的命令.
+    -c android.intent.category.DEFAULT
+
+
+
+桌面之所以可以跑monkey 是由于添加了android.intent.category.MONKEY命令
+
+## 例如
+
+// Selecting main activities from category android.intent.category.LAUNCHER
+//   - NOT USING main activity com.android.browser.BrowserActivity (from package com.android.browser)
+//   - NOT USING main activity com.android.calendar.homepage.AllInOneActivity (from package com.android.calendar)
+//   - NOT USING main activity com.android.contacts.activities.PeopleActivity (from package com.android.contacts)
+//   - NOT USING main activity com.android.contacts.activities.TwelveKeyDialer (from package com.android.contacts)
+//   - NOT USING main activity com.android.camera.Camera (from package com.android.camera)
+//   - NOT USING main activity com.miui.gallery.activity.HomePageActivity (from package com.miui.gallery)
+//   - NOT USING main activity com.android.mms.ui.MmsTabActivity (from package com.android.mms)
+//   - NOT USING main activity com.android.settings.MainSettings (from package com.android.settings)
+//   - NOT USING main activity com.miui.weather2.ActivityWeatherMain (from package com.miui.weather2)
+//   - NOT USING main activity com.miui.calculator.cal.CalculatorActivity (from package com.miui.calculator)
+//   - NOT USING main activity com.android.deskclock.DeskClockTabActivity (from package com.android.deskclock)
+//   - NOT USING main activity com.android.email.activity.Welcome (from package com.android.email)
+//   - NOT USING main activity com.android.fileexplorer.FileExplorerTabActivity (from package com.android.fileexplorer)
+//   - NOT USING main activity com.mipay.wallet.ui.MipayEntryActivity (from package com.mipay.wallet)
+//   - NOT USING main activity com.xiaomi.scanner.app.ScanActivity (from package com.xiaomi.scanner)
+//   - NOT USING main activity com.miui.notes.ui.NotesListActivity (from package com.miui.notes)
+//   - NOT USING main activity com.android.thememanager.ThemeResourceTabActivity (from package com.android.thememanager)
+//   - NOT USING main activity com.xiaomi.jr.CTAActivity (from package com.xiaomi.jr)
+//   - NOT USING main activity com.achievo.vipshop.activity.LodingActivity (from package com.achievo.vipshop)
+//   - NOT USING main activity com.android.providers.downloads.ui.DownloadList (from package com.android.providers.downloads.ui)
+//   - NOT USING main activity com.miui.player.ui.MusicBrowserActivity (from package com.miui.player)
+//   - NOT USING main activity com.miui.securityscan.MainActivity (from package com.miui.securitycenter)
+//   - NOT USING main activity com.miui.virtualsim.ui.MainActivity (from package com.miui.virtualsim)
+//   - NOT USING main activity com.miui.bugreport.ui.MainTabActivity (from package com.miui.bugreport)
+//   - NOT USING main activity com.quicinc.cne.settings.CneSettings (from package com.quicinc.cne.settings)
+//   - NOT USING main activity com.qti.csk.MainActivity (from package com.qti.csk)
+//   - NOT USING main activity com.miui.fmradio.FmActivity (from package com.miui.fm)
+//   - NOT USING main activity com.xiaomi.gamecenter.ui.MainTabActivity (from package com.xiaomi.gamecenter)
+//   - NOT USING main activity com.miui.compass.CompassActivity (from package com.miui.compass)
+//   - NOT USING main activity com.xiaomi.market.ui.MarketTabActivity (from package com.xiaomi.market)
+//   - NOT USING main activity com.miui.video.HomeActivity (from package com.miui.video)
+//   - NOT USING main activity com.qualcomm.qualcommsettings.QualcommSettings (from package com.qualcomm.qualcommsettings)
+//   - NOT USING main activity com.android.soundrecorder.SoundRecorder (from package com.android.soundrecorder)
+//   - NOT USING main activity com.android.updater.MainActivity (from package com.android.updater)
+//   - NOT USING main activity com.miui.voiceassist.CTAAlertActivity (from package com.miui.voiceassist)
+//   - NOT USING main activity com.xiaomi.account.ui.AccountSettingsActivity (from package com.xiaomi.account)
+//   - NOT USING main activity com.qualcomm.qti.sensors.ui.qsensortest.TabControl (from package com.qualcomm.qti.sensors.qsensortest)
+//   - NOT USING main activity com.tencent.sc.activity.SplashActivity (from package com.qzone)
+//   - NOT USING main activity com.qiyi.video.WelcomeActivity (from package com.qiyi.video)
+//   - NOT USING main activity com.xiaomi.o2o.activity.GuideActivity (from package com.xiaomi.o2o)
+//   - NOT USING main activity com.xiaomi.channel.ui.ChannelLauncherActivity (from package com.xiaomi.channel)
+//   - NOT USING main activity com.sina.weibo.SplashActivity (from package com.sina.weibo)
+//   - NOT USING main activity com.mi.vtalk.business.MiVTalkMainActivity (from package com.mi.vtalk)
+//   - NOT USING main activity com.miui.miuibbs.activity.WelcomeActivity (from package com.miui.miuibbs)
+//   - NOT USING main activity com.wali.live.main.LiveMainActivity (from package com.wali.live)
+//   - NOT USING main activity com.yidian.xiaomi.ui.guide.UserGuideActivity (from package com.yidian.xiaomi)
+//   - NOT USING main activity com.yibasan.subfm.activities.EntryPointActivity (from package com.sub.nanrenyujia)
+//   - NOT USING main activity com.android.development.Development (from package com.android.development)
+//   - NOT USING main activity com.ximalaya.ting.android.main.activity.account.WelComeActivity (from package com.ximalaya.ting.android)
+//   - NOT USING main activity com.fooview.android.fooview.MainActivity (from package com.fooview.android.fooview)
+//   - NOT USING main activity com.xiaomi.smarthome.SmartHomeMainActivity (from package com.xiaomi.smarthome)
+//   - NOT USING main activity com.xiaomi.mitv.phone.remotecontroller.HoriWidgetMainActivityV2 (from package com.duokan.phone.remotecontroller)
+//   - NOT USING main activity com.dailyyoga.cn.activity.AdvertActivity (from package com.dailyyoga.cn)
+//   - NOT USING main activity tv.danmaku.bili.ui.splash.SplashActivity (from package tv.danmaku.bili)
+//   - NOT USING main activity com.duokan.reader.DkReaderActivity (from package com.duokan.reader)
+//   - NOT USING main activity com.xiaomi.shop.activity.MainTabActivity (from package com.xiaomi.shop)
+//   - NOT USING main activity ctrip.business.splash.CtripSplashActivity (from package ctrip.android.view)
+// Selecting main activities from category android.intent.category.MONKEY
+//   - NOT USING main activity com.miui.mipub.ui.cvlist.ConversationListActivity (from package com.miui.mipub)
+//   - NOT USING main activity com.miui.home.launcher.Launcher (from package com.miui.home)
+//   - NOT USING main activity com.mipay.wallet.ui.MipayEntryActivity (from package com.mipay.wallet)
+//   - NOT USING main activity com.xiaomi.payment.MiliCenterEntryActivity (from package com.xiaomi.payment)
+//   - NOT USING main activity com.miui.virtualsim.monkeyentry.MonkeyActivity (from package com.miui.virtualsim)
+//   - NOT USING main activity com.miui.yellowpage.activity.MonkeyActivity (from package com.miui.yellowpage)
+//   - NOT USING main activity com.xiaomi.vip.ui.monkeyentry.MonkeyActivity (from package com.xiaomi.vip)
+** No activities found to run, monkey aborted.

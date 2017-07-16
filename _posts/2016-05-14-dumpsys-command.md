@@ -187,6 +187,3 @@ cmd可选值
 
     dumpsys activity top //当前界面app状态
     dumpsys activity oom //进程oom状态
-
-
-> 由于本人最近刚刚换工作，个人下班时间严重缩减，迟迟没有更新博客，今天就先写到这里，后续再更新。

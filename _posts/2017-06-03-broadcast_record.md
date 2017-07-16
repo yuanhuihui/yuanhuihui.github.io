@@ -104,7 +104,7 @@ queryIntentReceivers()方法来查询指定Intent所对应的ResolveInfo列表�
 
 ### 3.2 发送过程
 
-[点击查看大图](http://www.gityuan.com/images/ams/broadcast/broadcast_relation1.jpg)
+[点击查看大图](http://www.gityuan.com/images/ams/broadcast/seq_broadcast.jpg)
 ![seq_broadcast](/images/ams/broadcast/seq_broadcast.jpg)
 
 处理过程，根据注册方式不同执行流程略有不同。

@@ -33,6 +33,9 @@ tags:
 - connections：记录该ContentProvider的所有连接信息，
   - 添加连接过程：incProviderCountLocked
   - 减少连接过程：decProviderCountLocked，removeDyingProviderLocked，cleanUpApplicationRecordLocked；
+- externalProcessTokenToHandle: 数据类型为HashMap<IBinder, ExternalProcessHandle>.
+    - AMS.getContentProviderExternalUnchecked()过程会添加externalProcessTokenToHandle值;
+    - CPR.hasConnectionOrHandle()或hasExternalProcessHandles()都会判断该变量是否为空.
 
 ### 2.2 ContentProviderConnection
 
@@ -48,7 +51,7 @@ tags:
   - 记录当前进程所有已发布的provider;
 - conProviders: ArrayList<ContentProviderConnection>
   - 记录当前进程跟其他进程provider所建立的连接
-  
+
 ### 2.4 AMS
 
 - mProviderMap记录系统所有的provider信息；

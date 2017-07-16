@@ -1,4 +1,12 @@
-Android Studio如何导入Android OS源码笔记
+---
+layout: post
+title:  "Android Studio导入Android系统源码笔记"
+date:   2016-06-13 20:30:00
+catalog:  true
+tags:
+    - android
+---
+
 
 
 ## 一. 准备
@@ -11,8 +19,9 @@ IDEGen自身生成Android IDE配置，可用于IntelliJ IDEA( Android Studio基�
 3. 调整AS内存参数；
 
 AS需要大量的内存来加载Android源码，所以需要配置VM options， 点击Help -> Edit Custom VM Options，
-建议值"-Xms748m -Xmx748m"。
-  
+
+比如 "-Xms748m -Xmx748m"。
+
 ## 二. 生成IDE相关文件
 idegen专门为IDE环境调试源码而设计的工具， 依次执行如下命令：
 
@@ -26,7 +35,7 @@ idegen专门为IDE环境调试源码而设计的工具， 依次执行如下命�
 - 第二行命令，用于生成文件out/host/linux-x86/framework/idegen.jar；
 - 第三行命令，用于源码根目录生成文件android.ipr(工程相关设置), android.iml(模块相关配置)
 
-## 三. 导入源码
+## 三. 源码导入
 
 ### 3.1 优化导入速度
 

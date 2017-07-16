@@ -11,37 +11,6 @@ excerpt:  ActivityManagerService
 
 ---
 
-## ActivityManagerService
-
-boolean mProcessesReady = false;    AMS.systemReady()
-boolean mSystemReady = false;    AMS.systemReady()
-boolean mBooting = false;  AMS.systemReady()桌面启动时为true,  ASS.checkFinishBootingLocked()为false, AMS.ensureBootCompleted为false
-boolean mBooted = false;  ASS.checkFinishBootingLocked()为true, AMS.ensureBootCompleted为true.
-
-
-## Broadcast
-
-- ACTION_SCREEN_ON/ ACTION_SCREEN_OFF:
-    - Notifier.java中的 sendWakeUpBroadcast, 亮灭屏广播.
-    - 这是order广播;
-    - 并且是前台的;
-- ACTION_TIME_TICK:  AlarmManagerService.java的onStart, 发送time_tick广播;
-- ACTION_BOOT_COMPLETED:  UserController.java的 finishUserUnlockedCompleted, 这是order广播;
-
-
-### 3.2 继承关系
-
-    PackageItemInfo
-        ApplicationInfo
-        ComponentInfo
-            ActivityInfo
-            ServiceInfo
-            ProviderInfo
-        InstrumentationInfo
-        PermissionInfo
-        PermissionGroupInfo
-
-
 ### CPU
 
 CpuBinder的核心方法：
@@ -51,8 +20,6 @@ CpuBinder的核心方法：
 
 最终还是通过解析节点/proc/stat
 
-
-### CPU
 
 dumpsys cpuinfo
 
