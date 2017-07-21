@@ -8,6 +8,7 @@ tags:
 
 ---
 
+
 > 基于Android 7.0的代码
 
 ## 一.概述
@@ -26,34 +27,6 @@ tags:
       WHAT may be one of:
         a[ctivities]: activity stack state
 
-        r[recents]: recent activities state
-        b[roadcasts] [PACKAGE_NAME] [history [-s]]: broadcast state
-
-        broadcast-stats [PACKAGE_NAME]: aggregated broadcast statistics
-        i[ntents] [PACKAGE_NAME]: pending intent state
-        p[rocesses] [PACKAGE_NAME]: process state
-        o[om]: out of memory management
-        perm[issions]: URI permission grant state
-
-        prov[iders] [COMP_SPEC ...]: content provider state
-        provider [COMP_SPEC]: provider client-side state
-
-        s[ervices] [COMP_SPEC ...]: service state
-        service [COMP_SPEC]: service client-side state
-        package [PACKAGE_NAME]: all state related to given package
-        all: dump all activities
-        top: dump the top activity
-      WHAT may also be a COMP_SPEC to dump activities.
-      COMP_SPEC may be a component name (com.foo/.myApp),
-        a partial substring in a component name, a
-        hex object identifier.
-
-
-      -a: include all available server state.
-      -c: include client state.
-      -p: limit output to given package.
-      --checkin: output checkin format, resetting data.
-      --C: output checkin format, not resetting data.
 
 ### 参数
 options可选值：
@@ -84,6 +57,7 @@ cmd可取值：
 - write: write all pending state to storage
 - track-associations: enable association tracking
 - untrack-associations: disable and clear association tracking
+
 
 ## 二. 详细说明
 
@@ -191,6 +165,13 @@ SERVICE_ADJ -> SERVICE_B_ADJ: 在内存紧张的情况, 把会内存比较大的
 
 
  
+
+## activity
+
+
+ 
+
+
   AMS.dump
   AMS.dumpActivitiesLocked
   ASS.dumpActivitiesLocked
@@ -337,6 +318,7 @@ dumpStackTraces，会出现在
 - appNotResponding
 - Watchdog.run (waitState==WAITED_HALF)
 
+
 AMS.updateCpuStatsNow，只会在
 
 - appNotResponding
@@ -360,11 +342,12 @@ BroadcastRecord
     final int callingPid;   // the pid of who sent this
     final int callingUid;   // the uid of who sent this
 
-
-
+  
+  
 ActivityRecord
   final int launchedFromUid; // always the uid who started the activity.
   final String launchedFromPackage; // always the package who started the activity.
+  
 
 service和provider由谁拉起的,并不知道.
 
