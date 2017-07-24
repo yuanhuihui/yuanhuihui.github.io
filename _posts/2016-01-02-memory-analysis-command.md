@@ -161,8 +161,8 @@ tags:
     Dirty:                  0 kB  //等待往磁盘回写的大小
     Writeback:              0 kB  //正在往磁盘回写的大小
 
-    AnonPages:        700.700 kB
-    Mapped:           187.096 kB  //通过mmap()分配的内存，用于map设备、文件或者库
+    AnonPages:        700.700 kB  //匿名页，用户空间的页表，没有对应的文件
+    Mapped:           187.096 kB  //文件通过mmap分配的内存，用于map设备、文件或者库
     Shmem:               .312 kB
 
     Slab:              91.276 kB  //kernel数据结构的缓存大小，Slab=SReclaimable+SUnreclaim
