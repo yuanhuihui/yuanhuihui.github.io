@@ -560,6 +560,8 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
         }
     }
 
+此处packageName为设置PendingIntent所在进程的包名, 后续会把该信息保存到PendingIntentRecord.Key.
+
 #### 3.1.5 AMS.getIntentSenderLocked
 
     IIntentSender getIntentSenderLocked(int type, String packageName,
@@ -841,7 +843,7 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
 - INTENT_SENDER_ACTIVITY_RESULT: 则执行sendActivityResultLocked
 - INTENT_SENDER_SERVICE: 则执行startServiceInPackage
 - INTENT_SENDER_BROADCAST: 则执行broadcastIntentInPackage
-    
+
 再回到小节4.2 deliverLocked,可知当没有指定PendingIntent时,则会回调listener的doAlarm()过程.
 由[小节3.4]创建的ListenerWrapper对象.
 
