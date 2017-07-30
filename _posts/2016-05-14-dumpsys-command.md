@@ -11,11 +11,25 @@ tags:
 
 > dumpsys命令功能很强大，能dump系统服务的各种状态，非常有必要熟悉该命令的用法以及含义。
 
-## 一、 dumpsys命令
+## 一、 概述
 
-### 1.1 服务列表
+#### 1.1 dumpsys命令用法
 
-不同的Android系统版本支持的命令有所不同，可通过下面命令查看当前手机所支持的dump服务，先进入adb shell，再执行如下命令：`dumpsys -l`。 这些服务名或许你并看不出其调用的哪个服务，那么这时可以通过下面指令：`service list`。
+可通过dumpsys命令查询系统服务的运行状态(对象的成员变量属性值)，命令格式：`dumpsys 服务名`，
+例如：
+
+    dumpsys activity //查询AMS服务相关信息
+    dumpsys window //查询WMS服务相关信息
+    dumpsys cpuinfo //查询CPU情况
+    dumpsys meminfo //查询内存情况
+
+
+可查询的服务有很多，可通过下面任一命令查看当前系统所支持的dump服务：
+
+    adb shell dumpsys -l
+    adb shell service list
+
+#### 1.2 系统服务
 
 表一：
 
@@ -54,81 +68,12 @@ tags:
 |diskstats|磁盘情况
 |usagestats|用户使用情况|
 |devicestoragemonitor|设备信息|
-|。。。|。。。|
-
-未完待续...
-
-### 1.2 查询服务
-
-通过下面命令可打印具体某一项服务：`dumpsys <service>`，其中<service>便是前面表格中的服务名，比如：
-
-    dumpsys cpuinfo //打印一段时间进程的CPU使用百分比排行榜
-    dumpsys meminfo -h  //查看dump内存的帮助信息
-    dumpsys package <packagename> //查看指定包的信息
+|...|...|
 
 
-系统服务非常之多，那么接下来将重点说说其中之一:`dumpsys activity`用法.
+## 二、Activity场景
 
-
-## 二、 Activity
-
-    dumpsys activity [options] [cmd]
-
-下面分别说说options和cmd有哪些可选值
-
-### 2.1 options
-
-options可选值：
-
-- `-a`：dump所有；
-- `-c`：dump客户端；
-- `-p [package]`：dump指定的包名；
-- `-h`：输出帮助信息；
-
-
-`dumpsys activity`等价于依次输出下面7条指令：
-
-    dumpsys activity intents
-    dumpsys activity broadcasts
-    dumpsys activity providers
-    dumpsys activity services
-    dumpsys activity recents
-    dumpsys activity activities
-    dumpsys activity processes
-
-
-### 2.2 cmd
-
-cmd可选值
-
-|cmd|解释|缩写|
-|---|---|
-|activities|activity状态|a|
-|**broadcasts**| 广播|b|
-|**intents**| pending intent状态|i|
-|**processes**| 进程|p|
-|oom| 内存溢出|o|
-|**services**| Service状态|s|
-|service | service状态(Client端)
-|**providers**|ContentProvider状态|prov|
-|provider| ContentProvider状态(Client端)
-|associations| tracked app associations|as|
-|permissions| URI permission grant state|perm
-|**package**| package相关信息
-|all| 所有的activities信息
-|recents| recent activity状态|r|
-|top|top activity信息
-|write|将状态持久化到存储区
-|track-associations|使能association tracking
-|untrack-associations|禁止和清空association tracking
-
-- cmd：上表加粗项是指直接跟`包名`，另外services和providers还可以跟`组件名`；
-- 缩写：基本都是cmd首字母或者前几个字母，用cmd和缩写是等效：
-        dumpsys activity broadcasts
-        dumpsys activity b //等效
-
-
-## 三、场景
+`dumpsys activity`，用于查询AMS服务相关信息，可跟不同的参数，更多信息见文章[AMS之dumpsys篇](http://www.gityuan.com/2017/07/04/ams_dumpsys/)
 
 下面以新浪微博App作为实例，由于输出结果较多，每个场景截图只挑选部分重要的信息。
 
@@ -186,4 +131,4 @@ cmd可选值
 还有很多场景，会用到不同的参数，这里就不再一一列举，建议大家多去尝试，慢慢地就更加熟练，再比如：
 
     dumpsys activity top //当前界面app状态
-    dumpsys activity oom //进程oom状态
+    dumpsys activity oom //查看进程状态

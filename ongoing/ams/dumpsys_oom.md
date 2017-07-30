@@ -1,1 +1,0 @@
-dumpsys activity o

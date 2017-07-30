@@ -1,3 +1,79 @@
+
+
+ActivityThread.java
+
+public void dumpGfxInfo(FileDescriptor fd, String[] args) {
+    dumpGraphicsInfo(fd);
+    WindowManagerGlobal.getInstance().dumpGfxInfo(fd, args);
+}
+
+
+
+
+## 其他
+
+
+  dumpsys package
+  dumpsys input
+  dumpsys window
+  dumpsys alarm
+
+  dumpsys processinfo
+  dumpsys permission
+  dumpsys meminfo
+  dumpsys cpuinfo
+  dumpsys dbinfo
+  dumspys gfxinfo
+
+  dumpsys power
+  dumpsys battery
+  dumpsys batterystats
+  dumpsys batteryproperties
+
+  dumpsys procstats
+  dumpsys diskstats
+  dumpsys graphicsstats
+  dumpsys usagestats
+  dumpsys devicestoragemonitor
+  dumpsys dropbox
+
+  dumpsys appops
+  dumpsys SurfaceFlinger
+
+
+
+### dumpsys cpuinfo
+
+MEmBinder
+
+ProcessCpuTracker.java
+
+每个更新是通过update()方法，而该方法只有在
+
+- AMS.updateCpuStatsNow
+- AMS.dumpStackTraces (2次)
+- ProcessCpuTracker.init (初始化1次)
+- LoadAverageService.handleMessage (msg=1)
+
+
+dumpStackTraces，会出现在
+
+- appNotResponding
+- Watchdog.run (waitState==WAITED_HALF)
+
+
+AMS.updateCpuStatsNow，只会在
+
+- appNotResponding
+- batteryNeedsCpuUpdate
+- batteryPowerChanged
+- checkExcessivePowerUsageLocked
+- dumpApplicationMemoryUsage
+- mBgHandler.handleMessage  (COLLECT_PSS_BG_MSG)
+- reportMemUsage
+- CpuTracker.run
+
+
 ## wm
 
 交由服务WindowManagerService来完成

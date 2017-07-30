@@ -1,3 +1,108 @@
+### 进程状态值
+
+|取值|缩写|进程状态|
+|---|---|
+|0|P|PROCESS_STATE_PERSISTENT|
+|1|PU|PROCESS_STATE_PERSISTENT_UI|
+|2|T|PROCESS_STATE_TOP|
+|3|SB|PROCESS_STATE_BOUND_FOREGROUND_SERVICE|
+|4|SF|PROCESS_STATE_FOREGROUND_SERVICE|
+|5|TS|PROCESS_STATE_TOP_SLEEPING|
+|6|IF|PROCESS_STATE_IMPORTANT_FOREGROUND|
+|7|IB|PROCESS_STATE_IMPORTANT_BACKGROUND|
+|8|BU|PROCESS_STATE_BACKUP|
+|9|HW|PROCESS_STATE_HEAVY_WEIGHT|
+|10|S|PROCESS_STATE_SERVICE|
+|11|R|PROCESS_STATE_RECEIVER|
+|12|HO|PROCESS_STATE_HOME|
+|13|LA|PROCESS_STATE_LAST_ACTIVITY|
+|14|CA|PROCESS_STATE_CACHED_ACTIVITY|
+|15|Ca|PROCESS_STATE_CACHED_ACTIVITY_CLIENT|
+|16|CE|PROCESS_STATE_CACHED_EMPTY|
+
+
+简称说明:
+
+    P -> PERSISTENT
+    S -> SERVICE
+    R -> RECEIVER
+    F -> FOREGROUND
+    B -> BACKGROUND/BOUND
+    T -> TOP
+    I -> IMPORTANT
+    L -> LAST
+    C -> CACHED
+    E -> EMPTY
+
+
+### 进程ADJ
+
+|取值|缩写|进程ADJ|
+|---|---||
+|-1000|ntv|NATIVE_ADJ|
+|-900|sys|SYSTEM_ADJ|
+|-800|pers|PERSISTENT_PROC_ADJ|
+|-700|psvc|PERSISTENT_SERVICE_ADJ|
+|0|fore|FOREGROUND_APP_ADJ|
+|100|vis|VISIBLE_APP_ADJ|
+|200|prcp|PERCEPTIBLE_APP_ADJ|
+|300|bkup|BACKUP_APP_ADJ|
+|400|hvy|HEAVY_WEIGHT_APP_ADJ|
+|500|svc|SERVICE_ADJ|
+|600|home|HOME_APP_ADJ|
+|700|prev|PREVIOUS_APP_ADJ|
+|800|svcb|SERVICE_B_ADJ|
+|900|cch|CACHED_APP_MIN_ADJ|
+|906|-|CACHED_APP_MAX_ADJ
+|1001|-|UNKNOWN_ADJ|
+|-10000|-|INVALID_ADJ|
+
+
+
+FOREGROUND_APP_ADJ
+    app.adjType = "top-activity";
+    app.adjType = "broadcast";
+    app.adjType = "exec-service";
+
+VISIBLE_APP_ADJ
+    app.adjType = "visible";
+
+PERCEPTIBLE_APP_ADJ
+    app.adjType = "pausing";
+    app.adjType = "stopping";
+    app.adjType = "fg-service";
+    app.adjType = "force-fg";
+
+
+service:
+
+    app.adjType = "cch-started-ui-services"; //启动过activity的service进程
+    app.adjType = "started-services"; //30分钟内有活动 , adj属于SERVICE_ADJ
+    app.adjType = "cch-started-services"; //超过30分钟没有活动的service
+
+    adjType = "cch-bound-ui-services"; //bound进程: 启动过activity
+    adjType = "cch-bound-services";  //bound进程: 超过30分钟没有活动的service
+    adjType = "service"; // 前台可见activity正在使用的service所在进程, 则adj属于FOREGROUND_APP_ADJ
+
+
+provider:
+
+    app.adjType = "cch-ui-provider";
+    app.adjType = "provider"; //有可能高优先级, 比如OREGROUND_APP_ADJ
+
+
+app.adjType = "cch-client-act";
+app.adjType = "cch-as-act";
+app.adjType = "cch-empty";
+app.adjType = "cch-act";
+
+
+SERVICE_ADJ -> SERVICE_B_ADJ: 在内存紧张的情况, 把会内存比较大的进程从SERVICE迁移到B_SERVICE.
+
+
+
+
+
 ### Process
 
 ### 1. All known processes
