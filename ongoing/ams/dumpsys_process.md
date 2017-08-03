@@ -88,7 +88,7 @@ service:
 provider:
 
     app.adjType = "cch-ui-provider";
-    app.adjType = "provider"; //有可能高优先级, 比如OREGROUND_APP_ADJ
+    app.adjType = "provider"; //有可能高优先级, 比如FOREGROUND_APP_ADJ
 
 
 app.adjType = "cch-client-act";

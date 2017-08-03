@@ -35,7 +35,7 @@ Rebooting in
 
 Going down for restart now
 
-Exception stack
+device timeout
 
 
 fault addr  (NE)

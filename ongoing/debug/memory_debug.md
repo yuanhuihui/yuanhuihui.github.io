@@ -93,13 +93,3 @@ full_log出现The application may be doing too much work on its main thread.这�
 batterystats解析
 <http://wiki.n.miui.com/pages/viewpage.action?pageId=10694697>
 <http://wiki.n.miui.com/pages/viewpage.action?pageId=10698876>
-
-
-
-[08-12 01:38:24.955]<6>[   16.906919] lowmemorykiller: lowmem_shrink: convert oom_adj to oom_score_adj:
-[08-12 01:38:24.955]<6>[   16.906927] lowmemorykiller: oom_adj 0 => oom_score_adj 0
-[08-12 01:38:24.955]<6>[   16.906932] lowmemorykiller: oom_adj 1 => oom_score_adj 58
-[08-12 01:38:24.955]<6>[   16.906936] lowmemorykiller: oom_adj 2 => oom_score_adj 117
-[08-12 01:38:24.955]<6>[   16.906939] lowmemorykiller: oom_adj 3 => oom_score_adj 176
-[08-12 01:38:24.955]<6>[   16.906943] lowmemorykiller: oom_adj 9 => oom_score_adj 529
-[08-12 01:38:24.955]<6>[   16.906947] lowmemorykiller: oom_adj 15 => oom_score_adj 1000

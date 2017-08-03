@@ -101,18 +101,6 @@ http://wiki.mioffice.cn/xmg/Debug_kernel
 
 http://wiki.mioffice.cn/xmg/Power_up_reason
 
-## 项目
-
-### 途径1
-
-/data/anr/traces.txt.report 这个抓bugreport时生成的 (现抓的)
-/data/anr/traces.txt 这是上次发生anr时抓取的 (这个重点看)
-
-### 途径2
-
-/data/dropbox/system_server_anr之类
-
-bugreport关键词: DUMP OF SERVICE dropbox:
 
 ### 一、reboot
 
@@ -244,12 +232,3 @@ PowerManagerService: Sleeping
 PowerManagerService: Waking up from sleep
 
 灭屏:
-
-
-
-
-
-##  AMS
-
-Activity启动
-ActivityManager: START u0
