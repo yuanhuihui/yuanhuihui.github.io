@@ -250,7 +250,7 @@ Tips:
 - incoming transaction: 当前线程transaction_stack, 由需要线程接收的事务;
 - pending transactions: 记录当前进程总的pending事务;
 
-### 相关说明
+#### 2.2.3 proc
 
     cat /d/binder/proc/<pid>
 

@@ -1,13 +1,82 @@
+## dumpsys package
 
 
-ActivityThread.java
+dumpsys package 常见参数:
 
-public void dumpGfxInfo(FileDescriptor fd, String[] args) {
-    dumpGraphicsInfo(fd);
-    WindowManagerGlobal.getInstance().dumpGfxInfo(fd, args);
-}
+    p[ackages]:  查询已安装的应用包
+    <packagename>: 查询指定应用包的信息
+    r[esolvers] [activity|service|receiver|content]: 查询intent resolvers
+    prov[iders]: 查询content providers
+
+    l[ibraries]: 查询已知共享库
+    f[ibraries]: 查询设备features
+    k[eysets]: 查询已知的keysets
+    version: 查询数据库版本, 包括ROM版本
+    m[essages]: 收集packge相关的运行时事件
+
+    perm[issions]: dump permissions
+    permission [name ...]: dump declaration and use of given permission
+    check-permission <permission> <package> [<user>]: does pkg hold perm?
+    pref[erred]: print preferred package settings
+    preferred-xml [--full]: print preferred package settings as xml
+    s[hared-users]: dump shared user IDs
 
 
+其中
+
+dumpsys package r
+
+    Activity Resolver Table:
+    Receiver Resolver Table:
+    Service Resolver Table:
+    Provider Resolver Table:
+
+
+dumpsys package prov
+
+    Registered ContentProviders: //所有已注册的provider
+    ContentProvider Authorities: // auth --> provider映射关系
+
+
+## dumpsys input
+
+
+输出内容分别为EventHub.dump(),InputReader.dump(),InputDispatcher.dump()这3类,另外如果发生过input ANR,那么也会输出上一个ANR的状态.
+
+
+    Event Hub State: //输出EventHub设备信息
+    Input Reader State: //输出InputReader信息
+    Input Dispatcher State: //输出InputDispatcher信息
+
+
+
+## dumpsys window
+
+dumpsys window
+
+    d[isplays]: //跟activity具有对应关系, active display contents
+    t[okens]: token list
+    w[indows]: window list
+
+#### displays
+
+关系: WMS -> DisplayContent -> TaskStack -> Task -> AppWindowToken
+
+WMS: SparseArray<DisplayContent> mDisplayContents
+DisplayContent: ArrayList<TaskStack> mStacks
+TaskStack: ArrayList<Task> mTasks
+Task: AppTokenList mAppTokens
+AppTokenList: AppWindowToken
+
+#### windows
+
+WMS: SparseArray<DisplayContent> mDisplayContents
+DisplayContent: WindowList mWindows
+WindowList: WindowState
+
+#### tokens
+
+WMS: HashMap<IBinder, WindowToken> mTokenMap
 
 
 ## 其他
@@ -16,8 +85,8 @@ public void dumpGfxInfo(FileDescriptor fd, String[] args) {
   dumpsys package
   dumpsys input
   dumpsys window
-  dumpsys alarm
 
+  dumpsys alarm
   dumpsys processinfo
   dumpsys permission
   dumpsys meminfo
