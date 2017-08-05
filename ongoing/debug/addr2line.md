@@ -1,4 +1,3 @@
-http://www.cnblogs.com/yangjies145/p/6512740.html
 
 
 addr2line

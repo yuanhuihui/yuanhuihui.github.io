@@ -2,7 +2,7 @@
 
 df
 
-cat proc/partitions  
+cat /proc/partitions  
 
 mount
 
