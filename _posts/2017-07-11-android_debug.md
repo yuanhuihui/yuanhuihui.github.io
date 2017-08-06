@@ -61,7 +61,7 @@ tags:
 
 其中dumpKernelStackTraces()只能用于打印当前进程的kernel线程
 
-#### 1.3 归纳
+#### 1.3 小节
 
 以下分别列举输出Java, Native, Kernel的调用栈方式：
 
