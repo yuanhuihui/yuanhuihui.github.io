@@ -24,7 +24,7 @@ tags:
 
 Linux则采用fork()和exec()，这两个操作合起来的功能跟spawn有点相似；
 
-- fork: 复制当前进程的方式来创建子进程，此时子进程与父进程的区别在于pid, ppid以及资源统计量(比如挂起的信号)
+- fork: 复制当前进程的方式来创建子进程，此时子进程与父进程的区别仅在于pid, ppid以及资源统计量(比如挂起的信号)
 - exec： 读取可执行文件并载入地址空间执行；
 
 fork: Linux通过fork复制父进程的方式来创建新进程，复制的资源包括text segment, data segment, stack, heap这些内存区域。fork调用者所在进程便是父进程，新创建的进程便是子进程；在fork调用结束，从内核返回两次，一次继续执行父进程，一次进入执行子进程。
@@ -144,3 +144,35 @@ fork和dup，都只是增加file->f_count的引用计数
 3. binder_release：主进程被杀，并收不到binder_flush, 子进程被杀则能。无法解决问题。
 4. zygote waitpit. 目前并不支持。
 5. exit()：设计不够合理
+
+
+### 2.4
+
+【需要图片】
+syscall <-> 内核 <-> 中断
+
+- 应用程序通过系统调用syscall与内核通信；
+- 硬件设备通过发出中断信号，来打断CPU的执行。每一个中断对应一个中断号，内核通过中断号，找到并调用该中断处理程序来响应中断。
+
+例如，当用手指触摸屏幕，则屏幕设备会发送中断，告知内核有touch输入事件需要处理，内核收到中断并调用相应处理程序来响应该输入事件。
+
+
+
+
+### CPU的三种运行状态
+
+- 运行在User Space(用户空间)，执行用户进程；
+- 运行在Kernel Space(内核空间)，处于进程上下文，执行相应的进程；当CPU空闲时也处于该状态；
+- 运行在Kernel Space(内核空间)，处于中断上下文，处理相应的中断。
+
+【需要图片】
+
+
+http://blog.csdn.net/u012927281/article/details/52016191
+
+http://www.ibm.com/developerworks/cn/linux/l-linux-process-management/index.html
+
+http://blog.csdn.net/gatieme/article/details/51569932
+
+//内核blog
+http://blog.csdn.net/gatieme/article/details/51577479
