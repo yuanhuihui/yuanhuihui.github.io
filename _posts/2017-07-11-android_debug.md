@@ -56,7 +56,7 @@ tags:
 
 **3） Kernel层**
 
-    adb shellcat /proc/[tid]/stack  //方法1
+    adb shell cat /proc/[tid]/stack  //方法1
     WatchDog.dumpKernelStackTraces() //方法2
 
 其中dumpKernelStackTraces()只能用于打印当前进程的kernel线程
