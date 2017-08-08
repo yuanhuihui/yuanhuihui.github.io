@@ -671,7 +671,6 @@ buffer大小的优先级顺序为:
 [-> SocketListener.cpp]
 
     void SocketListener::runListener() {
-
         SocketClientCollection pendingList;
         while(1) {
             ...
