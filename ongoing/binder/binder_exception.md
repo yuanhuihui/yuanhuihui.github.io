@@ -247,7 +247,6 @@
             }
             res = true;
         } catch (OutOfMemoryError e) {
-            // Unconditionally log this, since this is generally unrecoverable.
             Log.e(TAG, "Caught an OutOfMemoryError from the binder stub implementation.", e);
             RuntimeException re = new RuntimeException("Out of memory", e);
             reply.setDataPosition(0);

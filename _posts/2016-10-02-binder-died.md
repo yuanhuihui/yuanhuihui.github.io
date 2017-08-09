@@ -53,7 +53,6 @@ tags:
             mAppThread = thread;
         }
 
-        @Override
         public void binderDied() {
             synchronized(ActivityManagerService.this) {
                 //[见流程2.2]
@@ -446,7 +445,7 @@ tags:
         if (restarting) {
             return false;
         }
-        
+
         if (!app.persistent || app.isolated) {
             removeProcessNameLocked(app.processName, app.uid);
             if (mHeavyWeightProcess == app) {

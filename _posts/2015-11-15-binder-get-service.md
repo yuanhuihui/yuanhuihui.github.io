@@ -259,7 +259,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
                 case BR_DEAD_REPLY: ...
                 case BR_FAILED_REPLY: ...
                 case BR_ACQUIRE_RESULT: ...
-                case BR_REPLY: 
+                case BR_REPLY:
                 {
                   binder_transaction_data tr;
                   err = mIn.read(&tr, sizeof(tr));
@@ -279,7 +279,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
                 goto finish;
 
                 default:
-                    err = executeCommand(cmd); 
+                    err = executeCommand(cmd);
                     if (err != NO_ERROR) goto finish;
                     break;
             }
@@ -343,7 +343,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
         struct list_head *target_list；      //目标TODO队列
         wait_queue_head_t *target_wait；     //目标等待队列
         ...
-        
+
         //分配两个结构体内存
         struct binder_transaction *t = kzalloc(sizeof(*t), GFP_KERNEL);
         struct binder_work *tcomplete = kzalloc(sizeof(*tcomplete), GFP_KERNEL);
@@ -354,8 +354,8 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
             switch (fp->type) {
             case BINDER_TYPE_BINDER: ...
             case BINDER_TYPE_WEAK_BINDER: ...
-            
-            case BINDER_TYPE_HANDLE: 
+
+            case BINDER_TYPE_HANDLE:
             case BINDER_TYPE_WEAK_HANDLE: {
               struct binder_ref *ref = binder_get_ref(proc, fp->handle,
                     fp->type == BINDER_TYPE_HANDLE);
@@ -370,7 +370,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
                 fp->binder = ref->node->ptr;
                 fp->cookie = ref->node->cookie; //BBinder服务的地址
                 binder_inc_node(ref->node, fp->type == BINDER_TYPE_BINDER, 0, NULL);
-                
+
               } else {
                 struct binder_ref *new_ref;
                 //请求服务所在进程并非服务所在进程，则为请求服务所在进程创建binder_ref
@@ -381,7 +381,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
                 binder_inc_ref(new_ref, fp->type == BINDER_TYPE_HANDLE, NULL);
               }
             } break;
-            
+
             case BINDER_TYPE_FD: ...
             }
         }
@@ -424,7 +424,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
                     //获取transaction数据
                     t = container_of(w, struct binder_transaction, work);
                     break;
-                    
+
                 case : ...  
             }
 
@@ -568,107 +568,11 @@ readStrongBinder的功能是flat_binder_object解析并创建BpBinder对象.
         }
         return &mHandleToObject.editItemAt(handle);
     }
-    
+
 根据handle值来查找对应的handle_entry.
 
-## 二、 死亡通知
 
-死亡通知是为了让Bp端能知道Bn端的生死情况。
-
-- 定义：DeathNotifier是继承IBinder::DeathRecipient类，主要需要实现其binderDied()来进行死亡通告。
-- 注册：binder->linkToDeath(sDeathNotifier)是为了将sDeathNotifier死亡通知注册到Binder上。
-
-Bp端只需要覆写binderDied()方法，实现一些后尾清除类的工作，则在Bn端死掉后，会回调binderDied()进行相应处理。
-
-### 2.1 linkToDeath
-[-> BpBinder.cpp]
-
-    status_t BpBinder::linkToDeath(
-        const sp<DeathRecipient>& recipient, void* cookie, uint32_t flags)
-    {
-        Obituary ob;
-        ob.recipient = recipient;
-        ob.cookie = cookie;
-        ob.flags = flags;
-
-        {
-            AutoMutex _l(mLock);
-            if (!mObitsSent) {
-                if (!mObituaries) {
-                    mObituaries = new Vector<Obituary>;
-                    if (!mObituaries) {
-                        return NO_MEMORY;
-                    }
-                    getWeakRefs()->incWeak(this);
-                    IPCThreadState* self = IPCThreadState::self();
-                    //[见小节2.2]
-                    self->requestDeathNotification(mHandle, this);
-                    self->flushCommands();
-                }
-                ssize_t res = mObituaries->add(ob);
-                return res >= (ssize_t)NO_ERROR ? (status_t)NO_ERROR : res;
-            }
-        }
-
-        return DEAD_OBJECT;
-    }
-
-### 2.2 requestDeathNotification
-[-> IPCThreadState.cpp]
-
-    status_t IPCThreadState::requestDeathNotification(int32_t handle, BpBinder* proxy)
-    {
-        mOut.writeInt32(BC_REQUEST_DEATH_NOTIFICATION);
-        mOut.writeInt32((int32_t)handle);
-        mOut.writePointer((uintptr_t)proxy);
-        return NO_ERROR;
-    }
-
-向binder driver发送BC_REQUEST_DEATH_NOTIFICATION命令. 后面的处理流程,类似于文章[Binder系列3—启动ServiceManager](http://gityuan.com/2015/11/07/binder-start-sm/)
-的[小节3.3]binder_link_to_death()的过程.
-
-### 2.3 binderDied
-
-    void IMediaDeathNotifier::DeathNotifier::binderDied(const wp<IBinder>& who __unused) {
-        SortedVector< wp<IMediaDeathNotifier> > list;
-        {
-            Mutex::Autolock _l(sServiceLock);
-            sMediaPlayerService.clear();   //把Bp端的MediaPlayerService清除掉
-            list = sObitRecipients;
-        }
-
-        size_t count = list.size();
-        for (size_t iter = 0; iter < count; ++iter) {
-            sp<IMediaDeathNotifier> notifier = list[iter].promote();
-            if (notifier != 0) {
-                notifier->died();  //当MediaServer挂了则通知应用程序，应用程序回调该方法。
-            }
-        }
-    }
-
-客户端进程通过Binder驱动获得Binder的代理（BpBinder），死亡通知注册的过程就是客户端进程向Binder驱动注册一个死亡通知，该死亡通知关联BBinder，即与BpBinder所对应的服务端。
-
-### 2.4 unlinkToDeath
-
-当Bp在收到服务端的死亡通知之前先挂了，那么需要在对象的销毁方法内，调用`unlinkToDeath()`来取消死亡通知；
-
-    IMediaDeathNotifier::DeathNotifier::~DeathNotifier()
-    {
-        Mutex::Autolock _l(sServiceLock);
-        sObitRecipients.clear();
-        if (sMediaPlayerService != 0) {
-            IInterface::asBinder(sMediaPlayerService)->unlinkToDeath(this);
-        }
-    }
-
-###  2.5  触发时机
-
-每当service进程退出时，service manager会收到来自Binder驱动的死亡通知。
-这项工作是在[启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)时通过`binder_link_to_death(bs, ptr, &si->death)`完成。另外，每个Bp端也可以自己注册死亡通知，能获取Binder的死亡消息，比如前面的`IMediaDeathNotifier`。
-
-那么问题来了，Binder死亡通知是如何触发的呢？对于Binder IPC进程都会打开/dev/binder文件，当进程异常退出时，Binder驱动会保证释放将要退出的进程中没有正常关闭的/dev/binder文件，实现机制是binder驱动通过调用/dev/binder文件所对应的release回调函数，执行清理工作，并且检查BBinder是否有注册死亡通知，当发现存在死亡通知时，那么就向其对应的BpBinder端发送死亡通知消息。
-
-## 三. 总结
+## 二. 总结
 
 请求服务(getService)过程，当执行binder_transaction()时，会区分请求服务所属进程情况。
 
