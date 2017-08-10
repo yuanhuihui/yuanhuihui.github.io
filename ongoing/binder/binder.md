@@ -1,7 +1,7 @@
 Proc-todo
 thread-todo
 node-aync_todo
-
+http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E6%AD%BB%E4%BA%A1%E9%80%9A%E7%9F%A5[DeathRecipient]/
 ## Client
 
 writeTransactionData //BC_TRANSACTION
@@ -11,8 +11,8 @@ waitForResponse
         talkWithDriver()
         switch (cmd)
             case BR_TRANSACTION_COMPLETE:
-            case BR_DEAD_REPLY: 
-            case BR_FAILED_REPLY: 
+            case BR_DEAD_REPLY:
+            case BR_FAILED_REPLY:
             case BR_REPLY:  goto finish;
             default: executeCommand() //继续执行
     }
@@ -37,9 +37,9 @@ joinThreadPool
     talkWithDriver
         binder_thread_write //BC_TRANSACTION
           //BINDER_WORK_TRANSACTION + BINDER_WORK_TRANSACTION_COMPLETE
-          binder_transaction 
+          binder_transaction
         binder_thread_read //生成BR_TRANSACTION_COMPLETE + BR_TRANSACTION
-        
+
     executeCommand
         case BR_TRANSACTION:
             BBinder.transact(&reply)
@@ -47,7 +47,7 @@ joinThreadPool
               writeTransactionData()  //BC_REPLY
               waitForResponse()
             freeBuffer() //BC_FREE_BUFFER
-    
+
 ## 进一步转换
 
 waitForResponse
@@ -55,10 +55,10 @@ waitForResponse
     while (1) {
         binder_thread_write //BC_TRANSACTION
         binder_thread_read //BR_TRANSACTION_COMPLETE + BR_TRANSACTION
-        
+
         switch (cmd)
             case BR_REPLY:  goto finish;            
-            default: executeCommand() 
+            default: executeCommand()
                 BBinder.transact(&reply)
                 sendReply(reply)
                   writeTransactionData()  //发送BC_REPLY
@@ -70,13 +70,13 @@ waitForResponse
 joinThreadPool
 {
     while (1){
-        processPendingDerefs() 
+        processPendingDerefs()
             writeTransactionData // BC_TRANSACTION
             waitForResponse //等待BR_REPLY(非oneway)
 
         binder_thread_write  // 写入BC_XXX
         binder_thread_read  // 读取BR_TRANSACTION
-        
+
         executeCommand
             BBinder.transact(&reply)
             sendReply(reply)

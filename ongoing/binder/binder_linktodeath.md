@@ -125,7 +125,8 @@ BinderProxy调用linkToDeath()方法是一个native方法, 通过jni进入
 - DeathRecipientList:记录该Binder代理对象的所有死亡通知;
     - 有一个成员变量mList, 记录该BinderProxy的JavaDeathRecipient列表信息;
     - 主要有add, remove, find, lock这4个方法;
-- JavaDeathRecipient:
+- JavaDeathRecipient: 基础IBinder::DeathRecipient类;
+
 
 #### 2.1.1 JavaDeathRecipient
 [-> android_util_Binder.cpp]
