@@ -65,8 +65,6 @@ fork采用Copy on Write机制，父子进程共用同一块内存，只有当父
 
 ## 二. fork源码分析
 
-http://blog.csdn.net/gatieme/article/details/51569932
-
 do_fork
   _do_fork
     copy_process
@@ -396,3 +394,8 @@ do_fork
 进程拷贝过程
 
 #### 2.4.y alloc_pid
+[kernel/msm-4.4/kernel/pid.c]
+
+
+
+http://blog.csdn.net/gatieme/article/details/51569932

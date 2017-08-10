@@ -1,4 +1,9 @@
-
+- dup_task_struct，复制当前进程task_struct
+- 检查进程数是否超过上限
+- 初始化自旋锁，挂起信息，进程启动时间等信息
+- sched_fork执行调度器相关设置，将该task分配给一某个CPU
+- 复制进程所有的信息，包括files, fs, mm, io, sighand, signal，等信息
+- alloc_pid
 
 ## 三. 进程退出
 
