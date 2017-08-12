@@ -1010,9 +1010,67 @@ linux程序执行fork方法，通过中断(syscall)陷入内核，执行系统�
 ### 3.10 alloc_pid
 [kernel/kernel/pid.c]
 
+    struct pid *alloc_pid(struct pid_namespace *ns)
+    {
+    	struct pid *pid;
+    	enum pid_type type;
+    	int i, nr;
+    	struct pid_namespace *tmp;
+    	struct upid *upid;
+    	int retval = -ENOMEM;
 
+    	pid = kmem_cache_alloc(ns->pid_cachep, GFP_KERNEL);
+    	if (!pid)
+    		return ERR_PTR(retval);
 
-http://blog.csdn.net/gatieme/article/details/51569932
+    	tmp = ns;
+    	pid->level = ns->level;
+    	for (i = ns->level; i >= 0; i--) {
+    		nr = alloc_pidmap(tmp);
+    		if (IS_ERR_VALUE(nr)) {
+    			retval = nr;
+    			goto out_free;
+    		}
+
+    		pid->numbers[i].nr = nr;
+    		pid->numbers[i].ns = tmp;
+    		tmp = tmp->parent;
+    	}
+
+    	if (unlikely(is_child_reaper(pid))) {
+    		if (pid_ns_prepare_proc(ns))
+    			goto out_free;
+    	}
+
+    	get_pid_ns(ns);
+    	atomic_set(&pid->count, 1);
+    	for (type = 0; type < PIDTYPE_MAX; ++type)
+    		INIT_HLIST_HEAD(&pid->tasks[type]);
+
+    	upid = pid->numbers + ns->level;
+    	spin_lock_irq(&pidmap_lock);
+    	if (!(ns->nr_hashed & PIDNS_HASH_ADDING))
+    		goto out_unlock;
+    	for ( ; upid >= pid->numbers; --upid) {
+    		hlist_add_head_rcu(&upid->pid_chain,
+    				&pid_hash[pid_hashfn(upid->nr, upid->ns)]);
+    		upid->ns->nr_hashed++;
+    	}
+    	spin_unlock_irq(&pidmap_lock);
+
+    	return pid;
+
+    out_unlock:
+    	spin_unlock_irq(&pidmap_lock);
+    	put_pid_ns(ns);
+
+    out_free:
+    	while (++i <= ns->level)
+    		free_pidmap(pid->numbers + i);
+
+    	kmem_cache_free(ns->pid_cachep, pid);
+    	return ERR_PTR(retval);
+    }
 
 ## 四. 总结
 
