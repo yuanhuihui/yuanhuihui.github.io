@@ -23,7 +23,9 @@ tags:
     /frameworks/base/core/jni/AndroidRuntime.cpp
     /frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
 
-
+    /bionic/libc/bionic/fork.cpp
+    /bionic/libc/bionic/pthread_atfork.cpp
+    
     /libcore/dalvik/src/main/java/dalvik/system/ZygoteHooks.java
     /art/runtime/native/dalvik_system_ZygoteHooks.cc
     /art/runtime/Runtime.cc
@@ -549,6 +551,38 @@ Zygote进程是所有Android进程的母体，包括system_server和各个App进
 copy-on-write过程：当父子进程任一方修改内存数据时（这是on-write时机），才发生缺页中断，从而分配新的物理内存（这是copy操作）。
 
 copy-on-write原理：写时拷贝是指子进程与父进程的页表都所指向同一个块物理内存，fork过程只拷贝父进程的页表，并标记这些页表是只读的。父子进程共用同一份物理内存，如果父子进程任一方想要修改这块物理内存，那么会触发缺页异常(page fault)，Linux收到该中断便会创建新的物理内存，并将两个物理内存标记设置为可写状态，从而父子进程都有各自独立的物理内存。
+
+##### 10.1.1 fork.cpp
+[-> bionic/fork.cpp]
+
+    #define FORK_FLAGS (CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID | SIGCHLD)
+    int fork() {
+      __bionic_atfork_run_prepare(); //[见小节2.1.1]
+
+      pthread_internal_t* self = __get_thread();
+
+      //fork期间，获取父进程pid，并使其缓存值无效
+      pid_t parent_pid = self->invalidate_cached_pid();
+      //系统调用【见小节2.2】
+      int result = syscall(__NR_clone, FORK_FLAGS, NULL, NULL, NULL, &(self->tid));
+      if (result == 0) {
+        self->set_cached_pid(gettid());
+        __bionic_atfork_run_child(); //fork完成执行子进程回调方法[见小节2.1.1]
+      } else {
+        self->set_cached_pid(parent_pid);
+        __bionic_atfork_run_parent(); //fork完成执行父进程回调方法
+      }
+      return result;
+    }
+
+功能说明：在执行syscall的前后都有相应的回调方法。
+
+- __bionic_atfork_run_prepare： fork完成前，父进程回调方法
+- __bionic_atfork_run_child： fork完成后，子进程回调方法
+- __bionic_atfork_run_paren： fork完成后，父进程回调方法
+
+以上3个方法的实现都位于bionic/pthread_atfork.cpp。如果有需要，可以扩展该回调方法，添加相关的业务需求。
+
 
 #### 10.2 Zygote.callPostForkChildHooks
 [-> Zygote.java]
