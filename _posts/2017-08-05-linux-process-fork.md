@@ -899,64 +899,64 @@ linux程序执行fork方法，通过中断(syscall)陷入内核，执行系统�
 [-> kernel/include/linux/sched.h]
 
     struct signal_struct {
-    	atomic_t		sigcnt;
-    	atomic_t		live;
-    	int			nr_threads;
-    	struct list_head	thread_head;
+      atomic_t    sigcnt;
+      atomic_t    live;
+      int      nr_threads;
+      struct list_head  thread_head;
 
-    	wait_queue_head_t	wait_chldexit;	//用于wait4()
-    	struct task_struct	*curr_target; //当前线程组
-    	struct sigpending	shared_pending; //共享信号处理
+      wait_queue_head_t  wait_chldexit;  //用于wait4()
+      struct task_struct  *curr_target; //当前线程组
+      struct sigpending  shared_pending; //共享信号处理
 
-    	int			group_exit_code; //线程组的退出码
+      int      group_exit_code; //线程组的退出码
       //当通知完相应进程，则会唤醒group_exit_task进程
       //当分发fatal信号，除了group_exit_task进程之外的都会被停止
-    	int			notify_count; 
-    	struct task_struct	*group_exit_task;
+      int      notify_count; 
+      struct task_struct  *group_exit_task;
 
-    	int			group_stop_count;
-    	unsigned int		flags; //见SIGNAL_*系列
+      int      group_stop_count;
+      unsigned int    flags; //见SIGNAL_*系列
 
-    	unsigned int		is_child_subreaper:1;
-    	unsigned int		has_child_subreaper:1;
+      unsigned int    is_child_subreaper:1;
+      unsigned int    has_child_subreaper:1;
 
-    	int			posix_timer_id;
-    	struct list_head	posix_timers;
-    	struct hrtimer real_timer;
-    	struct pid *leader_pid;
-    	ktime_t it_real_incr;
+      int      posix_timer_id;
+      struct list_head  posix_timers;
+      struct hrtimer real_timer;
+      struct pid *leader_pid;
+      ktime_t it_real_incr;
 
-    	struct cpu_itimer it[2];
-    	struct thread_group_cputimer cputimer;
-    	struct task_cputime cputime_expires;
+      struct cpu_itimer it[2];
+      struct thread_group_cputimer cputimer;
+      struct task_cputime cputime_expires;
 
-    	struct list_head cpu_timers[3];
+      struct list_head cpu_timers[3];
 
-    	struct pid *tty_old_pgrp;
+      struct pid *tty_old_pgrp;
 
-    	int leader; //是否为对话组的领头线程
+      int leader; //是否为对话组的领头线程
 
-    	struct tty_struct *tty; //当没有tty，则为NULL
+      struct tty_struct *tty; //当没有tty，则为NULL
 
-    	seqlock_t stats_lock;
-    	cputime_t utime, stime, cutime, cstime;
-    	cputime_t gtime;
-    	cputime_t cgtime;
-    	struct prev_cputime prev_cputime;
-    	unsigned long nvcsw, nivcsw, cnvcsw, cnivcsw;
-    	unsigned long min_flt, maj_flt, cmin_flt, cmaj_flt;
-    	unsigned long inblock, oublock, cinblock, coublock;
-    	unsigned long maxrss, cmaxrss;
-    	struct task_io_accounting ioac;
+      seqlock_t stats_lock;
+      cputime_t utime, stime, cutime, cstime;
+      cputime_t gtime;
+      cputime_t cgtime;
+      struct prev_cputime prev_cputime;
+      unsigned long nvcsw, nivcsw, cnvcsw, cnivcsw;
+      unsigned long min_flt, maj_flt, cmin_flt, cmaj_flt;
+      unsigned long inblock, oublock, cinblock, coublock;
+      unsigned long maxrss, cmaxrss;
+      struct task_io_accounting ioac;
 
-    	unsigned long long sum_sched_runtime;
-    	struct rlimit rlim[RLIM_NLIMITS];
+      unsigned long long sum_sched_runtime;
+      struct rlimit rlim[RLIM_NLIMITS];
       ...
 
-    	oom_flags_t oom_flags;
-    	short oom_score_adj; //OOM killer的adj值
-    	short oom_score_adj_min;	//OOM killer的最小adj
-    	struct mutex cred_guard_mutex;
+      oom_flags_t oom_flags;
+      short oom_score_adj; //OOM killer的adj值
+      short oom_score_adj_min;  //OOM killer的最小adj
+      struct mutex cred_guard_mutex;
     };
     
 signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
@@ -1020,110 +1020,110 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
 [-> kernel/include/linux/mm_types.h]
 
     struct mm_struct {
-    	struct vm_area_struct *mmap;	//VMA列表
-    	struct rb_root mm_rb;
-    	u32 vmacache_seqnum;          //每个线程的vma缓存
+      struct vm_area_struct *mmap;  //VMA列表
+      struct rb_root mm_rb;
+      u32 vmacache_seqnum;          //每个线程的vma缓存
     #ifdef CONFIG_MMU
-    	unsigned long (*get_unmapped_area) (struct file *filp,
-    				unsigned long addr, unsigned long len,
-    				unsigned long pgoff, unsigned long flags);
+      unsigned long (*get_unmapped_area) (struct file *filp,
+            unsigned long addr, unsigned long len,
+            unsigned long pgoff, unsigned long flags);
     #endif
-    	unsigned long mmap_base;		/* base of mmap area */
-    	unsigned long mmap_legacy_base;         /* base of mmap area in bottom-up allocations */
-    	unsigned long task_size;		/* size of task vm space */
-    	unsigned long highest_vm_end;		/* highest vma end address */
-    	pgd_t * pgd;
-    	atomic_t mm_users;			//使用该内存的进程个数
-    	atomic_t mm_count;			//结构体mm_struct的引用个数
-    	atomic_long_t nr_ptes;			//PTE页表
+      unsigned long mmap_base;    /* base of mmap area */
+      unsigned long mmap_legacy_base;         /* base of mmap area in bottom-up allocations */
+      unsigned long task_size;    /* size of task vm space */
+      unsigned long highest_vm_end;    /* highest vma end address */
+      pgd_t * pgd;
+      atomic_t mm_users;      //使用该内存的进程个数
+      atomic_t mm_count;      //结构体mm_struct的引用个数
+      atomic_long_t nr_ptes;      //PTE页表
     #if CONFIG_PGTABLE_LEVELS > 2
-    	atomic_long_t nr_pmds;			//PMD页表
+      atomic_long_t nr_pmds;      //PMD页表
     #endif
-    	int map_count;				//VMA个数
+      int map_count;        //VMA个数
 
-    	spinlock_t page_table_lock;		/* Protects page tables and some counters */
-    	struct rw_semaphore mmap_sem;
+      spinlock_t page_table_lock;    /* Protects page tables and some counters */
+      struct rw_semaphore mmap_sem;
 
-    	struct list_head mmlist;
+      struct list_head mmlist;
 
-    	unsigned long hiwater_rss;	/* High-watermark of RSS usage */
-    	unsigned long hiwater_vm;	/* High-water virtual memory usage */
+      unsigned long hiwater_rss;  /* High-watermark of RSS usage */
+      unsigned long hiwater_vm;  /* High-water virtual memory usage */
 
-    	unsigned long total_vm;		/* Total pages mapped */
-    	unsigned long locked_vm;	/* Pages that have PG_mlocked set */
-    	unsigned long pinned_vm;	/* Refcount permanently increased */
-    	unsigned long shared_vm;	/* Shared pages (files) */
-    	unsigned long exec_vm;		/* VM_EXEC & ~VM_WRITE */
-    	unsigned long stack_vm;		/* VM_GROWSUP/DOWN */
-    	unsigned long def_flags;
-    	unsigned long start_code, end_code, start_data, end_data;
-    	unsigned long start_brk, brk, start_stack;
-    	unsigned long arg_start, arg_end, env_start, env_end;
+      unsigned long total_vm;    /* Total pages mapped */
+      unsigned long locked_vm;  /* Pages that have PG_mlocked set */
+      unsigned long pinned_vm;  /* Refcount permanently increased */
+      unsigned long shared_vm;  /* Shared pages (files) */
+      unsigned long exec_vm;    /* VM_EXEC & ~VM_WRITE */
+      unsigned long stack_vm;    /* VM_GROWSUP/DOWN */
+      unsigned long def_flags;
+      unsigned long start_code, end_code, start_data, end_data;
+      unsigned long start_brk, brk, start_stack;
+      unsigned long arg_start, arg_end, env_start, env_end;
 
-    	unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */
+      unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */
 
-    	/*
-    	 * Special counters, in some configurations protected by the
-    	 * page_table_lock, in other configurations by being atomic.
-    	 */
-    	struct mm_rss_stat rss_stat;
+      /*
+       * Special counters, in some configurations protected by the
+       * page_table_lock, in other configurations by being atomic.
+       */
+      struct mm_rss_stat rss_stat;
 
-    	struct linux_binfmt *binfmt;
+      struct linux_binfmt *binfmt;
 
-    	cpumask_var_t cpu_vm_mask_var;
+      cpumask_var_t cpu_vm_mask_var;
 
-    	mm_context_t context; //内存上下文
+      mm_context_t context; //内存上下文
 
-    	unsigned long flags; /* Must use atomic bitops to access the bits */
+      unsigned long flags; /* Must use atomic bitops to access the bits */
 
-    	struct core_state *core_state; /* coredumping support */
+      struct core_state *core_state; /* coredumping support */
     #ifdef CONFIG_AIO
-    	spinlock_t			ioctx_lock;
-    	struct kioctx_table __rcu	*ioctx_table;
+      spinlock_t      ioctx_lock;
+      struct kioctx_table __rcu  *ioctx_table;
     #endif
     #ifdef CONFIG_MEMCG
-    	struct task_struct __rcu *owner;
+      struct task_struct __rcu *owner;
     #endif
 
-    	/* store ref to file /proc/<pid>/exe symlink points to */
-    	struct file __rcu *exe_file;
+      /* store ref to file /proc/<pid>/exe symlink points to */
+      struct file __rcu *exe_file;
     #ifdef CONFIG_MMU_NOTIFIER
-    	struct mmu_notifier_mm *mmu_notifier_mm;
+      struct mmu_notifier_mm *mmu_notifier_mm;
     #endif
     #if defined(CONFIG_TRANSPARENT_HUGEPAGE) && !USE_SPLIT_PMD_PTLOCKS
-    	pgtable_t pmd_huge_pte; /* protected by page_table_lock */
+      pgtable_t pmd_huge_pte; /* protected by page_table_lock */
     #endif
     #ifdef CONFIG_CPUMASK_OFFSTACK
-    	struct cpumask cpumask_allocation;
+      struct cpumask cpumask_allocation;
     #endif
     #ifdef CONFIG_NUMA_BALANCING
-    	/*
-    	 * numa_next_scan is the next time that the PTEs will be marked
-    	 * pte_numa. NUMA hinting faults will gather statistics and migrate
-    	 * pages to new nodes if necessary.
-    	 */
-    	unsigned long numa_next_scan;
+      /*
+       * numa_next_scan is the next time that the PTEs will be marked
+       * pte_numa. NUMA hinting faults will gather statistics and migrate
+       * pages to new nodes if necessary.
+       */
+      unsigned long numa_next_scan;
 
-    	/* Restart point for scanning and setting pte_numa */
-    	unsigned long numa_scan_offset;
+      /* Restart point for scanning and setting pte_numa */
+      unsigned long numa_scan_offset;
 
-    	int numa_scan_seq; //用于防止两个线程设置pte_numa
+      int numa_scan_seq; //用于防止两个线程设置pte_numa
     #endif
     #if defined(CONFIG_NUMA_BALANCING) || defined(CONFIG_COMPACTION)
-    	/*
-    	 * An operation with batched TLB flushing is going on. Anything that
-    	 * can move process memory needs to flush the TLB when moving a
-    	 * PROT_NONE or PROT_NUMA mapped page.
-    	 */
-    	bool tlb_flush_pending;
+      /*
+       * An operation with batched TLB flushing is going on. Anything that
+       * can move process memory needs to flush the TLB when moving a
+       * PROT_NONE or PROT_NUMA mapped page.
+       */
+      bool tlb_flush_pending;
     #endif
-    	struct uprobes_state uprobes_state;
+      struct uprobes_state uprobes_state;
     #ifdef CONFIG_X86_INTEL_MPX
-    	/* address of the bounds directory */
-    	void __user *bd_addr;
+      /* address of the bounds directory */
+      void __user *bd_addr;
     #endif
     #ifdef CONFIG_HUGETLB_PAGE
-    	atomic_long_t hugetlb_usage;
+      atomic_long_t hugetlb_usage;
     #endif
     };
     
@@ -1132,33 +1132,33 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
 
     static struct mm_struct *dup_mm(struct task_struct *tsk)
     {
-    	struct mm_struct *mm, *oldmm = current->mm;
-    	int err;
+      struct mm_struct *mm, *oldmm = current->mm;
+      int err;
       
-    	mm = allocate_mm();  //分配内存
-    	memcpy(mm, oldmm, sizeof(*mm));
+      mm = allocate_mm();  //分配内存
+      memcpy(mm, oldmm, sizeof(*mm));
 
-    	if (!mm_init(mm, tsk))  //初始化mm
-    		goto fail_nomem;
+      if (!mm_init(mm, tsk))  //初始化mm
+        goto fail_nomem;
 
-    	err = dup_mmap(mm, oldmm); //拷贝内存信息
-    	if (err)
-    		goto free_pt;
+      err = dup_mmap(mm, oldmm); //拷贝内存信息
+      if (err)
+        goto free_pt;
 
-    	mm->hiwater_rss = get_mm_rss(mm);
-    	mm->hiwater_vm = mm->total_vm;
+      mm->hiwater_rss = get_mm_rss(mm);
+      mm->hiwater_vm = mm->total_vm;
 
-    	if (mm->binfmt && !try_module_get(mm->binfmt->module))
-    		goto free_pt;
+      if (mm->binfmt && !try_module_get(mm->binfmt->module))
+        goto free_pt;
 
-    	return mm;
+      return mm;
 
     free_pt:
-    	mm->binfmt = NULL;
-    	mmput(mm);
+      mm->binfmt = NULL;
+      mmput(mm);
 
     fail_nomem:
-    	return NULL;
+      return NULL;
     }
 
 进程fork采用COW机制，实现的核心逻辑便在于内存拷贝过程会设置写保护。
@@ -1169,42 +1169,42 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
 
     int copy_namespaces(unsigned long flags, struct task_struct *tsk)
     {
-    	struct nsproxy *old_ns = tsk->nsproxy;
-    	struct user_namespace *user_ns = task_cred_xxx(tsk, user_ns);
-    	struct nsproxy *new_ns;
+      struct nsproxy *old_ns = tsk->nsproxy;
+      struct user_namespace *user_ns = task_cred_xxx(tsk, user_ns);
+      struct nsproxy *new_ns;
 
       //一般情况都是进入该分支
-    	if (likely(!(flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
-    			      CLONE_NEWPID | CLONE_NEWNET)))) {
-    		get_nsproxy(old_ns);
-    		return 0;
-    	}
+      if (likely(!(flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
+                CLONE_NEWPID | CLONE_NEWNET)))) {
+        get_nsproxy(old_ns);
+        return 0;
+      }
 
-    	if (!ns_capable(user_ns, CAP_SYS_ADMIN))
-    		return -EPERM;
+      if (!ns_capable(user_ns, CAP_SYS_ADMIN))
+        return -EPERM;
 
-    	if ((flags & (CLONE_NEWIPC | CLONE_SYSVSEM)) ==
-    		(CLONE_NEWIPC | CLONE_SYSVSEM))
-    		return -EINVAL;
+      if ((flags & (CLONE_NEWIPC | CLONE_SYSVSEM)) ==
+        (CLONE_NEWIPC | CLONE_SYSVSEM))
+        return -EINVAL;
         
       //创建新的用户空间
-    	new_ns = create_new_namespaces(flags, tsk, user_ns, tsk->fs);
-    	...
+      new_ns = create_new_namespaces(flags, tsk, user_ns, tsk->fs);
+      ...
 
-    	tsk->nsproxy = new_ns;
-    	return 0;
+      tsk->nsproxy = new_ns;
+      return 0;
     }
 
 #### 3.7.1 nsproxy结构体
 [-> kernel/include/linux/nsproxy.h]
 
     struct nsproxy {
-    	atomic_t count;
-    	struct uts_namespace *uts_ns;
-    	struct ipc_namespace *ipc_ns;
-    	struct mnt_namespace *mnt_ns;
-    	struct pid_namespace *pid_ns_for_children;
-    	struct net 	     *net_ns;
+      atomic_t count;
+      struct uts_namespace *uts_ns;
+      struct ipc_namespace *ipc_ns;
+      struct mnt_namespace *mnt_ns;
+      struct pid_namespace *pid_ns_for_children;
+      struct net        *net_ns;
     };
 
 
@@ -1242,22 +1242,22 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
 [-> /kernel/include/linux/iocontext.h]
 
     struct io_context {
-    	atomic_long_t refcount;
-    	atomic_t active_ref;
-    	atomic_t nr_tasks; //进程个数
+      atomic_long_t refcount;
+      atomic_t active_ref;
+      atomic_t nr_tasks; //进程个数
 
-    	spinlock_t lock; //下面的成员都由该锁保护
+      spinlock_t lock; //下面的成员都由该锁保护
 
-    	unsigned short ioprio;
+      unsigned short ioprio;
 
-    	int nr_batch_requests;     /* Number of requests left in the batch */
-    	unsigned long last_waited; /* Time last woken after wait for request */
+      int nr_batch_requests;     /* Number of requests left in the batch */
+      unsigned long last_waited; /* Time last woken after wait for request */
 
-    	struct radix_tree_root	icq_tree;
-    	struct io_cq __rcu	*icq_hint;
-    	struct hlist_head	icq_list;
+      struct radix_tree_root  icq_tree;
+      struct io_cq __rcu  *icq_hint;
+      struct hlist_head  icq_list;
 
-    	struct work_struct release_work;
+      struct work_struct release_work;
     };
 
 ### 3.9 copy_thread_tls
