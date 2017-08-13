@@ -470,7 +470,7 @@ linux程序执行fork方法，通过中断(syscall)陷入内核，执行系统�
       return pid;
     }
 
-通过alloc_pidmap()方法来完成pid的分配工作，具体分配算法见下一篇文章介绍
+通过alloc_pidmap()方法来完成pid的分配工作，具体分配算法见下一篇文章[Linux进程pid分配法](http://gityuan.com/2017/08/06/linux_process_pid/)
 
 接下来的重头大戏是关于fs,mm等结构体的复制，见下面的过程。
 
@@ -986,8 +986,7 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
       if (!oldmm)
         return 0;
 
-      /* initialize the new vmacache entries */
-      vmacache_flush(tsk);
+      vmacache_flush(tsk); //初始化新的vmacache实体
 
       if (clone_flags & CLONE_VM) {
         //增加引用计数
@@ -1028,10 +1027,10 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
             unsigned long addr, unsigned long len,
             unsigned long pgoff, unsigned long flags);
     #endif
-      unsigned long mmap_base;    /* base of mmap area */
-      unsigned long mmap_legacy_base;         /* base of mmap area in bottom-up allocations */
-      unsigned long task_size;    /* size of task vm space */
-      unsigned long highest_vm_end;    /* highest vma end address */
+      unsigned long mmap_base;    //mmap区域
+      unsigned long mmap_legacy_base;    //自下而上分配的mmap区域
+      unsigned long task_size;    //虚拟地址空间的大小
+      unsigned long highest_vm_end;    //高端vma地址
       pgd_t * pgd;
       atomic_t mm_users;      //使用该内存的进程个数
       atomic_t mm_count;      //结构体mm_struct的引用个数
@@ -1041,32 +1040,28 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
     #endif
       int map_count;        //VMA个数
 
-      spinlock_t page_table_lock;    /* Protects page tables and some counters */
+      spinlock_t page_table_lock;    //用于保活页表和一些计数
       struct rw_semaphore mmap_sem;
 
       struct list_head mmlist;
 
-      unsigned long hiwater_rss;  /* High-watermark of RSS usage */
-      unsigned long hiwater_vm;  /* High-water virtual memory usage */
+      unsigned long hiwater_rss;  //RSS的高水位使用情况
+      unsigned long hiwater_vm;  //高水位的虚拟内存使用情况
 
-      unsigned long total_vm;    /* Total pages mapped */
-      unsigned long locked_vm;  /* Pages that have PG_mlocked set */
-      unsigned long pinned_vm;  /* Refcount permanently increased */
-      unsigned long shared_vm;  /* Shared pages (files) */
-      unsigned long exec_vm;    /* VM_EXEC & ~VM_WRITE */
-      unsigned long stack_vm;    /* VM_GROWSUP/DOWN */
+      unsigned long total_vm;    //页面映射的总数
+      unsigned long locked_vm;  //PG_mlocked的页面数
+      unsigned long pinned_vm;  //该计数永久增加
+      unsigned long shared_vm;  //共享页面数(files)
+      unsigned long exec_vm;    // VM_EXEC & ~VM_WRITE
+      unsigned long stack_vm;   // VM_GROWSUP/DOWN
       unsigned long def_flags;
       unsigned long start_code, end_code, start_data, end_data;
       unsigned long start_brk, brk, start_stack;
       unsigned long arg_start, arg_end, env_start, env_end;
 
-      unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */
+      unsigned long saved_auxv[AT_VECTOR_SIZE]; //用于/proc/PID/auxv
 
-      /*
-       * Special counters, in some configurations protected by the
-       * page_table_lock, in other configurations by being atomic.
-       */
-      struct mm_rss_stat rss_stat;
+      struct mm_rss_stat rss_stat; 
 
       struct linux_binfmt *binfmt;
 
@@ -1074,9 +1069,9 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
 
       mm_context_t context; //内存上下文
 
-      unsigned long flags; /* Must use atomic bitops to access the bits */
+      unsigned long flags; 
 
-      struct core_state *core_state; /* coredumping support */
+      struct core_state *core_state; //支持coredump
     #ifdef CONFIG_AIO
       spinlock_t      ioctx_lock;
       struct kioctx_table __rcu  *ioctx_table;
@@ -1119,8 +1114,7 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
     #endif
       struct uprobes_state uprobes_state;
     #ifdef CONFIG_X86_INTEL_MPX
-      /* address of the bounds directory */
-      void __user *bd_addr;
+      void __user *bd_addr; //绑定目录的地址
     #endif
     #ifdef CONFIG_HUGETLB_PAGE
       atomic_long_t hugetlb_usage;
