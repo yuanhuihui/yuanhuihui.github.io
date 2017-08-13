@@ -1,6 +1,8 @@
 http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E6%AD%BB%E4%BA%A1%E9%80%9A%E7%9F%A5[DeathRecipient]/
 
 
+Binder死亡通知机制之linkToDeath, 需要画一张图， 并添加到android.mk
+
 Proc-todo
 thread-todo
 node-aync_todo
