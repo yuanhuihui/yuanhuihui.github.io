@@ -168,7 +168,7 @@ BinderProxy调用linkToDeath()方法是一个native方法, 通过jni进入如下
          }
      }
      
-清除引用，将JavaDeathRecipient从DeathRecipientList列表中移除
+清除引用，将JavaDeathRecipient从DeathRecipientList列表中移除.
 
 ### 2.2 linkToDeath
 [-> BpBinder.cpp]
@@ -202,6 +202,12 @@ BinderProxy调用linkToDeath()方法是一个native方法, 通过jni进入如下
         }
         return DEAD_OBJECT;
     }
+
+#### 2.2.1 DeathRecipient关系图
+
+![deathRecipient](/images/binder/deathRecipient.jpg)
+
+Java层的BinderProxy.mOrgue指向DeathRecipientList，而DeathRecipientList记录JavaDeathRecipient对象。
 
 ### 2.3 requestDeathNotification
 [-> IPCThreadState.cpp]
@@ -340,14 +346,6 @@ binder_ioctl_write_read()方法。
 binder_open打开binder驱动/dev/binder，这是字符设备，获取文件描述符。在进程结束的时候会有一个关闭文件系统的过程中会调用驱动close方法，该方法相对应的是release()方法。当binder的fd被释放后，此处调用相应的方法是binder_release().
 
 但并不是每个close系统调用都会触发调用release()方法. 只有真正释放设备数据结构才调用release(),内核维持一个文件结构被使用多少次的计数，即便是应用程序没有明显地关闭它打开的文件也适用: 内核在进程exit()时会释放所有内存和关闭相应的文件资源, 通过使用close系统调用最终也会release binder.
-
-
-release
-  binder_release  
-    binder_defer_work(proc, BINDER_DEFERRED_RELEASE);
-      queue_work(binder_deferred_workqueue, &binder_deferred_work);
-        binder_deferred_func    //通过 DECLARE_WORK(binder_deferred_work, binder_deferred_func);
-          binder_deferred_release
         
 ### 4.1 release
 [-> binder.c]
