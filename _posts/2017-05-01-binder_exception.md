@@ -124,7 +124,7 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
 
 - 当抛出异常`NullPointerException`: 代表dataObj为空, 意味着Java层传递下来的parcel data数据为空;
 - 当抛出异常`IllegalStateException`: 代表BpBinder为空，意味着Native层的BpBinder已经被释放;
-- 当进入`signalExceptionForError()`: 根据transact执行具体情况抛出相应的异常, 见小节[].
+- 当进入`signalExceptionForError()`: 根据transact执行具体情况抛出相应的异常, 见小节[4.1].
 
 
 ### 2.5 BpBinder.transact
@@ -143,7 +143,7 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
         return DEAD_OBJECT;
     }
 
-当binder死亡,则返回err=`DEAD_OBJECT`.
+当binder死亡,则返回err=`DEAD_OBJECT`，所对应抛出的异常为DeadObjectException
 
 ### 2.6 IPC.transact
 [-> IPCThreadState.cpp]
@@ -367,7 +367,7 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
 
 ## 四. 异常解析
 
-- [小节2.4]过程调用signalExceptionForError()
+- [小节2.4]过程调用signalExceptionForError()，且canThrowRemoteException=true
 - [小节2.2]过程调用Parcel.readException()
 
 ### 4.1 signalExceptionForError
@@ -411,7 +411,6 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
                 jniThrowException(env, "java/lang/RuntimeException", "Item already exists");
                 break;
             case DEAD_OBJECT:
-                // DeadObjectException is a checked exception, only throw from certain methods.
                 jniThrowException(env, canThrowRemoteException
                         ? "android/os/DeadObjectException"
                                 : "java/lang/RuntimeException", NULL);
@@ -524,60 +523,58 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
 
 ## 五. 总结
 
-##### 5.1
+2.4 android_os_BinderProxy_transact()
 
-|错误码|Exception|描述信息|可能的场景|
-|---|---|---|---|
-|NO_MEMORY|OutOfMemoryError|-|Parcel.cpp中执行写操作|
-|INVALID_OPERATION|UnsupportedOperationException|-||
-|BAD_VALUE|IllegalArgumentException|-|
-|BAD_INDEX|IndexOutOfBoundsException|-|
-|BAD_TYPE|IllegalArgumentException||
-|NAME_NOT_FOUND|NoSuchElementException||
-|PERMISSION_DENIED|SecurityException||
-|NOT_ENOUGH_DATA|ParcelFormatException|Not enough data|
+- 当抛出异常`NullPointerException`: 代表dataObj为空, 意味着Java层传递下来的parcel data数据为空;
+- 当抛出异常`IllegalStateException`: 代表BpBinder为空，意味着Native层的BpBinder已经被释放;
+- 当进入`signalExceptionForError()`: 根据transact执行具体情况抛出相应的异常, 见小节[4.1].
 
-接下来,再来看看常见的RuntimeException类别
+2.5 BpBinder.transact（）
 
-#### 5.2 RuntimeException
+- 当mAlive=false, 则抛出err=DEAD_OBJECT，所对应异常为DeadObjectException
 
-|错误码|描述信息|可能的场景|
-|---|---|---|
-|UNKNOWN_ERROR|Unknown error||
-|NO_INIT|Not initialized||
-|ALREADY_EXISTS|Item already exists||
-|UNKNOWN_TRANSACTION|Unknown transaction code||
-|FDS_NOT_ALLOWED|Not allowed to write file descriptors here||
-|-EBADF |Bad file descriptor|比如mDriverFD<0|
-|-ENFILE|File table overflow||
-|-EMFILE|Too many open files||
-|-EFBIG |File too large||
-|-ENOSPC|No space left on device||
-|-ESPIPE|Illegal seek||
-|-EROFS |Read-only file system||
-|-EMLINK|Too many links||
+2.7 IPC.waitForResponse()
 
+- 当收到BR_DEAD_REPLY,则抛出err=DEAD_OBJECT:
+  - 则抛出异常为DeadObjectException
+- 当收到BR_FAILED_REPLY, 则抛出err=FAILED_TRANSACTION：
+  - 当parcelSize > 200M, 则抛出TransactionTooLargeException，异常内容为"data parcel size %d bytes";
+  - 当parcelSize <= 200M, 则抛出DeadObjectException，异常内容为"Transaction failed on small parcel; remote process probably died";
 
-#### 5.3
-
-还有几种非常场常见的exception
-
-(1)DEAD_OBJECT: 当canThrowRemoteException=true,则抛出DeadObjectException,否则抛出RuntimeException
-
-(2)FAILED_TRANSACTION:
-
-- 当canThrowRemoteException=true,且parcelSize > 200M, 则抛出TransactionTooLargeException;异常描述内容"data parcel size %d bytes";
-- 当canThrowRemoteException=true,且parcelSize <= 200M, 则抛出DeadObjectException;异常描述内容"Transaction failed on small parcel; remote process probably died";
-- 当canThrowRemoteException=false, 则抛出RuntimeException; 异常描述内容`同上`.
+说明：
 
 FAILED_TRANSACTION,这是所有exception中可能出现频率最高的,即便抛出TransactionTooLargeException,并不意味着就是transaction数据太大, 有可能是transaction异常,或者FD关闭, 这个应该需要进一步细化详细的异常情况.
 当parcelSize <= 200M时抛出FAILED_TRANSACTION异常, Google根据大量实践经验得出往往都是在binder transaction正在途中时, 远程进程正好死亡而导致的.
+  
+##### 5.1 signalExceptionForError
 
+错误码跟Exception的对应关系：
 
-(3)default: 当canThrowRemoteException=true,则抛出RemoteException,否则抛出RuntimeException,且异常描述内容为"Unknown binder error code"; (这是针对完全未知的错误码的default分支处理流程)
+|错误码|Exception|描述信息|
+|---|---|
+|NO_MEMORY|OutOfMemoryError|
+|INVALID_OPERATION|UnsupportedOperationException|
+|BAD_VALUE|IllegalArgumentException|
+|BAD_INDEX|IndexOutOfBoundsException|
+|BAD_TYPE|IllegalArgumentException|
+|NAME_NOT_FOUND|NoSuchElementException|
+|PERMISSION_DENIED|SecurityException|
+|NOT_ENOUGH_DATA|ParcelFormatException|Not enough data|
 
+前面这些各种异常，描述信息一般为空。接下来,再来看看常见的RuntimeException类别：
 
-规律:
-
-- 当收到`BR_DEAD_REPLY`,则抛出DEAD_OBJECT
-- 当收到`BR_FAILED_REPLY`, 则抛出FAILED_TRANSACTION.
+|错误码|描述信息|
+|---|---|---|
+|UNKNOWN_ERROR|Unknown error|
+|NO_INIT|Not initialized|
+|ALREADY_EXISTS|Item already exists|
+|UNKNOWN_TRANSACTION|Unknown transaction code|
+|FDS_NOT_ALLOWED|Not allowed to write file descriptors here|
+|-EBADF |Bad file descriptor|
+|-ENFILE|File table overflow|
+|-EMFILE|Too many open files|
+|-EFBIG |File too large|
+|-ENOSPC|No space left on device|
+|-ESPIPE|Illegal seek|
+|-EROFS |Read-only file system|
+|-EMLINK|Too many links|
