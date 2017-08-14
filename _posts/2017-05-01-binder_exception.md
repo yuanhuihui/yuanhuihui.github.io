@@ -261,7 +261,7 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
 
         boolean res;
         try {
-            //执行onTransact方法
+            //执行onTransact方法[见小节3.1.1]
             res = onTransact(code, data, reply, flags);
         } catch (RemoteException e) {
             if ((flags & FLAG_ONEWAY) != 0) {
@@ -299,6 +299,21 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
 - RuntimeException
 - OutOfMemoryError
 
+#### 3.1.1 onTransact
+
+    public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
+              throws RemoteException {
+        switch (code) {
+          ...
+        }
+    }
+    
+一般地，根据不同的code调用服务端不同的方法，在方法执行过程会可能会抛出各种不同的异常。
+
+- 服务端一旦抛出异常，在execTransact()过程会catch住异常，并将异常写入reply。
+- 代理端返回后从reply中读取异常。
+这是抛出异常的常见情况。
+
 ### 3.2 writeException
 
     public final void writeException(Exception e) {
@@ -318,7 +333,7 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
         } else if (e instanceof UnsupportedOperationException) {
             code = EX_UNSUPPORTED_OPERATION;
         }
-        writeInt(code);
+        writeInt(code); //写入异常码
         StrictMode.clearGatheredViolations();
         if (code == 0) {
             if (e instanceof RuntimeException) {
@@ -531,15 +546,15 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
 
 2.5 BpBinder.transact（）
 
-- 当mAlive=false, 则抛出err=DEAD_OBJECT，所对应异常为DeadObjectException
+- 当mAlive=false, 则抛出err=DEAD_OBJECT，所对应异常为`DeadObjectException`
 
 2.7 IPC.waitForResponse()
 
 - 当收到BR_DEAD_REPLY,则抛出err=DEAD_OBJECT:
-  - 则抛出异常为DeadObjectException
+  - 则抛出异常为`DeadObjectException`
 - 当收到BR_FAILED_REPLY, 则抛出err=FAILED_TRANSACTION：
-  - 当parcelSize > 200M, 则抛出TransactionTooLargeException，异常内容为"data parcel size %d bytes";
-  - 当parcelSize <= 200M, 则抛出DeadObjectException，异常内容为"Transaction failed on small parcel; remote process probably died";
+  - 当parcelSize > 200M, 则抛出`TransactionTooLargeException`，异常内容为"data parcel size %d bytes";
+  - 当parcelSize <= 200M, 则抛出`DeadObjectException`，异常内容为"Transaction failed on small parcel; remote process probably died";
 
 说明：
 
