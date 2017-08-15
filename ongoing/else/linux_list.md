@@ -1,4 +1,5 @@
-
+hlist_for_each_entry
+hlist_add_head
 
 ## 一. 链表
 
