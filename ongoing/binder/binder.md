@@ -7,6 +7,13 @@ binder异常，需要添加到android.mk
 Proc-todo
 thread-todo
 node-aync_todo
+
+A -> B -> C
+
+B死亡，A会收到马上收到通知
+-> binder_thread_read (put_user_preempt_disabled(thread->return_error2, *ptr))
+-> waitForResponse (reply->setError(err))
+
 ## Client
 
 writeTransactionData //BC_TRANSACTION
