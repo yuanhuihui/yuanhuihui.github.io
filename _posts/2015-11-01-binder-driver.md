@@ -143,7 +143,7 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
             vma->vm_end = vma->vm_start + SZ_4M;  //保证映射内存大小不超过4M
 
         mutex_lock(&binder_mmap_lock);  //同步锁
-        //分配一个连续的内核虚拟空间，与进程虚拟空间大小一致
+        //采用IOREMAP方式，分配一个连续的内核虚拟空间，与进程虚拟空间大小一致
         area = get_vm_area(vma->vm_end - vma->vm_start, VM_IOREMAP);
         if (area == NULL) {
             ret = -ENOMEM;
@@ -156,7 +156,7 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
         mutex_unlock(&binder_mmap_lock); //释放锁
 
         ...
-        //分配物理页的指针数组，大小等于用户虚拟地址内存/4k；
+        //分配物理页的指针数组，数组大小为vma的等效page个数；
         proc->pages = kzalloc(sizeof(proc->pages[0]) * ((vma->vm_end - vma->vm_start) / PAGE_SIZE), GFP_KERNEL);
         if (proc->pages == NULL) {
             ret = -ENOMEM;
@@ -168,7 +168,7 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
         vma->vm_ops = &binder_vm_ops;
         vma->vm_private_data = proc;
 
-        //分配物理页面，同时映射到内核空间和进程空间，目前只分配1个page的物理页 【见小节2.3.1】
+        //分配物理页面，同时映射到内核空间和进程空间，先分配1个物理页 【见小节2.3.1】
         if (binder_update_page_range(proc, 1, proc->buffer, proc->buffer + PAGE_SIZE, vma)) {
             ret = -ENOMEM;
             failure_string = "alloc small buf";
@@ -192,44 +192,88 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
         return ret;
     }
 
-binder_mmap通过加锁，保证一次只有一个进程分配内存，保证多进程间的并发访问。其中`user_buffer_offset`是虚拟进程地址与虚拟内核地址的差值，也就是说同一物理地址，当内核地址为kernel_addr，则进程地址为proc_addr = kernel_addr + user_buffer_offset。
-
+binder_mmap通过加锁，保证一次只有一个进程分配内存，保证多进程间的并发访问。其中`user_buffer_offset`是虚拟进程地址与虚拟内核地址的差值(该值为负数)。也就是说同一物理地址，当内核地址为kernel_addr，则进程地址为proc_addr = kernel_addr + user_buffer_offset。
+    
 #### 2.3.1 binder_update_page_range
 
     static int binder_update_page_range(struct binder_proc *proc, int allocate,
-                        void *start, void *end,  struct vm_area_struct *vma)
+                void *start, void *end,
+                struct vm_area_struct *vma)
     {
-        ...
-        for (page_addr = start; page_addr < end; page_addr += PAGE_SIZE) {
-            int ret;
-            struct page **page_array_ptr;
-            page = &proc->pages[(page_addr - proc->buffer) / PAGE_SIZE];
-            *page = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);  //分配物理内存
-            if (*page == NULL) {
-                goto err_alloc_page_failed;
-            }
-            tmp_area.addr = page_addr;
-            tmp_area.size = PAGE_SIZE + PAGE_SIZE;
-            page_array_ptr = page;
-            ret = map_vm_area(&tmp_area, PAGE_KERNEL, &page_array_ptr); //物理空间映射到虚拟内核空间
-            if (ret) {
-                goto err_map_kernel_failed;
-            }
-            user_page_addr = (uintptr_t)page_addr + proc->user_buffer_offset;
-            ret = vm_insert_page(vma, user_page_addr, page[0]); //物理空间映射到虚拟进程空间
-            if (ret) {
-                goto err_vm_insert_page_failed;
-            }
-        }
-        ...
+      void *page_addr;
+      unsigned long user_page_addr;
+      struct page **page;
+      struct mm_struct *mm; //【见小节2.3.2】
+
+      if (vma)
+      		mm = NULL; //binder_mmap过程vma不为空，其他情况都为空
+      	else
+      		mm = get_task_mm(proc->tsk); //获取mm结构体
+          
+      if (mm) {
+        down_write(&mm->mmap_sem); //获取mm_struct的写信号量
+        vma = proc->vma;
+      }
+
+      //此处allocate为1，代表分配过程。如果为0则代表释放过程
+      if (allocate == 0)
+        goto free_range;
+
+      for (page_addr = start; page_addr < end; page_addr += PAGE_SIZE) {
+        int ret;
+        page = &proc->pages[(page_addr - proc->buffer) / PAGE_SIZE];
+        //分配一个page的物理内存
+        *page = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);
+        
+        //物理空间映射到虚拟内核空间
+        ret = map_kernel_range_noflush((unsigned long)page_addr,
+              PAGE_SIZE, PAGE_KERNEL, page);
+        flush_cache_vmap((unsigned long)page_addr, (unsigned long)page_addr + PAGE_SIZE);
+      
+        user_page_addr = (uintptr_t)page_addr + proc->user_buffer_offset;
+        //物理空间映射到虚拟进程空间
+        ret = vm_insert_page(vma, user_page_addr, page[0]);
+      }
+      
+      if (mm) {
+        up_write(&mm->mmap_sem); //释放内存的写信号量
+        mmput(mm); //减少mm->mm_users计数
+      }
+      return 0;
+
+    free_range:
+      ... //释放内存的流程
+      
+      return -ENOMEM;
     }
 
-主要工作可用下面的图来表达：
+主要工作如下：
 
 ![binder_mmap](/images/binder/binder_dev/binder_mmap.png)
 
-`binder_update_page_range`主要完成工作：分配物理空间，将物理空间映射到内核空间，将物理空间映射到进程空间。  当然`binder_update_page_range`既可以分配物理页面，也可以释放物理页面。
+`binder_update_page_range`主要完成工作：分配物理空间，将物理空间映射到内核空间，将物理空间映射到进程空间。  
+binder_update_page_range既可以分配物理页面，也可以释放物理页面，其中binder_update_page_range的调用时机：
 
+- binder_mmap: 用于分配内存，分配大小为1page, vma不为空；
+- binder_alloc_buf：用于分配内存，vma为空；
+- binder_free_buf: 用于释放内存，vma为空；
+- binder_delete_free_buffer：同样用于释放内存，vma为空。
+
+
+#### 2.3.2 mm_struct
+[-> kernel/include/linux/mm_types.h]
+
+    struct mm_struct {
+      struct vm_area_struct *mmap;  //VMA列表
+      struct rb_root mm_rb;
+      pgd_t * pgd;
+      atomic_t mm_users;      //使用该内存的进程个数
+      atomic_t mm_count;      //结构体mm_struct的引用个数
+      struct rw_semaphore mmap_sem; //读写信号量，用于同步
+      unsigned long flags; 
+      ...
+    };
+    
 ### 2.4 binder_ioctl
 
 binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
@@ -427,10 +471,10 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
 流程：
 
-- 首先把用户空间数据拷贝到内核空间bwr；
-- 当bwr写缓存中有数据，则执行binder写操作；当写失败，再将bwr数据写回用户空间，并退出；
-- 当bwr读缓存中有数据，则执行binder读操作；当读失败，再将bwr数据写回用户空间，并退出；
-- 最后把内核数据bwr拷贝到用户空间。
+- 首先，把用户空间数据ubuf拷贝到内核空间bwr；
+- 当bwr写缓存有数据，则执行binder_thread_write；当写失败则将bwr数据写回用户空间并退出；
+- 当bwr读缓存有数据，则执行binder_thread_read；当读失败则再将bwr数据写回用户空间并退出；
+- 最后，把内核数据bwr拷贝到用户空间ubuf。
 
 这里涉及两个核心方法`binder_thread_write()`和`binder_thread_read()`方法，在Binder系列的后续文章[Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)中详细介绍。
 
@@ -444,19 +488,24 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
 ## 三、 结构体附录
 
-下面列举Binder相关的核心结构体，并解释其中的比较重要的参数。
+下面列举Binder驱动相关的一些重要结构体
 
-|结构体|名称|解释|
-|---|---|---|
-|**binder_proc**|binder进程|每个进程调用open()打开binder驱动都会创建该结构体，用于管理IPC所需的各种信息|
-|**binder_thread**|binder线程|对应于上层的binder线程|
-|**binder_buffer**|binder内存|调用mmap()创建用于Binder传输数据的缓存区|
-|binder_transaction_data|binder事务数据|记录传输数据内容，比如发送方pid/uid，RPC数据
-|binder_transaction|binder事务|记录传输事务的发送方和接收方线程、进程等|
-|binder_write_read|binder读写|记录buffer中读和写的数据信息|
-|**binder_node**|binder实体|对应于BBinder对象，记录BBinder的进程、指针、引用计数等
-|**binder_ref**|binder引用|对应于BpBinder对象，记录BpBinder的引用计数、死亡通知、BBinder指针等
-|flat_binder_object|binder扁平对象|Binder对象在两个进程间传递的扁平结构
+### 3.0 结构体列表
+
+|序号|结构体|名称|解释|
+|---|---|---|---|
+|1|**binder_proc**|binder进程|每个进程调用open()打开binder驱动都会创建该结构体，用于管理IPC所需的各种信息|
+|2|**binder_thread**|binder线程|对应于上层的binder线程|
+|3|**binder_buffer**|binder内存|调用mmap()创建用于Binder传输数据的缓存区|
+|4|binder_transaction_data|binder事务数据|记录传输数据内容，比如发送方pid/uid，RPC数据
+|5|binder_transaction|binder事务|记录传输事务的发送方和接收方线程、进程等|
+|6|binder_write_read|binder读写|记录buffer中读和写的数据信息|
+|7|**binder_node**|binder实体|对应于BBinder对象，记录BBinder的进程、指针、引用计数等
+|8|**binder_ref**|binder引用|对应于BpBinder对象，记录BpBinder的引用计数、死亡通知、BBinder指针等
+|9|binder_ref_death|binder死亡引用|
+|10|binder_work|binder工作|记录binder工作类型|
+|11|binder_state|binder状态|
+|12|flat_binder_object|binder扁平对象|Binder对象在两个进程间传递的扁平结构
 
 ### 3.1 binder_proc
 
@@ -762,4 +811,11 @@ flat_binder_object结构体代表Binder对象在两个进程间传递的扁平�
 |BINDER_TYPE_WEAK_HANDLE|binder_ref弱引用|
 |BINDER_TYPE_FD|binder文件描述符|
 
-当传输的flat_binder_object的成员变量type等于BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER类型时，代表该过程为Server进程向Service Manager进程进行服务注册的过程，则创建binder_node对象；当其type等于BINDER_TYPE_HANDLE或BINDER_TYPE_WEAK_HEANDLE类型时，代表该过程为Client进程向另一个进程发送Service代理，则创建binder_ref对象；当其type等于BINDER_TYPE_FD时，代表该过程为一个进程向另一个进程发送文件描述符(file descriptor)，只是打开文件，则无需创建任何对象。
+说明：
+
+- 当type等于BINDER_TYPE_BINDER或BINDER_TYPE_WEAK_BINDER类型时，
+代表Server进程向ServiceManager进程注册服务，则创建binder_node对象；
+- 当type等于BINDER_TYPE_HANDLE或BINDER_TYPE_WEAK_HEANDLE类型时，
+代表Client进程向Server进程请求代理，则创建binder_ref对象；
+- 当type等于BINDER_TYPE_FD类型时，
+代表进程向另一个进程发送文件描述符，只打开文件，则无需创建任何对象。

@@ -102,7 +102,7 @@ Binder IPC通信至少是两个进程的交互：
         //分配两个结构体内存
         struct binder_transaction *t = kzalloc(sizeof(*t), GFP_KERNEL);
         struct binder_work *tcomplete = kzalloc(sizeof(*tcomplete), GFP_KERNEL);
-        //从target_proc分配一块buffer
+        //从target_proc分配一块buffer【见小节3.2】
         t->buffer = binder_alloc_buf(target_proc, tr->data_size,
 
         for (; offp < off_end; offp++) {
@@ -114,9 +114,10 @@ Binder IPC通信至少是两个进程的交互：
             case BINDER_TYPE_FD: ...
             }
         }
-        //分别target_list和当前线程TODO队列插入事务
+        //向目标进程的target_list添加BINDER_WORK_TRANSACTION事务
         t->work.type = BINDER_WORK_TRANSACTION;
         list_add_tail(&t->work.entry, target_list);
+        //向当前线程的todo队列添加BINDER_WORK_TRANSACTION_COMPLETE事务
         tcomplete->type = BINDER_WORK_TRANSACTION_COMPLETE;
         list_add_tail(&tcomplete->entry, &thread->todo);
         if (target_wait)
@@ -126,9 +127,9 @@ Binder IPC通信至少是两个进程的交互：
 
 路由过程：handle -> ref -> target_node -> target_proc
 
-reply的过程会找到target_thread, 非reply则一般找到target_proc，
-对于特殊的嵌套binder call会根据transaction_stack来决定是插入事务到目标线程还是目标进程。
-
+- reply的过程会找到target_thread；
+- 非reply则一般找到target_proc；
+- 对特殊的嵌套binder call会根据transaction_stack来决定是插入事务到目标线程还是目标进程。
 
 #### 2.2.2 BC_PROTOCOL
 
@@ -155,9 +156,16 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 |BC_ATTEMPT_ACQUIRE|-|-|
 
 
-1. BC_FREE_BUFFER：通过mmap()映射内存，其中ServiceManager映射的空间大小为128K，其他Binder应用进程映射的内存大小为1M-8K。Binder驱动基于这块映射的内存采用最佳匹配算法来动态分配和释放，通过[binder_buffer](http://gityuan.com/2015/11/01/binder-driver/#binderbuffer)结构体中的`free`字段来表示相应的buffer是空闲还是已分配状态。对于已分配的buffers加入到binder_proc中的allocated_buffers红黑树;对于空闲的buffers加入到binder_proc中的free_buffers红黑树。当应用程序需要内存时，根据所需内存大小从free_buffers中找到最合适的内存，并放入allocated_buffers树；当应用程序处理完后必须尽快使用`BC_FREE_BUFFER`命令来释放该buffer，从而添加回到free_buffers树中。
-2. BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码的作用是对binder的强/弱引用的计数操作，用于实现[强/弱指针的功能](http://gityuan.com/2015/11/02/binder-driver-2/#bindertransactionbufferrelease)。
-3. 对于参数类型`binder_ptr_cookie`是由binder指针和cookie组成。
+1. BC_FREE_BUFFER：
+  - 通过mmap()映射内存，其中ServiceManager映射的空间大小为128K，其他Binder应用进程映射的内存大小为1M-8K。
+  - Binder驱动基于这块映射的内存采用最佳匹配算法来动态分配和释放，通过[binder_buffer](http://gityuan.com/2015/11/01/binder-driver/#binderbuffer)结构体中的`free`字段来表示相应的buffer是空闲还是已分配状态。对于已分配的buffers加入到binder_proc中的allocated_buffers红黑树;对于空闲的buffers加入到binder_proc中的free_buffers红黑树。
+  - 当应用程序需要内存时，根据所需内存大小从free_buffers中找到最合适的内存，并放入allocated_buffers树；当应用程序处理完后必须尽快使用`BC_FREE_BUFFER`命令来释放该buffer，从而添加回到free_buffers树。
+2. BC_INCREFS、BC_ACQUIRE、BC_RELEASE、BC_DECREFS等请求码的作用是对binder的强/弱引用的计数操作，用于实现强/弱指针的功能。
+3. 参数类型主要有以下几类：
+  - binder_transaction_data（结构体）
+  - binder_ptr_cookie（由binder指针和cookie组成）
+  - binder_uintptr_t（指针）
+  - __u32（无符号整型）
 4. Binder线程创建与退出：
     - BC_ENTER_LOOPER：binder主线程(由应用层发起)的创建会向驱动发送该消息；joinThreadPool()过程创建binder主线程;
     - BC_REGISTER_LOOPER：Binder用于驱动层决策而创建新的binder线程；joinThreadPool()过程,创建非binder主线程;
@@ -181,7 +189,7 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
         }
         
         while (1) {
-            当&thread->todo和&proc->todo都为空时，goto到retry标志处，否则往下执行：
+            //当&thread->todo和&proc->todo都为空时，goto到retry标志处，否则往下执行：
             struct binder_transaction_data tr;
             struct binder_transaction *t = NULL;
             switch (w->type) {
@@ -209,9 +217,9 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
         return 0;
     }
 
-当transaction堆栈为空，且线程todo链表为空，且non_block=false时，意味着没有任何事务需要处理的，会进入等待客户端请求的状态。当有事务需要处理时便会进入循环处理过程，并生成相应的响应码。
+说明：
 
-在Binder驱动层，只有在进入binder_thread_read()方法时，同时满足以下条件，
+当transaction堆栈为空，且线程todo链表为空，且non_block=false时，意味着没有任何事务需要处理的，会进入等待客户端请求的状态。当有事务需要处理时便会进入循环处理过程，并生成相应的响应码。在Binder驱动层，只有在进入binder_thread_read()方法时，同时满足以下条件，
 才会生成`BR_SPAWN_LOOPER`命令，当用户态进程收到该命令则会创建新线程：
 
 1. binder_proc的requested_threads线程数为0；
@@ -271,9 +279,9 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 ![binder_memory_map](/images/binder/binder_dev/binder_memory_map.png)
 
 
-#### 3.2 内存分配
+#### 3.2 binder_alloc_buf
 
-Binder内存分配方法通过binder_alloc_buf()方法，内存管理单元为[binder_buffer](http://gityuan.com/2015/11/01/binder-driver/#binderbuffer)结构体, 只有在binder_transaction过程才需要分配buffer.
+Binder内存分配通过binder_alloc_buf()方法，内存管理单元为[binder_buffer](http://gityuan.com/2015/11/01/binder-driver/#binderbuffer)结构体, 只有在binder_transaction过程才需要分配buffer.
 
     static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
                               size_t data_size, size_t offsets_size, int is_async)
@@ -295,7 +303,7 @@ Binder内存分配方法通过binder_alloc_buf()方法，内存管理单元为[b
         if (is_async && proc->free_async_space < size + sizeof(struct binder_buffer)) {
             return NULL; // 剩余可用的异步空间，小于所需的大小
         }
-        while (n) {  //从binder_buffer的红黑树从，查找大小相等的buffer块
+        while (n) {  //从binder_buffer的红黑树中查找大小相等的buffer块
             buffer = rb_entry(n, struct binder_buffer, rb_node);
             buffer_size = binder_buffer_size(proc, buffer);
             if (size < buffer_size) {
@@ -348,30 +356,13 @@ Binder内存分配方法通过binder_alloc_buf()方法，内存管理单元为[b
         return buffer;
     }
 
-#### 3.3 内存释放
-
-内存释放相关方法：
+这里介绍的binder_alloc_buf是内存分配函数。除此之外，还有内存释放相关方法：
 
 - binder_free_buf
 - binder_delete_free_buffer
 - binder_transaction_buffer_release
 
-其中：
-
-    binder_transaction_buffer_release() {
-        case BINDER_TYPE_BINDER:
-            binder_dec_node(node, 1, 0);
-        case BINDER_TYPE_WEAK_BINDER:
-            binder_dec_node(node, 0, 0);
-        case BINDER_TYPE_HANDLE:
-            binder_dec_ref(ref, 1);
-        case BINDER_TYPE_WEAK_HANDLE:
-            binder_dec_ref(ref, 0);
-        case BINDER_TYPE_FD:
-            task_close_fd(proc, fp->handle);
-    }
-
-上述涉及的方法的功能如下：
+这里涉及强弱引用相关函数的操作：
 
 |强/弱引用操作函数|功能|
 |---|---|

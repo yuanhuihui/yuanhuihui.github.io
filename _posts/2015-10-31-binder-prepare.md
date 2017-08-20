@@ -70,7 +70,7 @@ BpBinder(客户端)和BBinder(服务端)都是Android中Binder通信相关的代
 - [Binder系列9—如何使用AIDL](http://gityuan.com/2015/11/23/binder-aidl/)
 - [Binder系列10—总结](http://gityuan.com/2015/11/28/binder-summary/)
 
-文章是从底层驱动往上层写的，这并不适合大家的理解，建议读者还是从上层往底层看。下面说说这个系列文章之间的彼此联系，也是对你阅读顺序的一个建议，欢迎大家**[@Gityuan](http://weibo.com/gityuan)**进行技术交流与反馈：
+文章是从底层驱动往上层写的，这并不适合大家的理解，建议读者还是从上层往底层看。下面说说这个系列文章之间的彼此联系，也是对你阅读顺序的一个建议，更好的建议，大家可以上微博跟**[@Gityuan](http://weibo.com/gityuan)**，或许邮件跟我进行交流与反馈：
 
 首先阅读[Binder系列5—注册服务(addService)](http://gityuan.com/2015/11/14/binder-add-service/)和[Binder系列6—获取服务(getService)](http://gityuan.com/2015/11/15/binder-get-service/)，这两个过程都需要于ServiceManager打交道，那么这两个过程在开始之前都需要[Binder系列4—获取Service Manager](http://gityuan.com/2015/11/08/binder-get-sm/)，既然要获取Service Manager，那么就需要先[Binder系列3—启动Service Manager](http://gityuan.com/2015/11/07/binder-start-sm/)。在看Binder服务的注册和获取这两个过程中，不断追溯下去，最终调用到底层Binder底层驱动，这时需要了解[Binder系列1—Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)和[Binder系列2—Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)。
 

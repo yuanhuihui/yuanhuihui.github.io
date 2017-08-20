@@ -1,3 +1,8 @@
+Linux文件管理-VFS
+
+VFS: super_block, inode, dentry, file
+
+
 #### 3.2.2 files_struct结构体
 [-> kernel/include/linux/fdtable.h]
 
@@ -68,8 +73,6 @@
     #endif
     	struct address_space	*f_mapping;
     } __attribute__((aligned(4)));	
-
-http://www.wowotech.net/kernel_synchronization/spinlock.html
 
 // spinlock
 http://www.wowotech.net/kernel_synchronization/spinlock.html
