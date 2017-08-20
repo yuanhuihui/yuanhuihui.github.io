@@ -173,21 +173,21 @@ weakref_impl的成员变量mBase为ProcessState指针。
 ### 2.4 incStrong
 [-> RefBase.cpp]
 
-  void RefBase::incStrong(const void* id) const
-  {
-      weakref_impl* const refs = mRefs;
-      refs->incWeak(id); //【见小节2.4.1】
-      refs->addStrongRef(id); 
-      //增加强引用技术
-      const int32_t c = android_atomic_inc(&refs->mStrong);
-      if (c != INITIAL_STRONG_VALUE)  {
-          return;
-      }
-      //引用计数设置成1
-      android_atomic_add(-INITIAL_STRONG_VALUE, &refs->mStrong);
-      //当首次调用incStrong，则再回调onFirstRef；
-      refs->mBase->onFirstRef();
-  }
+    void RefBase::incStrong(const void* id) const
+    {
+        weakref_impl* const refs = mRefs;
+        refs->incWeak(id); //【见小节2.4.1】
+        refs->addStrongRef(id); 
+        //增加强引用计数
+        const int32_t c = android_atomic_inc(&refs->mStrong);
+        if (c != INITIAL_STRONG_VALUE)  {
+            return;
+        }
+        //引用计数设置成1
+        android_atomic_add(-INITIAL_STRONG_VALUE, &refs->mStrong);
+        //当首次调用incStrong，则再回调onFirstRef；
+        refs->mBase->onFirstRef();
+    }
 
 该方法的主要功能：
 
@@ -197,13 +197,13 @@ weakref_impl的成员变量mBase为ProcessState指针。
 #### 2.4.1 incWeak
 [-> RefBase.cpp ::weakref_type]
 
-  void RefBase::weakref_type::incWeak(const void* id)
-  {
-      weakref_impl* const impl = static_cast<weakref_impl*>(this);
-      impl->addWeakRef(id);
-      //增加弱引用计数
-      const int32_t c __unused = android_atomic_inc(&impl->mWeak);
-  }
+    void RefBase::weakref_type::incWeak(const void* id)
+    {
+        weakref_impl* const impl = static_cast<weakref_impl*>(this);
+        impl->addWeakRef(id);
+        //增加弱引用计数
+        const int32_t c __unused = android_atomic_inc(&impl->mWeak);
+    }
 
 addWeakRef调用addRef()，非debug版本，该方法mTrackEnabled=false，则不做任何操作。
 也就是代表着incWeak的工作就是mWeak引用计数+1。同理addStrongRef()方法也不做任何操作。
@@ -307,7 +307,7 @@ RefBase有一个成员变量mRefs为weakref_impl指针，weakref_impl对象便�
 |sp析构|-1|-1|
 |wp析构||-1|
 
-对于绝大多数的最常见常见OBJECT_LIFETIME_STRONG：
+对于绝大多数的最常见的是OBJECT_LIFETIME_STRONG：
 
 - sp初始化过程，在构造一个实际对象的同时，会自动创建一个weakref_impl对象；并且强弱引用计数分别加1；
 - 强引用为0时，实际对象被delete；

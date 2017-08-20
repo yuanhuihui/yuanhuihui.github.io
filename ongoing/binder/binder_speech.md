@@ -14,7 +14,11 @@
 12. binder通信过程，transaction too large，该如何破？
 13. Binder有没有什么不足？
 14. binder最新有什么进展？
-15. BnServiceManager，BpServiceManager有一个是多余的？
+15. BnServiceManager在Binder通信过程的作用是什么？==> 多余的
+16. 同一个进程调用binder通信，是否会进入binder driver，系统如何识别呢？
+17. Java层和Native层分别注册同名的binder，查询的时候该如何显示呢？
+
+泛泛而谈，只讲入门，可能有人会觉得深度不够；深入原理，可能会听得云里雾里。全面展开讲，并非两三个小时能说清楚。
 
 
 问一问 其他人还有什么问题？

@@ -407,7 +407,15 @@ IPCThreadState进行transact事务处理分3部分：
 
 其中handle的值用来标识目的端，注册服务过程的目的端为service manager，此处handle=0所对应的是binder_context_mgr_node对象，正是service manager所对应的binder实体对象。[binder_transaction_data结构体](http://gityuan.com/2015/11/01/binder-driver/#bindertransactiondata)是binder驱动通信的数据结构，该过程最终是把Binder请求码BC_TRANSACTION和binder_transaction_data结构体写入到`mOut`。
 
-transact过程，先写完binder_transaction_data数据， 接下来执行waitForResponse()方法。
+transact过程，先写完binder_transaction_data数据，其中Parcel data的重要成员变量：
+
+- mDataSize:保存再data_size，binder_transaction的数据大小；
+- mData: 保存在ptr.buffer, binder_transaction的数据的起始地址；
+- mObjectsSize:保存在ptr.offsets_size，记录着flat_binder_object结构体的个数；
+- mObjects: 保存在offsets, 记录着flat_binder_object结构体在数据偏移量；
+
+
+接下来执行waitForResponse()方法。
 
 ### 3.6 IPC.waitForResponse
 [-> IPCThreadState.cpp]
@@ -566,7 +574,10 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
     static void binder_transaction(struct binder_proc *proc,
                    struct binder_thread *thread,
                    struct binder_transaction_data *tr, int reply){
-
+        struct binder_transaction *t;
+       	struct binder_work *tcomplete;
+        ...
+        
         if (reply) {
             ...
         }else {
@@ -715,30 +726,30 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
 
 #### 4.3.2 binder_new_node
 
-  static struct binder_node *binder_new_node(struct binder_proc *proc,
-                         binder_uintptr_t ptr,
-                         binder_uintptr_t cookie)
-  {
-      struct rb_node **p = &proc->nodes.rb_node;
-      struct rb_node *parent = NULL;
-      struct binder_node *node;
-      ... //红黑树位置查找
+    static struct binder_node *binder_new_node(struct binder_proc *proc,
+                           binder_uintptr_t ptr,
+                           binder_uintptr_t cookie)
+    {
+        struct rb_node **p = &proc->nodes.rb_node;
+        struct rb_node *parent = NULL;
+        struct binder_node *node;
+        ... //红黑树位置查找
 
-      //给新创建的binder_node 分配内核空间
-      node = kzalloc(sizeof(*node), GFP_KERNEL);
-      
-      // 将新创建的node添加到proc红黑树；
-      rb_link_node(&node->rb_node, parent, p);
-      rb_insert_color(&node->rb_node, &proc->nodes);
-      node->debug_id = ++binder_last_id;
-      node->proc = proc;
-      node->ptr = ptr;
-      node->cookie = cookie;
-      node->work.type = BINDER_WORK_NODE; //设置binder_work的type
-      INIT_LIST_HEAD(&node->work.entry);
-      INIT_LIST_HEAD(&node->async_todo);
-      return node;
-  }
+        //给新创建的binder_node 分配内核空间
+        node = kzalloc(sizeof(*node), GFP_KERNEL);
+        
+        // 将新创建的node添加到proc红黑树；
+        rb_link_node(&node->rb_node, parent, p);
+        rb_insert_color(&node->rb_node, &proc->nodes);
+        node->debug_id = ++binder_last_id;
+        node->proc = proc;
+        node->ptr = ptr;
+        node->cookie = cookie;
+        node->work.type = BINDER_WORK_NODE; //设置binder_work的type
+        INIT_LIST_HEAD(&node->work.entry);
+        INIT_LIST_HEAD(&node->async_todo);
+        return node;
+    }
 
 #### 4.3.3 binder_get_ref_for_node
 

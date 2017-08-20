@@ -108,7 +108,7 @@ Binder驱动是Android专用的，但底层的驱动架构与Linux驱动一样�
         binder_stats_created(BINDER_STAT_PROC); //BINDER_PROC对象创建数加1
         hlist_add_head(&proc->proc_node, &binder_procs); //将proc_node节点添加到binder_procs为表头的队列
         proc->pid = current->group_leader->pid;
-        INIT_LIST_HEAD(&proc->delivered_death);
+        INIT_LIST_HEAD(&proc->delivered_death); //初始化已分发的死亡通知列表
         filp->private_data = proc;       //file文件指针的private_data变量指向binder_proc数据
         binder_unlock(__func__); //释放同步锁
 
@@ -494,18 +494,21 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
 |序号|结构体|名称|解释|
 |---|---|---|---|
-|1|**binder_proc**|binder进程|每个进程调用open()打开binder驱动都会创建该结构体，用于管理IPC所需的各种信息|
-|2|**binder_thread**|binder线程|对应于上层的binder线程|
-|3|**binder_buffer**|binder内存|调用mmap()创建用于Binder传输数据的缓存区|
-|4|binder_transaction_data|binder事务数据|记录传输数据内容，比如发送方pid/uid，RPC数据
-|5|binder_transaction|binder事务|记录传输事务的发送方和接收方线程、进程等|
+|1|binder_proc|binder进程|每个进程调用open()打开binder驱动都会创建该结构体，用于管理IPC所需的各种信息|
+|2|binder_thread|binder线程|对应于上层的binder线程|
+|3|binder_node|binder实体|对应于BBinder对象，记录BBinder的进程、指针、引用计数等
+|4|binder_ref|binder引用|对应于BpBinder对象，记录BpBinder的引用计数、死亡通知、BBinder指针等
+|5|binder_ref_death|binder死亡引用|记录binder死亡的引用信息|
 |6|binder_write_read|binder读写|记录buffer中读和写的数据信息|
-|7|**binder_node**|binder实体|对应于BBinder对象，记录BBinder的进程、指针、引用计数等
-|8|**binder_ref**|binder引用|对应于BpBinder对象，记录BpBinder的引用计数、死亡通知、BBinder指针等
-|9|binder_ref_death|binder死亡引用|
-|10|binder_work|binder工作|记录binder工作类型|
-|11|binder_state|binder状态|
-|12|flat_binder_object|binder扁平对象|Binder对象在两个进程间传递的扁平结构
+|7|binder_transaction_data|binder事务数据|记录传输数据内容，比如发送方pid/uid，RPC数据
+|8|flat_binder_object|binder扁平对象|Binder对象在两个进程间传递的扁平结构
+|9|binder_buffer|binder内存|调用mmap()创建用于Binder传输数据的缓存区|
+|10|binder_transaction|binder事务|记录传输事务的发送方和接收方线程、进程等|
+|11|binder_work|binder工作|记录binder工作类型|
+|12|binder_state|binder状态|
+
+6~9 用于数据传输相关，其中binder_write_read，binder_transaction_data进程空间和内核空间是通用的。
+
 
 ### 3.1 binder_proc
 
@@ -518,31 +521,31 @@ binder_proc结构体：用于管理IPC所需的各种信息，拥有其他结构
 |struct rb_root| nodes|binder_node红黑树的根节点
 |struct rb_root| refs_by_desc|binder_ref红黑树的根节点(以handle为key)
 |struct rb_root| refs_by_node|binder_ref红黑树的根节点（以ptr为key）
-|int| pid|创建binder_proc的进程id
+|int| pid|相应进程id
 |struct vm_area_struct *|vma|指向进程虚拟地址空间的指针
-|struct mm_struct *|vma_vm_mm;
-|struct task_struct *|tsk|创建binder_proc的进程|
-|struct files_struct *|files|
+|struct mm_struct *|vma_vm_mm|相应进程的内存结构体|
+|struct task_struct *|tsk|相应进程的task结构体|
+|struct files_struct *|files|相应进程的文件结构体|
 |struct hlist_node| deferred_work_node|
 |int| deferred_work|
-|void *|buffer|映射的内核空间的起始地址|
+|void *|buffer|内核空间的起始地址|
 |ptrdiff_t| user_buffer_offset|内核空间与用户空间的地址偏移量
 |struct list_head |buffers|所有的buffer
 |struct rb_root |free_buffers|空闲的buffer
 |struct rb_root |allocated_buffers|已分配的buffer
 |size_t| free_async_space|异步的可用空闲空间大小
-|struct page **|pages|描述物理内存页面的数据结构
+|struct page **|pages|指向物理内存页指针的指针|
 |size_t| buffer_size|映射的内核空间大小|
 |uint32_t| buffer_free| 可用内存总大小
 |struct list_head| todo|进程将要做的事
 |wait_queue_head_t| wait|等待队列
-|struct binder_stats| stats|
-|struct list_head| delivered_death|
+|struct binder_stats| stats|binder统计信息
+|struct list_head| delivered_death|已分发的死亡通知|
 |int| max_threads|最大线程数
 |int| requested_threads|请求的线程数
 |int| requested_threads_started|已启动的请求线程数
 |int| ready_threads|准备就绪的线程个数|
-|long| default_priority|默认优先级
+|long| default_priority|默认优先级|
 |struct dentry *|debugfs_entry|
 
 - free_buffers：记录所有空闲的buffer，记录以buffer_size为key的binder_buffer的红黑树结构
@@ -586,114 +589,17 @@ binder_thread_write()过程:
 - 收到 BC_ENTER_LOOPER,则线程状态为 BINDER_LOOPER_STATE_ENTERED;
 - 收到 BC_EXIT_LOOPER, 则线程状态为BINDER_LOOPER_STATE_EXITED;
 
-BINDER_LOOPER_STATE_WAITING: 进入binder_thread_read()过程,便设置该状态;
+其他3个状态的时机：
 
-BINDER_LOOPER_STATE_NEED_RETURN:有两种情况会设置:
+- BINDER_LOOPER_STATE_WAITING: 
+  - 当停留在binder_thread_read()的wait_event_xxx过程, 则设置该状态;
+- BINDER_LOOPER_STATE_NEED_RETURN:
+  - binder_get_thread()过程, 根据binder_proc查询不到当前线程所对应的binder_thread,会新建binder_thread对象；
+  - binder_deferred_flush()过程；
+- BINDER_LOOPER_STATE_INVALID: 
+  - 当binder_thread创建过程状态不正确时会设置.
 
-    - binder_get_thread()过程, 根据binder_proc查询不到当前线程所对应的binder_thread,会新建binder_thread对象,
-    - binder_deferred_flush()过程
-
-BINDER_LOOPER_STATE_INVALID: 当binder_thread创建过程状态不正确时会设置.
-
-### 3.3 binder_buffer
-
-每一次Binder传输数据时，都会先从Binder内存缓存区中分配一个binder_buffer来存储传输数据。
-
-|类型|成员变量|解释|
-|---|---|---|
-|struct list_head|entry|buffer实体的地址|
-|struct rb_node|rb_node|buffer实体的地址|
-|unsigned|free|标记是否是空闲buffer，占位1bit|
-|unsigned|allow_user_free|是否允许用户释放，占位1bit|
-|unsigned|async_transaction|占位1bit|
-|unsigned|debug_id|占位29bit|
-|struct binder_transaction *|transaction||
-|struct binder_node *|target_node|Binder实体|
-|size_t|data_size||
-|size_t|offsets_size||
-|uint8_t|data[0]||
-
-
-每一个binder_buffer分为空闲和已分配的，通过free标记来区分。空闲和已分配的binder_buffer通过各自的成员变量rb_node分别连入binder_proc的free_buffers(红黑树)和allocated_buffers(红黑树)。
-
-
-### 3.4 binder_transaction_data
-
-当BINDER_WRITE_READ命令的目标是本地Binder node时，target使用ptr，否则使用handle。只有当这是Binder node时，cookie才有意义，表示附加数据，由进程自己解释。
-
-    struct binder_transaction_data {
-        union {
-            __u32    handle;       //binder_ref（即handle）
-            binder_uintptr_t ptr;     //Binder_node的内存地址
-        } target;  //RPC目标
-        binder_uintptr_t    cookie;    //BBinder指针
-        __u32        code;        //RPC代码，代表Client与Server双方约定的命令码
-
-        __u32            flags; //标志位，比如TF_ONE_WAY代表异步，即不等待Server端回复
-        pid_t        sender_pid;  //发送端进程的pid
-        uid_t        sender_euid; //发送端进程的uid
-        binder_size_t    data_size;    //data数据的总大小
-        binder_size_t    offsets_size; //IPC对象的大小
-
-        union {
-            struct {
-                binder_uintptr_t    buffer; //数据区起始地址
-                binder_uintptr_t    offsets; //数据区IPC对象偏移量
-            } ptr;
-            __u8    buf[8];
-        } data;   //RPC数据
-    };
-
-- `target`: 对于BpBinder则使用handle，对于BBinder则使用ptr，故使用union数据类型来表示；
-- `code`: 比如注册服务过程code为ADD_SERVICE_TRANSACTION，又比如获取服务code为CHECK_SERVICE_TRANSACTION
-- `data`：代表整个数据区，其中data.ptr指向的是传递给Binder驱动的数据区的起始地址，data.offsets指的是数据区中IPC数据地址的偏移量。
-- `cookie`: 记录着BBinder指针。
-
-### 3.5 binder_transaction
-
-|类型|成员变量|解释|
-|---|---|---|
-|int |debug_id||
-|struct binder_work |work|
-|struct binder_thread *|from|发送端线程
-|struct binder_transaction *|from_parent|
-|struct binder_proc *|to_proc|
-|struct binder_thread *|to_thread|接收端线程
-|struct binder_transaction *|to_parent|
-|unsigned |need_reply|是否需要回应
-|struct binder_buffer *|buffer|数据buffer
-|unsigned int    |code|
-|unsigned int    |flags|
-|long    |priority|优先级
-|long    |saved_priority|保存的优先级
-|kuid_t    |sender_euid|发送端uid
-
-- debug_id：是一个全局静态变量，每当创建一个`binder_transaction`或`binder_node`或`binder_ref`对象，则++debug_id
-- from与to_thread是一对，分别是发送端线程和接收端线程；
-- from_parent与to_parent是一对，分别是上一个和下一个binder_transaction，组成一个链表。
-
-### 3.6 binder_write_read
-用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。
-
-|类型|成员变量|解释|
-|---|---|---|
-|binder_size_t|write_size|write_buffer的字节数
-|binder_size_t|write_consumed|已处理的write字节数
-|binder_uintptr_t|write_buffer|指向write数据区
-|binder_size_t|read_size|read_buffer的字节数
-|binder_size_t|read_consumed|已处理的read字节数
-|binder_uintptr_t|read_buffer|指向read数据区
-
-- write_buffer变量：用于发送IPC(或IPC reply)数据，即传递经由Binder Driver的数据时使用。
-- read_buffer 变量：用于接收来自Binder Driver的数据，即Binder Driver在接收IPC(或IPC reply)数据后，保存到read_buffer，再传递到用户空间；
-
-write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_data结构体。
-
-- copy_from_user()将用户空间IPC数据拷贝到内核态binder_write_read结构体；
-- copy_to_user()将用内核态binder_write_read结构体数据拷贝到用户空间；
-
-
-### 3.7 binder_node
+### 3.3 binder_node
 
 binder_node代表一个binder实体
 
@@ -734,7 +640,7 @@ binder_node有一个联合类型：
 - binder_node.ptr对应于flat_binder_object.binder；
 - binder_node.cookie对应于flat_binder_object.cookie。
 
-### 3.8 binder_ref
+### 3.4 binder_ref
 
 |类型|成员变量|解释|
 |---|---|---|
@@ -757,38 +663,71 @@ binder引用的查询方式如下：
 - node => refs + procs (proc exit)
 
 
-### 3.9 binder_ref_death
+### 3.5 binder_ref_death
 
     struct binder_ref_death {
         struct binder_work work;
         binder_uintptr_t cookie;
     };
 
-### 3.10 binder_work
-
-    struct binder_work {
-        struct list_head entry;
-        enum {
-            BINDER_WORK_TRANSACTION = 1, //binder_transaction()方法设置
-            BINDER_WORK_TRANSACTION_COMPLETE, //binder_transaction()方法设置
-            BINDER_WORK_NODE, // binder_new_node()/binder_transaction()方法设置
-            BINDER_WORK_DEAD_BINDER, // binder_thread_write()等多个方法可设置
-            BINDER_WORK_DEAD_BINDER_AND_CLEAR, // binder_thread_write()等多个方法可设置
-            BINDER_WORK_CLEAR_DEATH_NOTIFICATION,// binder_thread_write()等多个方法可设置
-        } type;
-    };
+cookie只是死亡通知的BpBinder代理对象的指针
 
 
-### 3.11 binder_state
+### 3.6 binder_write_read
+用户空间程序和Binder驱动程序交互基本都是通过BINDER_WRITE_READ命令，来进行数据的读写操作。
 
 |类型|成员变量|解释|
 |---|---|---|
-|int| fd|文件描述符|
-|void *|mapped|映射到进程空间的起始地址
-|size_t |mapsize|内存空间的映射大小
+|binder_size_t|write_size|write_buffer的总字节数
+|binder_size_t|write_consumed|write_buffer已消费的字节数
+|binder_uintptr_t|write_buffer|写缓冲数据的指针
+|binder_size_t|read_size|read_buffer的总字节数
+|binder_size_t|read_consumed|read_buffer已消费的字节数
+|binder_uintptr_t|read_buffer|读缓存数据的指针
+
+- write_buffer变量：用于发送IPC(或IPC reply)数据，即传递经由Binder Driver的数据时使用。
+- read_buffer 变量：用于接收来自Binder Driver的数据，即Binder Driver在接收IPC(或IPC reply)数据后，保存到read_buffer，再传递到用户空间；
+
+write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_data结构体。
+
+- copy_from_user()将用户空间IPC数据拷贝到内核态binder_write_read结构体；
+- copy_to_user()将用内核态binder_write_read结构体数据拷贝到用户空间；
 
 
-### 3.12 flat_binder_object
+### 3.7 binder_transaction_data
+
+当BINDER_WRITE_READ命令的目标是本地Binder node时，target使用ptr，否则使用handle。只有当这是Binder node时，cookie才有意义，表示附加数据，由进程自己解释。
+
+    struct binder_transaction_data {
+        union {
+            __u32    handle;       //binder_ref（即handle）
+            binder_uintptr_t ptr;     //Binder_node的内存地址
+        } target;  //RPC目标
+        binder_uintptr_t    cookie;    //BBinder指针
+        __u32        code;        //RPC代码，代表Client与Server双方约定的命令码
+
+        __u32            flags; //标志位，比如TF_ONE_WAY代表异步，即不等待Server端回复
+        pid_t        sender_pid;  //发送端进程的pid
+        uid_t        sender_euid; //发送端进程的uid
+        binder_size_t    data_size;    //data数据的总大小
+        binder_size_t    offsets_size; //IPC对象的大小
+
+        union {
+            struct {
+                binder_uintptr_t    buffer; //数据区起始地址
+                binder_uintptr_t    offsets; //数据区IPC对象偏移量
+            } ptr;
+            __u8    buf[8];
+        } data;   //RPC数据
+    };
+
+- `target`: 对于BpBinder则使用handle，对于BBinder则使用ptr，故使用union数据类型来表示；
+- `code`: 比如注册服务过程code为ADD_SERVICE_TRANSACTION，又比如获取服务code为CHECK_SERVICE_TRANSACTION
+- `data`：代表整个数据区，其中data.ptr指向的是传递给Binder驱动的数据区的起始地址，data.offsets指的是数据区中IPC数据地址的偏移量。
+- `cookie`: 记录着BBinder指针。
+
+
+### 3.8 flat_binder_object
 
 flat_binder_object结构体代表Binder对象在两个进程间传递的扁平结构。
 
@@ -819,3 +758,76 @@ flat_binder_object结构体代表Binder对象在两个进程间传递的扁平�
 代表Client进程向Server进程请求代理，则创建binder_ref对象；
 - 当type等于BINDER_TYPE_FD类型时，
 代表进程向另一个进程发送文件描述符，只打开文件，则无需创建任何对象。
+
+
+### 3.9 binder_buffer
+
+每一次Binder传输数据时，都会先从Binder内存缓存区中分配一个binder_buffer来存储传输数据。
+
+|类型|成员变量|解释|
+|---|---|---|
+|struct list_head|entry|buffer实体的地址|
+|struct rb_node|rb_node|buffer实体的地址|
+|unsigned|free|标记是否是空闲buffer，占位1bit|
+|unsigned|allow_user_free|是否允许用户释放，占位1bit|
+|unsigned|async_transaction|占位1bit|
+|unsigned|debug_id|占位29bit|
+|struct binder_transaction *|transaction|该缓存区的需要处理的事务|
+|struct binder_node *|target_node|该缓存区所需处理的Binder实体|
+|size_t|data_size|数据大小|
+|size_t|offsets_size|数据偏移量|
+|uint8_t|data[0]|数据地址|
+
+
+每一个binder_buffer分为空闲和已分配的，通过free标记来区分。空闲和已分配的binder_buffer通过各自的成员变量rb_node分别连入binder_proc的free_buffers(红黑树)和allocated_buffers(红黑树)。
+
+### 3.10 binder_transaction
+
+|类型|成员变量|解释|
+|---|---|---|
+|int |debug_id|用于调试|
+|struct binder_work |work|binder工作类型
+|struct binder_thread *|from|发送端线程
+|struct binder_transaction *|from_parent|上一个事务
+|struct binder_proc *|to_proc|接收端进程
+|struct binder_thread *|to_thread|接收端线程
+|struct binder_transaction *|to_parent|下一个事务
+|unsigned |need_reply|是否需要回复
+|struct binder_buffer *|buffer|数据buffer
+|unsigned int    |code|通信方法，比如startService
+|unsigned int    |flags|标志，比如是否oneway
+|long    |priority|优先级
+|long    |saved_priority|保存的优先级
+|kuid_t    |sender_euid|发送端uid
+
+执行binder_transaction()过程创建的结构体
+
+- debug_id：是一个全局静态变量，每当创建一个`binder_transaction`或`binder_node`或`binder_ref`对象，则++debug_id
+- from与to_thread是一对，分别是发送端线程和接收端线程；
+- from_parent与to_parent是一对，分别是上一个和下一个binder_transaction，组成一个链表。
+    - 执行binder_transaction()方法过程，当非oneway的BC_TRANSACTION时，则设置当前事务t->from_parent等于当前线程的transaction_stack；
+    - 执行binder_thread_read()方法过程，当非oneway的BR_TRANSACTION时，则设置当前事务t->to_parent等于当前线程的transaction_stack；
+
+
+### 3.11 binder_work
+
+    struct binder_work {
+        struct list_head entry;
+        enum {
+            BINDER_WORK_TRANSACTION = 1, //binder_transaction()方法设置
+            BINDER_WORK_TRANSACTION_COMPLETE, //binder_transaction()方法设置
+            BINDER_WORK_NODE, // binder_new_node()/binder_transaction()方法设置
+            BINDER_WORK_DEAD_BINDER, // binder_thread_write()等多个方法可设置
+            BINDER_WORK_DEAD_BINDER_AND_CLEAR, // binder_thread_write()等多个方法可设置
+            BINDER_WORK_CLEAR_DEATH_NOTIFICATION,// binder_thread_write()等多个方法可设置
+        } type;
+    };
+
+
+### 3.12 binder_state
+
+|类型|成员变量|解释|
+|---|---|---|
+|int| fd|文件描述符|
+|void *|mapped|映射到进程空间的起始地址
+|size_t |mapsize|内存空间的映射大小
