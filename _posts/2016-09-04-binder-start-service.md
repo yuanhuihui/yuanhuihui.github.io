@@ -850,7 +850,7 @@ transact主要过程:
         t->flags = tr->flags;  // 此次通信flags = 0
         t->priority = task_nice(current);
 
-        //从目标进程target_proc中分配内存空间
+        //从目标进程target_proc中分配内存空间【3.4.1】
         t->buffer = binder_alloc_buf(target_proc, tr->data_size,
             tr->offsets_size, !reply && (t->flags & TF_ONE_WAY));
 
@@ -860,9 +860,10 @@ transact主要过程:
 
         if (target_node)
             binder_inc_node(target_node, 1, 0, NULL); //引用计数加1
+        //binder对象的偏移量
         offp = (binder_size_t *)(t->buffer->data + ALIGN(tr->data_size, sizeof(void *)));
 
-        //分别拷贝用户空间的binder_transaction_data中ptr.buffer和ptr.offsets到内核
+        //分别拷贝用户空间的binder_transaction_data中ptr.buffer和ptr.offsets到目标进程的binder_buffer
         copy_from_user(t->buffer->data,
             (const void __user *)(uintptr_t)tr->data.ptr.buffer, tr->data_size);
         copy_from_user(offp,
@@ -920,11 +921,11 @@ transact主要过程:
                 target_node->has_async_transaction = 1;
         }
 
-        //将BINDER_WORK_TRANSACTION添加到目标队列，本次通信的目标队列为target_proc->todo
+        //将BINDER_WORK_TRANSACTION添加到目标队列,即target_proc->todo
         t->work.type = BINDER_WORK_TRANSACTION;
         list_add_tail(&t->work.entry, target_list);
 
-        //将BINDER_WORK_TRANSACTION_COMPLETE添加到当前线程的todo队列
+        //将BINDER_WORK_TRANSACTION_COMPLETE添加到当前线程队列，即thread->todo
         tcomplete->type = BINDER_WORK_TRANSACTION_COMPLETE;
         list_add_tail(&tcomplete->entry, &thread->todo);
 
@@ -941,16 +942,88 @@ transact主要过程:
   - call事务， 则目标队列target_list=`target_proc->todo`;
   - reply事务，则目标队列target_list=`target_thread->todo`;  
   - async事务，则目标队列target_list=`target_node->async_todo`.
-3. 设置事务栈信息
+3. 数据拷贝
+  - 将用户空间binder_transaction_data中ptr.buffer和ptr.offsets拷贝到目标进程的binder_buffer->data；
+  - 这就是只拷贝一次的真理所在；
+4. 设置事务栈信息
   - BC_TRANSACTION且非oneway, 则将当前事务添加到thread->transaction_stack；
-4. 事务分发过程：
+5. 事务分发过程：
   - 将`BINDER_WORK_TRANSACTION`添加到目标队列(此时为target_proc->todo队列);
   - 将`BINDER_WORK_TRANSACTION_COMPLETE`添加到当前线程thread->todo队列;
-5. 唤醒目标进程target_proc开始执行事务。
+6. 唤醒目标进程target_proc开始执行事务。
 
 该方法中proc/thread是指当前发起方的进程信息，而binder_proc是指目标接收端进程。
 此时当前线程thread的todo队列已经有事务, 接下来便会进入binder_thread_read来处理相关的事务.
 
+#### 3.4.1 binder_alloc_buf
+
+    static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
+                              size_t data_size, size_t offsets_size, int is_async)
+    {
+        struct rb_node *n = proc->free_buffers.rb_node;
+        struct binder_buffer *buffer;
+        size_t buffer_size;
+        struct rb_node *best_fit = NULL;
+        void *has_page_addr;
+        void *end_page_addr;
+        size_t size;
+        ..
+        size = ALIGN(data_size, sizeof(void *)) + ALIGN(offsets_size, sizeof(void *));
+        if (is_async && proc->free_async_space < size + sizeof(struct binder_buffer)) {
+            return NULL; // 剩余可用的异步空间，小于所需的大小
+        }
+        while (n) {  //从binder_buffer的红黑树中查找大小相等的buffer块
+            buffer = rb_entry(n, struct binder_buffer, rb_node);
+            buffer_size = binder_buffer_size(proc, buffer);
+            if (size < buffer_size) {
+                best_fit = n;
+                n = n->rb_left;
+            } else if (size > buffer_size)
+                n = n->rb_right;
+            else {
+                best_fit = n;
+                break;
+            }
+        }
+        ...
+        if (n == NULL) {
+            buffer = rb_entry(best_fit, struct binder_buffer, rb_node);
+            buffer_size = binder_buffer_size(proc, buffer);
+        }
+
+        has_page_addr =(void *)(((uintptr_t)buffer->data + buffer_size) & PAGE_MASK);
+        if (n == NULL) {
+            if (size + sizeof(struct binder_buffer) + 4 >= buffer_size)
+                buffer_size = size;
+            else
+                buffer_size = size + sizeof(struct binder_buffer);
+        }
+        //末端地址
+        end_page_addr =     (void *)PAGE_ALIGN((uintptr_t)buffer->data + buffer_size);
+        ...
+        //分配物理页
+        if (binder_update_page_range(proc, 1,
+            (void *)PAGE_ALIGN((uintptr_t)buffer->data), end_page_addr, NULL))
+            return NULL;
+        rb_erase(best_fit, &proc->free_buffers);
+        buffer->free = 0;
+        binder_insert_allocated_buffer(proc, buffer);
+        if (buffer_size != size) {
+            struct binder_buffer *new_buffer = (void *)buffer->data + size;
+            list_add(&new_buffer->entry, &buffer->entry);
+            new_buffer->free = 1;
+            binder_insert_free_buffer(proc, new_buffer);
+        }
+
+        buffer->data_size = data_size;
+        buffer->offsets_size = offsets_size;
+        buffer->async_transaction = is_async;
+        if (is_async) { //调整异步可用内存空间大小
+            proc->free_async_space -= size + sizeof(struct binder_buffer);
+        }
+        return buffer;
+    }
+    
 #### 3.5 binder_thread_read
 
     binder_thread_read（）{
@@ -1063,11 +1136,9 @@ transact主要过程:
 
             tr.data_size = t->buffer->data_size;
             tr.offsets_size = t->buffer->offsets_size;
-            tr.data.ptr.buffer = (void *)t->buffer->data +
-                        proc->user_buffer_offset;
+            tr.data.ptr.buffer = (void *)t->buffer->data + proc->user_buffer_offset;
             tr.data.ptr.offsets = tr.data.ptr.buffer +
-                        ALIGN(t->buffer->data_size,
-                            sizeof(void *));
+                        ALIGN(t->buffer->data_size, sizeof(void *));
 
             //将cmd和数据写回用户空间
             if (put_user(cmd, (uint32_t __user *)ptr))
@@ -1144,7 +1215,7 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
 
 接下来从joinThreadPool说起：
 
-#### 4.1 IPC.joinThreadPool
+### 4.1 IPC.joinThreadPool
 
     void IPCThreadState::joinThreadPool(bool isMain)
     {
@@ -1172,7 +1243,7 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
         talkWithDriver(false);
     }
 
-#### 4.2  IPC.getAndExecuteCommand
+### 4.2  IPC.getAndExecuteCommand
 
     status_t IPCThreadState::getAndExecuteCommand()
     {
@@ -1204,7 +1275,7 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
 此时system_server的binder线程空闲便是停留在binder_thread_read()方法来处理进程/线程新的事务。
 由【小节3.4】可知收到的是`BINDER_WORK_TRANSACTION`命令, 再经过inder_thread_read()后生成命令cmd=`BR_TRANSACTION`.再将cmd和数据写回用户空间。
 
-####  4.3 IPC.executeCommand
+###  4.3 IPC.executeCommand
 
     status_t IPCThreadState::executeCommand(int32_t cmd)
     {
@@ -1220,6 +1291,7 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
                 if (result != NO_ERROR) break;
 
                 Parcel buffer;
+                //当buffer对象回收时，则会调用freeBuffer来回收内存【见小节4.3.1】
                 buffer.ipcSetDataReference(
                     reinterpret_cast<const uint8_t*>(tr.data.ptr.buffer),
                     tr.data_size,
@@ -1292,7 +1364,160 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
 - 对于oneway的场景, 执行完本次transact()则全部结束.
 - 对于非oneway, 需要reply的通信过程,则向Binder驱动发送BC_REPLY命令【见小节5.1】
 
-#### 4.4   BBinder.transact
+#### 4.3.1 ipcSetDataReference
+[-> Parcel.cpp]
+
+    void Parcel::ipcSetDataReference(const uint8_t* data, size_t dataSize,
+        const binder_size_t* objects, size_t objectsCount, release_func relFunc, void* relCookie)
+    {
+        binder_size_t minOffset = 0;
+        freeDataNoInit(); //【见小节4.3.2】
+        mError = NO_ERROR;
+        mData = const_cast<uint8_t*>(data);
+        mDataSize = mDataCapacity = dataSize;
+        mDataPos = 0;
+        mObjects = const_cast<binder_size_t*>(objects);
+        mObjectsSize = mObjectsCapacity = objectsCount;
+        mNextObjectHint = 0;
+        mOwner = relFunc;
+        mOwnerCookie = relCookie;
+        for (size_t i = 0; i < mObjectsSize; i++) {
+            binder_size_t offset = mObjects[i];
+            if (offset < minOffset) {
+                mObjectsSize = 0;
+                break;
+            }
+            minOffset = offset + sizeof(flat_binder_object);
+        }
+        scanForFds();
+    }
+
+该方法的功能，Parcel成员变量说明：
+
+- mData：parcel数据起始地址
+- mDataSize：parcel数据大小
+- mObjects：flat_binder_object地址偏移量
+- mObjectsSize：parcel中flat_binder_object个数
+- mOwner：释放函数freebuffer
+- mOwnerCookie：释放函数所需信息
+
+#### 4.3.2 freeDataNoInit
+[-> Parcel.cpp]
+
+    void Parcel::freeDataNoInit()
+    {
+        if (mOwner) {
+            mOwner(this, mData, mDataSize, mObjects, mObjectsSize, mOwnerCookie);
+        } else { //mOwner为空， 进入该分支
+            releaseObjects(); //【见小节4.3.3】
+            if (mData) {
+                pthread_mutex_lock(&gParcelGlobalAllocSizeLock);
+                if (mDataCapacity <= gParcelGlobalAllocSize) {
+                  gParcelGlobalAllocSize = gParcelGlobalAllocSize - mDataCapacity;
+                } else {
+                  gParcelGlobalAllocSize = 0;
+                }
+                if (gParcelGlobalAllocCount > 0) {
+                  gParcelGlobalAllocCount--;
+                }
+                pthread_mutex_unlock(&gParcelGlobalAllocSizeLock);
+                free(mData);
+            }
+            if (mObjects) free(mObjects);
+        }
+    }
+
+#### 4.3.3  releaseObjects
+
+    void Parcel::releaseObjects()
+    {
+        const sp<ProcessState> proc(ProcessState::self());
+        size_t i = mObjectsSize;
+        uint8_t* const data = mData;
+        binder_size_t* const objects = mObjects;
+        while (i > 0) {
+            i--;
+            const flat_binder_object* flat
+                = reinterpret_cast<flat_binder_object*>(data+objects[i]);
+            //【见小节4.3.4】
+            release_object(proc, *flat, this, &mOpenAshmemSize);
+        }
+    }
+
+#### 4.3.4 release_object
+
+    static void release_object(const sp<ProcessState>& proc,
+        const flat_binder_object& obj, const void* who, size_t* outAshmemSize)
+    {
+        switch (obj.type) {
+            case BINDER_TYPE_BINDER:
+                if (obj.binder) {
+                    reinterpret_cast<IBinder*>(obj.cookie)->decStrong(who);
+                }
+                return;
+            case BINDER_TYPE_WEAK_BINDER:
+                if (obj.binder)
+                    reinterpret_cast<RefBase::weakref_type*>(obj.binder)->decWeak(who);
+                return;
+            case BINDER_TYPE_HANDLE: {
+                const sp<IBinder> b = proc->getStrongProxyForHandle(obj.handle);
+                if (b != NULL) {
+                    b->decStrong(who);
+                }
+                return;
+            }
+            case BINDER_TYPE_WEAK_HANDLE: {
+                const wp<IBinder> b = proc->getWeakProxyForHandle(obj.handle);
+                if (b != NULL) b.get_refs()->decWeak(who);
+                return;
+            }
+            case BINDER_TYPE_FD: {
+                ...
+                return;
+            }
+        }
+    }
+
+根据flat_binder_object的类型，来决定减少相应的强弱引用。
+
+#### 4.3.5 ~Parcel
+[-> Parcel.cpp]
+
+当[小节4.3]executeCommand执行完成后， 便会释放局部变量Parcel buffer，则会析构Parcel。
+
+    Parcel::~Parcel()
+    {
+        freeDataNoInit();
+    }
+
+    void Parcel::freeDataNoInit()
+    {
+        if (mOwner) { //此处mOwner等于freeBuffer 【见小节4.3.6】
+            mOwner(this, mData, mDataSize, mObjects, mObjectsSize, mOwnerCookie);
+        } else { 
+            ...
+        }
+    }
+
+接下来，进入IPC的freeBuffer过程。
+
+#### 4.3.6 freeBuffer
+[-> IPCThreadState.cpp]
+
+    void IPCThreadState::freeBuffer(Parcel* parcel, const uint8_t* data,
+                                    size_t /*dataSize*/,
+                                    const binder_size_t* /*objects*/,
+                                    size_t /*objectsSize*/, void* /*cookie*/)
+    {
+        if (parcel != NULL) parcel->closeFileDescriptors();
+        IPCThreadState* state = self();
+        state->mOut.writeInt32(BC_FREE_BUFFER);
+        state->mOut.writePointer((uintptr_t)data);
+    }
+
+向Binder驱动写入BC_FREE_BUFFER命令。
+
+### 4.4   BBinder.transact
 [-> Binder.cpp ::BBinder ]
 
     status_t BBinder::transact(
@@ -1317,7 +1542,7 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
         return err;
     }
 
-#### 4.5 JavaBBinder.onTransact
+### 4.5 JavaBBinder.onTransact
 [-> android_util_Binder.cpp]
 
     virtual status_t onTransact(
@@ -1347,7 +1572,7 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
 
 此处斗转星移, 从C++代码回到了Java代码. 进入AMN.execTransact, 由于AMN继续于Binder对象, 接下来进入Binder.execTransact
 
-#### 4.6 Binder.execTransact
+### 4.6 Binder.execTransact
 [Binder.java]
 
     private boolean execTransact(int code, long dataObj, long replyObj,
@@ -1389,7 +1614,7 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
 
 当发生RemoteException, RuntimeException, OutOfMemoryError, 对于非oneway的情况下都会把异常传递给调用者.
 
-#### 4.7 AMN.onTransact
+### 4.7 AMN.onTransact
 [-> ActivityManagerNative.java]
 
     public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
@@ -1413,7 +1638,7 @@ startThreadPool()过程会创建新Binder线程，再经过层层调用也会进
         }
     }
 
-#### 4.8 AMS.startService
+### 4.8 AMS.startService
 
     public ComponentName startService(IApplicationThread caller, Intent service,
             String resolvedType, String callingPackage, int userId)
@@ -1804,4 +2029,28 @@ oneway与非oneway: 都是需要等待Binder Driver的回应消息BR_TRANSACTION
 - binder_thread_write: 添加成员到todo队列;
 - binder_thread_read: 消耗todo队列;
 - 对于处于空闲可用的,或者Ready的binder线程是指停在binder_thread_read()的wait_event地方的Binder线程;
-- 每一次BR_TRANSACTION或者BR_REPLY结束之后都会调用freeBuffer.
+- 每一次BR_TRANSACTION或者BR_REPLY结束之后都会调用freeBuffer().
+
+整个过程copy once便是指binder_transaction()过程把binder_transaction_data->data拷贝到目标进程的buffer。
+
+### 6.5 数据流
+
+![binder_transaction_data](/images/binder/binder_transaction_data.jpg)
+
+- [2.1]AMP.startService：组装flat_binder_object对象等组成的Parcel data；
+- [2.9]IPC.writeTransactionData：组装BC_TRANSACTION和binder_transaction_data结构体，写入mOut;
+- [2.11]IPC.talkWithDriver: 组装BINDER_WRITE_READ和binder_write_read结构体，通过ioctl传输到驱动层。
+
+进入驱动后
+
+- [3.3]binder_thread_write: 处理binder_write_read.write_buffer数据
+- [3.4]binder_transaction: 处理write_buffer.binder_transaction_data数据；
+  - 创建binder_transaction结构体，记录事务通信的线程来源以及事务链条等相关信息；
+  - 分配binder_buffer结构体，拷贝当前线程binder_transaction_data的data数据到binder_buffer->data；
+- [3.5]binder_thread_read:  处理binder_transaction结构体数据
+  - 组装cmd=BR_TRANSACTION和binder_transaction_data结构体，写入binder_write_read.read_buffer数据
+
+回到用户空间
+
+- [4.3]IPC.executeCommand：处理BR_TRANSACTION命令, 将binder_transaction_data数据解析成BBinder.transact()所需的参数
+- [4.7] AMN.onTransact: 层层回调，进入该方法，反序列化数据后，调用startService()方法。

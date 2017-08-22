@@ -63,7 +63,7 @@ Binder IPC通信至少是两个进程的交互：
                 case BC_DECREFS: ...
                 case BC_INCREFS_DONE: ...
                 case BC_ACQUIRE_DONE: ...
-                case BC_FREE_BUFFER: ...
+                case BC_FREE_BUFFER: ... break;
                 
                 case BC_TRANSACTION:
                 case BC_REPLY: {
@@ -149,8 +149,8 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
 |BC_REGISTER_LOOPER|无参数|创建新的looper线程|
 |BC_ENTER_LOOPER|无参数|应用线程进入looper|
 |BC_EXIT_LOOPER|无参数|应用线程退出looper|
-|BC_REQUEST_DEATH_NOTIFICATION|  binder_handle_cookie|接受指定binder的死亡通知|
-|BC_CLEAR_DEATH_NOTIFICATION| binder_handle_cookie|不再接受指定binder的死亡通知|
+|BC_REQUEST_DEATH_NOTIFICATION|  binder_handle_cookie|注册死亡通知|
+|BC_CLEAR_DEATH_NOTIFICATION| binder_handle_cookie|取消注册的死亡通知|
 |BC_DEAD_BINDER_DONE|binder_uintptr_t(指针)|已完成binder的死亡通知|
 |BC_ACQUIRE_RESULT|-|-|
 |BC_ATTEMPT_ACQUIRE|-|-|
@@ -171,7 +171,7 @@ binder请求码，是用`enum binder_driver_command_protocol`来定义的，是�
     - BC_REGISTER_LOOPER：Binder用于驱动层决策而创建新的binder线程；joinThreadPool()过程,创建非binder主线程;
     - BC_EXIT_LOOPER：退出Binder线程，对于binder主线程是不能退出;joinThreadPool()的过程出现timeout,并且非binder主线程,则会退出该binder线程;
 
-    
+
 ### 2.3 binder_thread_read
 
 响应处理过程是通过`binder_thread_read()`方法，该方法根据不同的`binder_work->type`以及不同状态，生成相应的响应码。
@@ -262,6 +262,54 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 **BR_DEAD_REPLY**: 当应用层向Binder驱动发送Binder调用时，若Binder应用层的另一个端已经死亡，则驱动回应BR_DEAD_BINDER命令。
 
 **BR_FAILED_REPLY**:  当应用层向Binder驱动发送Binder调用时，若transaction出错，比如调用的函数号不存在，则驱动回应BR_FAILED_REPLY。
+
+
+### 2.4 协议使用场景
+
+#### 2.4.1 BC协议使用场景
+
+|BC协议|调用方法|
+|---|---|
+|BC_TRANSACTION|IPC.transact()|
+|BC_REPLY|IPC.sendReply()|
+|BC_FREE_BUFFER|IPC.freeBuffer()|
+|BC_REQUEST_DEATH_NOTIFICATION|IPC.requestDeathNotification()|
+|BC_CLEAR_DEATH_NOTIFICATION|IPC.clearDeathNotification()|
+|BC_DEAD_BINDER_DONE|IPC.execute()|
+
+binder_thread_write()根据不同的BC协议而执行不同的流程。
+其中BC_TRANSACTION和BC_REPLY协议，会进入binder_transaction()过程。
+
+#### 2.4.2 binder_work类型
+
+- BINDER_WORK_TRANSACTION 
+  - binder_transaction()
+  - binder_release_work()
+- BINDER_WORK_TRANSACTION_COMPLETE
+  - binder_transaction()
+  - binder_release_work()
+- BINDER_WORK_NODE
+  - binder_new_node()
+- BINDER_WORK_DEAD_BINDER
+  - binder_thread_write()，收到BC_REQUEST_DEATH_NOTIFICATION
+- BINDER_WORK_DEAD_BINDER_AND_CLEAR
+  - binder_thread_write()，收到BC_CLEAR_DEATH_NOTIFICATION
+- BINDER_WORK_CLEAR_DEATH_NOTIFICATION
+  - binder_thread_write()，收到BC_CLEAR_DEATH_NOTIFICATION
+  - binder_thread_write()，收到BC_DEAD_BINDER_DONE
+
+#### 2.4.3 BR协议使用场景
+
+|BC协议|触发时机|
+|---|---|
+|BR_TRANSACTION|收到BINDER_WORK_TRANSACTION|
+|BR_REPLY|收到BINDER_WORK_TRANSACTION|
+|BR_TRANSACTION_COMPLETE|收到BINDER_WORK_TRANSACTION_COMPLETE|
+|BR_DEAD_BINDER|收到BINDER_WORK_DEAD_BINDER或BINDER_WORK_DEAD_BINDER_AND_CLEAR
+|BR_CLEAR_DEATH_NOTIFICATION_DONE|收到BINDER_WORK_CLEAR_DEATH_NOTIFICATION
+
+BR_DEAD_REPLY，BR_FAILED_REPLY，BR_ERROR这些都是失败或错误相关的应答协议
+
 
 ## 三、Binder内存
 

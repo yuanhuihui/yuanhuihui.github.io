@@ -369,6 +369,7 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
         return ret;
     }
 
+执行ioctl过程，便需要加上binder lock.
 
 #### 2.4.1 binder_get_thread
 
@@ -478,15 +479,30 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 
 这里涉及两个核心方法`binder_thread_write()`和`binder_thread_read()`方法，在Binder系列的后续文章[Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)中详细介绍。
 
+### 2.4 Command使用场景
+
+ioctl命令常见命令的使用场景，其中BINDER_WRITE_READ最为频繁
+
+- BINDER_WRITE_READ
+  - IPC.talkWithDriver
+- BINDER_SET_CONTEXT_MGR
+  - binder_become_context_manager()
+- BINDER_SET_MAX_THREADS
+  - ProcessState.setThreadPoolMaxThreadCount()
+  - open_driver()
+- BINDER_VERSION
+  - open_driver()
+
 ### 2.5 小节
 
 - binder_init：初始化字符设备；
 - binder_open：打开驱动设备，过程需要持有binder_main_lock同步锁；
 - binder_mmap：申请内存空间，该过程需要持有binder_mmap_lock同步锁；
-- binder_ioctl：执行相应的io操作，该过程需要持有binder_main_lock同步锁；当处于binder_thread_read过程，
-却读缓存无数据则会先释放该同步锁，并处于wait_event_freezable过程，等有数据到来则唤醒并尝试持有同步锁。
+- binder_ioctl：执行相应的ioctl操作，该过程需要持有binder_main_lock同步锁；
+  - 当处于binder_thread_read过程，read_buffer无数据则释放同步锁，并处于wait_event_freezable过程，等有数据到来则唤醒并尝试持有同步锁。
 
-## 三、 结构体附录
+
+## 三、附录
 
 下面列举Binder驱动相关的一些重要结构体
 
@@ -814,15 +830,19 @@ flat_binder_object结构体代表Binder对象在两个进程间传递的扁平�
     struct binder_work {
         struct list_head entry;
         enum {
-            BINDER_WORK_TRANSACTION = 1, //binder_transaction()方法设置
-            BINDER_WORK_TRANSACTION_COMPLETE, //binder_transaction()方法设置
-            BINDER_WORK_NODE, // binder_new_node()/binder_transaction()方法设置
-            BINDER_WORK_DEAD_BINDER, // binder_thread_write()等多个方法可设置
-            BINDER_WORK_DEAD_BINDER_AND_CLEAR, // binder_thread_write()等多个方法可设置
-            BINDER_WORK_CLEAR_DEATH_NOTIFICATION,// binder_thread_write()等多个方法可设置
+            BINDER_WORK_TRANSACTION = 1, 
+            BINDER_WORK_TRANSACTION_COMPLETE,
+            BINDER_WORK_NODE, 
+            BINDER_WORK_DEAD_BINDER, 
+            BINDER_WORK_DEAD_BINDER_AND_CLEAR, 
+            BINDER_WORK_CLEAR_DEATH_NOTIFICATION,
         } type;
     };
 
+binder_work.type设置时机：
+  - binder_transaction()
+  - binder_thread_write()
+  - binder_new_node()
 
 ### 3.12 binder_state
 

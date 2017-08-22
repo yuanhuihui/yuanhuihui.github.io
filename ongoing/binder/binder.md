@@ -62,6 +62,8 @@ joinThreadPool
 
 ## 进一步转换
 
+### client
+
 waitForResponse
 {
     while (1) {
@@ -79,15 +81,14 @@ waitForResponse
     }
 }  
 
+### server
+
 joinThreadPool
 {
     while (1){
         processPendingDerefs()
             writeTransactionData // BC_TRANSACTION
             waitForResponse //等待BR_REPLY(非oneway)
-
-        binder_thread_write  // 写入BC_XXX
-        binder_thread_read  // 读取BR_TRANSACTION
 
         executeCommand
             BBinder.transact(&reply)
