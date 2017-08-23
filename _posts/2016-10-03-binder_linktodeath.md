@@ -311,7 +311,7 @@ binder_ioctl_write_read()方法。
                     death = kzalloc(sizeof(*death), GFP_KERNEL);
 
                     INIT_LIST_HEAD(&death->work.entry);
-                    death->cookie = cookie;
+                    death->cookie = cookie; //BpBinder指针
                     ref->death = death;
                     //当目标binder服务所在进程已死,则直接发送死亡通知。这是非常规情况
                     if (ref->node->proc == NULL) { 
@@ -560,17 +560,7 @@ workqueue是kernel提供的一种实现简单而有效的内核线程机制，�
       kfree(proc);
     }
 
-此处proc是来自Bn端的binder_proc.
-
-binder_deferred_release的主要工作有：
-
-- binder_free_thread(proc, thread)
-- binder_node_release(node, incoming_refs);
-- binder_delete_ref(ref);
-- binder_release_work(&proc->todo);
-- binder_release_work(&proc->delivered_death);
-- binder_free_buf(proc, buffer);
-- 以及释放各种内存信息
+此处proc是来自Bn端的binder_proc
 
 #### 4.6.1 binder_free_thread
 
@@ -584,7 +574,7 @@ binder_deferred_release的主要工作有：
       rb_erase(&thread->rb_node, &proc->threads);
       t = thread->transaction_stack;
       if (t && t->to_thread == thread)
-        send_reply = t;
+        send_reply = t; //服务端
       while (t) {
         active_transactions++;
         if (t->to_thread == thread) {
@@ -598,11 +588,10 @@ binder_deferred_release的主要工作有：
         } else if (t->from == thread) {
           t->from = NULL;
           t = t->from_parent;
-        } else
-          BUG();
+        }
       }
       
-      //发送失败回复
+      //将发起方线程的return_error值设置为BR_DEAD_REPLY【见小节4.6.4.1】
       if (send_reply)
         binder_send_failed_reply(send_reply, BR_DEAD_REPLY);
       //[见小节4.6.4]
@@ -686,7 +675,7 @@ binder_deferred_release的主要工作有：
           t = container_of(w, struct binder_transaction, work);
           if (t->buffer->target_node &&
               !(t->flags & TF_ONE_WAY)) {
-            //发送failed回复[见小节4.6.1.1]
+            //发送failed回复【见小节4.6.4.1】
             binder_send_failed_reply(t, BR_DEAD_REPLY);
           } else {
             t->buffer->transaction = NULL;
@@ -714,7 +703,40 @@ binder_deferred_release的主要工作有：
       }
 
     }
-    
+  
+##### 4.6.4.1 binder_send_failed_reply
+
+    static void binder_send_failed_reply(struct binder_transaction *t,
+                 uint32_t error_code)
+    {
+      struct binder_thread *target_thread;
+      struct binder_transaction *next;
+
+      while (1) {
+        target_thread = t->from;
+        if (target_thread) {
+          if (target_thread->return_error != BR_OK &&
+             target_thread->return_error2 == BR_OK) {
+            target_thread->return_error2 =
+              target_thread->return_error;
+            target_thread->return_error = BR_OK;
+          }
+          if (target_thread->return_error == BR_OK) {
+            binder_pop_transaction(target_thread, t);
+            //设置错误的返回码，并唤醒等待线程
+            target_thread->return_error = error_code;
+            wake_up_interruptible(&target_thread->wait);
+          }
+          return;
+        }
+        next = t->from_parent;
+        binder_pop_transaction(target_thread, t);
+        if (next == NULL) {
+          return;
+        }
+        t = next;
+      }
+    }  
 #### 4.6.5 binder_free_buf
 
     static void binder_free_buf(struct binder_proc *proc,
@@ -758,6 +780,24 @@ binder_deferred_release的主要工作有：
       binder_insert_free_buffer(proc, buffer);
     }
 
+#### 4.6.6 小结
+
+binder_deferred_release的主要工作有：
+
+1. binder_free_thread： proc->threads所有线程
+  - binder_send_failed_reply(send_reply, BR_DEAD_REPLY)：将发起方线程的return_error值设置为BR_DEAD_REPLY，让其直接返回；
+2. binder_node_release: proc->nodes所有节点
+  - binder_release_work(&node->async_todo)
+  - node->refs的所有死亡回调
+3. binder_delete_ref: proc->refs_by_desc所有引用
+  - 清除引用
+4. binder_release_work: proc->todo, proc->delivered_death
+  - binder_send_failed_reply(t, BR_DEAD_REPLY)
+5. binder_free_buf: proc->allocated_buffers所有已分配buffer
+  - 释放已分配的buffer
+6.  __free_page: proc->pages所有物理内存页
+
+不论是binder线程正在处理的事务，还是位于进程todo队列的事务，当进程被杀后，则会立马通知请求发起方来结束请求。
 
 ## 五. 处理死亡通知
 
@@ -1076,24 +1116,26 @@ binder_deferred_release的主要工作有：
 
             switch (w->type) {
               case BINDER_WORK_DEAD_BINDER:
-          		case BINDER_WORK_DEAD_BINDER_AND_CLEAR:
-          		case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: {
-          			struct binder_ref_death *death;
-          			uint32_t cmd;
+              case BINDER_WORK_DEAD_BINDER_AND_CLEAR:
+              case BINDER_WORK_CLEAR_DEATH_NOTIFICATION: {
+                struct binder_ref_death *death;
+                uint32_t cmd;
 
-          			death = container_of(w, struct binder_ref_death, work);
-          			if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION)
-          				cmd = BR_CLEAR_DEATH_NOTIFICATION_DONE; //清除完成
-          			...
-          			if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION) {
-          				list_del(&w->entry); //清除死亡通知的work队列
-          				kfree(death);
-          				binder_stats_deleted(BINDER_STAT_DEATH);
-          			} 
-          			...
-          			if (cmd == BR_DEAD_BINDER)
-          				goto done;
-          		} break;
+                death = container_of(w, struct binder_ref_death, work);
+                if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION)
+                  cmd = BR_CLEAR_DEATH_NOTIFICATION_DONE; //清除完成
+                ...
+                
+                if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION) {
+                  list_del(&w->entry); //清除死亡通知的work队列
+                  kfree(death);
+                  binder_stats_deleted(BINDER_STAT_DEATH);
+                } 
+                ...
+                
+                if (cmd == BR_DEAD_BINDER)
+                  goto done;
+              } break;
             }
         }
         ...
@@ -1130,3 +1172,33 @@ binder_deferred_release的主要工作有：
 
 死亡回调DeathRecipient只有Bp才能正确使用，因为DeathRecipient用于监控Bn端挂掉的情况，
 如果Bn建立跟自己的死亡通知，自己进程都挂了，也就无法通知。
+
+每个BpBinder都有一个记录DeathRecipient列表的对象DeathRecipientList。
+
+### 7.1 流程图
+
+![linktodeath.jpg](/images/binder/linktodeath.jpg)
+
+图解：[点击查看大图](http://www.gityuan.com/images/binder/linktodeath.jpg)
+
+**linkToDeath过程**
+
+1. requestDeathNotification过程向驱动传递的命令BC_REQUEST_DEATH_NOTIFICATION，参数有mHandle和BpBinder对象；
+2. binder_thread_write()过程，同一个BpBinder可以注册多个死亡回调，但Kernel只允许注册一次死亡通知。
+3. 注册死亡回调的过程，实质就是向binder_ref结构体添加binder_ref_death指针，
+binder_ref_death的cookie记录BpBinder指针。
+
+**unlinkToDeath过程**
+
+1. unlinkToDeath只有当该BpBinder的所有mObituaries都被移除，才会向驱动层执行清除死亡通知的动作，
+否则只是从native层移除某个recipient。
+2. clearDeathNotification过程向驱动传递BC_CLEAR_DEATH_NOTIFICATION，参数有mHandle和BpBinder对象；
+3. binder_thread_write()过程，将BINDER_WORK_CLEAR_DEATH_NOTIFICATION事务添加当前当前进程/线程的todo队列
+
+
+**触发死亡回调**
+
+1. 服务实体进程：binder_release过程会执行binder_node_release()，loop该binder_node下所有的ref->death对象。
+当存在，则将BINDER_WORK_DEAD_BINDER事务添加ref->proc->todo（即ref所在进程的todo队列)
+2. 引用所在进程：执行binder_thread_read()过程，向用户空间写入BR_DEAD_BINDER，并触发死亡回调。
+3. 发送死亡通知sendObituary

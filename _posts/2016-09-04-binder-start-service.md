@@ -2030,6 +2030,7 @@ oneway与非oneway: 都是需要等待Binder Driver的回应消息BR_TRANSACTION
 - binder_thread_read: 消耗todo队列;
 - 对于处于空闲可用的,或者Ready的binder线程是指停在binder_thread_read()的wait_event地方的Binder线程;
 - 每一次BR_TRANSACTION或者BR_REPLY结束之后都会调用freeBuffer().
+- ProcessState.mHandleToObject记录着handle与对应的BpBinder信息。
 
 整个过程copy once便是指binder_transaction()过程把binder_transaction_data->data拷贝到目标进程的buffer。
 

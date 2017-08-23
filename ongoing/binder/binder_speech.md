@@ -1,35 +1,49 @@
-1. Binder IPC，到底是如何通信的？
-2. Binder采用怎样的架构设计？系统到底哪些地方会使用binder?
-2. Binder线程池是如何运作？什么情况下会binder线程池占满？
-3. Binder的高效体现在哪？ 一次内存拷贝，到底是怎么一回事？
-4. native层与java层 binder通信之间是什么关系？
-5. Binder是阻塞还是非阻塞？oneway是否可能阻塞？
-6. 同步与异步Binder是如何实现的？
-7. 代理端发起binder请求，并交由服务端正在处理，如果此时代理端进程死亡，服务端的活是否会停止？
-7. linkToDeath的原理是什么？ 一个BpBinder可以link多个DeathRecipient？  native可以，但kernel只会有一个
-8. binderDied是如何触发的？有没有可能进程被杀而不会触发呢？
-9. 什么场景使用binder来通信，为何native daemon进程基本采用socket，而不直接改用binder?
-10. 使用binder过程有哪些需要注意的地方？ 内存，频繁，oneway, 异步
-11. 很多情况下，为什么ANR触发时，app主线程都卡在binder调用，这是系统的锅，还是app的锅？
-12. binder通信过程，transaction too large，该如何破？
-13. Binder有没有什么不足？
-14. binder最新有什么进展？
-15. BnServiceManager在Binder通信过程的作用是什么？==> 多余的
-16. 同一个进程调用binder通信，是否会进入binder driver，系统如何识别呢？
-17. Java层和Native层分别注册同名的binder，查询的时候该如何显示呢？
+
+
+1. Binder是什么？
+2. Binder采用怎样的架构设计？
+3. 为什么Android要采用Binder作为进程间通信方式？
+4. Binder是如何实现的一次通信只拷贝一次内存？
+5. binder有这么多优势，native daemon为何采用socket？zygote为何采用socket? installerd
+6. Binder线程池是如何管理与运作的？什么情况下会binder线程池占满？
+7. Binder服务是如何注册到系统的？又是如何查看某个服务的？
+8. native层与java层binder有什么关系？如果Java层和Native层分别注册同名的binder，查询服务该显示哪一个？
+9. Binder调用是否为阻塞操作？oneway是否会阻塞？同步与异步Binder是如何实现的？
+10. linkToDeath的原理是什么？BBinder能做这个操作吗(不可以)？一个BpBinder可以注册多个死亡回调（可以）？   native多个，但kernel只会有一个
+11. linkToDeath/ unlinkToDeath的原理是什么，这个过程是否涉及进程间通信？ 不涉及
+12. binderDied是如何触发的？有没有可能进程被杀而不会触发呢？
+13. 代理端发起binder请求，并交由服务端正在处理，如果此时代理端进程死亡，服务端的活是否会停止？
+14. binder通信过程，transaction too large，该如何破？采用 ParceledListSlice
+15. binder的使用场景有哪些？
+16. 调用同一个进程的binder接口，是否需要走一遍完整的binder driver流程？
+17. 使用binder过程有哪些需要注意的地方？ 内存，频繁，oneway, 异步
+18. 很多情况下，为什么ANR触发时，app主线程都卡在binder调用，这是系统的锅，还是app的锅？
+19. Binder有没有什么缺点？lock, 内存大小限制
+20. 最新Binder机制有哪些改进与优化？
+
+
+binder属于上乘内功心法，几乎做app开发和framework开发的人只需要一两行代码就可以完成一次binder通信，
+强大的binder机制已经完美做好了一切事宜。
+
+所以几乎大家都感觉不到binder的真实存在，以至于有人看到我写binder，起初以为是错写了bundle对象，。
+
+
+为了适合对binder比较陌生的，有些基础知识；
+同时为了兼顾对binder本身比较熟悉的人，有所收获，所以难易皆有。
+
 
 泛泛而谈，只讲入门，可能有人会觉得深度不够；深入原理，可能会听得云里雾里。全面展开讲，并非两三个小时能说清楚。
-
 
 问一问 其他人还有什么问题？
 
 Binder系统比较复杂，带着个人理解尝试去领悟作者的设计思想。
 
-我也只是略懂Binder的十之一二，还有很多不太懂的地方，讲得过程，大家有什么不同的看法，还请多多指教。
+博大精深，我也只是略知一二，今天跟大家一起交流与学习，讲得过程，大家有什么不同见解，欢迎提出来讨论，
+在场也有很多专家和大牛。
 
-”易掌握，难精通“
+Binder内功 ”易掌握，难精通“
 
-Binder内功
+
 
 
 历史：
@@ -41,6 +55,7 @@ Binder内功
 4. 2005年8月17日，Google低调收购了成立仅22个月的高科技企业Android及其团队。安迪鲁宾成为Google公司工程部副总裁，继续负责Android项目。
 5. 2008年9月，谷歌正式发布了Android 1.0系统。
 6. 2017年，十年的迭代，已发布Android 8.0系统。
+
 
 
 PPT: 图片，进程用户与内核空间共享问题，举例：

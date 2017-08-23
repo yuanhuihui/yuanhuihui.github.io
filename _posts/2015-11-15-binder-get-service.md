@@ -574,7 +574,7 @@ readStrongBinder的功能是flat_binder_object解析并创建BpBinder对象.
 
 ## 二. 总结
 
-请求服务(getService)过程，当执行binder_transaction()时，会区分请求服务所属进程情况。
+请求服务(getService)过程，就是向servicemanager进程查询指定服务，当执行binder_transaction()时，会区分请求服务所属进程情况。
 
 1. 当请求服务的进程与服务属于不同进程，则为请求服务所在进程创建binder_ref对象，指向服务进程中的binder_node;
   - 最终readStrongBinder()，返回的是BpBinder对象；
