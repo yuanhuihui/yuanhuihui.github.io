@@ -16,7 +16,7 @@ tags:
 
 Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简单地划分为三层，驱动层、IPC层、业务层。`demo()`便是Client端和Server共同协商好的统一方法；handle、RPC数据、代码、协议这4项组成了IPC层的数据，通过IPC层进行数据传输；而真正在Client和Server两端建立通信的基础设施便是Binder Driver。
 
-![binder_ipc](/images/binder/binder_dev/binder_ipc.png)
+![binder_ipc](/images/binder/binder_dev/binder_ipc.jpg)
 
 例如，当名为`BatteryStatsService`的Client向ServiceManager注册服务的过程中，IPC层的数据组成为：`Handle=0`，RPC代码为`ADD_SERVICE_TRANSACTION`，RPC数据为`BatteryStatsService`，Binder协议为`BC_TRANSACTION`。
 
@@ -358,4 +358,4 @@ BR_DEAD_REPLY，BR_FAILED_REPLY，BR_ERROR这些都是失败或错误相关的�
 
 下面这图是从Binder在进程间数据通信的流程图，从图中更能明了Binder的内存转移关系。
 
-![binder_memory_map](/images/binder/binder_dev/binder_memory_map.png)
+![binder_memory_map](/images/binder/binder_dev/binder_memory_map.jpg)
