@@ -119,7 +119,7 @@ media入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
         , mThreadPoolSeq(1)
     {
         if (mDriverFD >= 0) {
-            //采用内存映射函数mmap，给binder分配一块虚拟地址空间,用来接收事务
+            //采用内存映射函数mmap，给binder分配一块虚拟地址空间【见小节2.4】
             mVMStart = mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
             if (mVMStart == MAP_FAILED) {
                 close(mDriverFD); //没有足够空间分配给/dev/binder,则关闭驱动
@@ -167,6 +167,24 @@ media入口函数是`main_mediaserver.cpp`中的`main()`方法，代码如下：
 open_driver作用是打开/dev/binder设备，设定binder支持的最大线程数。关于binder驱动的相应方法，见文章[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)。
 
 ProcessState采用单例模式，保证每一个进程都只打开一次Binder Driver。
+
+#### 2.4 mmap
+
+    //原型
+    void* mmap(void* addr, size_t size, int prot, int flags, int fd, off_t offset)
+    //此处
+    mmap(0, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, 0);
+
+参数说明：
+
+- addr: 代表映射到进程地址空间的起始地址，当值等于0则由内核选择合适地址，此处为0；
+- size: 代表需要映射的内存地址空间的大小，此处为1M-8K；
+- prot: 代表内存映射区的读写等属性值，此处为PROT_READ(可读取);
+- flags: 标志位，此处为MAP_PRIVATE(私有映射，多进程间不共享内容的改变)和 MAP_NORESERVE(不保留交换空间)
+- fd: 代表mmap所关联的文件描述符，此处为mDriverFD；
+- offset：偏移量，此处为0。
+
+mmap()经过系统调用，执行[http://gityuan.com/2015/11/01/binder-driver/](binder_mmap)过程。
 
 ## 三. 服务注册
 

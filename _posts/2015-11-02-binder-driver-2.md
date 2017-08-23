@@ -16,7 +16,7 @@ tags:
 
 Client进程通过RPC(Remote Procedure Call Protocol)与Server通信，可以简单地划分为三层，驱动层、IPC层、业务层。`demo()`便是Client端和Server共同协商好的统一方法；handle、RPC数据、代码、协议这4项组成了IPC层的数据，通过IPC层进行数据传输；而真正在Client和Server两端建立通信的基础设施便是Binder Driver。
 
-![IPC-Transaction](/images/binder/binder_dev/IPC-Transaction.png)
+![binder_ipc](/images/binder/binder_dev/binder_ipc.png)
 
 例如，当名为`BatteryStatsService`的Client向ServiceManager注册服务的过程中，IPC层的数据组成为：`Handle=0`，RPC代码为`ADD_SERVICE_TRANSACTION`，RPC数据为`BatteryStatsService`，Binder协议为`BC_TRANSACTION`。
 
@@ -37,6 +37,8 @@ Binder IPC通信至少是两个进程的交互：
 
 - client进程执行binder_thread_write，根据BC_XXX命令，生成相应的binder_work；
 - server进程执行binder_thread_read，根据binder_work.type类型，生成BR_XXX，发送到用户空间处理。
+
+#### 2.1.1 通信过程
 
 ![binder_protocol](/images/binder/binder_dev/binder_protocol.jpg)
 
@@ -264,9 +266,9 @@ binder响应码，是用`enum binder_driver_return_protocol`来定义的，是bi
 **BR_FAILED_REPLY**:  当应用层向Binder驱动发送Binder调用时，若transaction出错，比如调用的函数号不存在，则驱动回应BR_FAILED_REPLY。
 
 
-### 2.4 协议使用场景
+## 三. 场景总结
 
-#### 2.4.1 BC协议使用场景
+#### 3.1 BC协议使用场景
 
 |BC协议|调用方法|
 |---|---|
@@ -298,7 +300,7 @@ binder_thread_write()根据不同的BC协议而执行不同的流程。
   - binder_thread_write()，收到BC_CLEAR_DEATH_NOTIFICATION
   - binder_thread_write()，收到BC_DEAD_BINDER_DONE
 
-#### 2.4.3 BR协议使用场景
+#### 3.2 BR协议使用场景
 
 |BC协议|触发时机|
 |---|---|
@@ -310,10 +312,42 @@ binder_thread_write()根据不同的BC协议而执行不同的流程。
 
 BR_DEAD_REPLY，BR_FAILED_REPLY，BR_ERROR这些都是失败或错误相关的应答协议
 
+#### 3.3 协议转换图
 
-## 三、Binder内存
+![protocol_transaction.jpg](/images/binder/protocol_transaction.jpg)
 
-#### 3.1 mmap机制
+![protocol_binder_dead.jpg](/images/binder/protocol_binder_dead.jpg)
+
+
+图解：(以BC_TRANSACTION为例)
+
+- 发起端进程：binder_transaction()过程将BC_TRANSACTION转换为BW_TRANSACTION；
+- 接收端进程：binder_thread_read()过程，将BW_TRANSACTION转换为BR_TRANSACTION;
+- 接收端进程：IPC.execute()过程，处理BR_TRANSACTION命令。
+
+注：BINDER_WORK_xxx --> BW_xxx
+
+#### 3.4 数据转换图
+
+![binder_dataflow.jpg](/images/binder/binder_dataflow.jpg)
+
+图(左)说明：
+
+- AMP.startService: 将数据封装到Parcel类型；
+- IPC.writeTransactionData：将数据封装到binder_transaction_data结构体；
+- IPC.talkWithDriver：将数据进一步封装到binder_write_read结构体；
+  - 再通过ioctl()写入命令BINDER_WRITE_READ和binder_write_read结构体到驱动层
+- binder_transaction: 将发起端数据拷贝到接收端进程的buffer结构体；
+
+图(右)说明：
+
+- binder_thread_read：根据binder_transaction结构体和binder_buffer结构体数据生成新的binder_transaction_data结构体，写入bwr的write_buffer，传递到用户空间。
+- IPC.executeCommand: 解析binder_transaction_data数据，找到目标BBinder并调用其transact()方法;
+- AMN.onTransact： 解析Parcel数据，然后调用目标服务的目标方法；
+- AMS.startService： 层层封装和拆分后，执行真正的业务逻辑。
+
+## 四、Binder内存机制
+
 在上一篇文章从代码角度阐释了[binder_mmap()](http://gityuan.com/2015/11/01/binder-driver/#bindermmap)，这也是Binder进程间通信效率高的核心机制所在，如下图：
 
 ![binder_physical_memory](/images/binder/binder_dev/binder_physical_memory.jpg)
@@ -325,98 +359,3 @@ BR_DEAD_REPLY，BR_FAILED_REPLY，BR_ERROR这些都是失败或错误相关的�
 下面这图是从Binder在进程间数据通信的流程图，从图中更能明了Binder的内存转移关系。
 
 ![binder_memory_map](/images/binder/binder_dev/binder_memory_map.png)
-
-
-#### 3.2 binder_alloc_buf
-
-Binder内存分配通过binder_alloc_buf()方法，内存管理单元为[binder_buffer](http://gityuan.com/2015/11/01/binder-driver/#binderbuffer)结构体, 只有在binder_transaction过程才需要分配buffer.
-
-    static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
-                              size_t data_size, size_t offsets_size, int is_async)
-    {
-        struct rb_node *n = proc->free_buffers.rb_node;
-        struct binder_buffer *buffer;
-        size_t buffer_size;
-        struct rb_node *best_fit = NULL;
-        void *has_page_addr;
-        void *end_page_addr;
-        size_t size;
-        if (proc->vma == NULL) {
-            return NULL; //虚拟地址空间为空，直接返回
-        }
-        size = ALIGN(data_size, sizeof(void *)) + ALIGN(offsets_size, sizeof(void *));
-        if (size < data_size || size < offsets_size) {
-            return NULL; //非法的size
-        }
-        if (is_async && proc->free_async_space < size + sizeof(struct binder_buffer)) {
-            return NULL; // 剩余可用的异步空间，小于所需的大小
-        }
-        while (n) {  //从binder_buffer的红黑树中查找大小相等的buffer块
-            buffer = rb_entry(n, struct binder_buffer, rb_node);
-            buffer_size = binder_buffer_size(proc, buffer);
-            if (size < buffer_size) {
-                best_fit = n;
-                n = n->rb_left;
-            } else if (size > buffer_size)
-                n = n->rb_right;
-            else {
-                best_fit = n;
-                break;
-            }
-        }
-        if (best_fit == NULL) {
-            return NULL; //内存分配失败，地址空间为空
-        }
-        if (n == NULL) {
-            buffer = rb_entry(best_fit, struct binder_buffer, rb_node);
-            buffer_size = binder_buffer_size(proc, buffer);
-        }
-
-        has_page_addr =(void *)(((uintptr_t)buffer->data + buffer_size) & PAGE_MASK);
-        if (n == NULL) {
-            if (size + sizeof(struct binder_buffer) + 4 >= buffer_size)
-                buffer_size = size;
-            else
-                buffer_size = size + sizeof(struct binder_buffer);
-        }
-        end_page_addr =     (void *)PAGE_ALIGN((uintptr_t)buffer->data + buffer_size);
-        if (end_page_addr > has_page_addr)
-            end_page_addr = has_page_addr;
-        if (binder_update_page_range(proc, 1,
-            (void *)PAGE_ALIGN((uintptr_t)buffer->data), end_page_addr, NULL))
-            return NULL;
-        rb_erase(best_fit, &proc->free_buffers);
-        buffer->free = 0;
-        binder_insert_allocated_buffer(proc, buffer);
-        if (buffer_size != size) {
-            struct binder_buffer *new_buffer = (void *)buffer->data + size;
-            list_add(&new_buffer->entry, &buffer->entry);
-            new_buffer->free = 1;
-            binder_insert_free_buffer(proc, new_buffer);
-        }
-
-        buffer->data_size = data_size;
-        buffer->offsets_size = offsets_size;
-        buffer->async_transaction = is_async;
-        if (is_async) {
-            proc->free_async_space -= size + sizeof(struct binder_buffer);
-        }
-        return buffer;
-    }
-
-这里介绍的binder_alloc_buf是内存分配函数。除此之外，还有内存释放相关方法：
-
-- binder_free_buf
-- binder_delete_free_buffer
-- binder_transaction_buffer_release
-
-这里涉及强弱引用相关函数的操作：
-
-|强/弱引用操作函数|功能|
-|---|---|
-|binder_inc_ref(ref,0,NULL)|binder_ref->weak++|
-|binder_inc_ref(ref,1,NULL)|binder_ref->strong++，或binder_node->internal_strong_refs++|
-|binder_dec_ref(&ref,0)|binder_ref->weak--|
-|binder_dec_ref(&ref,1)|binder_ref->strong--， 或binder_node->internal_strong_refs--|
-|binder_dec_node(node, 0, 0)|binder_node->pending_weak_ref = 0，且binder_node->local_weak_ref--|
-|binder_dec_node(node, 1, 0)|binder_node->pending_strong_ref = 0，且binder_node->local_strong_ref--|

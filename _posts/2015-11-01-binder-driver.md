@@ -134,7 +134,7 @@ Binder驱动中通过`static HLIST_HEAD(binder_procs);`，创建了全局的哈�
         struct vm_struct *area; //内核虚拟空间
         struct binder_proc *proc = filp->private_data;
         const char *failure_string;
-        struct binder_buffer *buffer;  //【见附录3.3】
+        struct binder_buffer *buffer;  //【见附录3.9】
 
         if (proc->tsk != current)
             return -EINVAL;
@@ -203,7 +203,7 @@ binder_mmap通过加锁，保证一次只有一个进程分配内存，保证多
       void *page_addr;
       unsigned long user_page_addr;
       struct page **page;
-      struct mm_struct *mm; //【见小节2.3.2】
+      struct mm_struct *mm; // 内存结构体
 
       if (vma)
       		mm = NULL; //binder_mmap过程vma不为空，其他情况都为空
@@ -251,8 +251,10 @@ binder_mmap通过加锁，保证一次只有一个进程分配内存，保证多
 
 ![binder_mmap](/images/binder/binder_dev/binder_mmap.png)
 
-`binder_update_page_range`主要完成工作：分配物理空间，将物理空间映射到内核空间，将物理空间映射到进程空间。  
-binder_update_page_range既可以分配物理页面，也可以释放物理页面，其中binder_update_page_range的调用时机：
+`binder_update_page_range`主要完成工作：分配物理空间，将物理空间映射到内核空间，将物理空间映射到进程空间.
+另外，不同参数下该方法也可以释放物理页面。
+
+binder_update_page_range的调用时机：
 
 - binder_mmap: 用于分配内存，分配大小为1page, vma不为空；
 - binder_alloc_buf：用于分配内存，vma为空；
@@ -260,8 +262,7 @@ binder_update_page_range既可以分配物理页面，也可以释放物理页�
 - binder_delete_free_buffer：同样用于释放内存，vma为空。
 
 
-#### 2.3.2 mm_struct
-[-> kernel/include/linux/mm_types.h]
+关于mm_struct结构体，定义在mm_types.h文件：
 
     struct mm_struct {
       struct vm_area_struct *mmap;  //VMA列表
@@ -273,6 +274,103 @@ binder_update_page_range既可以分配物理页面，也可以释放物理页�
       unsigned long flags; 
       ...
     };
+    
+下面，再说一说binder_alloc_buf过程
+
+#### 2.3.2 binder_alloc_buf
+
+通过binder_alloc_buf()方法来分配binder_buffer结构体, 只有在binder_transaction过程才需要分配buffer.
+
+    static struct binder_buffer *binder_alloc_buf(struct binder_proc *proc,
+                              size_t data_size, size_t offsets_size, int is_async)
+    {
+        struct rb_node *n = proc->free_buffers.rb_node;
+        struct binder_buffer *buffer;
+        size_t buffer_size;
+        struct rb_node *best_fit = NULL;
+        void *has_page_addr;
+        void *end_page_addr;
+        size_t size;
+        if (proc->vma == NULL) {
+            return NULL; //虚拟地址空间为空，直接返回
+        }
+        size = ALIGN(data_size, sizeof(void *)) + ALIGN(offsets_size, sizeof(void *));
+        if (size < data_size || size < offsets_size) {
+            return NULL; //非法的size
+        }
+        if (is_async && proc->free_async_space < size + sizeof(struct binder_buffer)) {
+            return NULL; // 剩余可用的异步空间，小于所需的大小
+        }
+        while (n) {  //从binder_buffer的红黑树中查找大小相等的buffer块
+            buffer = rb_entry(n, struct binder_buffer, rb_node);
+            buffer_size = binder_buffer_size(proc, buffer);
+            if (size < buffer_size) {
+                best_fit = n;
+                n = n->rb_left;
+            } else if (size > buffer_size)
+                n = n->rb_right;
+            else {
+                best_fit = n;
+                break;
+            }
+        }
+        if (best_fit == NULL) {
+            return NULL; //内存分配失败，地址空间为空
+        }
+        if (n == NULL) {
+            buffer = rb_entry(best_fit, struct binder_buffer, rb_node);
+            buffer_size = binder_buffer_size(proc, buffer);
+        }
+
+        has_page_addr =(void *)(((uintptr_t)buffer->data + buffer_size) & PAGE_MASK);
+        if (n == NULL) {
+            if (size + sizeof(struct binder_buffer) + 4 >= buffer_size)
+                buffer_size = size;
+            else
+                buffer_size = size + sizeof(struct binder_buffer);
+        }
+        end_page_addr =     (void *)PAGE_ALIGN((uintptr_t)buffer->data + buffer_size);
+        if (end_page_addr > has_page_addr)
+            end_page_addr = has_page_addr;
+        if (binder_update_page_range(proc, 1,
+            (void *)PAGE_ALIGN((uintptr_t)buffer->data), end_page_addr, NULL))
+            return NULL;
+        rb_erase(best_fit, &proc->free_buffers);
+        buffer->free = 0;
+        binder_insert_allocated_buffer(proc, buffer);
+        if (buffer_size != size) {
+            struct binder_buffer *new_buffer = (void *)buffer->data + size;
+            list_add(&new_buffer->entry, &buffer->entry);
+            new_buffer->free = 1;
+            binder_insert_free_buffer(proc, new_buffer);
+        }
+
+        buffer->data_size = data_size;
+        buffer->offsets_size = offsets_size;
+        buffer->async_transaction = is_async;
+        if (is_async) {
+            proc->free_async_space -= size + sizeof(struct binder_buffer);
+        }
+        return buffer;
+    }
+
+这里介绍的binder_alloc_buf是内存分配函数。除此之外，还有内存释放相关方法：
+
+- binder_free_buf
+- binder_delete_free_buffer
+- binder_transaction_buffer_release
+
+这里涉及强弱引用相关函数的操作：
+
+|强/弱引用操作函数|功能|
+|---|---|
+|binder_inc_ref(ref,0,NULL)|binder_ref->weak++|
+|binder_inc_ref(ref,1,NULL)|binder_ref->strong++，或binder_node->internal_strong_refs++|
+|binder_dec_ref(&ref,0)|binder_ref->weak--|
+|binder_dec_ref(&ref,1)|binder_ref->strong--， 或binder_node->internal_strong_refs--|
+|binder_dec_node(node, 0, 0)|binder_node->pending_weak_ref = 0，且binder_node->local_weak_ref--|
+|binder_dec_node(node, 1, 0)|binder_node->pending_strong_ref = 0，且binder_node->local_strong_ref--|
+
     
 ### 2.4 binder_ioctl
 
@@ -484,14 +582,14 @@ binder_ioctl()函数负责在两个进程间收发IPC数据和IPC reply数据。
 ioctl命令常见命令的使用场景，其中BINDER_WRITE_READ最为频繁
 
 - BINDER_WRITE_READ
-  - IPC.talkWithDriver
+  - Binder读写交互场景，IPC.talkWithDriver
 - BINDER_SET_CONTEXT_MGR
-  - binder_become_context_manager()
+  - servicemanager进程成为上下文管理者，binder_become_context_manager()
 - BINDER_SET_MAX_THREADS
-  - ProcessState.setThreadPoolMaxThreadCount()
-  - open_driver()
+  - 初始化ProcessState对象，open_driver()
+  - 主动调整参数，ProcessState.setThreadPoolMaxThreadCount()
 - BINDER_VERSION
-  - open_driver()
+  - 初始化ProcessState对象，open_driver()
 
 ### 2.5 小节
 
@@ -524,6 +622,12 @@ ioctl命令常见命令的使用场景，其中BINDER_WRITE_READ最为频繁
 |12|binder_state|binder状态|
 
 6~9 用于数据传输相关，其中binder_write_read，binder_transaction_data进程空间和内核空间是通用的。
+
+#### BWR核心数据图表
+
+![binder_transaction_data](/images/binder/binder_transaction_data.jpg)
+
+binder_write_read是整个Binder IPC过程，最为核心的数据结构之一。
 
 
 ### 3.1 binder_proc
