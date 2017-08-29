@@ -1,5 +1,53 @@
 http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E6%AD%BB%E4%BA%A1%E9%80%9A%E7%9F%A5[DeathRecipient]/
 
+
+
+### IO
+BR_FAILED_REPLY = _IO('r', 17)
+
+asm-generic/ioctl.h
+
+
+#define _IOC_NONE 0U
+#define _IOC_WRITE 1U
+#define _IOC_READ 2U
+#define _IOC_NRSHIFT = 0
+#define _IOC_NRBITS 8
+#define _IOC_TYPEBITS 8
+#define _IOC_SIZEBITS 14
+#define _IOC_TYPECHECK(t) (sizeof(t))
+
+
+#define _IO(type,nr) _IOC(_IOC_NONE, (type), (nr), 0)
+#define _IOR(type,nr,size) _IOC(_IOC_READ, (type), (nr), (_IOC_TYPECHECK(size)))
+#define _IOW(type,nr,size) _IOC(_IOC_WRITE, (type), (nr), (_IOC_TYPECHECK(size)))
+#define _IOWR(type,nr,size) _IOC(_IOC_READ | _IOC_WRITE, (type), (nr), (_IOC_TYPECHECK(size)))
+
+#define _IOC(dir,type,nr,size) (((dir) << _IOC_DIRSHIFT) | ((type) << _IOC_TYPESHIFT) | ((nr) << _IOC_NRSHIFT) | ((size) << _IOC_SIZESHIFT))
+= dir << 30  | type << 8 | nr | size << 16
+
+_IOC_DIRSHIFT = _IOC_SIZESHIFT + _IOC_SIZEBITS = 16 + 14 = 30
+_IOC_TYPESHIFT  =  _IOC_NRSHIFT + _IOC_NRBITS = 0 + 8 = 8
+_IOC_NRSHIFT = 0
+_IOC_SIZESHIFT = _IOC_TYPESHIFT + _IOC_TYPEBITS = 8 + 8 = 16
+
+
+_IOC(0,"r", 17, 0)
+
+return_error 前8位代表type, 后八位代表number.
+r=114, c=99
+
+
+return_error只有两种, 要么BR_FAILED_REPLY,要么BR_DEAD_REPLY
+
+
+###
+
+Binder死亡通知机制之linkToDeath, 需要画一张图
+binder异常，需要添加到android.mk
+
+
+
 Proc-todo
 thread-todo
 node-aync_todo
