@@ -1,4 +1,3 @@
-http://light3moon.com/2015/01/28/Android%20Binder%20%E5%88%86%E6%9E%90%E2%80%94%E2%80%94%E6%AD%BB%E4%BA%A1%E9%80%9A%E7%9F%A5[DeathRecipient]/
 
 
 
@@ -53,10 +52,6 @@ thread-todo
 node-aync_todo
 
 
-B死亡，A会收到马上收到通知
--> binder_thread_read (put_user_preempt_disabled(thread->return_error2, *ptr))
--> waitForResponse (reply->setError(err))
-
 
 发起端
 BpBinder.transact
@@ -67,9 +62,6 @@ BpBinder.transact
         binder_thread_write 
           binder_transaction(处理BC_TRANSACTION --> BW_TRANSACTION_COMPLETE,BW_TRANSACTION
         binder_thread_read （处理BW_TRANSACTION_COMPLETE -> BR_TRANSACTION_COMPLETE
-    异步通信，收到cmd==BR_TRANSACTION_COMPLETE，则结束执行
-    同步通信，继续等待直到BR_DEAD_REPLY，BR_FAILED_REPLY，BR_REPLY，才结束等待。
-    当然，如果此时收到其他BR_XXX, 则执行executeCommand
       
 目标端：
 binder_thread_read （处理BW_TRANSACTION -> BR_TRANSACTION

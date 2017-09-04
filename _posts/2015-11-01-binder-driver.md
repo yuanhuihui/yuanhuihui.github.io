@@ -845,7 +845,10 @@ write_buffer和read_buffer都是包含Binder协议命令和binder_transaction_da
 - `code`: 比如注册服务过程code为ADD_SERVICE_TRANSACTION，又比如获取服务code为CHECK_SERVICE_TRANSACTION
 - `data`：代表整个数据区，其中data.ptr指向的是传递给Binder驱动的数据区的起始地址，data.offsets指的是数据区中IPC数据地址的偏移量。
 - `cookie`: 记录着BBinder指针。
-
+- data_size：代表本次传输的parcel数据的大小；
+- offsets_size： 代表传递的IPC对象的大小；根据这个可以推测出传递了多少个binder对象。
+  - 对于64位IPC，一个IPC对象大小等于8；
+  - 对于32位IPC，一个IPC对象大小等于4；
 
 ### 3.8 flat_binder_object
 

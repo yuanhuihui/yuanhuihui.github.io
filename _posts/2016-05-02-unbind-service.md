@@ -118,3 +118,4 @@ bindService的过程，本文介绍其对应的另一个操作unbind。
 1. unbind()是bind的逆操作，主要是清理bind相关对象，并不会回调onServiceDisconnected.
 2. 当Service进程死亡，经过Binder死亡回调，则会进入Client端进程来执行binderDied()，经过层层调用，
 最终回调用户定义的onServiceDisconnected方法。
+3. 当或者stopService过程被service彻底destroy的过程，也会回调onServiceDisconnected方法。
