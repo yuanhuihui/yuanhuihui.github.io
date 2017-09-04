@@ -26,9 +26,7 @@ layout: default
             <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 postlist-container">
                 {{ content }}
 								<hr>
-                <!-- 网易云跟帖 START-->
-                <div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
-                <!-- 网易云跟帖 END-->
+              
             </div>
             
             
@@ -70,9 +68,7 @@ layout: default
     			
 
 					<hr>
-          <!-- 网易云跟帖 START-->
-          <div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
-          <!-- 网易云跟帖 END-->
+        
 					
     		</div>
     <!-- Sidebar Container -->
@@ -191,14 +187,19 @@ layout: default
                     {% endfor %}
                 </ul>
                 
+                <!-- 订阅支持 -->
+                <hr>               
+                <h5>订阅支持</h5>
+                <ul class="list-inline">
+                    <li>
+                    	<a target="_blank" href="https://xiaozhuanlan.com/gityuan">《解读Android系统架构》</a>
+                    </li>
+                </ul>
 								<!-- 打赏支持 -->
 								<div class="short-about">
                 <hr>               
                 <h5>打赏支持</h5>
                 <ul class="list-inline">                   
-                    {% if site.money-description %}
-                        <p>{{site.money-description}}</p>
-                    {% endif %}
                     {% if site.money-alipay %}
                     	<a target="_blank" href="{{site.money-alipay | prepend: site.baseurl}}">
                             <img src="{{site.money-alipay}}" />
@@ -209,30 +210,13 @@ layout: default
                             <img src="{{site.money-weixin}}" />
                       </a>
                     {% endif %}
+                    {% if site.money-description %}
+                        <p>{{site.money-description}}</p>
+                    {% endif %}
                 </ul>
  								</div>
-                
-                <!--最近访客 start -->
-                <hr>
-                <h5>最近访客</h5>
-                <ul class="ds-recent-visitors" data-num-items="20" style="padding-left:0px;"></ul>
-                <!--最近访客 end -->
     		</div>
         {% endif %}
 	</div>
 </div>
 <div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
-
-<!-- 网易云跟帖 （web版） START-->
-<script src="https://img1.cache.netease.com/f2e/tie/yun/sdk/loader.js"></script>
-<script>
-var cloudTieConfig = {
-  url: document.location.href, 
-  sourceId: "",
-  productKey: "1fd00c5a27ee4cf1a6aa85f5e3896670",
-  target: "cloud-tie-wrapper"
-};
-var yunManualLoad = true;
-Tie.loader("aHR0cHM6Ly9hcGkuZ2VudGllLjE2My5jb20vcGMvbGl2ZXNjcmlwdC5odG1s", true);
-</script>
-<!-- 网易云跟帖 （web版） END-->

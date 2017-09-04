@@ -81,20 +81,17 @@ featured-condition-size: 1              # A tag will be featured if the size of 
 # hotpages
 hotpages: [
     {
-        title: "Android 开篇    ",
+        title: "Android系统开篇    ",
         href:  "http://gityuan.com/android"
     }, {
-        title: "理解Android进程创建流程",
-        href:  "http://gityuan.com/2016/03/26/app-process-create/"
+        title: "彻底理解Android Binder通信架构",
+        href:  "http://gityuan.com/2016/09/04/binder-start-service/"
     },{
-        title: "Binder系列 开篇",
+        title: "Binder系列开篇",
         href:  "http://gityuan.com/2015/10/31/binder-prepare/"
     },{
-        title: "Android 内存分析命令",
-        href:  "http://gityuan.com/2016/01/02/memory-analysis-command/"
-    },{
-        title: "startService 流程分析",
-        href:  "http://gityuan.com/2016/03/06/start-service/"
+        title: "理解Android进程创建流程",
+        href:  "http://gityuan.com/2016/03/26/app-process-create/"
     },{
         title: "如何自学 Android   ",
         href:  "http://gityuan.com/2016/04/24/how-to-study-android/"
