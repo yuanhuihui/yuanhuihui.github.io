@@ -239,7 +239,9 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |14|[四大组件之ContentProviderRecord](http://gityuan.com/2017/06/04/content_provider_record/)|ContentProvider|
 |15|[理解Android Context](http://gityuan.com/2017/04/09/android_context/)|Context|
 |16|[理解Application创建过程](http://gityuan.com/2017/04/02/android-application/)|Application|
-|17|[Android类加载器ClassLoader](http://gityuan.com/2017/03/19/android-classloader/)|classloader|
+|17|[unbindService流程分析](http://gityuan.com/2016/05/02/unbind-service/)|Service|
+|18|[四大组件之ActivityRecord](http://gityuan.com/2017/06/11/activity_record/)|Activity|
+|19|[AMS总结(一)](http://gityuan.com/2017/06/25/ams_summary_1/)|AMS|
 
 #### 4.5 图形系统系列
 图形也是整个系统非常复杂且重要的一个系列，涉及WindowManager,SurfaceFlinger.

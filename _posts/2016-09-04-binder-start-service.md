@@ -6,6 +6,8 @@ catalog:  true
 tags:
     - android
     - binder
+    - 组件系列
+    
 ---
 
 > 基于Android 6.0的源码剖析， 本文深度剖析Binder IPC过程, 这绝对是一篇匠心巨作，从Java framework到Native，再到Linux Kernel，带你全程看Binder通信过程.

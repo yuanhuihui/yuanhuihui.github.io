@@ -1,11 +1,11 @@
 ---
 layout: post
-title:  "unbindService启动过程分析"
+title:  "unbindService流程分析"
 date:   2016-05-02 20:22:50
 catalog:  true
 tags:
     - android
-    - 组件
+    - 组件系列
 
 ---
 

@@ -5,7 +5,8 @@ date:   2016-07-30 20:30:00
 catalog:  true
 tags:
     - android
-    - 组件
+    - 组件系列
+    
 ---
 
 > 基于Android 6.0源码剖析，本文涉及的相关源码：

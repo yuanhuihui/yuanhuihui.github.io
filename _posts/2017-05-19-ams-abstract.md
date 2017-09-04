@@ -5,7 +5,8 @@ date:   2017-05-19 21:19:12
 catalog:  true
 tags:
     - android
-
+    - 组件系列
+    
 ---
 
 > 本文基于Android 6.0的源代码，来分析四大组件的管理者AMS
