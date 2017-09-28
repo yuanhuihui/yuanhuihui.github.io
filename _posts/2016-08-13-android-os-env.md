@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "Android源码环境搭建"
-date:   2016-06-13 20:30:00
+date:   2016-08-13 20:30:00
 catalog:  true
 tags:
     - android
@@ -16,6 +16,13 @@ tags:
 #### 1.1 下载Android Studio
 
 官网链接: https://developer.android.com/studio/index.html
+
+
+**调整AS内存参数:** Android Studio需要大量的内存来加载Android源码，所以经常会遇到内存不足的问题, 需要加大内存.
+
+- 方法一: 点击｀Help｀ -> ｀Edit Custom VM Options｀, 比如 "-Xms748m -Xmx748m"
+- 方式二: 可修改IDEA_HOME/bin/studio64.vmoptions中-Xms和-Xmx的值
+
 
 #### 1.2 下载Android源码
 
@@ -36,16 +43,9 @@ idegen专门为IDE环境调试源码而设计的工具， 依次执行如下命�
     soruce build/envsetup.sh  
     //Step 2: 生成文件out/host/linux-x86/framework/idegen.jar
     mmm development/tools/idegen/  
-    //Step 3: 用于源码根目录生成文件android.ipr(工程相关设置), android.iml(模块相关配置)
+    //Step 3: 源码根目录生成文件android.ipr(工程相关设置), android.iml(模块相关配置)
     ./development/tools/idegen/idegen.sh
 
-
-#### 1.4 调整AS内存参数
-
-Android Studio需要大量的内存来加载Android源码，所以经常会遇到内存不足的问题, 需要加大内存.
-
-- 方法一: 点击Help -> Edit Custom VM Options, 比如 "-Xms748m -Xmx748m"。
-- 方式二: 可修改IDEA_HOME/bin/studio64.vmoptions中-Xms和-Xmx的值
 
 ## 二. 源码导入
 
@@ -69,14 +69,14 @@ Android Studio需要大量的内存来加载Android源码，所以经常会遇�
     <excludeFolder url="file://$MODULE_DIR$/out/target/product"/>
     <excludeFolder url="file://$MODULE_DIR$/prebuilt"/>
 
-如果已经把全部项目导入到AS，又想删除怎么办，其实有一个简单的方法，进入目录Project Structure -> Modules，
+如果已经把全部项目导入到Android Studio，又想删除怎么办，其实有一个简单的方法就是进入目录｀Project Structure｀ -> ｀Modules｀，
 可快速去除某些模块，如下图：
 
 #### 2.2 源码导入
 
-打开Android Studio，点击File -> Open，选中前面生成的android.ipr文件即可， 这个过程比较耗时，耐心等待。
+打开Android Studio，点击｀File｀ -> ｀Open｀，选中前面生成的**android.ipr**文件即可， 这个过程比较耗时。
 
-#### 3.3 配置JDK/SDK
+#### 2.3 配置JDK/SDK
 这里的配置JDK/SDK，是用于解决在分析和调试源码的过程，能正确地跳转到目标源码，而非SDK中的代码。
 
 步骤：
