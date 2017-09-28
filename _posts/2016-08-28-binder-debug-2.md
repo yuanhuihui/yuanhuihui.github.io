@@ -256,7 +256,24 @@ Tips:
 
 可查看单独每个进程更为详细的信息，锁对应的函数`binder_proc_show`. 这个等价于小节[2.2.2]的内容.
 
-### 2.3 transaction_log
+
+### 2.3 transactions
+
+#### 2.3.1 各进程信息
+
+    binder transactions:
+    proc 20256
+      buffer 348035: ffffff800a280050 size 212:0 delivered
+    ...
+
+解释：
+
+- pid=20256进程，buffer的data_size=212，offsets_size=0，delivered代表已分发的内存块
+- 该命令遍历输出所有进程的情况，可以看出每个进程buffer的分发情况。
+
+其实, [小节2.2] state的信息是[小节2.3]的超集, 拥有比这个更为全面, 详细的信息.  比如binder_ref信息只在state里面才有.
+
+### 2.4 transaction_log
 
     cat /d/binder/transaction_log
 
@@ -274,24 +291,14 @@ Tips:
 
 call_type：有3种，分别为async, call, reply.
 
+此处的data_size单位是字节数.
+
 `transaction_log`以及还有`binder_transaction_log_failed`会只会记录最近的32次的transaction过程.
 
-### 2.4 failed_transaction_log
+### 2.5 failed_transaction_log
 
     24423418: async from 713:713 to 1731:0 node 1809 handle 1 size 156:0
     24423419: reply from 733:5038 to 1731:4738 node 0 handle -1 size 0:0
     0: async from 782:1138 to 0:0 node 974 handle 8 size 88:8
 
 解释: 跟transaction_log是一个原理, 不同的时此处有时候to_proc=0,代表着远程进程已挂.
-
-### 2.5 transactions
-
-    binder transactions:
-    proc 20256
-      buffer 348035: ffffff800a280050 size 212:0 delivered
-    ...
-
-解释：
-
-- pid=20256进程，buffer的data_size=212，offsets_size=0，delivered代表已分发的内存块
-- 该命令遍历输出所有进程的情况，可以看出每个进程buffer的分发情况。

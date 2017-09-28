@@ -146,10 +146,7 @@ ContentProvider处理过程: 调用ContentResolver.query该方法经过层层调
         return startProcessLocked(processName, info, knownToBeDead, intentFlags, hostingType,
                 hostingName, allowWhileBooting, isolated, 0 /* isolatedUid */, keepIfLarge,
                 null /* ABI override */, null /* entryPoint */, null /* entryPointArgs */,
-                null /* crashHandler */);
-    }
-
-
+                null /* crashHandler */);进程名至少要有2个字符
 **2(a) ==> 2(b):** 方法2(a)将其他3个参数abiOverride,entryPoint, entryPointArgs赋值为null,再调用给2(b)
 
     private final void startProcessLocked(ProcessRecord app,
