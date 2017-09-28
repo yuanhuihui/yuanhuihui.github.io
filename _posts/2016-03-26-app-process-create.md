@@ -5,8 +5,7 @@ date:   2016-03-26 21:10:11
 catalog:  true
 tags:
     - android
-    - 系统启动
-    - process
+    - 进程系列
 
 ---
 

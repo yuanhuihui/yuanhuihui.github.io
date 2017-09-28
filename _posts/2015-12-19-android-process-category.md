@@ -5,7 +5,7 @@ date:   2015-12-19 21:10:40
 catalog:  true
 tags:
     - android
-    - process
+    - 进程系列
 ---
 
 > 整理Android手机，核心进程和线程情况
