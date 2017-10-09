@@ -24,7 +24,7 @@ tags:
 - 方式二: 可修改IDEA_HOME/bin/studio64.vmoptions中-Xms和-Xmx的值
 
 
-#### 1.2 下载Android源码
+#### 1.2 下载Android源代码
 
 相关资料:
 
@@ -35,7 +35,9 @@ tags:
 另外, 也可参考 [搭建Android 7.0的源码环境](http://gityuan.com/2016/08/20/Android_N/)
 
 
-#### 1.3 生成IDE相关文件
+## 二. 搭建源码环境
+
+#### 2.1 生成IDE相关文件
 
 idegen专门为IDE环境调试源码而设计的工具， 依次执行如下命令：
 
@@ -47,11 +49,16 @@ idegen专门为IDE环境调试源码而设计的工具， 依次执行如下命�
     ./development/tools/idegen/idegen.sh
 
 
-## 二. 源码导入
+#### 2.2 源码导入Android Studio
 
-#### 2.1 优化速度
+打开Android Studio， 点击｀File｀ -> ｀Open｀，选中前面生成的**android.ipr**文件即可， 这个过程比较耗时。
 
-打开android.iml文件，有大量excludeFolder，是指不会导入到AS的模块，默认除了以下14个文件夹之外的所有文件都会导致到AS工程，
+或者选择Ｏpen an existing Android Studio Project．
+
+
+**加载前，配置文件提升速度：**
+
+打开`android.iml`文件，有大量excludeFolder，是指不会导入到AS的模块，默认除了以下14个文件夹之外的所有文件都会导致到AS工程，
 这显然还会非常庞大的，那么我们可以有选择的导入 如下：
 
     <excludeFolder url="file://$MODULE_DIR$/./external/emma"/>
@@ -69,14 +76,13 @@ idegen专门为IDE环境调试源码而设计的工具， 依次执行如下命�
     <excludeFolder url="file://$MODULE_DIR$/out/target/product"/>
     <excludeFolder url="file://$MODULE_DIR$/prebuilt"/>
 
+
+**加载后的提升速度：**
+
 如果已经把全部项目导入到Android Studio，又想删除怎么办，其实有一个简单的方法就是进入目录｀Project Structure｀ -> ｀Modules｀，
-可快速去除某些模块，如下图：
+可快速去除某些模块．
 
-#### 2.2 源码导入
-
-打开Android Studio，点击｀File｀ -> ｀Open｀，选中前面生成的**android.ipr**文件即可， 这个过程比较耗时。
-
-#### 2.3 配置JDK/SDK
+#### 2.3 配置源码正确跳转
 这里的配置JDK/SDK，是用于解决在分析和调试源码的过程，能正确地跳转到目标源码，而非SDK中的代码。
 
 步骤：
