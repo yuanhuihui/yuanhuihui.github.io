@@ -50,7 +50,7 @@ tags:
 |当前替换 | Ctrl + R            |
 |全局查找 | Ctrl + Shift + F           |
 |全局替换 | Ctrl + Shift + R            |
-|文件结构| Ctrl + F12|
+|文件方法查找| Ctrl + F12|
 |查找下一处出现 |  Ctrl + L  | F3          |
 |查找上一处出现 | Ctrl + Shift + L　| Shift + F3 |
 |搜索任意内容| **双击 Shift**     |
@@ -157,7 +157,7 @@ tags:
 
 ## 八、其它
 
-| 功能   |  快捷键组合        |
+| 功能  |  快捷键组合 |
 | :--------   | :-----  |
 |打开设置|Ctrl + Alt + S|
 |保存|Ctrl +Ｓ|
@@ -165,8 +165,7 @@ tags:
 |Git Push |Ctrl + Shift + K|
 |Git Revert |Ctrl + Alt + Z|
 |同步 |Ctrl + Alt +Ｙ|
-|调用层级|Ctrl + Alt + H|
-|查看类的继承关系|Ctrl + H|
+
 
 ## 九、补充
 
@@ -177,5 +176,19 @@ tags:
 |最近打开的文件|Ctrl + E|
 |高亮选中单词|Ctrl + SHIFT +F7|
 |关闭当前Tab|Ctrl + F4|
+|选中功能|Ctrl + W连按|
 
-Ctrl + W 连续，会有隐藏神技
+## 十. 常用快捷键
+
+| 功能  |  快捷键组合 |
+| :--------   | :-----  |
+|调用层级|Ctrl + Alt + H|
+|文件方法查找|	Ctrl + F12|
+|查看类的继承关系|Ctrl + H|
+|搜索任意内容| 双击 Shift  |
+|全局查找（光标处）  |  Alt + F7     |
+|当前查找（光标处） |  Ctrl + F7     |
+|当前查找 | Ctrl + F  | Alt + F3           |
+|全局查找 | Ctrl + Shift + F           |
+|查找下一处出现 |  F3          |
+|查找上一处出现 | Shift + F3 |
