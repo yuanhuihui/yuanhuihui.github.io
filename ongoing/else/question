@@ -31,6 +31,8 @@
 
 11. 进程与线程的区别
 
+12. 线程同步方式： 对象锁和类锁
+
 12 java与c++区别
 
 13. 强弱引用
@@ -44,7 +46,7 @@ Java中的TreeSet和TreeMap的实现采用了什么算法？ 红黑树 ，时间
     - Task的启动模式
 2. 常见开源框架， 读过源码否
 
-3. activity与service交互方式： 广播，handler，
+3. activity与service交互方式： 广播，handler；
 
 4. dp, sp，pix区别
 
@@ -66,6 +68,8 @@ onNewIntent
 flag
 context, contextimpl
 
+12. 内存泄漏的场景以及原因： 比如handler内部类
+
 ### framework
 
 1. app启动过程
@@ -82,8 +86,8 @@ context, contextimpl
 5. 内存优化，内存泄露的分析，常见的内存泄露常见
 
 6. 系统卡顿分析，systrace
-
 4. AMS/ PMS
+
 ### native
 
 1. JNI的理解, NDK含义
@@ -96,6 +100,7 @@ context, contextimpl
 1. cpu调度算法
 2. 内存模型
 3. syscall
+4. linux系统的理解
 
 ### 虚拟机
 
@@ -105,17 +110,11 @@ context, contextimpl
 
 
 ### 开发工具
-
 1. as, eclipse, git
 
 ### 学习方式
 1. 博客，网站，github
-
 ### 性格，潜力
-
 ### 项目经验
 
-
-### linux知识
-
-1. 
+http://wiki.n.miui.com/pages/viewpage.action?pageId=52266364&preview=/52266364/52266480/面试.pdf
