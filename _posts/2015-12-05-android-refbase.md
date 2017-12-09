@@ -27,7 +27,7 @@ sp强指针其实就是一个模块类，先来看看其定义：
     public:
        inline sp() : m_ptr(0) { }
 
-       sp(T* other); 
+       sp(T* other);
        sp(const sp<T>& other); //对应于方法1
        template<typename U> sp(U* other);
        template<typename U> sp(const sp<U>& other);
@@ -38,7 +38,7 @@ sp强指针其实就是一个模块类，先来看看其定义：
        sp& operator = (const sp<T>& other);
 
        template<typename U> sp& operator = (const sp<U>& other);
-       template<typename U> sp& operator = (U* other); 
+       template<typename U> sp& operator = (U* other);
 
        void force_set(T* other);
        void clear(); //重置
@@ -135,7 +135,7 @@ Android源码中有大量的binder通信， ProcessState便是最常见的sp对�
     sp<ProcessState> gProcess = new ProcessState; //采用等号方式4
 
 说明：
- 
+
 - 其中ProcessState::self()返回的是sp<ProcessState>对象，可见proc(ProcessState::self())采用的是上面的模板中的括号方式2；
 - new ProcessState返回的是ProcessState指针，可见第2行采用的是等号方式4；
 
@@ -166,7 +166,7 @@ RefBase初始化过程，会创建weakref_impl对象，继续已上述举例来�
            , mRetain(false)
        {
        }
-       
+
 weakref_impl的成员变量mBase为ProcessState指针。
 不管【小节2.2】哪种方式，最终都会调用目标对象的incStrong()方法，接下来说说该方法。
 
@@ -177,7 +177,7 @@ weakref_impl的成员变量mBase为ProcessState指针。
     {
         weakref_impl* const refs = mRefs;
         refs->incWeak(id); //【见小节2.4.1】
-        refs->addStrongRef(id); 
+        refs->addStrongRef(id);
         //增加强引用计数
         const int32_t c = android_atomic_inc(&refs->mStrong);
         if (c != INITIAL_STRONG_VALUE)  {
@@ -219,7 +219,7 @@ addWeakRef调用addRef()，非debug版本，该方法mTrackEnabled=false，则�
     sp<T>::sp(const sp<T>& other)
             : m_ptr(other.m_ptr) {
         if (m_ptr)
-            m_ptr->incStrong(this); //【见小节2.6】
+            m_ptr->decStrong(this); //【见小节2.6】
     }
 
 #### 2.5.2 RefBase析构函数
@@ -239,7 +239,7 @@ addWeakRef调用addRef()，非debug版本，该方法mTrackEnabled=false，则�
         }
         const_cast<weakref_impl*&>(mRefs) = NULL;
     }
-    
+
 ### 2.6 decStrong
 [-> RefBase.cpp]
 
@@ -247,7 +247,7 @@ addWeakRef调用addRef()，非debug版本，该方法mTrackEnabled=false，则�
     {
         weakref_impl* const refs = mRefs;
         refs->removeStrongRef(id);
-        //强引用减一，返回值c是执行减一操作前的mStrong旧值。
+        //强引用减一，返回值是执行减一操作前的mStrong旧值。
         const int32_t c = android_atomic_dec(&refs->mStrong);
         if (c == 1) {
             refs->mBase->onLastStrongRef(id);
@@ -258,7 +258,7 @@ addWeakRef调用addRef()，非debug版本，该方法mTrackEnabled=false，则�
         //【见小节2.6.1】
         refs->decWeak(id);
     }
-    
+
 该方法的主要功能：
 
 - 分别减少weakref_impl的强弱引用计数(mStrong/mWeak)，进行减1操作;
@@ -297,6 +297,12 @@ addWeakRef调用addRef()，非debug版本，该方法mTrackEnabled=false，则�
 当强弱引用都减到0，普遍常见是会把实际对象和weakref_impl对象都释放。
 
 ## 三. 总结
+
+- sp/wp是模块类， 超载操作符，比如=，->, *
+- RefBase是Android C++类的父类
+- weakref_impl是weakref_type的子类
+-
+
 ### 3.1 RefBase
 RefBase有一个成员变量mRefs为weakref_impl指针，weakref_impl对象便是用来管理引用计数的。
 
@@ -328,4 +334,4 @@ RefBase有一个成员变量mRefs为weakref_impl指针，weakref_impl对象便�
     - 当弱引用计数减为0时，实际对象和weakref_impl对象会同时被delete。
 - flags为LIFETIME_FOREVER，对象不受强弱引用计数的控制，永不会被回收。
 
-最后，关于sp好处就是让系统根据引用计数来自动管理对象的回收问题，多增加了管理对象，故其执行效率会比普通指针略低。
+关于sp好处就是让系统根据引用计数来自动管理对象的回收问题，多增加了管理对象，故其执行效率会比普通指针略低。

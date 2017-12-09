@@ -54,7 +54,7 @@ tags:
 获取ServiceManager对象采用**单例模式**，当gDefaultServiceManager存在，则直接返回，否则创建一个新对象。 发现与一般的单例模式不太一样，里面多了一层while循环，这是google在2013年1月Todd Poynor提交的修改。当尝试创建或获取ServiceManager时，ServiceManager可能尚未准备就绪，这时通过sleep 1秒后，循环尝试获取直到成功。gDefaultServiceManager的创建过程,可分解为以下3个步骤：
 
 - `ProcessState::self()`：用于获取ProcessState对象(也是单例模式)，每个进程有且只有一个ProcessState对象，存在则直接返回，不存在则创建，详情见【小节二】;
-- `getContextObject()`： 用于获取BpBiner对象，对于handle=0的BpBiner对象，存在则直接返回，不存在才创建，详情见【小节三】;
+- `getContextObject()`： 用于获取BpBinder对象，对于handle=0的BpBinder对象，存在则直接返回，不存在才创建，详情见【小节三】;
 - `interface_cast<IServiceManager>()`：用于获取BpServiceManager对象，详情见【小节四】;
 
 
@@ -145,7 +145,7 @@ tags:
 open_driver作用是打开/dev/binder设备，设定binder支持的最大线程数。关于binder驱动的相应方法，见文章[Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)。
 
 
-## 三. 获取BpBiner对象
+## 三. 获取BpBinder对象
 
 #### 3.1  getContextObject
 [-> ProcessState.cpp]
@@ -398,11 +398,11 @@ BpServiceManager巧妙将通信层与业务层逻辑合为一体，
 Native层的Binder架构,通过如下两个宏,非常方便地创建了`new Bp##INTERFACE(obj)`:
 
     //用于申明asInterface(),getInterfaceDescriptor()
-    #define DECLARE_META_INTERFACE(INTERFACE) 
+    #define DECLARE_META_INTERFACE(INTERFACE)
     #define IMPLEMENT_META_INTERFACE(INTERFACE, NAME) //用于实现上述两个方法
 
 例如:
-    
+
     // 实现BPServiceManager对象
     IMPLEMENT_META_INTERFACE(ServiceManager,"android.os.IServiceManager")
 

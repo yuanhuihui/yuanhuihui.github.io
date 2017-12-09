@@ -184,7 +184,7 @@ ProcessState采用单例模式，保证每一个进程都只打开一次Binder D
 - fd: 代表mmap所关联的文件描述符，此处为mDriverFD；
 - offset：偏移量，此处为0。
 
-mmap()经过系统调用，执行[http://gityuan.com/2015/11/01/binder-driver/](binder_mmap)过程。
+mmap()经过系统调用，执行[binder_mmap](http://gityuan.com/2015/11/01/binder-driver/)过程。
 
 ## 三. 服务注册
 
@@ -240,12 +240,12 @@ mmap()经过系统调用，执行[http://gityuan.com/2015/11/01/binder-driver/](
             if (!local) {
                 BpBinder *proxy = binder->remoteBinder();
                 const int32_t handle = proxy ? proxy->handle() : 0;
-                obj.type = BINDER_TYPE_HANDLE; 
-                obj.binder = 0; 
+                obj.type = BINDER_TYPE_HANDLE;
+                obj.binder = 0;
                 obj.handle = handle;
                 obj.cookie = 0;
             } else { //进入该分支
-                obj.type = BINDER_TYPE_BINDER; 
+                obj.type = BINDER_TYPE_BINDER;
                 obj.binder = reinterpret_cast<uintptr_t>(local->getWeakRefs());
                 obj.cookie = reinterpret_cast<uintptr_t>(local);
             }
@@ -272,7 +272,7 @@ mmap()经过系统调用，执行[http://gityuan.com/2015/11/01/binder-driver/](
     {
         return NULL;
     }
-    
+
 #### 3.2.3 finish_flatten_binder
 
     inline static status_t finish_flatten_binder(
@@ -280,7 +280,7 @@ mmap()经过系统调用，执行[http://gityuan.com/2015/11/01/binder-driver/](
     {
         return out->writeObject(flat, false);
     }
-    
+
 将flat_binder_object写入out。
 
 ### 3.3 BpBinder::transact
@@ -595,7 +595,7 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
         struct binder_transaction *t;
        	struct binder_work *tcomplete;
         ...
-        
+
         if (reply) {
             ...
         }else {
@@ -663,7 +663,7 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
                   struct binder_ref *ref;
                   //【见4.3.1】
                   struct binder_node *node = binder_get_node(proc, fp->binder);
-                  if (node == NULL) { 
+                  if (node == NULL) {
                     //服务所在进程 创建binder_node实体【见4.3.2】
                     node = binder_new_node(proc, fp->binder, fp->cookie);
                     ...
@@ -755,7 +755,7 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
 
         //给新创建的binder_node 分配内核空间
         node = kzalloc(sizeof(*node), GFP_KERNEL);
-        
+
         // 将新创建的node添加到proc红黑树；
         rb_link_node(&node->rb_node, parent, p);
         rb_insert_color(&node->rb_node, &proc->nodes);
@@ -790,10 +790,10 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
         else
           return ref;
       }
-      
+
       //创建binder_ref
       new_ref = kzalloc_preempt_disabled(sizeof(*ref));
-      
+
       new_ref->debug_id = ++binder_last_id;
       new_ref->proc = proc; //记录进程信息
       new_ref->node = node; //记录binder节点
@@ -828,7 +828,7 @@ ioctl -> binder_ioctl -> binder_ioctl_write_read
       rb_insert_color(&new_ref->rb_node_desc, &proc->refs_by_desc);
       if (node) {
         hlist_add_head(&new_ref->node_entry, &node->refs);
-      } 
+      }
       return new_ref;
     }
 
@@ -863,7 +863,7 @@ handle值计算方法规律：
                 binder_dump_txn(txn);
                 if (func) {
                     unsigned rdata[256/4];
-                    struct binder_io msg; 
+                    struct binder_io msg;
                     struct binder_io reply;
                     int res;
 
@@ -881,7 +881,7 @@ handle值计算方法规律：
         }
         return r;
     }
-    
+
 ### 5.2 svcmgr_handler
 [-> service_manager.c]
 
@@ -902,7 +902,7 @@ handle值计算方法规律：
         ...
 
         switch(txn->code) {
-          case SVC_MGR_ADD_SERVICE: 
+          case SVC_MGR_ADD_SERVICE:
               s = bio_get_string16(msg, &len);
               ...
               handle = bio_get_ref(msg); //获取handle
@@ -918,7 +918,7 @@ handle值计算方法规律：
         bio_put_uint32(reply, 0);
         return 0;
     }
-    
+
 ### 5.3 do_add_service
 [-> service_manager.c]
 
