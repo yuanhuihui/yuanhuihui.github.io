@@ -301,7 +301,6 @@ addWeakRef调用addRef()，非debug版本，该方法mTrackEnabled=false，则�
 - sp/wp是模块类， 超载操作符，比如=，->, *
 - RefBase是Android C++类的父类
 - weakref_impl是weakref_type的子类
--
 
 ### 3.1 RefBase
 RefBase有一个成员变量mRefs为weakref_impl指针，weakref_impl对象便是用来管理引用计数的。

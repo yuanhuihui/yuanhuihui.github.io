@@ -1,14 +1,22 @@
+---
+layout: post
+title:  "5.2 ServiceManager管家"
+date:   2014-01-02 20:30:00
+catalog:  true
+---
+
 ## 5.2 ServiceManager管家
 
 ### 5.2.1 启动ServiceManager服务
-Android系统有大量的服务， 例如Java层的ActivityManagerService, WindowManagerService服务， Native层的SurfaceFlinger, AudioFlinger服务等。Binder系统需要有一个统一的地方来管理这些服务， 对外提供服务注册、服务查询功能。
+Android系统对外提供了非常丰富的服务功能， 例如Java层的ActivityManagerService, WindowManagerService服务， Native层的SurfaceFlinger, AudioFlinger服务等，这么多服务有有一个统一的地方来管理这些服务ServiceManager。当系统进程需要增加一个服务时，只需要将服务名和服务实体告诉ServiceManager就可以完成，这便是服务注册过程；当应用进程需要使用某个服务，只需要将服务名告诉ServiceManager就可以查询到服务的代理对象，这便是服务查询过程。
 
-整个Binder系统中最先启动的是ServiceManager进程，ServiceManager作为Binder IPC的大管家，统管所有的Binder服务信息。 同时本身也是一个Binder服务，但并没有采用libbinder中的多线程模型来与Binder驱动通信，而是自行编写了binder.c直接和Binder驱动来通信。ServiceManager是单线程的进程， 不断地循环在binder_loop()过程来读取和处理事务，从而对外提供查询和注册服务的功能，这样的好处是简单而高效。
+如图5-1所示， AMS注册过程就是告诉ServiceManager进程，ActivityManagerService服务实体运行在system_server进程，服务名叫“activity”，则在servicemanager进程的svclist列表中增加一条svcinfo记录， 里面主要记录着服务名以及相对应的handle值。查询AMS服务的过程，向ServiceManager进程查询一个服务名为“activity”的服务，ServiceManager通过检索svclist列表会找到所对应的服务在该进程中的handle值，有了这个handle值，经过Binder驱动就能生成AMS服务实体的代理对象，有了代理对象就可以使用AMS服务，比如startService。
 
-![此处增加一张Java/Native服务向ServiceManager注册或查询的关系图]()
 
-> 介绍ServiceManager对外提供的功能： 注册和查询
-> 查询过程， 要说明servicemanager对应的binder_node, handle=0 .
+![ServiceManager进程](/images/book/binder/5-2-1-service_manager.jpg)
+
+整个Binder系统中最先启动的是ServiceManager进程，ServiceManager作为Binder IPC的大管家，统管所有的Binder服务信息。 ServiceManager本身是一个Binder服务， 该服务是任何应用都可以找到的，该服务所对应的handle值为0。Binder框架本身提供一套多线程模型来与Binder驱动通信。ServiceManager进程并没有使用libbinder框架代码，而是自行编写了binder.c直接和Binder驱动来通信，ServiceManager是单线程的进程， 不断地循环在binder_loop()过程来读取和处理事务，从而对外提供查询和注册服务的功能，这样的好处是简单而高效。
+
 
 **解析servicemanager.rc**
 
@@ -59,11 +67,13 @@ init进程解析后，找到其所对应的可执行程序/system/bin/serviceman
         return 0;
     }
 
-启动过程主要以下几个阶段：
+启动过程主要划分为以下几个阶段：
 
 - 首先，调用binder_open()方法来打开binder驱动，默认地采用/dev/binder设备节点，申请地内存空间大小为128KB；
 - 其次，调用binder_become_context_manager()方法，将自己注册成为binder服务的大管家；
 - 最后，调用binder_loop()方法进入无限循环，作为守护进程，随时待命等待处理client端发来的请求。
+
+图5-2所示 描述了这一过程。
 
 ![create_servicemanager](/images/binder/create_servicemanager/create_servicemanager.jpg)
 
@@ -112,7 +122,7 @@ Linux设备驱动可以简单理解成一个文件， 调用open()以可读写�
 - mapped：记录mmap的内存地址；
 - mapsize：记录mmap所对应的内存大小；
 
-> binder_open, binder_mmap, binder_ioctl都是Binder驱动层的知识点， 很多书籍要么一上来先讲Binder驱动层，要么干脆不讲，这都是不太合理的。驱动既然精华，又是难点。先让读者有一定概念，后续小节再进一步展开讲解。
+> binder_open, binder_mmap, binder_ioctl都是Binder驱动层的知识点， 很多书籍一开始就深入Binder驱动层，理解起来会比较难， 不太适合阅读过程，这里先让读者有一定概念，后续小节再进一步展开讲解。
 
 #### 2. 注册成为大管家
 
@@ -125,8 +135,8 @@ Linux设备驱动可以简单理解成一个文件， 调用open()以可读写�
 通过ioctl系统调用向Binder驱动发送命令BINDER_SET_CONTEXT_MGR，成为上下文的管理者，由于servicemanager进程启动非常早，可以确定在Binder整体机制正式投入产线之前，就能完成向Binder驱动注册成为大管家的工作。 关于驱动层处理BINDER_SET_CONTEXT_MGR命令的主要任务：
 
 - 保证每个Binder上下文有且仅有一个binder管家实体，如果已存在则不再创建
-- 创建binder管家实体(binder_node)，初始化异步事务async_todo和binder_work两个队列，并分别增加其强弱引用计数
-- 初始化当前Binder_context的管家实体（binder_context_mgr_node）和管家uid(binder_context_mgr_uid)信息
+- 创建binder管家实体，初始化异步事务和binder工作两个队列，并分别增加其强弱引用计数
+- 初始化当前binder_context的管家实体（binder_context_mgr_node）和管家uid(binder_context_mgr_uid)信息
 - handle等于0的服务实体都是指servicemanager管家实体
 
 > binder_context是Android 8.0新引入的结构体，用于支持Project Treble， 提供多个Binder域(上下文)，包括/dev/binder, /dev/hwbinder，/dev/vndbinder，具体每个Binder域含义后续再讲解。
@@ -164,6 +174,7 @@ servicemanager先向Binder驱动发送BC_ENTER_LOOPER协议，让ServiceManager�
 
 （1）先来看看ServiceManager进入循环前的动作
 
+    // servicemanager/binder.c
     int binder_write(struct binder_state *bs, void *data, size_t len)
     {
         struct binder_write_read bwr;
@@ -184,6 +195,7 @@ servicemanager先向Binder驱动发送BC_ENTER_LOOPER协议，让ServiceManager�
 
 通过ioctl向Binder驱动发送BINDER_WRITE_READ命令，这是向驱动进行读与写操作的命令，当写缓存有数据则会执行写操作， 当读缓存有数据则会执行读操作。 如果读缓存没有没有数据时，则等待客户端发起请求， servicemanager一旦读取到事件，则会把数据保存到readbuf，然后交由binder_parse来解析。
 
+    // servicemanager/binder.c
     int binder_parse(struct binder_state *bs, struct binder_io *bio,
                      uintptr_t ptr, size_t size, binder_handler func)
     {
@@ -206,7 +218,7 @@ servicemanager先向Binder驱动发送BC_ENTER_LOOPER协议，让ServiceManager�
                     if (txn->flags & TF_ONE_WAY) {
                         binder_free_buffer(bs, txn->data.ptr.buffer);
                     } else {
-                        binder_send_reply(bs, &reply, txn->data.ptr.buffer, res);
+                        binder_send_reply(bs, &reply, txn->data.ptr.buffer, res); //发送应答数据
                     }
                 }
                 ptr += sizeof(*txn);
@@ -226,12 +238,14 @@ servicemanager先向Binder驱动发送BC_ENTER_LOOPER协议，让ServiceManager�
         return r;
     }
 
-该过程协议主要：
+在binder_parse过程主要工作就是针对不同的BR协议，采用不同的行动，这里涉及到的BR协议有以下4类:
 
-- 第一类：BR_NOOP，BR_TRANSACTION_COMPLETE，BR_INCREFS，BR_ACQUIRE，BR_RELEASE，BR_DECREFS， 这些协议并没有什么工作需要处理；
+- 第一类：BR_NOOP，BR_TRANSACTION_COMPLETE，BR_INCREFS，BR_ACQUIRE，BR_RELEASE，BR_DECREFS， 这些协议对于ServiceManager进程不做什么操作；
 - 第二类：BR_TRANSACTION，BR_REPLY，  接收到binder事务，这是最常用的协议
 - 第二类：BR_DEAD_BINDER， 对端binder服务所在进程死亡后的通知处理
 - 第四类：BR_FAILED_REPLY，BR_DEAD_REPLY，这些协议代表Binder通信过程出现异常
+
+当收到BR_TRANSACTION协议，则对外提供服务的功能；ServiceManager对外提供的框架代码中所有的功能都是同步的Binder调用，在执行完注册或查询服务后会再发送应答数据
 
 #### 4. 对外提供服务
 
@@ -243,7 +257,7 @@ ServiceManager对外提供查询/注册功能， 便是通过接收到客户端�
                        struct binder_io *msg,
                        struct binder_io *reply)
     {
-        struct svcinfo *si; //【见小节2.6.1】
+        struct svcinfo *si;
         uint16_t *s;
         size_t len;
         uint32_t handle;
@@ -258,17 +272,16 @@ ServiceManager对外提供查询/注册功能， 便是通过接收到客户端�
         case SVC_MGR_GET_SERVICE:
         case SVC_MGR_CHECK_SERVICE:
             s = bio_get_string16(msg, &len); //服务名
-            //根据名称查找相应服务 【见小节3.1】
+            //根据名称查找相应服务
             handle = do_find_service(bs, s, len, txn->sender_euid, txn->sender_pid);
-            //【见小节3.1.2】
             bio_put_ref(reply, handle);
             return 0;
 
         case SVC_MGR_ADD_SERVICE:
             s = bio_get_string16(msg, &len); //服务名
-            handle = bio_get_ref(msg); //handle【见小节3.2.3】
+            handle = bio_get_ref(msg); //服务实体在servicemanager中的handle
             allow_isolated = bio_get_uint32(msg) ? 1 : 0;
-             //注册指定服务 【见小节3.2】
+             //注册指定服务
             if (do_add_service(bs, s, len, handle, txn->sender_euid,
                 allow_isolated, txn->sender_pid))
                 return -1;
@@ -294,11 +307,16 @@ ServiceManager对外提供查询/注册功能， 便是通过接收到客户端�
         return 0;
     }
 
-该方法的功能：查询服务，注册服务，以及列举所有服务
+该方法的功能：查询服务，注册服务，以及列举所有服务。不同的code对应不同的工作，定义在IBinder.h文件，跟IServiceManager.h中定义的code具有一一对应关系，具体关系如下所示。
 
-servicemanager进程里面，有一个链表svclist，记录着所有注册的服务svcinfo。
+|code|IBinder.h|IServiceManager.h|
+|---|---|---|
+|1|SVC_MGR_GET_SERVICE|GET_SERVICE_TRANSACTION|
+|2|SVC_MGR_CHECK_SERVICE|CHECK_SERVICE_TRANSACTION|
+|3|SVC_MGR_ADD_SERVICE|ADD_SERVICE_TRANSACTION|
+|4|SVC_MGR_LIST_SERVICES|LIST_SERVICES_TRANSACTION|
 
-【画一个图】
+servicemanager进程里面有一个链表svclist，记录着所有注册的服务svcinfo，每一个服务用svcinfo结构体来表示，该handle值是在注册服务的过程中，由服务所在进程那一端所确定的。svcinfo结构体代码如下所示。
 
     struct svcinfo
     {
@@ -310,38 +328,17 @@ servicemanager进程里面，有一个链表svclist，记录着所有注册的�
         uint16_t name[0]; //服务名
     };
 
-每一个服务用svcinfo结构体来表示，该handle值是在注册服务的过程中，由服务所在进程那一端所确定的。
+
+如图5-3所示，整个ServiceManager启动过程的完整流程，这里整个过程都的都离不开Binder驱动层的实现。
+
+![ServiceManager启动过程](/images/book/binder/5-2-2.start_service_manager.jpg)
 
 
-
-
-以下两者是匹配的， 也是servicemanager的核心功能：
-
-IServiceManager.h的定义：
-enum {
-    GET_SERVICE_TRANSACTION = 1,
-    CHECK_SERVICE_TRANSACTION,
-    ADD_SERVICE_TRANSACTION,
-    LIST_SERVICES_TRANSACTION,
-};
-
-IBinder.h的定义
-enum {
-    SVC_MGR_GET_SERVICE = 1,
-    SVC_MGR_CHECK_SERVICE,
-    SVC_MGR_ADD_SERVICE,
-    SVC_MGR_LIST_SERVICES,
-};
 
 ### 5.2.2 获取ServiceManager代理
 
 不论是注册服务，还是查询服务，都需要先向ServiceManager服务发起binder请求，获取ServiceManager服务的代理，
-下面先来讲讲如何获取ServiceManager服务代理。
-
-
-![get_servicemanager](/images/binder/get_servicemanager/get_servicemanager.jpg)
-
-ServiceManager代理可通过defaultServiceManager()方法，得到`gDefaultServiceManager`对象。
+下面先来讲讲如何获取ServiceManager服务代理。ServiceManager代理可通过defaultServiceManager()方法，得到gDefaultServiceManager对象。
 对于gDefaultServiceManager对象，如果存在则直接返回；如果不存在则创建该对象，创建过程包括调用open()打开binder驱动设备，利用mmap()映射内核的地址空间。
 
     // IServiceManager.cpp
@@ -362,11 +359,13 @@ ServiceManager代理可通过defaultServiceManager()方法，得到`gDefaultServ
 
 获取ServiceManager对象采用**单例模式**，当gDefaultServiceManager存在，则直接返回，否则创建一个新对象。 此处与一般的单例模式不太一样，里面多了一层while循环，这是google在2013年1月Todd Poynor提交的修改。当尝试创建或获取ServiceManager时，ServiceManager可能尚未准备就绪，这时通过sleep 1秒后，循环尝试获取直到成功。
 
-gDefaultServiceManager的创建过程可分解为3个步骤：
+gDefaultServiceManager的创建过程，如图5-4所示，可分解为3个步骤：
 
 - ProcessState::self()：用于创建ProcessState对象，每个进程有且只有一个ProcessState对象，存在则直接返回，不存在则创建;
 - getContextObject()： 用于创建BpBinder对象，对于handle=0的BpBinder对象，存在则直接返回，不存在才创建;
 - interface_cast<IServiceManager>()：用于创建BpServiceManager对象;
+
+![get_servicemanager](/images/binder/get_servicemanager/get_servicemanager.jpg)
 
 
 #### 1. 创建ProcessState对象
@@ -486,8 +485,13 @@ open_driver过程，主要是打开binder驱动设备，验证binder版本是否
         return result;
     }
 
-每个ProcessState里面都有一个mHandleToObject向量，记录着handle以及相对应的handle_entry结构体，向量索引号跟handle值相等，
-当目标handle值在mHandleToObject中找不到相应的BpBinder，则会创建新的BpBinder对象。
+每个ProcessState里面都有一个mHandleToObject向量，记录着handle以及相对应的handle_entry结构体，向量索引号跟handle值相等， 如图5-5所示。
+
+![mHandleToObject向量](/images/book/binder/5-2-3-mHandleToObject.jpg)
+
+
+
+当目标handle值在mHandleToObject中找不到相应的BpBinder，则会创建新的BpBinder对象。BpBinder通过handle来指向所对应BBinder, 在整个Binder系统中handle=0代表ServiceManager所对应的BBinder。
 针对handle==0的特殊情况，通过PING_TRANSACTION来判断servicemanager是否准备就绪，用于确保servicemanger进程先启动再执行后面的操作。对于查询handle过程，见代码如下：
 
     ProcessState::handle_entry* ProcessState::lookupHandleLocked(int32_t handle)
@@ -507,7 +511,6 @@ open_driver过程，主要是打开binder驱动设备，验证binder版本是否
 
 根据handle值来查找对应的`handle_entry`,`handle_entry`是一个结构体，里面记录IBinder和weakref_type两个指针。当handle大于mHandleToObject的Vector长度时，则向该Vector中添加(handle+1-N)个handle_entry结构体，然后再返回handle向对应位置的handle_entry结构体指针。
 
-【见图】
 
 再来看看BpBinder的创建过程，代码如下：
 
@@ -639,21 +642,33 @@ BpServiceManager作为跟servicemanager进程通信的代理类，创建过程�
 - BpServiceManager通过继承接口IServiceManager实现了接口中的业务逻辑函数；
 通过成员变量`mRemote`= new BpBinder(0)进行Binder通信工作。
 
-另外，BpBinder通过handle来指向所对应BBinder, 在整个Binder系统中`handle=0`代表ServiceManager所对应的BBinder。
 
-> Tips: Native层的Binder架构,通过如下两个宏, 非常方便地创建了`new Bp##INTERFACE(obj)`:
 
-    //用于申明asInterface(),getInterfaceDescriptor()
-    #define DECLARE_META_INTERFACE(INTERFACE)
-    #define IMPLEMENT_META_INTERFACE(INTERFACE, NAME)
+> Tips: Native层的Binder架构,通过如下两个宏, 非常方便地创建了`new Bp##INTERFACE(obj)`，以及申明asInterface(),getInterfaceDescriptor()
+>
+> #define DECLARE_META_INTERFACE(INTERFACE)
+>
+> #define IMPLEMENT_META_INTERFACE(INTERFACE, NAME)
+
+
+获取ServiceManager代理的全过程， 如图5-5所示。
+
+![获取ServiceManager代理](/images/book/binder/5-2-4-get_service_manager.jpg)
+
+- open: 创建binder_proc
+- BINDER_SET_MAX_THREADS: 设置proc->max_threads
+- mmap: 创建创建binder_buffer
+
 
 ### 5.2.3 Binder框架核心类
 
 #### 1. ProcessState类
 
-到此这，初步接触到ProcessState，每个进程都有唯一的一个ProcessState对象，该对象很重要，先来看看该对象的成员变量和方法。
+到此这，初步接触到ProcessState，每个进程都有唯一的一个ProcessState对象，该对象很重要，先来看看该对象的成员变量和方法，类图所示
 
-【增加ProcessState类图，详细关系】
+![ProcessState类图](/images/book/binder/5-2-5-ProcessState.jpg)
+
+
 
 常用成员方法：
 
@@ -677,11 +692,13 @@ BpServiceManager作为跟servicemanager进程通信的代理类，创建过程�
 - mStarvationStartTimeMs：当Binder线程池的线程都处于工作状态，没有空闲的binder线程的时间点，称为binder饥饿开始时刻
 - mHandleToObject：以向量的数据结构记录着一系列的handle_entry结构体，每个handle_entry记录着BpBinder对象和相应的weakref_impl对象；
 
-【mHandleToObject的图】
 
 在ProcessState过程不断地提及IPCThreadState类，接下来需要解开其面纱。
 
 #### 2. IPCThreadState类
+
+![IPCThreadState类](/images/book/binder/5-2-6-IPCThreadState.jpg)
+
 
 常用成员方法：
 
@@ -718,9 +735,10 @@ waitForResponse() 处于循环等待过程，直到收到以下任一BR，则会
 
 #### 3. Parcel类
 
-Parcel用于封装Binder通信过程的数据
+Parcel用于封装Binder通信过程的数据，类图所示
 
-【增加类图】
+![Parcel类图](/images/book/binder/5-2-7-Parcel.jpg)
+
 
 （1）成员变量：
 
@@ -785,15 +803,28 @@ IBinder转换成flat_binder_object对象，有两种情况：
 - 对于Binder实体,即type=BINDER_TYPE_BINDER，则cookie记录Binder实体的指针，binder记录Binder实体的引用计数对象；
 - 对于Binder代理，即type=BINDER_TYPE_HANDLE，则handle记录Binder代理的句柄；
 
+
+另外，关于localBinder，代码见Binder.cpp。
+
+    BBinder* BBinder::localBinder()
+    {
+        return this;
+    }
+
+    BBinder* IBinder::localBinder()
+    {
+        return NULL;
+    }
+
 （4） ipcSetDataReference
 
-ipcSetDataReference用于设置Parcel对象的回收过程， 见如下代码：
+ipcSetDataReference用于设置Parcel对象， 见如下代码：
 
     void Parcel::ipcSetDataReference(const uint8_t* data, size_t dataSize,
         const binder_size_t* objects, size_t objectsCount, release_func relFunc, void* relCookie)
     {
         binder_size_t minOffset = 0;
-        freeDataNoInit(); // 初始化前先释放相应数据
+        freeDataNoInit(); // 初始化前需要释放数据，见下文
         mError = NO_ERROR;
         mData = const_cast<uint8_t*>(data);
         mDataSize = mDataCapacity = dataSize;
@@ -812,11 +843,12 @@ ipcSetDataReference()方法使用场景主要在收到BR_TRANSACTION或BR_REPLY�
     void Parcel::freeDataNoInit()
     {
         if (mOwner) {
-            mOwner(this, mData, mDataSize, mObjects, mObjectsSize, mOwnerCookie);
-        } else { //mOwner为空， 进入该分支
-            releaseObjects(); //【见小节4.3.3】
+            ...
+        } else {
+            releaseObjects();  //释放对象
             if (mData) {
                 pthread_mutex_lock(&gParcelGlobalAllocSizeLock);
+                //更新已分配的Parcel对象个数和内存大小
                 if (mDataCapacity <= gParcelGlobalAllocSize) {
                   gParcelGlobalAllocSize = gParcelGlobalAllocSize - mDataCapacity;
                 } else {
@@ -826,13 +858,18 @@ ipcSetDataReference()方法使用场景主要在收到BR_TRANSACTION或BR_REPLY�
                   gParcelGlobalAllocCount--;
                 }
                 pthread_mutex_unlock(&gParcelGlobalAllocSizeLock);
-                free(mData);
+                free(mData); //释放mData
             }
-            if (mObjects) free(mObjects);
+            if (mObjects) free(mObjects); //释放mObjects
         }
     }
 
-此时mOwner还没有赋值， 接下来便会执行releaseObjects()过程， 见如下代码：
+gParcelGlobalAllocSize记录当前进程已分配的Parcel所占的内存大小，gParcelGlobalAllocCount记录当前进程已分配的Parcel对象个数。这两个数据可通过dumpsys meminfo的过程输出，如图所示。
+62个JavaBBinder对象，30个Binder代理对象，152个Parcel对象个数，152个Parcel所占内存大小为38KB, 4个JavaDeathRecipient对象
+
+![create_servicemanager](/images/book/binder/5-2-8-dump_meminfo_for_binder.png)
+
+再回到freeDataNoInit()过程，此时mOwner还没有赋值，则执行releaseObjects()过程， 见如下代码：
 
     void Parcel::releaseObjects()
     {
@@ -842,13 +879,13 @@ ipcSetDataReference()方法使用场景主要在收到BR_TRANSACTION或BR_REPLY�
         binder_size_t* const objects = mObjects;
         while (i > 0) {
             i--;
-            const flat_binder_object* flat
-                = reinterpret_cast<flat_binder_object*>(data+objects[i]);
+            const flat_binder_object* flat = reinterpret_cast<
+                    flat_binder_object*>(data+objects[i]);
             release_object(proc, *flat, this, &mOpenAshmemSize);
         }
     }
 
-根据flat_binder_object的类型，来决定减少相应的强弱引用， 见如下代码：
+根据flat_binder_object的类型来决定减少相应的强弱引用， 见如下代码：
 
     static void release_object(const sp<ProcessState>& proc,
         const flat_binder_object& obj, const void* who, size_t* outAshmemSize)
@@ -900,7 +937,7 @@ ipcSetDataReference()方法使用场景主要在收到BR_TRANSACTION或BR_REPLY�
     }
 
 
-释放国瓷，其实就是向Binder驱动写入BC_FREE_BUFFER命令， 见代码如下：
+释放过程就是向Binder驱动写入BC_FREE_BUFFER命令， 见代码如下：
 
     void IPCThreadState::freeBuffer(Parcel* parcel, const uint8_t* data,
                                     size_t /*dataSize*/,
@@ -912,22 +949,20 @@ ipcSetDataReference()方法使用场景主要在收到BR_TRANSACTION或BR_REPLY�
         state->mOut.writeInt32(BC_FREE_BUFFER);
         state->mOut.writePointer((uintptr_t)data);
     }
-<<<<<<< HEAD
-=======
 
 
-
---------
-
-图说： 2. get_servicemanager:
-
-- open: 创建binder_proc
-- BINDER_SET_MAX_THREADS: 设置proc->max_threads
-- mmap: 创建创建binder_buffer
+ipcSetDataReference()过程主要的功能是创建一个跟发送端一样的Parcel对象，并设定该对象的回收方法。
 
 
-图说： 3. add_service
+另外再介绍一些常见的核心方法。
 
-binder_transaction（）过程，会在服务所在进程创建binder_node, 在ServiceManager进程创建binder_ref. 
-（创建binder_ref过程来决定当前新的handle值， 该值从从1开始不断递增的）
->>>>>>> update
+|方法|功能|所属文件|
+|---|---|---|
+|writeStrongBinder|将BpBinder或BBinder转换成flat_binder_object对象|parcel.cpp|
+|readStrongBinder|将flat_binder_object对象转换为BpBinder或BBinder|parcel.cpp|
+|getStrongProxyForHandle|获取handle所对应Bpbinder对象的强指针sp|ProcessState.cpp|
+|getWeakProxyForHandle|获取handle所对应Bpbinder对象的弱指针wp|ProcessState.cpp|
+|javaObjectForIBinder|将BpBinder对象转换为BinderProxy对象|android_util_binder.cpp|
+|ibinderForJavaObject|将Java层Binder或BinderProxy转换为Native层的IBinder|android_util_binder.cpp|
+|parcelForJavaObject|Parcel(Java)转换为Parcel(C++)|android_os_Parcel.cpp|
+|localBinder|BpBinder则返回NULL; BBinder则返回this指针|Binder.cpp|

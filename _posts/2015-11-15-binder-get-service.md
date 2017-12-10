@@ -186,7 +186,7 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
             return (mLastError = err);
         }
 
-        if ((flags & TF_ONE_WAY) == 0) { //flgs=0进入该分支
+        if ((flags & TF_ONE_WAY) == 0) { //flags=0进入该分支
             if (reply) {
                 //等待响应  【见流程2.7】
                 err = waitForResponse(reply);
