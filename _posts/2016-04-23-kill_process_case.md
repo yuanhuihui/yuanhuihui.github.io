@@ -59,7 +59,7 @@ reason对于分析问题很重要, 实例说明:
 |AMS.finishBooting|query restart||
 |AMS.finishInstrumentationLocked|finished inst|evenPersistent|
 |AMS.setDebugApp|set debug app|evenPersistent|
-|AMS.startInstrumentation|start instrevenPersistent|
+|AMS.startInstrumentation|start instr|
 |PKMS.deletePackageLI|uninstall pkg||
 |PKMS.movePackageInternal|move pkg||
 |PKMS.replaceSystemPackageLI|replace sys pkg||
@@ -132,12 +132,12 @@ PKMS服务往往是调用killApplication从而间接调用forceStopPackage方法
 
 以上介绍的所有杀进程都是调用ProcessRecord.kill()方法, 必然会输出相应的EventLog.那么还有哪些场景的杀进程不会输出log呢:
 
-	Process.killProcess(int pid) //可杀任何指定进程,或者直接发signal 
+	Process.killProcess(int pid) //可杀任何指定进程,或者直接发signal
 	adb shell kill -9 <pid>  //可杀任何指定的进程  
     直接lmk杀进程
 
 也就是说进程被杀而无log输出,那么可能是通过直接调用kill或者发信号, 再或许是lmk所杀.
- 
+
 ### 三. 小结
 
 杀进程log举例:

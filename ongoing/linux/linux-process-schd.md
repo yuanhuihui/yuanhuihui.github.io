@@ -4,7 +4,7 @@
 		/kernel/sched_fair.c
 	
 ## 一. 概述
-
+ 
 调度器scheduler：一个分配有限CPU时间资源给可运行(runnable)进程的内核子系统，负责决定哪个进程可以运行，以及运行时长。
 调度器的目标是为了提高CPU资料利用率，当系统runnable进程多于CPU核数时，某一个时间点总会有进程分配不到时间片，调度器便需要完成下一次从这些进程中调度分配时间片。
 
@@ -16,6 +16,7 @@
 1. Running时间：CPU运行的时间，单位ns
 2. Runable时间：RQ队列的等待时间，单位ns
 3. Switch次数：CPU调度切换次数
+
 
 ### /proc/<pid>/sched
 
