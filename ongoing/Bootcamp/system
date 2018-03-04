@@ -1,0 +1,102 @@
+## 存储优化
+
+1. FBE：弃用FDE，提高unlock速度；
+2. 未来工作：更快的加密算法
+3. 文件系统：更快和更公平的cache管理，通过quotas来管控滥用的app;
+4. Fair cache策略：
+  - 分配cache配额给没有App（基于他们使用的频率），删除最老的cached文件，直到有足够的空闲空间；
+  - 最佳实践：定期调用新方法以保证系统有机会去删除缓存文件，可以follow PackageInstaller
+5. 限制滥用app: 
+  - 设备应该卸载恶意app，或者删除大文件
+  - 避免设备卡在循环的重启过程
+  - 阻止app使用block90%, 或者inodes50%
+6. exFAT：Google没有资源支持相关的更新工作，只有会部分补丁；
+7. vold:跟fw通信方式，由socket调整为binder方式，用于提高性能
+8. TRIM: 该过程会运行f2fs GC操作，并且在夜间空闲时间来被调度执行；
+9. FUSE: 已被删除，采用sdcardfs, 后续会有esdfs用于更深远的优化
+10. 更快的文件拷贝： FileUtils.copy，比如纯userspace的方式快35~50%
+
+FDE,FUSE, ASECs这些都被删除。
+
+
+## Kernel
+
+1. fw的feature后续回应在Kernel 3.18或之后的版本，老版本很快不再维护
+2. ION: libion在Android P上已支持新的kernel ion接口
+3. 强烈建议 使用libion，而非直接使用ion ioctl调用
+4. kernel + clang: 强烈建议采用clang 5.0或之后版本
+  - 出错信息提供精准定位，占用内存和编译速度快，而gcc有一定的历史问题。
+5. sdcardfs: android O默认的文件系统
+
+
+## CPU
+
+1. EAS: 设计通用的CPU调度算法，基于功耗和性能，而非tuning的方式
+  - 动态电压，动态调频
+  - 通过fw参数可调节性能和功耗数据
+  - 这是一个方向
+2. 负载均衡，大小核，cpufreq, governor, 减少大核的使用，平衡功耗问题
+3. LMK: 采用LMKD + memory cgroups
+  - 内核方式动作太重，且不适合增加policy定制，没有以group方式来杀进程
+  - 新方案：可以更灵活的定制基于vm pressure的kill policy
+  - memory cgroups，方便统计与分配内存资源，类似relaim和swappiness
+4. 低内存设备：提高杀进程level; 高性能设备：监控剩余内存，必要时刻可以杀多个进程
+  - 未来：提高杀进程策略，基于输入信号（可用内存，task大小，内存压力值，压力比例）
+  - 合并杀进程策略，提供更多controll机制
+  - 探索杀的时机，以及内存压力的潜力
+  - 配合cgroups v2
+  
+### F2FS
+
+1. Flash-friendly fs
+  - 后台清理
+  - 异步discard
+  - 原子写
+  
+## Perf
+
+1. 必要时采用RT调度器，避免在驱动里有长时间地禁用抢占
+2. Audio, BT也是类似
+3. 行动：
+  - mem cgroups 
+  - f2fs
+  - review kernel config
+  - 移除不必要的日志, 日志格式化不合算
+  - 不要使用KSM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+`A`

@@ -1,0 +1,66 @@
+## 导航栏与桌面
+
+1. 重新设计系统导航栏
+  - 通过private APIs保证第3方launcher无法实现原生用户体验
+2. 深度学习，用户感兴趣的APP
+3. Google App可以通过AIDL来获取桌面搜索服务
+
+
+## Window
+
+1. 窗口模式不再受限于stack ID，改进window模式
+2. 最大变化是window 大锁
+
+## 功耗
+
+1. 统一策略
+2. AI预测用户行为
+3. 限制： jobs, services, alarms, cloud messaging, network, cpu
+  - 我的思考： 根据App行为，来打分，并做配额的评估？
+4. 对于fg-service，不建议app都这么使用
+5. 
+
+
+
+深度学习，用户感兴趣的app
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+binder lock
+mlock
+sdcardfs
+
+async discard
+Fair cache
+wm lock
+lmkd
+
+pm lock/am lock

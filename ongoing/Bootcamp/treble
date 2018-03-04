@@ -1,0 +1,5 @@
+hidl: VINTF
+system properties，分离成平台和vendor，访问限制
+vendor init，权限收缩，增加新的vendro init forked from init.  vendor不能随便访问系统属性
+selinux:   system和venfor不可使用磁盘文件来通信，system不可访问 不可执行的venfor
+CKI:  更多的VTS会验证CKI, 定义了必须实现的最小CKI接口， 定义新的non-CKI需要增加sepolicy
