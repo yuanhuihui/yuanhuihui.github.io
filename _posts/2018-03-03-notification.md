@@ -6,7 +6,7 @@ catalog:  true
 tags:
     - android
 
----
+---、
 
 > 基于Android 7.0源码分析通知机制，相关源码如下：
       
@@ -144,7 +144,11 @@ NotificationListenerService继承于Service，该服务是为了给app提供获�
         }
     }
 
+在App端调用NotificationManager类的notify()方法，最终通过binder调用，会进入system_server进程的
+NotificationManagerService(简称NMS)，执行enqueueNotificationWithTag()方法。
+
 ### 2.2 NMS.enqueueNotificationInternal
+[-> NotificationManagerService.java]
 
     void enqueueNotificationInternal(final String pkg, final String opPkg, final int callingUid,
             final int callingPid, final String tag, final int id, final Notification notification,
@@ -165,8 +169,12 @@ NotificationListenerService继承于Service，该服务是为了给app提供获�
         mHandler.post(new EnqueueNotificationRunnable(userId, r));
     }
 
-这个过程主要是创建NotificationRecord对象，里面包含了notification相关信息。然后交给mHandler线程来处理，
-mHandler是WorkerHandler类的实例对象。接下来看看WorkerHandler到底运行在哪个线程，这需要从NMS服务初始化过程来说起：
+这个过程主要功能：
+
+- 创建NotificationRecord对象，里面包含了notification相关信息
+- 采用异步方式，将任务交给mHandler线程来处理，mHandler是WorkerHandler类的实例对象
+
+接下来看看WorkerHandler到底运行在哪个线程，这需要从NMS服务初始化过程来说起：
 
 #### 2.2.1 SS.startOtherServices
 [-> SystemServer.java]
@@ -219,24 +227,13 @@ system_server主线程。
 [-> NMS.java]
 
     private class EnqueueNotificationRunnable implements Runnable {
-        private final NotificationRecord r;
-        private final int userId;
 
-        EnqueueNotificationRunnable(int userId, NotificationRecord r) {
-            this.userId = userId;
-            this.r = r;
-        };
-
-        @Override
         public void run() {
             synchronized (mNotificationList) {
+                //此处r为NotificationRecord对象
                 final StatusBarNotification n = r.sbn;
                 final Notification notification = n.getNotification();
-                
-                //将通知告知ranker service
-                if (mRankerServices.isEnabled()) {
-                    mRankerServices.onNotificationEnqueued(r);
-                }
+                ...
                 
                 //从通知列表mNotificationList查看是否存在该通知
                 int index = indexOfNotificationLocked(n.getKey());
@@ -272,50 +269,51 @@ system_server主线程。
                         mListeners.notifyRemovedLocked(n);
                     }
                 }
-                //处理该通知【2.10】
+                //处理该通知，主要是是否发声，震动，Led灯
                 buzzBeepBlinkLocked(r);
             }
         }
     }
 
+这里的mListeners是指NotificationListeners对象
+
 ### 2.4 NotificationListeners.notifyPostedLocked
 [-> NMS.java]
 
     public class NotificationListeners extends ManagedServices {
-        public void notifyPostedLocked(StatusBarNotification sbn, StatusBarNotification oldSbn) {
-            TrimCache trimCache = new TrimCache(sbn);
-
-            for (final ManagedServiceInfo info : mServices) {
-                boolean sbnVisible = isVisibleToListener(sbn, info);
-                boolean oldSbnVisible = oldSbn != null ? isVisibleToListener(oldSbn, info) : false;
-                if (!oldSbnVisible && !sbnVisible) {
-                    continue;
-                }
-                final NotificationRankingUpdate update = makeRankingUpdateLocked(info);
-
-                //通知变得不可见，则移除老的通知
-                if (oldSbnVisible && !sbnVisible) {
-                    final StatusBarNotification oldSbnLightClone = oldSbn.cloneLight();
-                    mHandler.post(new Runnable() {
-                        public void run() {
-                            notifyRemoved(info, oldSbnLightClone, update);
-                        }
-                    });
-                    continue;
-                }
-
-                final StatusBarNotification sbnToPost =  trimCache.ForListener(info);
+      public void notifyPostedLocked(StatusBarNotification sbn, StatusBarNotification oldSbn) {
+        TrimCache trimCache = new TrimCache(sbn);
+        //遍历整个ManagedServices中的所有ManagedServiceInfo
+        for (final ManagedServiceInfo info : mServices) {
+            boolean sbnVisible = isVisibleToListener(sbn, info);
+            boolean oldSbnVisible = oldSbn != null ? isVisibleToListener(oldSbn, info) : false;
+            if (!oldSbnVisible && !sbnVisible) {
+                continue;
+            }
+            final NotificationRankingUpdate update = makeRankingUpdateLocked(info);
+            //通知变得不可见，则移除老的通知
+            if (oldSbnVisible && !sbnVisible) {
+                final StatusBarNotification oldSbnLightClone = oldSbn.cloneLight();
                 mHandler.post(new Runnable() {
-                    @Override
                     public void run() {
-                        notifyPosted(info, sbnToPost, update); //【见小节2.5】
+                        notifyRemoved(info, oldSbnLightClone, update);
                     }
                 });
+                continue;
             }
+
+            final StatusBarNotification sbnToPost =  trimCache.ForListener(info);
+            mHandler.post(new Runnable() {
+                public void run() {
+                    notifyPosted(info, sbnToPost, update); //【见小节2.5】
+                }
+            });
         }
+      }
         ...
     }
 
+这里是在system_server进程中第二次采用异步方式来处理。
 
 ### 2.5 NMS.notifyPosted
 
@@ -331,94 +329,9 @@ system_server主线程。
         }
     }
 
-此处的listener来自于ManagedServiceInfo的service成员变量，接下来看看该listener具体的数据类型。
-
-#### 2.5.1 BaseStatusBar.start
-[-> BaseStatusBar.java]
-
-    public void start() {
-      ...
-      //安装通知的初始化状态【2.5.2】
-      mNotificationListener.registerAsSystemService(mContext,
-          new ComponentName(mContext.getPackageName(), getClass().getCanonicalName()),
-          UserHandle.USER_ALL);
-      ...  
-    }
-
-#### 2.5.2 NLS.registerAsSystemService
-[-> NotificationListenerService.java]
-
-    public void registerAsSystemService(Context context, ComponentName componentName,
-            int currentUser) throws RemoteException {
-        if (mWrapper == null) {
-            mWrapper = new NotificationListenerWrapper();
-        }
-        mSystemContext = context;
-        //获取NMS的接口代理对象
-        INotificationManager noMan = getNotificationInterface();
-        //运行在主线程的handler
-        mHandler = new MyHandler(context.getMainLooper());
-        mCurrentUser = currentUser;
-        //注册监听器【2.5.3】
-        noMan.registerListener(mWrapper, componentName, currentUser);
-    }
-
-#### 2.5.3 registerListener
-[-> NMS.java]
-
-    private final IBinder mService = new INotificationManager.Stub() {
-        ...
-        
-        public void registerListener(final INotificationListener listener,
-                final ComponentName component, final int userid) {
-            enforceSystemOrSystemUI("INotificationManager.registerListener");
-            //此处的INotificationListener便是NotificationListenerWrapper对象 【2.5.4】
-            mListeners.registerService(listener, component, userid);
-        }
-    }
-
-mListeners的对象类型为ManagedServices。
-
-#### 2.5.4 registerService
-[-> ManagedServices.java]
-
-    public void registerService(IInterface service, ComponentName component, int userid) {
-        //【2.5.5】
-        ManagedServiceInfo info = registerServiceImpl(service, component, userid);
-        if (info != null) {
-            onServiceAdded(info);
-        }
-    }
-
-#### 2.5.5 registerService
-[-> ManagedServices.java]
-
-    private ManagedServiceInfo registerServiceImpl(final IInterface service,
-             final ComponentName component, final int userid) {
-         //将NotificationListenerWrapper对象保存到ManagedServiceInfo.service
-         ManagedServiceInfo info = newServiceInfo(service, component, userid,
-                 true, null, Build.VERSION_CODES.LOLLIPOP);
-         //【2.5.6】
-         return registerServiceImpl(info);
-     }
-
- #### 2.5.6 registerService
- [-> ManagedServices.java]
- 
-     private ManagedServiceInfo registerServiceImpl(ManagedServiceInfo info) {
-         synchronized (mMutex) {
-             try {
-                 info.service.asBinder().linkToDeath(info, 0);
-                 mServices.add(info);
-                 return info;
-             } catch (RemoteException e) {
-                 // already dead
-             }
-         }
-         return null;
-     }
-
-可见，前面的listener便是指NotificationListenerWrapper对象。
+此处的listener来自于ManagedServiceInfo的service成员变量，listener数据类型是NotificationListenerWrapper的代理对象，详见第三大节。
+此处sbnHolder的数据类型为StatusBarNotificationHolder，继承于IStatusBarNotificationHolder.Stub对象，经过binder调用进入到systemui进程的
+便是IStatusBarNotificationHolder.Stub.Proxy对象。
 
 ### 2.6 NotificationListenerWrapper.onNotificationPosted
 [-> NotificationListenerService.java]
@@ -429,7 +342,7 @@ mListeners的对象类型为ManagedServices。
                 NotificationRankingUpdate update) {
             StatusBarNotification sbn;
             try {
-                sbn = sbnHolder.get(); //获取sbn对象
+                sbn = sbnHolder.get(); //向system_server进程来获取sbn对象
             } catch (RemoteException e) {
                 return;
             }
@@ -453,7 +366,8 @@ mListeners的对象类型为ManagedServices。
         ...
     }
 
-此处的mHandler = new MyHandler(getMainLooper())，也就是运行在system_server主线程的handler
+此时运行在systemui进程，sbnHolder是IStatusBarNotificationHolder的代理端。
+此处mHandler = new MyHandler(getMainLooper())，也就是运行在systemui主线程的handler
 
 ### 2.7 MyHandler
 [-> NotificationListenerService.java]
@@ -503,6 +417,8 @@ mListeners的对象类型为ManagedServices。
             }
         }
     }
+    
+此处的mHandler便是systemui的主线程
 
 ### 2.9 addNotification
 [-> PhoneStatusBar.java]
@@ -518,7 +434,6 @@ mListeners的对象类型为ManagedServices。
         ...
         //添加到通知栏
         addNotificationViews(shadeEntry, ranking);
-        // Recalculate the position of the sliding windows and the titles.
         setAreThereNotifications();
     }
 
@@ -535,101 +450,255 @@ mListeners的对象类型为ManagedServices。
 
         NotificationData.Entry entry = new NotificationData.Entry(sbn, iconView);
         if (!inflateViews(entry, mStackScroller)) {
-            handleNotificationError(sbn, "Couldn't expand RemoteViews for: " + sbn);
             return null;
         }
         return entry;
     }
+
+## 三. SystemUI
+
+### 3.1 startOtherServices
+[-> SystemServer.java]
+
+    private void startOtherServices() {
+        startSystemUi(context);
+        ...
+    }
     
-### 2.10 buzzBeepBlinkLocked
+### 3.2 startSystemUi
+[-> SystemServer.java]
+
+    static final void startSystemUi(Context context) {
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName("com.android.systemui",
+                    "com.android.systemui.SystemUIService"));
+        intent.addFlags(Intent.FLAG_DEBUG_TRIAGED_MISSING);
+        //【见3.3】
+        context.startServiceAsUser(intent, UserHandle.SYSTEM);
+    }
+
+启动服务SystemUIService，运行在进程com.android.systemui，接下来进入systemui进程
+
+### 3.3 SystemUIService
+[-> SystemUIService.java]
+
+    public class SystemUIService extends Service {
+
+        public void onCreate() {
+            super.onCreate();
+            //【见小节3.4】
+            ((SystemUIApplication) getApplication()).startServicesIfNeeded();
+        }
+        ...
+    }
+    
+服务启动后，先执行其onCreate()方法
+
+### 3.4  startServicesIfNeeded
+[-> SystemUIApplication.java]
+
+    public void startServicesIfNeeded() {
+        startServicesIfNeeded(SERVICES); //【见小节3.5】
+    }
+    
+    //SERVICES常量值
+    private final Class<?>[] SERVICES = new Class[] {
+        com.android.systemui.tuner.TunerService.class,
+        com.android.systemui.keyguard.KeyguardViewMediator.class,
+        com.android.systemui.recents.Recents.class,
+        com.android.systemui.volume.VolumeUI.class,
+        Divider.class,
+        com.android.systemui.statusbar.SystemBars.class,
+        com.android.systemui.usb.StorageNotification.class,
+        com.android.systemui.power.PowerUI.class,
+        com.android.systemui.media.RingtonePlayer.class,
+        com.android.systemui.keyboard.KeyboardUI.class,
+        com.android.systemui.tv.pip.PipUI.class,
+        com.android.systemui.shortcut.ShortcutKeyDispatcher.class
+    };
+
+此处以SystemBars为例来展开
+
+### 3.5 startServicesIfNeeded
+[-> SystemUIApplication.java]
+
+    private void startServicesIfNeeded(Class<?>[] services) {
+        if (mServicesStarted) {
+            return;
+        }
+
+        if (!mBootCompleted) {
+            if ("1".equals(SystemProperties.get("sys.boot_completed"))) {
+                mBootCompleted = true;
+            }
+        }
+
+        final int N = services.length;
+        for (int i=0; i<N; i++) {
+            Class<?> cl = services[i];
+            try {
+                //初始化对象
+                Object newService = SystemUIFactory.getInstance().createInstance(cl);
+                mServices[i] = (SystemUI) ((newService == null) ? cl.newInstance() : newService);
+            } catch (Exception ex) {
+                ...
+            }
+
+            mServices[i].mContext = this;
+            mServices[i].mComponents = mComponents;
+            //【见小节3.6】
+            mServices[i].start(); 
+
+            if (mBootCompleted) {
+                mServices[i].onBootCompleted();
+            }
+        }
+        mServicesStarted = true;
+    }
+
+### 3.6 SystemBars.start
+[-> SystemBars.java]
+
+    public void start() {
+        mServiceMonitor = new ServiceMonitor(TAG, DEBUG,
+                mContext, Settings.Secure.BAR_SERVICE_COMPONENT, this);
+        mServiceMonitor.start();  //当远程服务不存在，则执行下面的onNoService
+    }
+
+    public void onNoService() {
+        //【见小节3.7】
+        createStatusBarFromConfig()；
+    }
+    
+### 3.7 createStatusBarFromConfig
+[-> SystemBars.java]
+
+    private void createStatusBarFromConfig() {
+        //config_statusBarComponent是指PhoneStatusBar
+        final String clsName = mContext.getString(R.string.config_statusBarComponent);
+        Class<?> cls = null;
+        try {
+            cls = mContext.getClassLoader().loadClass(clsName);
+        } catch (Throwable t) {
+            ...
+        }
+        try {
+            mStatusBar = (BaseStatusBar) cls.newInstance();
+        } catch (Throwable t) {
+            ...
+        }
+        mStatusBar.mContext = mContext;
+        mStatusBar.mComponents = mComponents;
+        //【见小节3.8】
+        mStatusBar.start();
+    }
+    
+config_statusBarComponent的定义位于文件config.xml中，其值为PhoneStatusBar。
+
+### 3.8 PhoneStatusBar
+[-> PhoneStatusBar.java]
+
+    public void start() {
+        ...
+        super.start(); //此处调用BaseStatusBar
+    }
+
+### 3.9 BaseStatusBar
+[-> BaseStatusBar.java]
+
+    public void start() {
+      ...
+      //安装通知的初始化状态【3.10】
+      mNotificationListener.registerAsSystemService(mContext,
+          new ComponentName(mContext.getPackageName(), getClass().getCanonicalName()),
+          UserHandle.USER_ALL);
+      ...  
+      createAndAddWindows(); //添加状态栏
+      ...
+    }
+
+### 3.10 NLS.registerAsSystemService
+[-> NotificationListenerService.java]
+
+    public void registerAsSystemService(Context context, ComponentName componentName,
+            int currentUser) throws RemoteException {
+        if (mWrapper == null) {
+            mWrapper = new NotificationListenerWrapper();
+        }
+        mSystemContext = context;
+        //获取NMS的接口代理对象
+        INotificationManager noMan = getNotificationInterface();
+        //运行在主线程的handler
+        mHandler = new MyHandler(context.getMainLooper());
+        mCurrentUser = currentUser;
+        //经过binder调用，向system_server中的NMS注册监听器【3.11】
+        noMan.registerListener(mWrapper, componentName, currentUser);
+    }
+
+经过binder调用，向system_server中的NMS注册监听器
+
+### 3.11 registerListener
 [-> NMS.java]
 
-    void buzzBeepBlinkLocked(NotificationRecord record) {
+    private final IBinder mService = new INotificationManager.Stub() {
         ...
-        final Notification notification = record.sbn.getNotification();
-        final String key = record.getKey();
-
-        if ((disableEffects == null || (smsRingtone && mInCall))
-                && (record.getUserId() == UserHandle.USER_ALL ||
-                    record.getUserId() == currentUser ||
-                    mUserProfiles.isCurrentProfile(record.getUserId()))
-                && canInterrupt && mSystemReady && mAudioManager != null) {
-
-            if (!(record.isUpdate && (notification.flags & Notification.FLAG_ONLY_ALERT_ONCE) != 0)) {
-                sendAccessibilityEvent(notification, record.sbn.getPackageName());
-                if (hasValidSound) {
-                    boolean looping = (notification.flags & Notification.FLAG_INSISTENT) != 0;
-                    AudioAttributes audioAttributes = audioAttributesForNotification(notification);
-                    mSoundNotificationKey = key;
-                    if ((mAudioManager.getStreamVolume(
-                            AudioAttributes.toLegacyStreamType(audioAttributes)) != 0)
-                            && !audioManager.isAudioFocusExclusive()）{
-                        final IRingtonePlayer player = mAudioManager.getRingtonePlayer();
-                        //播放声音
-                        player.playAsync(soundUri, record.sbn.getUser(), looping, audioAttributes);
-                        beep = true;
-                    }
-                }
-
-                if (hasValidVibrate && !(mAudioManager.getRingerModeInternal()
-                        == AudioManager.RINGER_MODE_SILENT)）{
-                    mVibrateNotificationKey = key;
-                    //触发震动
-                    if (useDefaultVibrate || convertSoundToVibration) {
-                        mVibrator.vibrate(record.sbn.getUid(), record.sbn.getOpPkg(),
-                                useDefaultVibrate ? mDefaultVibrationPattern
-                                        : mFallbackVibrationPattern,
-                                ((notification.flags & Notification.FLAG_INSISTENT) != 0)
-                                        ? 0: -1, audioAttributesForNotification(notification));
-                        buzz = true;
-                    } else if (notification.vibrate.length > 1) {
-                        mVibrator.vibrate(record.sbn.getUid(), record.sbn.getOpPkg(),
-                                notification.vibrate,
-                                ((notification.flags & Notification.FLAG_INSISTENT) != 0)
-                                        ? 0: -1, audioAttributesForNotification(notification));
-                        buzz = true;
-                    }
-                }
-            }
-
-        }
-        
-        //如果通知被更新，则取消当前正在播放的声音或者震动
-        if (wasBeep && !hasValidSound) {
-            clearSoundLocked();
-        }
-        if (wasBuzz && !hasValidVibrate) {
-            clearVibrateLocked();
-        }
-
-        boolean wasShowLights = mLights.remove(key);
-        //更新指示灯
-        if ((notification.flags & Notification.FLAG_SHOW_LIGHTS) != 0 && aboveThreshold
-              && ((record.getSuppressedVisualEffects()
-               & NotificationListenerService.SUPPRESSED_EFFECT_SCREEN_OFF) == 0)) {
-            mLights.add(key);
-            updateLightsLocked();
-            blink = true;
-        } else if (wasShowLights) {
-            updateLightsLocked();
-        }
-        
-        if (buzz || beep || blink) {
-            if (((record.getSuppressedVisualEffects()
-                    & NotificationListenerService.SUPPRESSED_EFFECT_SCREEN_OFF) != 0)) {
-            } else {
-                mHandler.post(mBuzzBeepBlinked);
-            }
+        public void registerListener(final INotificationListener listener,
+                final ComponentName component, final int userid) {
+            enforceSystemOrSystemUI("INotificationManager.registerListener");
+            //此处的INotificationListener便是NotificationListenerWrapper代理对象 【3.11.1】
+            mListeners.registerService(listener, component, userid);
         }
     }
 
+mListeners的对象类型为ManagedServices。此处的INotificationListener便是NotificationListenerWrapper的代理对象
 
+#### 3.11.1 registerService
+[-> ManagedServices.java]
+
+    public void registerService(IInterface service, ComponentName component, int userid) {
+        //【3.11.2】
+        ManagedServiceInfo info = registerServiceImpl(service, component, userid);
+        if (info != null) {
+            onServiceAdded(info);
+        }
+    }
+
+#### 3.11.2 registerService
+[-> ManagedServices.java]
+
+    private ManagedServiceInfo registerServiceImpl(final IInterface service,
+             final ComponentName component, final int userid) {
+         //将NotificationListenerWrapper对象保存到ManagedServiceInfo.service
+         ManagedServiceInfo info = newServiceInfo(service, component, userid,
+                 true, null, Build.VERSION_CODES.LOLLIPOP);
+         //【3.11.3】
+         return registerServiceImpl(info);
+     }
+
+#### 3.11.3 registerServiceImpl
+[-> ManagedServices.java]
+ 
+     private ManagedServiceInfo registerServiceImpl(ManagedServiceInfo info) {
+         synchronized (mMutex) {
+             try {
+                 info.service.asBinder().linkToDeath(info, 0);
+                 mServices.add(info);
+                 return info;
+             } catch (RemoteException e) {
+                 
+             }
+         }
+         return null;
+     }
+
+可见，前面的listener的对端便是运行在systemui中的NotificationListenerWrapper的代理对象。
+    
 ## 三. 小结
 
-整个过程涉及到3个Handler都是运行在system_server的主线程：NMS的mHandler运，NLS的mHandler，以及BaseStatusBar的mHandler。
+整个过程涉及到3个Handler都是运行在system_server的主线程：NMS的mHandler，NLS的mHandler以及BaseStatusBar的mHandler。
 
-一次通知发送的过程，在system_server进程里面经过了步骤[2.3]，[2.4]，[2.6]，[2.8]共四次的handler异步处理。
-对于这种异步的使用过于频繁，其反而性能变差，每一次post的过程，都需要等待前面的message执行完成才能继续往下走，可见通知架构设计得有些混乱。
+一次通知发送的过程，在system_server进程里面经过了步骤[2.3]，[2.4]的两次异步调用，进入systemui进程，也经历[2.6]，[2.8]共两次异步调用。
+本身是异步调用，再进过一次异步意义并不大。
 
 另外，这里需要注意的是前台服务也会显示通知，该通知是为了提升服务的优先级，并且让用户可感知该服务的存在，以防止进程被杀，比如音乐播放。
 对于常规的通知可通过点击通知(允许清除的通知)或者点击通知栏的清除按钮来清除。
