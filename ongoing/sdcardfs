@@ -1,0 +1,28 @@
+android 默认的方案，是基于用户空间文件系统fuse，最大的优点是移植性好
+
+fuse文件系统和sdcard dameon必需频繁的进行命令交互、数据交换，引入内核态和用户态切换系统开销。
+
+http://blog.csdn.net/kc58236582/article/details/50442926
+总结：
+    基于 fuse  android默认sdcard存储方案，移植性强，但性能差。特别是针对性能好的emmc，性能drop更明显。
+    基于wrapfs android优化sdcard存储方案，性能更强，越好的emmc，表现越好。但因为属于内核一部分，移植性差。
+
+fuse: https://en.wikipedia.org/wiki/Filesystem_in_Userspace
+
+
+
+早期的android系统没有使用fuse文件系统。后来android为了控制不同APP对文件访问的权限，使用了fuse文件系统.
+
+http://blog.csdn.net/hljhnu/article/details/53055695
+fuse vs sdcardfs.
+
+android手机中sdcardfs的作用与fuse相同，也是用于控制文件访问的权限。sdcardfs的工作方式是把内置SD卡目录挂载到用于权限控制目录。
+对内置SD卡的系统调用，先经过sdcardfs，然后把访问路径改为ext4文件系统的真正路径，再到达ext4文件系统。ext4执行完以后，把结果返回给sdcardfs，再返回给调用者。
+
+sdcardfs有权限控制的功能,
+
+userdata: ext4
+内置SD卡: fuse->ext4, 或者sdcardfs -> ext4
+
+
+http://blog.csdn.net/kris_fei/article/details/77253096

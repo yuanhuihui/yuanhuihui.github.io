@@ -327,6 +327,8 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 
 ---
 
-欢迎大家关于我的微信公众号: Android达摩院, 我将跟大家一起在Android达摩院，研究Android系统的各路武学绝技，分享武学秘籍，提升Android内功。
+欢迎大家关注我的微信公众号: Android达摩院
 
 ![android达摩院](/images/about-me/damoyuan.jpg)
+
+我将跟大家一起在Android达摩院，研究Android系统的各路武学绝技，分享武学秘籍，提升Android内功。
