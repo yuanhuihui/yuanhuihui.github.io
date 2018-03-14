@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android系统启动-概述"
+title:  "Android系统启动-综述"
 date:   2016-02-01 20:21:40
 catalog:  true
 tags:
@@ -15,7 +15,7 @@ tags:
 
 ## 一. 概述
 
-Android系统底层基于Linux Kernel, 当Kernel启动过程会创建init进程, 该进程是uoyou用户空间的鼻祖, 
+Android系统底层基于Linux Kernel, 当Kernel启动过程会创建init进程, 该进程是uoyou用户空间的鼻祖,
 init进程会启动servicemanager(binder服务管家), Zygote进程(Java进程的鼻祖). Zygote进程会创建
 system_server进程以及各种app进程.
 
@@ -104,15 +104,15 @@ init进程的主要功能点:
 当[Zygote](http://gityuan.com/2016/02/13/android-zygote/)进程启动后, 便会执行到frameworks/base/cmds/app_process/App_main.cpp文件的main()方法. 整个调用流程:
 
     App_main.main
-        AR.start
-            AR.startVm
-            AR.startReg
+        AndroidRuntime.start
+            AndroidRuntime.startVm
+            AndroidRuntime.startReg
             ZygoteInit.main (首次进入Java世界)
                 registerZygoteSocket
                 preload
                 startSystemServer
                 runSelectLoop
-                
+
 #### 3.1 App_main.main
 
     int main(int argc, char* const argv[])
@@ -131,7 +131,7 @@ init进程的主要功能点:
         if (zygote) {
             // 启动AppRuntime
             runtime.start("com.android.internal.os.ZygoteInit", args, zygote);
-        } 
+        }
         ...
     }
 
@@ -174,7 +174,7 @@ init进程的主要功能点:
             ...
         } catch (MethodAndArgsCaller caller) {
             caller.run(); //启动system_server中会讲到。
-        } 
+        }
         ...
     }
 
@@ -197,7 +197,7 @@ init进程的主要功能点:
     private static void runSelectLoop(String abiList) throws MethodAndArgsCaller {
         ArrayList<FileDescriptor> fds = new ArrayList<FileDescriptor>();
         ArrayList<ZygoteConnection> peers = new ArrayList<ZygoteConnection>();
-        
+
         //sServerSocket是socket通信中的服务端，即zygote进程
         fds.add(sServerSocket.getFileDescriptor());
         peers.add(null);
@@ -260,7 +260,7 @@ init进程的主要功能点:
         }
         return true;
     }
-        
+
 Zygote进程创建Java虚拟机,并注册JNI方法, 真正成为Java进程的母体,用于孵化Java进程. 在创建完[小节4.1]system_server进程后,zygote功成身退，调用runSelectLoop()，随时待命，当接收到请求创建新进程请求时立即唤醒并执行相应工作。
 
 
@@ -434,7 +434,7 @@ applicationInit()方法经过层层调用,会抛出异常ZygoteInit.MethodAndArg
             }
         }
     }
-    
+
 
 - start: 创建AMS, PMS, LightsService, DMS.
 - phase100: 进入Phase100, 创建PKMS, WMS, IMS, DBMS, LockSettingsService, JobSchedulerService, MmsService等服务;
@@ -449,29 +449,29 @@ applicationInit()方法经过层层调用,会抛出异常ZygoteInit.MethodAndArg
 
     public final class ActivityManagerService extends ActivityManagerNative
         implements Watchdog.Monitor, BatteryStatsImpl.BatteryCallback {
-            
+
         public void systemReady(final Runnable goingCallback) {
             ... //update相关
             mSystemReady = true;
-            
+
             //杀掉所有非persistent进程
             removeProcessLocked(proc, true, false, "system update done");
-            mProcessesReady = true; 
+            mProcessesReady = true;
 
             goingCallback.run();  //[见小节1.6.2]
-            
+
             addAppLocked(info, false, null); //启动所有的persistent进程
-            mBooting = true; 
-            
+            mBooting = true;
+
             //启动home
-            startHomeActivityLocked(mCurrentUserId, "systemReady"); 
+            startHomeActivityLocked(mCurrentUserId, "systemReady");
             //恢复栈顶的Activity
             mStackSupervisor.resumeTopActivitiesLocked();
         }
     }
 
 System_server主线程的启动工作,总算完成, 进入Looper.loop()状态,等待其他线程通过handler发送消息再处理.
- 
+
 ## 五. app
 
 对于普通的app进程,跟system_server进程的启动过来有些类似.不同的是app进程是向发消息给system_server进程,
@@ -496,7 +496,7 @@ System_server主线程的启动工作,总算完成, 进入Looper.loop()状态,�
         if (sMainThreadHandler == null) {
             sMainThreadHandler = thread.getHandler();
         }
-        
+
         //主线程进入循环状态
         Looper.loop();
         throw new RuntimeException("Main thread loop unexpectedly exited");
@@ -516,7 +516,7 @@ app进程的主线程调用栈的栈底如下:
     at java.lang.reflect.Method.invoke!(Native method)
     at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:738)
     at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:628)
-    
+
 ## 六. 实战分析
 
 以下列举启动部分重要进程以及关键节点会打印出的log
@@ -552,7 +552,7 @@ app进程的主线程调用栈的栈底如下:
     11-23 14:36:50.311   541   541 I installd: installd firing up
     // thermal守护进程
     11-23 14:36:50.369   552   552 I ThermalEngine: Thermal daemon started
-    
+
 
 #### 2. zygote
 
