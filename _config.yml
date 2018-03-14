@@ -68,8 +68,8 @@ duoshuo_share: false                     # set to false if you want to use Comme
 
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
-sidebar-about-description: "Android OS Developer"
-sidebar-avatar: /images/about-me/logo2.png   
+sidebar-about-description: "Android达摩院"
+sidebar-avatar: /images/about-me/damoyuan.jpg
 
 
 
