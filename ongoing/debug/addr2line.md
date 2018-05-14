@@ -42,7 +42,7 @@ http://eng.pt.miui.com/?r=eng
 
 则计算后的地址 c02b2f28 + 2a0 = 目标地址, 这时再执行如下:
 
-    ./aarch64-linux-android-addr2line -f -C -e /out/target/product/cancro/obj/KERNEL_OBJ/vmlinux [目标地址]
+    ./aarch64-linux-android-addr2line -Cfe  /out/target/product/cancro/obj/KERNEL_OBJ/vmlinux [目标地址]
 
 3. 注意
 
