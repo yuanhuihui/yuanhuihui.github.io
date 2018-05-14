@@ -11,8 +11,13 @@ tags:
 本文讲解异步binder call是如何阻塞整个系统的，通过ramdump信息以及binder通信协议来演绎并还原定屏现场。
 
 ### 一、背景知识点
+
 解决此问题所涉及到的基础知识点有：Trace、CPU调度、Ramdump推导、Crash工具、GDB工具、Ftrace，
 尤其深入理解binder IPC机制。
+
+欢迎关注Gityuan的微信公众号：**Android达摩院(AndroidAcademy)**，后续会有更多精彩内容。
+
+![Android达摩院](/images/about-me/damoyuan.jpg)
 
 #### 1.1 工具简介
 
@@ -292,12 +297,128 @@ Trace、Log、Ramdump推导、Crash工具、GDB工具等十八般武艺都用过
   - 一般情况，没有BC_TRANSACION或者BC_REPLY，则不读取; BW_DEAD_BINDER例外；
 - mIn: 记录Binder Driver传到用户空间的命令
   - 通过waitForResponse()和executeCommand()方法消费BR命令
-
+  
 另外，关于talkWithDriver, 当mIn有数据，意味着先不需要从binder driver读数据。原因：needRead=0，则read_buffer size设置为0，当doReceive=true，则write_buffer size也设置为0。从而此次不会跟driver交互。
+  
+以下是一次定屏复现过程吐出的ftrace信息：
 
-案发过程详细过程：
+    Binder:1885_5-2351 [002] ...1 242.804499: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce6928
+    Binder:1885_5-2351 [002] ...1 242.804503: binder_command: cmd=0x40046304 BC_INCREFS
+    Binder:1885_5-2351 [002] ...1 242.804515: binder_command: cmd=0x40046305 BC_ACQUIRE
+    Binder:1885_5-2351 [002] ...1 242.804517: binder_command: cmd=0x400c630e BC_REQUEST_DEATH_NOTIFICATION
+    Binder:1885_5-2351 [002] ...1 242.804524: binder_write_done: ret=0
+    Binder:1885_5-2351 [002] ...1 242.804526: binder_ioctl_done: ret=0
+     
+    Binder:1885_5-2351 [003] ...1 242.854847: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce4f18
+    Binder:1885_5-2351 [003] ...1 242.854852: binder_command: cmd=0x40406300 BC_TRANSACTION // bindApplication()，
+    Binder:1885_5-2351 [003] ...1 242.854900: binder_write_done: ret=0
+    Binder:1885_5-2351 [003] ...1 242.854902: binder_wait_for_work: proc_work=0 transaction_stack=1 thread_todo=1
+    //binder_thread_read（）处理BINDER_WORK_DEAD_BINDER，生成BR_DEAD_BINDER
+    Binder:1885_5-2351 [003] ...1 242.854905: binder_return: cmd=0x8008720f BR_DEAD_BINDER
+    Binder:1885_5-2351 [003] ...1 242.854906: binder_read_done: ret=0
+    Binder:1885_5-2351 [003] ...1 242.854908: binder_ioctl_done: ret=0
+     
+    Binder:1885_5-2351 [003] ...1 242.854920: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce4d58
+    //既有可能是thread->return_error.cmd ！= BR_OK
+    Binder:1885_5-2351 [003] ...1 242.854922: binder_write_done: ret=0
+    Binder:1885_5-2351 [003] ...1 242.854923: binder_ioctl_done: ret=0
+     
+    Binder:1885_5-2351 [003] ...1 242.863203: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce1c08
+    Binder:1885_5-2351 [003] ...1 242.863258: binder_write_done: ret=0
+    Binder:1885_5-2351 [003] ...1 242.863263: binder_wait_for_work: proc_work=0 transaction_stack=1 thread_todo=1
+    //取出BINDER_WORK_RETURN_ERROR， BR_DEAD_REPLY， 此次炸死。BR_TRANSACTION_COMPLETE仅仅是打印错误
+    Binder:1885_5-2351 [003] ...1 242.863272: binder_return: cmd=0x7206 BR_TRANSACTION_COMPLETE
+    Binder:1885_5-2351 [003] ...1 242.863276: binder_read_done: ret=0
+    Binder:1885_5-2351 [003] ...1 242.863279: binder_ioctl_done: ret=0
+     
+    // sendObituary（）
+    Binder:1885_5-2351 [003] ...1 242.868356: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce31a8
+    Binder:1885_5-2351 [003] ...1 242.868392: binder_command: cmd=0x400c630f BC_CLEAR_DEATH_NOTIFICATION
+    //雷被拿了，return_error=BR_Ok才可以写； 将death->work.type由BINDER_WORK_DEAD_BINDER改为 BINDER_WORK_DEAD_BINDER_AND_CLEAR。
+    Binder:1885_5-2351 [003] ...1 242.868403: binder_command: cmd=0x40406300 BC_TRANSACTION //（同步）
+    Binder:1885_5-2351 [003] ...1 242.868707: binder_transaction: transaction=187839 dest_node=14103 dest_proc=2198 dest_thread=0 reply=0 flags=0x11 code=0x1f
+    Binder:1885_5-2351 [003] ...1 242.868734: binder_transaction_alloc_buf: transaction=187839 data_size=96 offsets_size=0
+    Binder:1885_5-2351 [003] ...1 242.868786: binder_command: cmd=0x40406300 BC_TRANSACTION //（异步）
+    Binder:1885_5-2351 [003] ...1 242.868802: binder_transaction: transaction=187840 dest_node=563 dest_proc=746 dest_thread=0 reply=0 flags=0x10 code=0x8
+    Binder:1885_5-2351 [003] ...1 242.868807: binder_transaction_alloc_buf: transaction=187840 data_size=1952 offsets_size=112
+    Binder:1885_5-2351 [003] ...2 242.868822: binder_transaction_ref_to_node: transaction=187840 node=37276 src_ref=37277 src_desc=940 ==> dest_ptr=0x00000079ba160780
+    Binder:1885_5-2351 [003] ...2 242.868829: binder_transaction_ref_to_node: transaction=187840 node=158140 src_ref=158141 src_desc=116 ==> dest_ptr=0x00000079ba03f6c0
+    Binder:1885_5-2351 [003] ...2 242.868833: binder_transaction_ref_to_node: transaction=187840 node=8192 src_ref=8193 src_desc=110 ==> dest_ptr=0x00000079bc81b220
+    Binder:1885_5-2351 [003] ...2 242.868837: binder_transaction_ref_to_node: transaction=187840 node=18544 src_ref=18545 src_desc=416 ==> dest_ptr=0x00000079ba1dbd20
+    Binder:1885_5-2351 [003] ...2 242.868839: binder_transaction_ref_to_node: transaction=187840 node=8192 src_ref=8193 src_desc=110 ==> dest_ptr=0x00000079bc81b220
+    Binder:1885_5-2351 [003] ...2 242.868842: binder_transaction_ref_to_node: transaction=187840 node=18659 src_ref=18660 src_desc=420 ==> dest_ptr=0x00000079bd0b3720
+    Binder:1885_5-2351 [003] ...2 242.868844: binder_transaction_ref_to_node: transaction=187840 node=8192 src_ref=8193 src_desc=110 ==> dest_ptr=0x00000079bc81b220
+    Binder:1885_5-2351 [003] ...2 242.868847: binder_transaction_ref_to_node: transaction=187840 node=18719 src_ref=18720 src_desc=423 ==> dest_ptr=0x00000079bd0b4120
+    Binder:1885_5-2351 [003] ...2 242.868849: binder_transaction_ref_to_node: transaction=187840 node=8192 src_ref=8193 src_desc=110 ==> dest_ptr=0x00000079bc81b220
+    Binder:1885_5-2351 [003] ...2 242.868852: binder_transaction_ref_to_node: transaction=187840 node=18919 src_ref=18920 src_desc=431 ==> dest_ptr=0x00000079ba1ba320
+    Binder:1885_5-2351 [003] ...2 242.868854: binder_transaction_ref_to_node: transaction=187840 node=8192 src_ref=8193 src_desc=110 ==> dest_ptr=0x00000079bc81b220
+    Binder:1885_5-2351 [003] ...2 242.868857: binder_transaction_ref_to_node: transaction=187840 node=18785 src_ref=18786 src_desc=425 ==> dest_ptr=0x00000079bd0b4a20
+    Binder:1885_5-2351 [003] ...2 242.868863: binder_transaction_ref_to_node: transaction=187840 node=130076 src_ref=130077 src_desc=1405 ==> dest_ptr=0x00000079ba03f060
+    Binder:1885_5-2351 [003] ...2 242.868867: binder_transaction_ref_to_node: transaction=187840 node=159857 src_ref=159858 src_desc=154 ==> dest_ptr=0x00000079ba160c40
+    Binder:1885_5-2351 [000] ...1 242.869114: binder_write_done: ret=0
+    Binder:1885_5-2351 [000] ...1 242.869117: binder_wait_for_work: proc_work=0 transaction_stack=1 thread_todo=1
+    Binder:1885_5-2351 [000] ...1 242.869120: binder_return: cmd=0x7206 BR_TRANSACTION_COMPLETE
+    Binder:1885_5-2351 [000] ...1 242.869122: binder_return: cmd=0x7206 BR_TRANSACTION_COMPLETE
+    Binder:1885_5-2351 [000] ...1 242.869124: binder_read_done: ret=0
+    Binder:1885_5-2351 [000] ...1 242.869126: binder_ioctl_done: ret=0
+     
+     
+    Binder:1885_5-2351 [000] ...1 242.869137: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce31a8
+    Binder:1885_5-2351 [000] ...1 242.869140: binder_wait_for_work: proc_work=0 transaction_stack=1 thread_todo=0
+    Binder:1885_5-2351 [000] ...1 242.869195: binder_transaction_received: transaction=187841
+    Binder:1885_5-2351 [000] ...1 242.869198: binder_return: cmd=0x80407203 BR_REPLY
+    Binder:1885_5-2351 [000] ...1 242.869202: binder_read_done: ret=0
+    Binder:1885_5-2351 [000] ...1 242.869203: binder_ioctl_done: ret=0
+     
+     
+    Binder:1885_5-2351 [000] ...1 242.873656: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce1e98
+    Binder:1885_5-2351 [000] ...1 242.873664: binder_command: cmd=0x40086303 BC_FREE_BUFFER
+    Binder:1885_5-2351 [000] ...1 242.873668: binder_transaction_buffer_release: transaction=187841 data_size=0 offsets_size=0
+    Binder:1885_5-2351 [000] ...1 242.873671: binder_command: cmd=0x40406300 BC_TRANSACTION
+    Binder:1885_5-2351 [000] ...1 242.873784: binder_transaction: transaction=187849 dest_node=127265 dest_proc=5730 dest_thread=0 reply=0 flags=0x11 code=0x31
+    Binder:1885_5-2351 [000] ...1 242.873787: binder_transaction_alloc_buf: transaction=187849 data_size=76 offsets_size=0
+    Binder:1885_5-2351 [000] ...1 242.873814: binder_write_done: ret=0
+    Binder:1885_5-2351 [000] ...1 242.873816: binder_wait_for_work: proc_work=0 transaction_stack=1 thread_todo=1
+    Binder:1885_5-2351 [000] ...1 242.873820: binder_return: cmd=0x7206 BR_TRANSACTION_COMPLETE
+    Binder:1885_5-2351 [000] ...1 242.873821: binder_read_done: ret=0
+    Binder:1885_5-2351 [000] ...1 242.873823: binder_ioctl_done: ret=0
+     
+    Binder:1885_5-2351 [000] ...1 242.876271: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce1e98
+    Binder:1885_5-2351 [000] ...1 242.876302: binder_command: cmd=0x40406300 BC_TRANSACTION
+    Binder:1885_5-2351 [000] ...1 242.876417: binder_transaction: transaction=187850 dest_node=23725 dest_proc=3051 dest_thread=0 reply=0 flags=0x11 code=0x31
+    Binder:1885_5-2351 [000] ...1 242.876423: binder_transaction_alloc_buf: transaction=187850 data_size=76 offsets_size=0
+    Binder:1885_5-2351 [000] ...1 242.876456: binder_write_done: ret=0
+    Binder:1885_5-2351 [000] ...1 242.876459: binder_wait_for_work: proc_work=0 transaction_stack=1 thread_todo=1
+    Binder:1885_5-2351 [000] ...1 242.876461: binder_return: cmd=0x7206 BR_TRANSACTION_COMPLETE
+    Binder:1885_5-2351 [000] ...1 242.876463: binder_read_done: ret=0
+    Binder:1885_5-2351 [000] ...1 242.876464: binder_ioctl_done: ret=0
+    // sendObituary（）结束
+     
+    Binder:1885_5-2351 [000] ...1 242.886935: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce4f18
+    Binder:1885_5-2351 [000] ...1 242.886975: binder_command: cmd=0x40086310 BC_DEAD_BINDER_DONE
+    Binder:1885_5-2351 [000] ...1 242.886980: binder_write_done: ret=0
+    Binder:1885_5-2351 [000] ...1 242.886984: binder_wait_for_work: proc_work=0 transaction_stack=1 thread_todo=1
+    Binder:1885_5-2351 [000] ...1 242.886993: binder_return: cmd=0x80087210 BR_CLEAR_DEATH_NOTIFICATION_DONE
+    Binder:1885_5-2351 [000] ...1 242.886996: binder_read_done: ret=0
+    Binder:1885_5-2351 [000] ...1 242.886999: binder_ioctl_done: ret=0
+     
+     
+    Binder:1885_5-2351 [000] ...1 242.887012: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce4f18
+    Binder:1885_5-2351 [000] ...1 242.887013: binder_wait_for_work: proc_work=0 transaction_stack=1 thread_todo=0
+    Binder:1885_5-2351 [000] ...1 260.021887: binder_read_done: ret=-512
+    Binder:1885_5-2351 [000] ...1 260.021893: binder_ioctl_done: ret=-512
+    Binder:1885_5-2351 [000] ...1 260.023938: binder_ioctl: cmd=0xc0306201 arg=0x71f6ce4f18
+    Binder:1885_5-2351 [000] ...1 260.023972: binder_wait_for_work: proc_work=0 transaction_stack=1 thread_todo=0
+    
 
-![20seq_binder](/images/binder/binder_bug/16seq_binder.png)
+将以上信息转换为表格形式来展示案发过程：
+
+![18oneway_binder_call_hang](/images/binder/binder_bug/18oneway_binder_call_hang.jpg)
+
+
+以流程图的方式来展示案发过程：
+
+![16seq_binder](/images/binder/binder_bug/16seq_binder.png)
 
 过程解读：
 
@@ -314,7 +435,7 @@ Trace、Log、Ramdump推导、Crash工具、GDB工具等十八般武艺都用过
 8. 到此彻底执行完sendObituary()，则需向mOut添加BC_DEAD_BINDER_DONE协议，收到该协议后，驱动将proc→delivered_death的BW_DEAD_BINDER_AND_CLEAR调整为BW_CLEAR_DEATH_NOTIFICATION，并放入thread->todo队列；然后生成BR_CLEAR_DEATH_NOTIFICATION_DONE，完成本次通信；
 9. 回到bindApplication()的waitForResponse，此时mOut和mIn都为空，进入内核binder_wait_for_work(), 该线程不再接收其他事务，也无法产生事务，则永远地被卡住。
 
-总结：整个过程发生了10次 talkWithDriver(), 
+总结：整个过程发生了10次 talkWithDriver()
 
 - 第一个异步reportOneDeath()消费掉bindApplication()所产生的BW_RETURN_ERROR；
 - 第二个同步reportOneDeath()所消耗掉 第一个异步reportOneDeath()自身残留的BR_TRANSACTION_COMPLETE；
@@ -325,7 +446,7 @@ Trace、Log、Ramdump推导、Crash工具、GDB工具等十八般武艺都用过
 
 真正分析远比这复杂，鉴于篇幅，文章只讲解其中一个场景，不同的Binder Driver以及不同的Framework代码组合有几种不同的表现与处理流程。不过最本质的问题都是在于在嵌套的binder通信过程，BR_DEAD_REPLY错误地被其他通信所消耗从而导致的异常。我的解决方案是一旦发生错误，则当BW_RETURN_ERROR事务放入到当前线程todo队列头部，则保证自己产生的BW_RETURN_ERROR事务一定会被自己所正确地消耗，解决异步binder通信在嵌套场景下的无限阻塞的问题，优化后的处理流程图：
 
-![22seq_binder_ok](/images/binder/binder_bug/17seq_binder_ok.jpg)
+![17seq_binder_ok](/images/binder/binder_bug/17seq_binder_ok.jpg)
 
 当然还有第二个解决方案就是尽可能避免一切binder嵌套，Google在最新的binder driver驱动里面采用将BW_DEAD_BINDER放入proc的todo队列来避免嵌套问题，这个方案本身也OK，但我认为在执行过程出现了BW_RETURN_ERROR还是应该放到队列头部，第一时间处理error，从而也能避免被错误消耗的BUG，另外后续如果binder新增其他逻辑，也有可能会导致嵌套的出现，那么仍然会有类似的问题。最近跟Google工程师来回多次沟通过这个问题，他们仍然希望保持每次只往thread todo队列尾部添加事务的逻辑，对于嵌套问题希望通过将其放入proc todo队列的方式来解决。对此，我担心后续扩展性方面会忽略或者遗忘，又引发binder嵌套问题，Google工程师表示未来添加新功能，也会杜绝出现嵌套逻辑，保持逻辑与代码的简洁。 
 
