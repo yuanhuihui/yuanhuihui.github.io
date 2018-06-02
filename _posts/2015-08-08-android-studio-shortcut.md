@@ -13,8 +13,22 @@ tags:
 
 ## 一、阅读代码
 
-|功能 |快捷键组合|反向组合键|
+|功能 |快捷键组合|反向键(或备注)|
 | :--------   | :-----  |:-----  |
+|调用层级 (Call Hierarchy)|`Ctrl + Alt + H`|递归搜索方法
+|查看用法 (Find Usages)|`Alt + F7`|搜索变量/方法
+|查看类继承关系 (Type Hierarchy)|`Ctrl + H`|搜索子类
+|查看方法列表 (File Structure)|`Ctrl + F12`|
+|查找文件 (Navigate File)|`Ctrl + Shift + N`|
+|查找类 (Navigate Class)|`Ctrl + N`|
+|跳转至某一行 (Navigate Line)|`Ctrl + G`|
+|(全局)查找 (Find) |`Ctrl + F` |Ctrl + Shift + F |
+|(全局)替换 (Replace) |`Ctrl + R` |Ctrl + Shift + R |
+|跳转至源码 (Jump to Source)|`F4`|
+|搜索任意内容|`双击 Shift`|
+|前进 (Forward)|`Ctrl + →`|自定义|
+|后退 (Back)|`Ctrl + ←`|自定义|
+|高亮选中单词|Ctrl + SHIFT +F7|
 |上(下)一个方法 |Alt + ↑     |Alt + ↓     |
 |跳至括号开头/结尾|Ctrl + [ | Ctrl + ] |
 |展开(收缩)|Ctrl + +|Ctrl + -|
@@ -22,27 +36,14 @@ tags:
 |移动光标至行首(尾)|Home|End|
 |查看方法参数信息|Ctrl + P|
 |查询上下文信息|Alt + Q|
-|(全局)查找 |Ctrl + F |Ctrl + Shift + F |
-|(全局)替换 |Ctrl + R |Ctrl + Shift + R |
 |(全局)光标处查找 |  Ctrl + F7 |  Alt + F7  |
 |查找下(上)一处出现 |F3 | Shift + F3 |
-|跳转至源码|F4|
-|搜索任意内容| **双击 Shift**|
-|查找文件 |Ctrl + Shift + N |
-|查找类 |**Ctrl + N** |
-|查找方法|**Ctrl + F12**|
-|跳转至某一行 | Ctrl + G|
-|调用层级|**Ctrl + Alt + H**|
-|查看类继承关系|**Ctrl + H**|
-|高亮选中单词|**Ctrl + SHIFT +F7**|
 |选中文本|Ctrl + W连按|
 |跳转至声明/实现|Ctrl + B|Ctrl + Alt + B|
 |跳转至超类方法|Ctrl + U|
 |最近打开的文件|Ctrl + E|
 |关闭当前Tabs|Ctrl + F4|
 |选中功能|Ctrl + W连按|
-|前进|Ctrl  + ←|自定义
-|后退|Ctrl  + →|自定义
 
 
 ## 二、编辑代码
