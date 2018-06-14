@@ -21,8 +21,6 @@ Android的设计理念之一，便是应用程序退出,但进程还会继续存
 
 Android基于Linux的系统，其实Linux有类似的内存管理策略——OOM killer，全称(Out Of Memory Killer), OOM的策略更多的是用于分配内存不足时触发，将得分最高的进程杀掉。而`lmk`则会每隔一段时间检查一次，当系统剩余可用内存较低时，便会触发杀进程的策略，根据不同的剩余内存档位来来选择杀不同优先级的进程，而不是等到OOM时再来杀进程，真正OOM时系统可能已经处于异常状态，系统更希望的是未雨绸缪，在内存很低时来杀掉一些优先级较低的进程来保障后续操作的顺利进行。
 
-
-
 ### 1.1 lmk核心方法
 
 位于`ProcessList.java`中定义了3种命令类型，这些文件的定义必须跟`lmkd.c`定义完全一致，格式分别如下：
@@ -43,9 +41,7 @@ Android基于Linux的系统，其实Linux有类似的内存管理策略——OOM
 - 当AMS.updateConfiguration()过程中便会更新整个各个级别的oom_adj信息.
 - 当AMS.cleanUpApplicationRecordLocked()或者handleAppDiedLocked()过程,则会将某个进程从lmkd策略中移除.
 
-
 在前面文章[Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)中有讲到`AMS.applyOomAdjLocked`，接下来以这个过程为主线开始分析,说说设置某个进程adj的整个过程.
-
 
 ## 二. framework层
 
@@ -430,7 +426,7 @@ ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
 
 ### 4.4 lowmem_scan
 
-当触发lmkd,则先杀oom_adj最大的进程, 当oom_adj相等时,则选择oom_score_adj最大的进程.
+当触发lmkd,则先杀oom_score_adj最大的进程, 当oom_adj相等时,则选择rss最大的进程.
 
     static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
     {
@@ -577,5 +573,9 @@ ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
 
 举例说明：
 
-－　例如：将`1,6`写入节点/sys/module/lowmemorykiller/parameters/adj，将`1024,8192`写入节点/sys/module/lowmemorykiller/parameters/minfree。
-－　策略：当系统可用内存低于`8192`个pages时，则会杀掉oom_score_adj>=`6`的进程；当系统可用内存低于`1024`个pages时，则会杀掉oom_score_adj>=`1`的进程。
+- 参数设置：
+  - `1,6`写入节点/sys/module/lowmemorykiller/parameters/adj
+  - `1024,8192`写入节点/sys/module/lowmemorykiller/parameters/minfree
+- 策略解读：
+  - 当系统可用内存低于`8192`个pages时，则会杀掉oom_score_adj>=`6`的进程
+  - 当系统可用内存低于`1024`个pages时，则会杀掉oom_score_adj>=`1`的进程

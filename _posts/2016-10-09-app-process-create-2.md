@@ -11,7 +11,7 @@ tags:
 
 ## 一. 概述
 
-Android系统将进程做得很友好的封装,对于上层app开发者来说进程几乎是透明的. 了解Android的朋友,一定知道Android四大组件,但对于进程可能会相对较陌生. 一个进程里面可以跑多个app(通过share uid的方式), 一个app也可以跑在多个进程里(通过配置Android:process属性).
+Android系统将进程做得很友好的封装,对于上层app开发者来说进程几乎是透明的. 了解Android的朋友,一定知道Android四大组件,但对于进程可能会相对较陌生. 一个进程里面可以跑多个app, 一个app也可以跑在多个进程里，通过配置Android:process属性来决定所运行在哪个进程。
 
 再进一步进程是如何创建的, 可能很多人不知道fork的存在. 在我的文章[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/) 集中一点详细介绍了`Process.start`的过程是如何一步步创建进程.
 
@@ -1226,6 +1226,7 @@ ATP经过binder ipc传递到ATN的onTransact过程.
 
 #### 3.14.3 rewriteRValues
 [-> LoadedApk.java]
+
         try {
             rClazz = cl.loadClass(packageName + ".R");
         } catch (ClassNotFoundException e) {

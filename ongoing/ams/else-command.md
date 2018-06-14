@@ -1,3 +1,56 @@
+## dumpsys meminfo
+
+当执行dumpsys meminfo后则进入AMS中的MemBinder内部类
+
+    MemBinder.dump
+      PriorityDump.dump
+        PriorityDumper.dump
+          AMS.dump
+      
+#### 1. MemBinder.dump
+[AMS.java]
+
+    static class MemBinder extends Binder {
+        
+        private final PriorityDump.PriorityDumper mPriorityDumper =
+                new PriorityDump.PriorityDumper() {
+          
+            public void dumpHigh(FileDescriptor fd, PrintWriter pw, String[] args,
+                    boolean asProto) {
+                dump(fd, pw, new String[] {"-a"}, asProto);
+            }
+
+            public void dump(FileDescriptor fd, PrintWriter pw, String[] args, boolean asProto) {
+                mActivityManagerService.dumpApplicationMemoryUsage(
+                        fd, pw, "  ", args, false, null, asProto);
+            }
+        };
+
+        protected void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+            PriorityDump.dump(mPriorityDumper, fd, pw, args);
+        }
+    }
+
+从Android P开始采用PriorityDump来进行Dump, 从名字可以看出这个一个带有优先级的Dump，分为CRITICAL, HIGH, NORMAL这3个级别。
+
+#### 2. AMS.dumpApplicationMemoryUsage
+
+    final void dumpApplicationMemoryUsage(FileDescriptor fd, PrintWriter pw, String prefix,
+            String[] args, boolean brief, PrintWriter categoryPw, boolean asProto) {
+        MemoryUsageDumpOptions opts = new MemoryUsageDumpOptions();
+        ... //省略opts参数初始化与赋值过程
+        
+        // 从mLruProcesses列表中查询到目标进程集合
+        ArrayList<ProcessRecord> procs = collectProcesses(pw, opti, opts.packages, args);
+        if (opts.dumpProto) {
+            dumpApplicationMemoryUsage(fd, opts, innerArgs, brief, procs);
+        } else {
+            // 见下文
+            dumpApplicationMemoryUsage(fd, pw, prefix, opts, innerArgs, brief, procs, categoryPw);
+        }
+    }
+    
+
 ## dumpsys package
 
 

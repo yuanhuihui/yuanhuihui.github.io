@@ -50,7 +50,7 @@ Binder通信采用C/S架构，主要包含Client、Server、ServiceManager以及
 退出waitForResponse场景说明：
 
 - 1）当Client收到BR_DEAD_REPLY或BR_FAILED_REPLY(往往是对端进程被杀或者transaction执行失败)，则无论是同步还是异步的binder call都会结束waitForResponse()方法。
-- 2）正常通信的情况下，当收到BR_TRANSACTION_COMPLETE则结束同步binder call； 当收到BR_REPLY则结束异步binder call。
+- 2）正常通信的情况下，当收到BR_TRANSACTION_COMPLETE则结束异步binder call； 当收到BR_REPLY则结束同步binder call。
 
 ### 二、初步分析
 
@@ -141,14 +141,13 @@ utm + stm = (12112 + 6554) ×10 ms = 186666ms。
 
 有效的信息太少，基本无法采用进一步分析，只能通过抓取ramdump希望能通过里面的蛛丝马迹来推出整个过程。
 
-抓取的ramdump是只是触发定屏后的最后一刻的异常现场，这就好比犯罪现场最后的画面，我们无法得知案发的动机是什么，
+抓取的ramdump只是触发定屏后的最后一刻的异常现场，这就好比犯罪现场最后的画面，我们无法得知案发的动机是什么，
 更无法得知中间到底发生了哪些状态。要基于ramdump的静态画面，去推演整个作案过程，需要强大的推演能力。
 先来分析这个ramdump信息，找到尽可能多的有效信息。
 
 #### 3.1 结构体binder_thread
 
-从ramdump中找到当前处于blocked线程的调用栈上的方法binder_ioctl_write_read()， 该方法的的第4个参数指向binder_read结构体，
-采用crash工具便可进一步找到binder_thread的结构体如下：
+从ramdump中找到当前处于blocked线程的调用栈上的方法binder_ioctl_write_read()， 该方法的的第4个参数指向binder_thread结构体，采用crash工具便可进一步找到binder_thread的结构体如下：
 
 ![rd_binder_thread](/images/binder/binder_bug/5rd_binder_thread.png)
 

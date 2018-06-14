@@ -704,7 +704,7 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
  |当instrumentation不为空时|adj=0|procState=4|
  |当进程存在正在接收的broadcastrecevier|adj=0|procState=11|
  |当进程存在正在执行的service|adj=0|procState=10|
- |以上条件都不符合|adj=cachedAd(>=0)j|procState=16|
+ |以上条件都不符合|adj=cachedAdj(>=0)|procState=16|
 
 #### 4. 非前台activity的情况
 
@@ -1495,5 +1495,3 @@ incProviderCountLocked的过程是建立provider的连接.
 - 服务: execServicesFg 则SCHED_GROUP_DEFAULT; 后台服务 则SCHED_GROUP_BACKGROUND
 - cachedAdj一般地都是大于或等于CACHED_APP_MIN_ADJ, 很多情况下为UNKNOWN_ADJ;
 - cch-empty的情况下, 进程的empty和cached都为true
-
-未完...

@@ -93,7 +93,7 @@ tags:
 
 **场景2：查询某个App所有的广播状态**
 
-     dumpsys activity s com.sina.weibo
+     dumpsys activity b com.sina.weibo
 
 ![dumpsys_broadcast](/images/tools/dumpsys_broadcast.png)
 
