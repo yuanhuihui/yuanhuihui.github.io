@@ -1,0 +1,341 @@
+am_anr
+ANR in
+binder_sample
+dvm_lock_sample
+am_lifecycle_sample
+binder starved
+MIUI-BLOCK-MONITOR
+Long monitor contention
+
+
+----- pid 1546 at 2018-09-03 14:51:25 -----
+"android.anim" prio=5 tid=27 Runnable
+  | group="main" sCount=0 dsCount=0 flags=0 obj=0x12c83b48 self=0x7c64158400
+  | sysTid=1684 nice=-10 cgrp=default sched=0/0 handle=0x7c62d1d4f0
+  | state=R schedstat=( 8449453796912 125815289465 1598210 ) utm=833945 stm=11000 core=7 HZ=100
+  | stack=0x7c62c1b000-0x7c62c1d000 stackSize=1037KB
+  | held mutexes= "mutator lock"(shared held)
+  at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:-1)
+  at com.android.server.wm.AppWindowToken.forAllWindowsUnchecked(AppWindowToken.java:1571)
+  at com.android.server.wm.AppWindowToken.forAllWindows(AppWindowToken.java:1566)
+  at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:625)
+  at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:625)
+  at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:625)
+  at com.android.server.wm.DisplayContent$TaskStackContainers.forAllWindows(DisplayContent.java:3472)
+  at com.android.server.wm.DisplayContent.forAllWindows(DisplayContent.java:1589)
+  at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:635)
+  at com.android.server.wm.DisplayContent.prepareWindowSurfaces(DisplayContent.java:2685)
+  at com.android.server.wm.WindowAnimator.animate(WindowAnimator.java:221)
+  - locked <0x0f999b5b> (a com.android.server.wm.WindowHashMap)
+  at com.android.server.wm.WindowAnimator.lambda$-com_android_server_wm_WindowAnimator_3951(WindowAnimator.java:105)
+  at com.android.server.wm.-$Lambda$OQfQhd_xsxt9hoLAjIbVfOwa-jY.$m$0(unavailable:-1)
+  at com.android.server.wm.-$Lambda$OQfQhd_xsxt9hoLAjIbVfOwa-jY.doFrame(unavailable:-1)
+  at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1024)
+  at android.view.Choreographer.doCallbacks(Choreographer.java:838)
+  at android.view.Choreographer.doFrame(Choreographer.java:766)
+  at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1012)
+  at android.os.Handler.handleCallback(Handler.java:790)
+  at android.os.Handler.dispatchMessage(Handler.java:99)
+  at android.os.Looper.loop(Looper.java:171)
+  at android.os.HandlerThread.run(HandlerThread.java:65)
+  at com.android.server.ServiceThread.run(ServiceThread.java:46)
+
+
+AMS -> WMS -> android.anim 持锁执行 window相关操作
+
+----- pid 1546 at 2018-09-03 14:51:56 -----
+"InputDispatcher" prio=10 tid=39 WaitingPerformingGc
+  | group="main" sCount=1 dsCount=0 flags=1 obj=0x12c96518 self=0x7c641bec00
+  | sysTid=1700 nice=-10 cgrp=default sched=0/0 handle=0x7c61b084f0
+  | state=R schedstat=( 5718615902754 20706002675 1170625 ) utm=450227 stm=121634 core=5 HZ=100
+  | stack=0x7c61a0e000-0x7c61a10000 stackSize=1005KB
+  | held mutexes= "Class loader classes"(shared held) "mutator lock"(shared held)
+  kernel: __switch_to+0x98/0xa4
+  kernel:           (null)
+  native: #00 pc 00000000001ef780  /system/lib64/libart.so (_ZN3art2gc9collector17ConcurrentCopying8MarkRootILb0EEEvPNS_6mirror19CompressedReferenceINS4_6ObjectEEE+300)
+  native: #01 pc 00000000001efbf4  /system/lib64/libart.so (_ZN3art10ClassTable10VisitRootsINS_2gc9collector17ConcurrentCopying16RefFieldsVisitorEEEvRKT_+500)
+  native: #02 pc 00000000001eed44  /system/lib64/libart.so (_ZN3art6mirror6Object15VisitReferencesILb1ELNS_17VerifyObjectFlagsE0ELNS_17ReadBarrierOptionE1ENS_2gc9collector17ConcurrentCopying16RefFieldsVisitorES8_EEvRKT2_RKT3_+804)
+  native: #03 pc 00000000001e86c8  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::ProcessMarkStackRef(art::mirror::Object*)+200)
+  native: #04 pc 00000000001e80d4  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::ProcessMarkStackOnce()+840)
+  native: #05 pc 00000000001e7d74  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::ProcessMarkStack()+28)
+  native: #06 pc 00000000001e1d78  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::MarkingPhase()+688)
+  native: #07 pc 00000000001e0858  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::RunPhases()+1164)
+  native: #08 pc 00000000001f572c  /system/lib64/libart.so (art::gc::collector::GarbageCollector::Run(art::gc::GcCause, bool)+344)
+  native: #09 pc 00000000002190cc  /system/lib64/libart.so (art::gc::Heap::CollectGarbageInternal(art::gc::collector::GcType, art::gc::GcCause, bool)+3352)
+  native: #10 pc 000000000021d668  /system/lib64/libart.so (art::gc::Heap::AllocateInternalWithGc(art::Thread*, art::gc::AllocatorType, bool, unsigned long, unsigned long*, unsigned long*, unsigned long*, art::ObjPtr<art::mirror::Class>*)+4820)
+  native: #11 pc 000000000051e25c  /system/lib64/libart.so (_ZN3art2gc4Heap16AllocLargeObjectILb0ENS_6mirror16SetLengthVisitorEEEPNS3_6ObjectEPNS_6ThreadEPNS_6ObjPtrINS3_5ClassEEEmRKT0_+488)
+  native: #12 pc 000000000051c04c  /system/lib64/libart.so (artAllocArrayFromCodeResolvedRegionTLAB+240)
+  native: #13 pc 0000000000557d98  /system/lib64/libart.so (art_quick_alloc_array_resolved16_region_tlab+136)
+  native: #14 pc 0000000000075f18  /system/framework/arm64/boot-core-oj.oat (???)
+  at java.util.Arrays.copyOf(Arrays.java:3260)
+  at java.lang.AbstractStringBuilder.ensureCapacityInternal(AbstractStringBuilder.java:125)
+  at java.lang.AbstractStringBuilder.append(AbstractStringBuilder.java:605)
+  at java.lang.StringBuffer.append(StringBuffer.java:367)
+  - locked <0x097f31f9> (a java.lang.StringBuffer)
+  at java.io.StringWriter.write(StringWriter.java:94)
+  at com.android.internal.util.FastPrintWriter.flushLocked(FastPrintWriter.java:380)
+  at com.android.internal.util.FastPrintWriter.appendLocked(FastPrintWriter.java:320)
+  at com.android.internal.util.FastPrintWriter.appendLocked(FastPrintWriter.java:313)
+  at com.android.internal.util.FastPrintWriter.print(FastPrintWriter.java:497)
+  - locked <0x0bf8553e> (a com.android.internal.util.FastPrintWriter$DummyWriter)
+  at java.io.PrintWriter.println(PrintWriter.java:756)
+  - locked <0x0bf8553e> (a com.android.internal.util.FastPrintWriter$DummyWriter)
+  at com.android.server.wm.AppWindowToken.dump(AppWindowToken.java:1718)
+  at com.android.server.wm.Task.dump(Task.java:769)
+  at com.android.server.wm.TaskStack.dump(TaskStack.java:1245)
+  at com.android.server.wm.DisplayContent.dump(DisplayContent.java:2198)
+  at com.android.server.wm.RootWindowContainer.dumpDisplayContents(RootWindowContainer.java:1082)
+  at com.android.server.wm.WindowManagerService.saveANRStateLocked(WindowManagerService.java:6988)
+  at com.android.server.wm.InputMonitor.notifyANR(InputMonitor.java:258)
+  - locked <0x0f999b5b> (a com.android.server.wm.WindowHashMap)
+  at com.android.server.input.InputManagerService.notifyANR(InputManagerService.java:2066)
+
+
+  AMS -> WMS -> InputDispatcher 持锁 执行dump操作
+
+
+
+  第二次：
+  ----- pid 1546 at 2018-09-03 13:28:54 -----
+  "android.anim" prio=5 tid=27 Native
+    | group="main" sCount=1 dsCount=0 flags=1 obj=0x13843970 self=0x7c64158400
+    | sysTid=1684 nice=-10 cgrp=default sched=0/0 handle=0x7c62d1d4f0
+    | state=S schedstat=( 8223430366171 124121387784 1568995 ) utm=811548 stm=10795 core=5 HZ=100
+    | stack=0x7c62c1b000-0x7c62c1d000 stackSize=1037KB
+    | held mutexes=
+    kernel: __switch_to+0x98/0xa4
+    kernel: futex_wait_queue_me+0xe0/0x138
+    kernel: futex_wait+0xf4/0x208
+    kernel: do_futex+0xf0/0xad0
+    kernel: SyS_futex+0x118/0x19c
+    kernel: __sys_trace_return+0x0/0x4
+    native: #00 pc 000000000001dcac  /system/lib64/libc.so (syscall+28)
+    native: #01 pc 00000000000e8100  /system/lib64/libart.so (art::ConditionVariable::WaitHoldingLocks(art::Thread*)+152)
+    native: #02 pc 00000000005295c0  /system/lib64/libart.so (art::GoToRunnable(art::Thread*)+440)
+    native: #03 pc 00000000005293b8  /system/lib64/libart.so (art::JniMethodEnd(unsigned int, art::Thread*)+28)
+    native: #04 pc 0000000000001988  /system/framework/arm64/boot-framework.oat (Java_android_view_SurfaceControl_nativeCloseTransaction__Z+168)
+    at android.view.SurfaceControl.nativeCloseTransaction(Native method)
+    at android.view.SurfaceControl.closeTransaction(SurfaceControl.java:442)
+    at com.android.server.wm.WindowManagerService.closeSurfaceTransaction(WindowManagerService.java:940)
+    - locked <0x0f999b5b> (a com.android.server.wm.WindowHashMap)
+    at com.android.server.wm.WindowAnimator.animate(WindowAnimator.java:258)
+    - locked <0x0f999b5b> (a com.android.server.wm.WindowHashMap)
+    at com.android.server.wm.WindowAnimator.lambda$-com_android_server_wm_WindowAnimator_3951(WindowAnimator.java:105)
+    at com.android.server.wm.-$Lambda$OQfQhd_xsxt9hoLAjIbVfOwa-jY.$m$0(unavailable:-1)
+    at com.android.server.wm.-$Lambda$OQfQhd_xsxt9hoLAjIbVfOwa-jY.doFrame(unavailable:-1)
+    at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1024)
+    at android.view.Choreographer.doCallbacks(Choreographer.java:838)
+    at android.view.Choreographer.doFrame(Choreographer.java:766)
+    at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1012)
+    at android.os.Handler.handleCallback(Handler.java:790)
+    at android.os.Handler.dispatchMessage(Handler.java:99)
+    at android.os.Looper.loop(Looper.java:171)
+    at android.os.HandlerThread.run(HandlerThread.java:65)
+    at com.android.server.ServiceThread.run(ServiceThread.java:46)
+
+    AMS -> WMS -> android.anim 持锁执行 window相关操作
+
+
+
+  ----- pid 1546 at 2018-09-03 13:29:24 -----
+  InputDispatcher" prio=10 tid=39 WaitingForCheckPointsToRun
+  | group="main" sCount=1 dsCount=0 flags=1 obj=0x12e15af8 self=0x7c641bec00
+  | sysTid=1700 nice=-10 cgrp=default sched=0/0 handle=0x7c61b084f0
+  | state=S schedstat=( 3519948970209 19490720248 751528 ) utm=273192 stm=78802 core=7 HZ=100
+  | stack=0x7c61a0e000-0x7c61a10000 stackSize=1005KB
+  | held mutexes=
+  kernel: __switch_to+0x98/0xa4
+  kernel: futex_wait_queue_me+0xe0/0x138
+  kernel: futex_wait+0xf4/0x208
+  kernel: do_futex+0xf0/0xad0
+  kernel: SyS_futex+0x118/0x19c
+  kernel: __sys_trace_return+0x0/0x4
+  native: #00 pc 000000000001dcac  /system/lib64/libc.so (syscall+28)
+  native: #01 pc 00000000000e8100  /system/lib64/libart.so (art::ConditionVariable::WaitHoldingLocks(art::Thread*)+152)
+  native: #02 pc 00000000000e170c  /system/lib64/libart.so (art::Barrier::Increment(art::Thread*, int)+84)
+  native: #03 pc 00000000001e7728  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::RevokeThreadLocalMarkStacks(bool, art::Closure*)+708)
+  native: #04 pc 00000000001e83a4  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::ProcessThreadLocalMarkStacks(bool, art::Closure*)+52)
+  native: #05 pc 00000000001e809c  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::ProcessMarkStackOnce()+784)
+  native: #06 pc 00000000001e7d74  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::ProcessMarkStack()+28)
+  native: #07 pc 00000000001e1d78  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::MarkingPhase()+688)
+  native: #08 pc 00000000001e0858  /system/lib64/libart.so (art::gc::collector::ConcurrentCopying::RunPhases()+1164)
+  native: #09 pc 00000000001f572c  /system/lib64/libart.so (art::gc::collector::GarbageCollector::Run(art::gc::GcCause, bool)+344)
+  native: #10 pc 00000000002190cc  /system/lib64/libart.so (art::gc::Heap::CollectGarbageInternal(art::gc::collector::GcType, art::gc::GcCause, bool)+3352)
+  native: #11 pc 000000000021d668  /system/lib64/libart.so (art::gc::Heap::AllocateInternalWithGc(art::Thread*, art::gc::AllocatorType, bool, unsigned long, unsigned long*, unsigned long*, unsigned long*, art::ObjPtr<art::mirror::Class>*)+4820)
+  native: #12 pc 000000000051e25c  /system/lib64/libart.so (_ZN3art2gc4Heap16AllocLargeObjectILb0ENS_6mirror16SetLengthVisitorEEEPNS3_6ObjectEPNS_6ThreadEPNS_6ObjPtrINS3_5ClassEEEmRKT0_+488)
+  native: #13 pc 000000000051c04c  /system/lib64/libart.so (artAllocArrayFromCodeResolvedRegionTLAB+240)
+  native: #14 pc 0000000000557d98  /system/lib64/libart.so (art_quick_alloc_array_resolved16_region_tlab+136)
+  native: #15 pc 0000000000075f18  /system/framework/arm64/boot-core-oj.oat (???)
+  at java.util.Arrays.copyOf(Arrays.java:3260)
+  at java.lang.AbstractStringBuilder.ensureCapacityInternal(AbstractStringBuilder.java:125)
+  at java.lang.AbstractStringBuilder.append(AbstractStringBuilder.java:605)
+  at java.lang.StringBuffer.append(StringBuffer.java:367)
+  - locked <0x014f62a6> (a java.lang.StringBuffer)
+  at java.io.StringWriter.write(StringWriter.java:94)
+  at com.android.internal.util.FastPrintWriter.flushLocked(FastPrintWriter.java:380)
+  at com.android.internal.util.FastPrintWriter.appendLocked(FastPrintWriter.java:320)
+  at com.android.internal.util.FastPrintWriter.appendLocked(FastPrintWriter.java:313)
+  at com.android.internal.util.FastPrintWriter.print(FastPrintWriter.java:497)
+  - locked <0x013fc4e7> (a com.android.internal.util.FastPrintWriter$DummyWriter)
+  at java.io.PrintWriter.println(PrintWriter.java:756)
+  - locked <0x013fc4e7> (a com.android.internal.util.FastPrintWriter$DummyWriter)
+  at com.android.server.wm.AppWindowToken.dump(AppWindowToken.java:1718)
+  at com.android.server.wm.Task.dump(Task.java:769)
+  at com.android.server.wm.TaskStack.dump(TaskStack.java:1245)
+  at com.android.server.wm.DisplayContent.dump(DisplayContent.java:2198)
+  at com.android.server.wm.RootWindowContainer.dumpDisplayContents(RootWindowContainer.java:1082)
+  at com.android.server.wm.WindowManagerService.saveANRStateLocked(WindowManagerService.java:6988)
+  at com.android.server.wm.InputMonitor.notifyANR(InputMonitor.java:258)
+  - locked <0x0f999b5b> (a com.android.server.wm.WindowHashMap)
+  at com.android.server.input.InputManagerService.notifyANR(InputManagerService.java:2066)
+
+  AMS -> WMS -> InputDispatcher 持锁 执行dump操作
+
+
+第三次：
+
+----- pid 1546 at 2018-09-03 13:11:54 -----
+"Binder:1546_15" prio=5 tid=126 Blocked
+  | group="main" sCount=1 dsCount=0 flags=1 obj=0x12f0fd00 self=0x7c6138a800
+  | sysTid=2875 nice=-2 cgrp=default sched=1073741825/1 handle=0x7c4c6e24f0
+  | state=S schedstat=( 119952250845 15036654744 193959 ) utm=9371 stm=2624 core=7 HZ=100
+  | stack=0x7c4c5e8000-0x7c4c5ea000 stackSize=1005KB
+  | held mutexes=
+  at com.android.server.wm.WindowManagerService.containsDismissKeyguardWindow(WindowManagerService.java:3066)
+  - waiting to lock <0x0f999b5b> (a com.android.server.wm.WindowHashMap) held by thread 27
+  at com.android.server.am.ActivityRecord.hasDismissKeyguardWindows(ActivityRecord.java:1366)
+  at com.android.server.am.ActivityStack.checkKeyguardVisibility(ActivityStack.java:2030)
+  at com.android.server.am.ActivityStack.ensureActivitiesVisibleLocked(ActivityStack.java:1892)
+  at com.android.server.am.ActivityStackSupervisor.ensureActivitiesVisibleLocked(ActivityStackSupervisor.java:3577)
+  at com.android.server.am.ActivityManagerService.ensureConfigAndVisibilityAfterUpdate(ActivityManagerService.java:21321)
+  at com.android.server.am.ActivityManagerService.updateDisplayOverrideConfigurationLocked(ActivityManagerService.java:21253)
+  at com.android.server.am.ActivityManagerService.updateDisplayOverrideConfigurationLocked(ActivityManagerService.java:21223)
+  at com.android.server.am.ActivityStackSupervisor.realStartActivityLocked(ActivityStackSupervisor.java:1403)
+  at com.android.server.am.ActivityStackSupervisor.startSpecificActivityLocked(ActivityStackSupervisor.java:1633)
+  at com.android.server.am.ActivityStack.resumeTopActivityInnerLocked(ActivityStack.java:2830)
+  at com.android.server.am.ActivityStack.resumeTopActivityUncheckedLocked(ActivityStack.java:2297)
+  at com.android.server.am.ActivityStackSupervisor.resumeFocusedStackTopActivityLocked(ActivityStackSupervisor.java:2200)
+  at com.android.server.am.ActivityStack.completePauseLocked(ActivityStack.java:1528)
+  at com.android.server.am.ActivityStack.activityPausedLocked(ActivityStack.java:1453)
+  at com.android.server.am.ActivityManagerService.activityPaused(ActivityManagerService.java:7806)
+  - locked <0x0ebee9af> (a com.android.server.am.ActivityManagerService)
+  at android.app.IActivityManager$Stub.onTransact(IActivityManager.java:318)
+  at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:3020)
+  at android.os.Binder.execTransact(Binder.java:702)
+
+
+  "android.anim" prio=5 tid=27 Runnable
+    | group="main" sCount=0 dsCount=0 flags=0 obj=0x12f05090 self=0x7c64158400
+    | sysTid=1684 nice=-10 cgrp=default sched=0/0 handle=0x7c62d1d4f0
+    | state=R schedstat=( 8150159682422 123560315507 1559154 ) utm=804300 stm=10715 core=4 HZ=100
+    | stack=0x7c62c1b000-0x7c62c1d000 stackSize=1037KB
+    | held mutexes= "mutator lock"(shared held)
+    at com.android.server.wm.AppWindowToken.forAllWindowsUnchecked(AppWindowToken.java:1571)
+    at com.android.server.wm.AppWindowToken.forAllWindows(AppWindowToken.java:1566)
+    at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:625)
+    at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:625)
+    at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:625)
+    at com.android.server.wm.DisplayContent$TaskStackContainers.forAllWindows(DisplayContent.java:3472)
+    at com.android.server.wm.DisplayContent.forAllWindows(DisplayContent.java:1589)
+    at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:635)
+    at com.android.server.wm.DisplayContent.prepareWindowSurfaces(DisplayContent.java:2685)
+    at com.android.server.wm.WindowAnimator.animate(WindowAnimator.java:221)
+    - locked <0x0f999b5b> (a com.android.server.wm.WindowHashMap)
+    at com.android.server.wm.WindowAnimator.lambda$-com_android_server_wm_WindowAnimator_3951(WindowAnimator.java:105)
+    at com.android.server.wm.-$Lambda$OQfQhd_xsxt9hoLAjIbVfOwa-jY.$m$0(unavailable:-1)
+    at com.android.server.wm.-$Lambda$OQfQhd_xsxt9hoLAjIbVfOwa-jY.doFrame(unavailable:-1)
+    at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1024)
+    at android.view.Choreographer.doCallbacks(Choreographer.java:838)
+    at android.view.Choreographer.doFrame(Choreographer.java:766)
+    at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1012)
+    at android.os.Handler.handleCallback(Handler.java:790)
+    at android.os.Handler.dispatchMessage(Handler.java:99)
+    at android.os.Looper.loop(Looper.java:171)
+    at android.os.HandlerThread.run(HandlerThread.java:65)
+    at com.android.server.ServiceThread.run(ServiceThread.java:46)
+
+
+
+
+----- pid 1546 at 2018-09-03 13:12:24 -----
+"Binder:1546_15" prio=5 tid=126 Blocked
+  | group="main" sCount=1 dsCount=0 flags=1 obj=0x12d906b8 self=0x7c6138a800
+  | sysTid=2875 nice=-2 cgrp=default sched=1073741825/1 handle=0x7c4c6e24f0
+  | state=S schedstat=( 120113612963 15171055592 195453 ) utm=9385 stm=2626 core=5 HZ=100
+  | stack=0x7c4c5e8000-0x7c4c5ea000 stackSize=1005KB
+  | held mutexes=
+  at com.android.server.wm.WindowManagerService.containsDismissKeyguardWindow(WindowManagerService.java:3066)
+  - waiting to lock <0x0f999b5b> (a com.android.server.wm.WindowHashMap) held by thread 27
+  at com.android.server.am.ActivityRecord.hasDismissKeyguardWindows(ActivityRecord.java:1366)
+  at com.android.server.am.ActivityStack.checkKeyguardVisibility(ActivityStack.java:2030)
+  at com.android.server.am.ActivityStack.ensureActivitiesVisibleLocked(ActivityStack.java:1892)
+  at com.android.server.am.ActivityStackSupervisor.ensureActivitiesVisibleLocked(ActivityStackSupervisor.java:3577)
+  at com.android.server.am.ActivityStack.completePauseLocked(ActivityStack.java:1573)
+  at com.android.server.am.ActivityStack.activityPausedLocked(ActivityStack.java:1453)
+  at com.android.server.am.ActivityManagerService.activityPaused(ActivityManagerService.java:7806)
+  - locked <0x0ebee9af> (a com.android.server.am.ActivityManagerService)
+  at android.app.IActivityManager$Stub.onTransact(IActivityManager.java:318)
+  at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:3020)
+  at android.os.Binder.execTransact(Binder.java:702)
+
+
+  "android.anim" prio=5 tid=27 Runnable
+  | group="main" sCount=0 dsCount=0 flags=0 obj=0x12d85090 self=0x7c64158400
+  | sysTid=1684 nice=-10 cgrp=default sched=0/0 handle=0x7c62d1d4f0
+  | state=R schedstat=( 8166936370437 123696147055 1561161 ) utm=805959 stm=10734 core=6 HZ=100
+  | stack=0x7c62c1b000-0x7c62c1d000 stackSize=1037KB
+  | held mutexes= "mutator lock"(shared held)
+  at com.android.server.wm.WindowState.getParentWindow(WindowState.java:3795)
+  at com.android.server.wm.WindowAnimatorInjector$1.apply(WindowAnimatorInjector.java:31)
+  at com.android.server.wm.WindowAnimatorInjector$1.apply(WindowAnimatorInjector.java:20)
+  at com.android.server.wm.WindowState.applyInOrderWithImeWindows(WindowState.java:4168)
+  at com.android.server.wm.WindowState.forAllWindows(WindowState.java:4075)
+  at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:618)
+  at com.android.server.wm.AppWindowToken.forAllWindowsUnchecked(AppWindowToken.java:1571)
+  at com.android.server.wm.AppWindowToken.forAllWindows(AppWindowToken.java:1566)
+  at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:618)
+  at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:618)
+  at com.android.server.wm.WindowContainer.forAllWindows(WindowContainer.java:618)
+  at com.android.server.wm.DisplayContent$TaskStackContainers.forAllWindows(DisplayContent.java:3462)
+  at com.android.server.wm.DisplayContent.forAllWindows(DisplayContent.java:1576)
+  at com.android.server.wm.WindowAnimatorInjector.updateLockDeviceWindowLocked(WindowAnimatorInjector.java:19)
+  at com.android.server.wm.WindowAnimator.animate(WindowAnimator.java:219)
+  - locked <0x0f999b5b> (a com.android.server.wm.WindowHashMap)
+  at com.android.server.wm.WindowAnimator.lambda$-com_android_server_wm_WindowAnimator_3951(WindowAnimator.java:105)
+  at com.android.server.wm.-$Lambda$OQfQhd_xsxt9hoLAjIbVfOwa-jY.$m$0(unavailable:-1)
+  at com.android.server.wm.-$Lambda$OQfQhd_xsxt9hoLAjIbVfOwa-jY.doFrame(unavailable:-1)
+  at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1024)
+  at android.view.Choreographer.doCallbacks(Choreographer.java:838)
+  at android.view.Choreographer.doFrame(Choreographer.java:766)
+  at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1012)
+  at android.os.Handler.handleCallback(Handler.java:790)
+  at android.os.Handler.dispatchMessage(Handler.java:99)
+  at android.os.Looper.loop(Looper.java:171)
+  at android.os.HandlerThread.run(HandlerThread.java:65)
+  at com.android.server.ServiceThread.run(ServiceThread.java:46)
+
+  AMS 【"Binder:1546_15" 】 -> WMS -> InputDispatcher 持锁 执行dump操作
+
+问题出在：WindowAnimatorInjector方法可能耗时。
+
+
+从这个时间开始
+----- pid 1546 at 2018-09-03 13:05:54 -----
+
+
+
+13:11:54, 13:12:24,
+2875线程长时间持有AMS锁， 卡在activityPaused()的binder线程, CPU运行了0.14s
+
+09-03 13:11:48.047  12416 WindowManagerService.containsShowWhenLockedWindow -> InputMonitor.notifyANR
+09-03 13:11:50   Trace: WindowManagerService.containsDismissKeyguardWindow --> WindowAnimator.animate
+09-03 13:11:55.259 2875  am_restart_activity: [0,146968972,18,com.miui.gallery/.activity.HomePageActivity,12887]
+09-03 13:12:24.125 2875  12774 WindowManagerSrvice.containsShowWhenLockedWindow -> InputMonitor.notifyANR
+09-03 13:12:24   Trace: WindowManagerService.containsDismissKeyguardWindow  --> WindowAnimator.animate
+
+
+卡在animate的线程：  CPU运行了16.6s
+09-03 13:11:48.048  1000  1546  1684 I  12421 WindowAnimator.lambda$-com_android_server_wm_WindowAnimator_3951 -> InputMonitor.notifyANR
+09-03 13:11:50   Trace:  WindowAnimator.animate
+09-03 13:12:24.127  1000  1546  1684 I  12831 WindowAnimator.animate  -> InputMonitor.notifyANR
+09-03 13:12:24   Trace:  WindowAnimator.animate

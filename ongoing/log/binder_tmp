@@ -1,0 +1,437 @@
+"Binder:12635_C" prio=5 tid=107 Native
+  | group="main" sCount=1 dsCount=0 flags=1 obj=0x14dc2dc8 self=0x7747463600
+  | sysTid=13399 nice=-2 cgrp=default sched=0/0 handle=0x7746c9e4f0
+  | state=S schedstat=( 8513847094 4470479003 29831 ) utm=576 stm=275 core=0 HZ=100
+  | stack=0x7746ba4000-0x7746ba6000 stackSize=1005KB
+  | held mutexes=
+  kernel: __switch_to+0x88/0x94
+  kernel: binder_thread_read+0x3ac/0x107c
+  kernel: binder_ioctl_write_read.constprop.41+0x1c8/0x2f8
+  kernel: binder_ioctl+0x1f8/0x650
+  kernel: do_vfs_ioctl+0x608/0x6f0
+  kernel: SyS_ioctl+0x60/0x88
+  kernel: el0_svc_naked+0x24/0x28
+  native: #00 pc 000000000006a54c  /system/lib64/libc.so (__ioctl+4)
+  native: #01 pc 00000000000244b8  /system/lib64/libc.so (ioctl+136)
+  native: #02 pc 0000000000054950  /system/lib64/libbinder.so (android::IPCThreadState::talkWithDriver(bool)+256)
+  //嵌套其他逻辑
+  native: #03 pc 00000000000556ac  /system/lib64/libbinder.so (android::IPCThreadState::waitForResponse(android::Parcel*, int*)+340)
+  native: #04 pc 00000000000553f8  /system/lib64/libbinder.so (android::IPCThreadState::transact(int, unsigned int, android::Parcel const&, android::Parcel*, unsigned int)+224)
+  native: #05 pc 000000000004c230  /system/lib64/libbinder.so (android::BpBinder::transact(unsigned int, android::Parcel const&, android::Parcel*, unsigned int)+72)
+  native: #06 pc 000000000011f5d0  /system/lib64/libandroid_runtime.so (???)
+  native: #07 pc 000000000090e8b4  /system/framework/arm64/boot-framework.oat (Java_android_os_BinderProxy_transactNative__ILandroid_os_Parcel_2Landroid_os_Parcel_2I+196)
+  at android.os.BinderProxy.transactNative(Native method)
+  at android.os.BinderProxy.transact(Binder.java:767)
+  at android.app.IApplicationThread$Stub$Proxy.bindApplication(IApplicationThread.java:1398)
+  at com.android.server.am.ActivityManagerService.attachApplicationLocked(ActivityManagerService.java:7320)
+  at com.android.server.am.ActivityManagerService.attachApplication(ActivityManagerService.java:7425)
+  - locked <0x0bc6ee81> (a com.android.server.am.ActivityManagerService)
+  at android.app.IActivityManager$Stub.onTransact(IActivityManager.java:291)
+  at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2997)
+  at android.os.Binder.execTransact(Binder.java:700)
+
+
+// died
+01-19 18:57:58.014 12635 13535 I am_kill : [0,31319,com.miui.calculator,903,cached #17]
+01-19 18:57:58.077 12635 13816 I am_proc_died: [0,31319,com.miui.calculator,15]
+
+01-19 19:02:33.668 12635 24699 I am_proc_start: [0,6686,10058,com.miui.calculator,activity,com.miui.calculator/.convert.ConvertActivity]
+01-19 19:02:33.816 12635 12846 I am_finish_activity: [0,235192435,25,com.miui.calculator/.cal.MenuActivity,clear-task-index]
+01-19 19:02:33.827 12635 12846 I am_finish_activity: [0,55869035,25,com.miui.calculator/.convert.ConvertActivity,clear-task-index]
+01-19 19:02:33.840 12635 12846 I am_kill : [0,6686,com.miui.calculator,-10000,remove task]
+01-19 19:02:33.911 12635 13399 I am_proc_bound: [0,6686,com.miui.calculator] //attachApplication（）
+01-19 19:02:33.913 12635 13399 I am_proc_died: [0,6686,com.miui.calculator,18] //appDiedLock(), 底层上报
+
+// kernel
+01-19 19:02:33.873     0     0 I binder  : release 6686:6686 transaction 2845163 out, still active
+01-19 19:02:33.913     0     0 I binder  : 12635:13399 transaction failed 29189/-22, size 3812-24 line 2916  //BindApplication()
+(BR_DEAD_REPLY/ EINVAL,  if (target_node == NULL)  )
+
+
+
+//Ramdump中的binder_thread结构体最终状态
+struct binder_thread {
+  pid = 13399,
+  looper = 17,
+  looper_need_return = false,
+  transaction_stack = 0xffffffddf1538180,
+  todo = {
+    next = 0xffffffde582b0448,
+    prev = 0xffffffde582b0448
+  },
+  return_error = {
+    work = {
+      entry = {
+        next = 0xffffffde582b0458,
+        prev = 0xffffffde582b0458
+      },
+      type = BINDER_WORK_RETURN_ERROR
+    },
+    cmd = 29185  // BR_OK= _IO('r', 1),
+  },
+  reply_error = {
+    work = {
+      entry = {
+        next = 0x0,
+        prev = 0x0
+      },
+      type = BINDER_WORK_RETURN_ERROR
+    },
+    cmd = 29185   // BR_OK= _IO('r', 1),
+  },
+  },
+
+// Ramdump中的binder_transaction结构体最终状态
+struct binder_transaction {
+  debug_id = 2845163,
+  work = {
+    entry = {
+      next = 0xffffffddf1538188,
+      prev = 0xffffffddf1538188
+    },
+    type = BINDER_WORK_TRANSACTION
+  },
+  from = 0x0,
+  from_parent = 0x0,
+  to_proc = 0xffffffde76de5800,
+  to_thread = 0xffffffde582b0400, //自身13399
+  to_parent = 0x0,
+  need_reply = 1,
+  buffer = 0xffffff8014202c40,
+  code = 11,   //attachApplication()
+  flags = 16,  //同步
+  set_priority_called = true,
+  sender_euid = {
+    val = 10058
+  },
+}
+
+// binder_write_read异常
+
+struct binder_write_read {
+  write_size = 0, //异常点
+  write_consumed = 0,
+  write_buffer = 512297534464,
+  read_size = 256,
+  read_consumed = 0,
+  read_buffer = 512297534208
+}
+
+//binder
+thread 13399: l 11 need_return 0 tr 0  //code=11代表attachApplication(), flags=10代表非oneway, uid=10058
+  incoming transaction 2845163: ffffffddf1538180 from 0:0 to 12635:13399 code b flags 10 pri 0:120 r1 node 466186 size 92:8 data ffffff8014202c98
+
+2845561: async from 12635:13399 to 0:0 context binder node 0 handle 1375 size 3812:24 ret 29189/-22 l=2916
+
+//73(r)  63(c)
+
+
+
+mIn.mData
+(gdb) x /32x 0x7747500300
+0x7747500300:    0x800872100000720c    0x0000007774635c20 //BR_NOOP， BR_CLEAR_DEATH_NOTIFICATION_DONE,
+0x7747500310:    0x0000000000000000    0x0000000000000000
+0x7747500320:    0x000003e800000000    0x0000000000000000
+0x7747500330:    0x0000000000000000    0x0000007764f577c0
+0x7747500340:    0x0000007764f577c0    0x6102450000000077
+0x7747500350:    0x8010720900000077    0x00000077462dfd00
+0x7747500360:    0x0000007761055140    0x462dfd008010720a
+0x7747500370:    0x6105514000000077    0x8010720900000077
+0x7747500380:    0x0000007752d37fa0    0x0000007752c86a40
+0x7747500390:    0x52d37fa08010720a    0x52c86a4000000077
+0x77475003a0:    0x8010720900000077    0x000000774630b1a0
+0x77475003b0:    0x00000077462c92c0    0x4630b1a08010720a
+0x77475003c0:    0x462c92c000000077    0x0000000000000077
+0x77475003d0:    0x0000000000000000    0x0000000000000000
+0x77475003e0:    0x0000000000000000    0x0000000000000000
+0x77475003f0:    0x0000000000000000    0x0000000000000000
+
+ mIn = {
+    mError = 0,
+    mData = 0x7747500300 "\fr",
+    mDataSize = 16,
+    mDataCapacity = 256,
+    mDataPos = 16,
+    mObjects = 0x0,
+    mObjectsSize = 0,
+    mObjectsCapacity = 0,
+    mNextObjectHint = 0,
+    mFdsKnown = true,
+    mHasFds = false,
+    mAllowFds = true,
+    mOwner = 0x0,
+    mOwnerCookie = 0x0,
+    mOpenAshmemSize = 0
+  },
+
+
+由于mDataSize， 说明驱动已经执行过BC_FREE_BUFFER , BC_DEAD_BINDER_DONE
+
+attachApplicationLocked(）
+ 	handleAppDiedLocked || thread.asBinder().linkToDeath(adr, 0)
+		，，，
+		BpBinder.unlinkToDeath(), sendObituary（） || BpBinder.linkToDeath()
+
+
+			IPC.clearDeathNotification()
+				BC_CLEAR_DEATH_NOTIFICATION() || binder_node_release（）或 request失败的情况下（）
+					BINDER_WORK_DEAD_BINDER_AND_CLEAR || BINDER_WORK_DEAD_BINDER(暂存在thread_todo队列)
+						BR_DEAD_BINDER  //system_server
+							proxy->sendObituary()
+									BC_CLEAR_DEATH_NOTIFICATION ==》
+									binderDied()
+										appDiedLock()  //上层log
+							BC_DEAD_BINDER_DONE  //ramdump确定的
+
+
+thread->todo: RETURN_ERR
+
+发送：BC_CLEAR_DEATH_NOTIFICATION, death->work.type = BINDER_WORK_DEAD_BINDER_AND_CLEAR;
+
+todo: BINDER_WORK_CLEAR_DEATH_NOTIFICATION
+BR_CLEAR_DEATH_NOTIFICATION_DONE
+
+
+void BpBinder::sendObituary()
+{
+        self->clearDeathNotification(mHandle, this);
+        self->flushCommands();
+
+        for (size_t i=0; i<N; i++) {
+            reportOneDeath(obits->itemAt(i));
+        }
+
+}
+
+1） BpBinder.linkToDeath()                  ===> mOut:BC_REQUEST_DEATH_NOTIFICATION,
+	requestDeathNotification
+	flushCommands 	（此时不需要read.）
+		BC_REQUEST_DEATH_NOTIFICATION:
+
+2) 进入内核空间                               ===> todo：BINDER_WORK_DEAD_BINDER，  mIn: 无
+    进入Binder驱动binder_thread_write
+		ref->death->work.type = BINDER_WORK_DEAD_BINDER, 将BINDER_WORK_DEAD_BINDER放入thread->todo队列
+	然后，再输出01-19 19:02:33.911 12635 13399 I am_proc_bound: [0,6686,com.miui.calculator] //attachApplication（）
+
+
+2）bindApplication                          ===> todo：BINDER_WORK_DEAD_BINDER, return_error， mIn: 无
+    经过binder驱动，将return_error 放入thread->todo队列。 此时thread->todo有两个transaction需要处理。
+
+3）经过binder_thread_read 从todo队列取出BINDER_WORK_DEAD_BINDER                     ===> todo： return_error， mIn: BR_DEAD_BINDER.
+	此时生成cmd=BR_DEAD_BINDER. 并且binder_enqueue_work_ilocked(w, &proc->delivered_death);
+	由于是BR_DEAD_BINDER，所以直接回到用户空间来处理。
+
+4）回到用户空间，                   ===> mOut: BC_CLEAR_DEATH_NOTIFICATION, todo： return_error， mIn: BR_DEAD_BINDER.
+    根据BR_DEAD_BINDER，接下来需要处理：
+        proxy->sendObituary();
+            self->clearDeathNotification(mHandle, this); （BC_CLEAR_DEATH_NOTIFICATION）
+            self->flushCommands();
+
+5）进入binder driver:
+        将death->work.type由BINDER_WORK_DEAD_BINDER改为 BINDER_WORK_DEAD_BINDER_AND_CLEAR。
+
+6）由于不需要read, 回到用户空间  （状态同步：剩下return_error位于thread->todo）                   ===> todo： return_error
+        执行reportOneDeath
+  输出01-19 19:02:33.913 12635 13399 I am_proc_died: [0,6686,com.miui.calculator,18] //appDiedLock(), 底层上报
+  其中某次reportOneDeath过程有binder call，向thread->todo再次放入至少一个BR。（为了简单，不防假设只放入一个）。
+  然后此次binder call会读出这两个BR，放入mIn，回到用户空间。
+
+  第一次踩雷：mIn的size=8，先mIn.readInt32()，pos=4, 读出BR_DEAD_REPLY，此次binder通信退出。退出waitForResponse。
+
+此次有mOut.writeInt32(BC_FREE_BUFFER)
+
+7）执行完sendObituary的所有reportOneDeath操作，回到如下executeCommand()的case BR_DEAD_BINDE case的如下命令：
+    mOut.writeInt32(BC_DEAD_BINDER_DONE)。 （状态同步：thread->todo为空，mIn的pos=4, size=8）
+
+
+8) 再次talkwithdriver，BC_DEAD_BINDER_DONE
+   a) 从proc->delivered_death取出binder_ref_death *death。（这是第3步放入的）
+   b) 再次将death->work.type由BINDER_WORK_DEAD_BINDER_AND_CLEAR改为BINDER_WORK_CLEAR_DEATH_NOTIFICATION。
+   c) binder_enqueue_work_ilocked(&death->work, &thread->todo);   （状态同步：thread->todo有BINDER_WORK_CLEAR_DEATH_NOTIFICATION， mIn的pos=4, size=8）
+   由于pos <size，此次不读。
+
+   假设继续读：
+   			if (w->type == BINDER_WORK_CLEAR_DEATH_NOTIFICATION)
+				    cmd = BR_CLEAR_DEATH_NOTIFICATION_DONE;   （状态同步：thread->todo为空，mIn为BR_NOOP和BR_CLEAR_DEATH_NOTIFICATION_DONE）
+
+9) 回到用户空间，消耗mIn之后，（状态同步：thread->todo为空，mIn为BR_NOOP和BR_CLEAR_DEATH_NOTIFICATION_DONE，
+				                                    mOut历史数据为BC_FREE_BUFFER和BC_DEAD_BINDER_DONE，write_size=0，已消耗）
+
+10) 再次回到内核空间。write_size=0, read_size>0，此次还在bindApplication的过程中。
+	Binder caller就这样永远的卡住了，剧终！
+
+
+mIn的问题？
+BR_DEAD_REPLY的成因？
+踩雷的binder call？
+
+
+
+mOut
+(gdb) x /32x 0x7747500400
+0x7747500400:    0x64f577c040086303    0x4008631000000077  // BC_FREE_BUFFER , BC_DEAD_BINDER_DONE
+0x7747500410:    0x0000007774635c20    0x0000000000000000
+0x7747500420:    0x0000001f00000000    0x0000000000000011
+0x7747500430:    0x0000006000000000    0x0000000000000000
+0x7747500440:    0x566fd2a000000000    0x0000000000000077
+0x7747500450:    0x4040630000000000    0x0000000000000002
+0x7747500460:    0x0000000000000000    0x0000001000000008
+0x7747500470:    0x0000000000000000    0x00000000000008ac
+0x7747500480:    0x0000000000000080    0x0000007752cf1e00
+0x7747500490:    0x000000775f14da80    0x0000000000000077
+0x77475004a0:    0x0000000000000000    0x0000000000000000
+0x77475004b0:    0x0000000000000000    0x0000000000000000
+0x77475004c0:    0x0000000000000000    0x0000000000000000
+0x77475004d0:    0x0000000000000000    0x0000000000000000
+0x77475004e0:    0x0000000000000000    0x0000000000000000
+0x77475004f0:    0x0000000000000000    0x0000000000000000
+
+  mOut = {
+    mError = 0,
+    mData = 0x7747500400 "\003c\b@\300w\365dw",
+    mDataSize = 0,
+    mDataCapacity = 256,
+    mDataPos = 0,
+    mObjects = 0x0,
+    mObjectsSize = 0,
+    mObjectsCapacity = 0,
+    mNextObjectHint = 0,
+    mFdsKnown = true,
+    mHasFds = false,
+    mAllowFds = true,
+    mOwner = 0x0,
+    mOwnerCookie = 0x0,
+    mOpenAshmemSize = 0
+  },
+
+
+
+
+
+
+
+01-19 17:33:10.632     0     0 I binder  : undelivered transaction 30125
+01-19 17:33:10.634     0     0 I binder  : 772:923 transaction failed 29189/-22, size 68-0 line 2916
+01-19 17:33:13.086     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:33:13.099     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:33:14.101     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:33:15.104     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:33:16.109     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:33:17.111     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:33:18.114     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:33:19.117     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:33:24.133     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:33:25.135     0     0 I binder  : 3017:3017 transaction failed 29189/-22, size 32-0 line 2916
+01-19 17:35:17.719     0     0 I binder  : undelivered transaction 183026
+01-19 17:35:26.580     0     0 I binder  : 7711:7721 DecRefs 0 refcount change on invalid ref 19 ret -22
+01-19 17:35:36.695     0     0 I binder  : undelivered transaction 262790
+01-19 17:36:06.782     0     0 I binder  : undelivered transaction 299801
+01-19 17:36:06.782     0     0 I binder  : undelivered transaction 299802
+01-19 17:36:06.782     0     0 I binder  : undelivered transaction 299800
+01-19 17:36:07.055     0     0 I binder  : undelivered transaction 300227
+01-19 17:36:49.614     0     0 I binder  : undelivered transaction 345562
+01-19 17:37:48.446     0     0 I binder  : 10695:10848 transaction failed 29189/-3, size 60-0 line 3039
+01-19 17:37:48.739     0     0 I binder  : undelivered transaction 388160
+01-19 17:37:48.815     0     0 I binder  : undelivered transaction 388189
+01-19 17:37:48.916     0     0 I binder  : undelivered transaction 388153
+01-19 17:37:48.982     0     0 I binder  : undelivered transaction 389428
+01-19 17:38:07.182     0     0 I binder  : undelivered transaction 400232
+01-19 17:38:07.182     0     0 I binder  : undelivered transaction 400233
+01-19 17:38:07.182     0     0 I binder  : undelivered transaction 400234
+01-19 17:38:07.183     0     0 I binder  : undelivered transaction 400220
+01-19 17:38:07.195     0     0 I binder  : undelivered transaction 400204
+01-19 17:38:07.195     0     0 I binder  : undelivered transaction 400205
+01-19 17:38:07.195     0     0 I binder  : undelivered transaction 400203
+01-19 17:38:42.892     0     0 I binder  : 11321:11341 transaction failed 29201/-1, size 0-0 line 2924
+01-19 17:38:43.041     0     0 I binder  : 11321:11341 transaction failed 29201/-1, size 0-0 line 2924
+01-19 17:38:48.051     0     0 I binder  : 11321:11348 transaction failed 29201/-1, size 0-0 line 2924
+01-19 17:38:48.054     0     0 I binder  : 11321:11348 transaction failed 29201/-1, size 0-0 line 2924
+01-19 17:55:38.662     0     0 I binder  : undelivered transaction 445980
+01-19 18:40:21.700     0     0 I binder  : 2877:3023 transaction failed 29189/-22, size 60-0 line 2916
+01-19 18:40:21.749     0     0 I binder  : undelivered transaction 465007
+01-19 18:40:21.750     0     0 I binder  : 754:2129 transaction failed 29189/-22, size 52-0 line 2916
+01-19 18:40:21.754     0     0 I binder  : 2877:4699 transaction failed 29189/-22, size 60-0 line 2916
+01-19 18:40:21.756     0     0 I binder  : send failed reply for transaction 465015 to 2878:2979
+01-19 18:40:21.880     0     0 I binder  : 12566:12566 transaction failed 29189/-22, size 32-0 line 2916
+01-19 18:40:21.895     0     0 I binder  : 12566:12566 transaction failed 29189/-22, size 32-0 line 2916
+01-19 18:40:22.027     0     0 I binder  : 2899:3137 transaction failed 29189/-22, size 52-0 line 2916
+01-19 18:40:22.898     0     0 I binder  : 12566:12566 transaction failed 29189/-22, size 32-0 line 2916
+01-19 18:40:23.901     0     0 I binder  : 12566:12566 transaction failed 29189/-22, size 32-0 line 2916
+01-19 18:40:24.904     0     0 I binder  : 12566:12566 transaction failed 29189/-22, size 32-0 line 2916
+01-19 18:40:25.906     0     0 I binder  : 12566:12566 transaction failed 29189/-22, size 32-0 line 2916
+01-19 18:40:26.908     0     0 I binder  : 12566:12566 transaction failed 29189/-22, size 32-0 line 2916
+01-19 18:40:28.346     0     0 I binder  : 2871:4764 transaction failed 29189/-22, size 152-0 line 2916
+01-19 18:40:28.406     0     0 I binder  : 12635:12750 transaction failed 29189/-22, size 32-0 line 2916
+01-19 18:40:29.045     0     0 I binder  : 2872:2872 transaction failed 29189/-22, size 180-0 line 2916
+01-19 18:40:30.156     0     0 I binder  : 2868:7759 transaction failed 29189/-22, size 148-0 line 2916
+01-19 18:40:31.792     0     0 I binder  : 2870:2967 transaction failed 29189/-22, size 144-0 line 2916
+01-19 18:40:49.231     0     0 I binder  : 15110:15119 DecRefs 0 refcount change on invalid ref 20 ret -22
+01-19 18:40:57.594     0     0 I binder  : undelivered transaction 584175
+01-19 18:41:00.114     0     0 I binder  : 13220:14093 transaction failed 29189/-22, size 440-0 line 2916
+01-19 18:41:15.130     0     0 I binder  : undelivered transaction 593557
+01-19 18:42:06.286     0     0 I binder  : undelivered transaction 644052
+01-19 18:42:20.313     0     0 I binder  : undelivered transaction 667668
+01-19 18:42:20.329     0     0 I binder  : undelivered transaction 667593
+01-19 18:42:20.393     0     0 I binder  : undelivered transaction 667956
+01-19 18:42:20.396     0     0 I binder  : undelivered transaction 667598
+01-19 18:42:20.424     0     0 I binder  : undelivered transaction 667616
+01-19 18:43:04.642     0     0 I binder  : undelivered transaction 745796
+01-19 18:45:25.772     0     0 I binder  : 2872:20033 transaction failed 29189/-22, size 88-0 line 2916
+01-19 18:45:26.795     0     0 I binder  : 2872:20033 transaction failed 29189/-22, size 0-0 line 2916
+01-19 18:47:50.280     0     0 I binder  : 12635:12635 transaction failed 29189/-22, size 104-0 line 2916
+01-19 18:49:11.635     0     0 I binder  : 2871:3451 transaction failed 29189/-22, size 96-0 line 2916
+01-19 18:49:25.862     0     0 I binder  : 24971:24980 DecRefs 0 refcount change on invalid ref 47 ret -22
+01-19 18:49:49.143     0     0 I binder  : 2877:2877 transaction failed 29189/-22, size 60-0 line 2916
+01-19 18:50:27.266     0     0 I binder  : 12635:12635 transaction failed 29189/-22, size 104-0 line 2916
+01-19 18:50:27.267     0     0 I binder  : 12635:12635 transaction failed 29189/-3, size 76-0 line 3039
+01-19 18:51:38.966     0     0 I binder  : 27099:27108 DecRefs 0 refcount change on invalid ref 47 ret -22
+01-19 18:53:17.065     0     0 I binder  : undelivered transaction 1804477
+01-19 18:53:37.462     0     0 I binder  : 28680:28690 DecRefs 0 refcount change on invalid ref 36 ret -22
+01-19 18:54:54.155     0     0 I binder  : 12635:12635 transaction failed 29189/-22, size 104-0 line 2916
+01-19 18:55:20.121     0     0 I binder  : 27099:27108 DecRefs 0 refcount change on invalid ref 15 ret -22
+01-19 18:56:08.754     0     0 I binder  : 31890:31899 DecRefs 0 refcount change on invalid ref 64 ret -22
+01-19 18:56:14.515     0     0 I binder  : 28680:28738 IncRefs 0 refcount change on invalid ref 36 ret -22
+01-19 18:56:14.515     0     0 I binder  : 28680:28738 Acquire 1 refcount change on invalid ref 36 ret -22
+01-19 18:56:14.515     0     0 E binder  : transaction release 1824217 bad handle 36, ret = -22
+01-19 18:58:11.217     0     0 I binder  : undelivered transaction 2356718
+01-19 18:58:11.219     0     0 I binder  : 12635:12635 transaction failed 29189/-22, size 104-0 line 2916
+01-19 18:58:16.705     0     0 I binder  : 1802:1813 DecRefs 0 refcount change on invalid ref 44 ret -22
+01-19 18:59:01.790     0     0 I binder  : undelivered transaction 2436521
+01-19 19:00:00.238     0     0 I binder  : undelivered transaction 2567264
+01-19 19:00:19.773     0     0 I binder  : 2877:2877 transaction failed 29189/-22, size 60-0 line 2916
+01-19 19:01:15.759     0     0 I binder  : undelivered transaction 2705104
+01-19 19:01:15.760     0     0 I binder  : undelivered transaction 2705105
+01-19 19:01:15.760     0     0 I binder  : undelivered transaction 2705106
+01-19 19:01:15.760     0     0 I binder  : undelivered transaction 2705101
+01-19 19:02:33.722     0     0 I binder  : undelivered transaction 2844918
+01-19 19:02:33.873     0     0 I binder  : release 6686:6686 transaction 2845163 out, still active
+01-19 19:02:33.913     0     0 I binder  : 12635:13399 transaction failed 29189/-22, size 3812-24 line 2916
+01-19 19:10:35.437     0     0 I binder  : release 6860:6860 transaction 3054716 out, still active
+01-19 19:11:21.307     0     0 I binder  : release 6876:6876 transaction 3073306 out, still active
+01-19 19:11:50.507     0     0 I binder  : release 6886:6886 transaction 3085139 out, still active
+01-19 19:13:20.647     0     0 I binder  : release 6890:6891 transaction 3089245 out, still active
+01-19 19:13:40.787     0     0 I binder  : release 6903:6904 transaction 3129799 out, still active
+01-19 19:15:29.047     0     0 I binder  : release 6969:6969 transaction 3173540 out, still active
+01-19 19:16:59.097     0     0 I binder  : release 6973:6974 transaction 3177613 out, still active
+01-19 19:17:09.100     0     0 I binder  : release 6984:6985 transaction 3214102 out, still active
+
+
+
+
+		thread->return_error.cmd = return_error;
+		binder_enqueue_work(thread->proc,
+				    &thread->return_error.work,
+				    &thread->todo);
+
+
+
+04-17 20:20:09.588  1465  1487 E ActivityManager: Exception thrown during bind of ProcessRecord{e9aca83 15801:com.miui.calculator/u0a42}
+04-17 20:20:09.588  1465  1487 E ActivityManager: android.os.DeadObjectException
+04-17 20:20:09.588  1465  1487 E ActivityManager: 	at android.os.BinderProxy.transactNative(Native Method)
+04-17 20:20:09.588  1465  1487 E ActivityManager: 	at android.os.BinderProxy.transact(Binder.java:511)
+04-17 20:20:09.588  1465  1487 E ActivityManager: 	at android.app.ApplicationThreadProxy.bindApplication(ApplicationThreadNative.java:1058)
+04-17 20:20:09.588  1465  1487 E ActivityManager: 	at com.android.server.am.ActivityManagerService.attachApplicationLocked(ActivityManagerService.java:7539)
+04-17 20:20:09.588  1465  1487 E ActivityManager: 	at com.android.server.am.ActivityManagerService.attachApplication(ActivityManagerService.java:7643)
+04-17 20:20:09.588  1465  1487 E ActivityManager: 	at android.app.ActivityManagerNative.onTransact(ActivityManagerNative.java:513)
+04-17 20:20:09.588  1465  1487 E ActivityManager: 	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2777)
+04-17 20:20:09.588  1465  1487 E ActivityManager: 	at android.os.Binder.execTransact(Binder.java:458)

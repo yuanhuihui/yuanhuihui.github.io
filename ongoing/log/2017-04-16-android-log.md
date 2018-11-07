@@ -93,7 +93,7 @@ Linux Kernel最常使用的是printk，用法如下：
 
 日志输出到文件/proc/kmsg，可通过`cat /proc/kmsg`来获取内核log信息。
 
-
+cat /proc/sys/kernel/printk
 ### 2.4 buffer大小
 
 LogBuffer.cpp

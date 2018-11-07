@@ -1,25 +1,43 @@
+ANDROID: binder: fix binder work return error is wrongly consumed
 
+transaction consume mismatched binder work. as follow:
 
-一. 如何分析anr
+1) Client send transaction when left binder work in the thread->todo
+list before
 
+2) in kernel space, client consumed BC_TRANSACTION, and produced
+BINDER_WORK_RETURN_ERROR into thread->todo list as target proc is dead
 
-1. 理解anr原理. 如何产生anr.
+3) Client should get return error from thread->todo firstly,
+finish this transaction, and back to userspace immediately.
 
+4) In fact, client pick up mismatched binder work cause unexpected results
+because of the previous remaining binder work. maybe cause return error
+consumed by other transaction context.
 
-1. 难在现有log很多时候无法解决问题.
-2. 基于概率来解决;
+Recently, we found oneway binder call can be blocked forever in
+system_server process. the root cause is that BINDER_WORK_RETURN_ERROR
+is comsumed by mismatch transacation context. binder thread is waiting
+for BINDER_WORK_RETURN_ERROR:
 
-2. 案例分享
+"Binder:1253_C" prio=5 tid=107 Native
+at android.os.BinderProxy.transactNative(Native method)
+at android.os.BinderProxy.transact(Binder.java:767)
+at android.app.IApplicationThread$Stub$Proxy.bindApplication(IApplicationThread.java:1398)
+at com.android.server.am.ActivityManagerService.attachApplicationLocked(ActivityManagerService.java:7320)
+at com.android.server.am.ActivityManagerService.attachApplication(ActivityManagerService.java:7425)
+- locked <0x0bc6ee81> (a com.android.server.am.ActivityManagerService)
+at android.app.IActivityManager$Stub.onTransact(IActivityManager.java:291)
+at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:2997)
+at android.os.Binder.execTransact(Binder.java:700)
 
-一类是系统的anr; 另一个类是非系统的;
+I see newest binder driver fixed by "ANDROID: binder: don't enqueue
+death notifications to thread todo". But I think should fix it using
+queueing return error transaction to the head of thread todo list, can solve the bug thoroughly.
 
-3. 建议
-
-- 不要在主线程 做过多的耗时操作;
-- register broadcast receiver到工作线程.
-- 用apply, 而非commit;
-- io, network.
-- 有些binder call会比较耗时.
-
-- dvm_lock问题
-- binder call的问题;
+Let's take a lock at the old binder version.
+Evetything works fine in the old binder version (before split big binder lock),
+binder_transaction only set thread return_error, do not add BINDER_WORK_RETURN_ERROR
+into thread->todo, but binder_thread_read() check return_error firstly. If occurs
+return_error, finish this transaction and back to userspace immediately.
+remotes/origin/android-4.4

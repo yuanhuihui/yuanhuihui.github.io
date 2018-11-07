@@ -21,16 +21,17 @@ gdbserver64和gdbserver选择哪一个，取决于当前手机是32位还是64�
 ### 1.2 准备环境
 
     adb root
-    adb disable-verity //如果该命令不可执行，需要选择源码环境下的adb命令
+    adb disable-verity          
     adb reboot
 
     adb root
     adb remout
     adb push prebuilts/misc/android-arm64/gdbserver64/gdbserver64 /system/bin
 
-    adb shell setenforce 0 //如果过程遇到selinux权限问题，可执行该指令
+    adb shell setenforce 0
 
 
+如果disable-verity命令不可执行，需要选择源码环境下的adb命；如果过程遇到selinux权限问题，记得关闭.
 
 ## 二. 调试
 
@@ -53,3 +54,11 @@ gdbserver64和gdbserver选择哪一个，取决于当前手机是32位还是64�
 
     b frameworks/base/core/jni/android_util_Process.cpp:1035 if sig == 19
     c
+
+
+此次需要的是：
+
+file /home/gityuan/gityuan/BUG/HTH-23835/whyred_rom/whyred_global_symbols_V9.5.6.0.OEIMIFA.root_8.1_c99e47134e_g25d3dd4/out/target/product/whyred/symbols/system/bin/app_process64
+set sysroot  /home/gityuan/gityuan/BUG/HTH-23835/whyred_rom/whyred_global_symbols_V9.5.6.0.OEIMIFA.root_8.1_c99e47134e_g25d3dd4/out/target/product/whyred/symbols
+set dir /home/gityuan/mount/project/c1-sagit-o-dev
+ b frameworks/native/libs/binder/IPCThreadState.cpp:813

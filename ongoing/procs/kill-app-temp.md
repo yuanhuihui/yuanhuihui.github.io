@@ -9,8 +9,6 @@
 	am kill  <PACKAGE>  //当该应用处于后台时才能被杀掉
 
 
-
-
 ### 1.killBackgroundProcesses
 
 	am kill  <PACKAGE>
@@ -162,20 +160,6 @@ minOomAdj=SERVICE_ADJ, callerWillRestart=false, allowRestart=true, doit=true, ev
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### killAllBackgroundProcesses
 
 	am kill-all
@@ -189,3 +173,28 @@ AMS.forceStopPackage
 	pm.setPackageStoppedState(packageName, true, user);
 	AMS.forceStopPackageLocked
 		AMS.killPackageProcessesLocked
+
+
+
+### 底层杀进程
+
+http://cisys.pt.miui.com/opengrok/xref/v10-p-nitrogen-dev/system/core/init/service.cpp#256
+
+
+    void Service::KillProcessGroup(int signal) {
+        if (!process_cgroup_empty_) {
+            LOG(INFO) << "Sending signal " << signal << " to service '" << name_ << "' (pid " << pid_
+                      << ") process group...";
+            int r;
+            if (signal == SIGTERM) {
+                r = killProcessGroupOnce(uid_, pid_, signal);
+            } else {
+                r = killProcessGroup(uid_, pid_, signal);
+            }
+
+            if (r == 0) process_cgroup_empty_ = true;
+        }
+    }
+
+
+黑屏那个问题如果FLAG_PROCESS_START_ASYNC为true的话，那么handler线程执行startProcess()方法的过程，由于没有持锁，可能有另一个线程并发执行杀该进程的动作，而此时还没有执行attach（没有linkToDeath,被杀后就没有机会重启），所以黑屏。  而为false的话，由于执行startProcess()过程持锁，再紧接着执行 handleProcessStartedLocked需要ams锁，并不会并发碰撞杀进程的动作。
