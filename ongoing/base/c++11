@@ -1,4 +1,18 @@
 
+
+## 引言
+
+### C++发展史
+
+c++是由比雅尼·斯特劳斯特鲁普博士在贝尔实验室工作期间在20世纪80年代发明并实现的。一开始，C++还不叫C++，而是被称为”c with classes”。从名字来看，c++在最开始可以称作C语言的增强版，但在后来，c++又引入了一些新的函数库和新的用法，如虚函数（virtual function）、操作符重载（operator overloading）、多重继承（multiple inheritance）、模板（template）、异常处理（exception）、RTTI（Runtime type information）、名字空间（namespace）逐渐纳入，逐步增强了c++的可用。
+
+
+1、支持数据封装和数据隐藏 
+2、支持继承和重用 
+3、支持多态性
+
+## 知识
+
 1. 指针
 
 int *point = &address; //指针
@@ -103,3 +117,11 @@ write(将数据写入已打开的文件内)
 
 
 不是数据嵌入链表, 而是链表嵌入到数据.
+
+40W
+
+## 链接
+
+http://www.360doc.com/content/16/0809/21/32889889_582093235.shtml
+
+http://www.cplusplus.com/
