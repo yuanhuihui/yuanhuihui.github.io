@@ -315,10 +315,10 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |9|[dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)|dumpsys|
 
 #### 4.9 实战篇
-下面列举处理的部分问题
+下面列举处理过的部分较为典型的案例，供大家参考
 
 |序号|文章名|类别|
-|1|[Binder Driver缺陷导致定屏问题分析](http://gityuan.com/2018/05/12/binder-driver-bug/)|binder|
+|1|[Binder Driver缺陷导致定屏的案例](http://gityuan.com/2018/05/12/binder-driver-bug/)|binder|
 
 
 

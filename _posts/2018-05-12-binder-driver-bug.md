@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Binder Driver缺陷导致定屏问题分析"
+title:  "Binder Driver缺陷导致定屏的案例"
 date:   2018-05-12 10:11:12
 catalog:  true
 tags:
