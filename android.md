@@ -301,7 +301,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
     - [ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)
 
 #### 4.8 工具篇
-最后，说说Android相关的一些常用命令和工具以及调试手段.
+再来说说Android相关的一些常用命令和工具以及调试手段.
 
 |序号|文章名|类别|
 |1|[理解Android编译命令](http://gityuan.com/2016/03/19/android-build/)|build|
@@ -313,6 +313,13 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |7|[调试系列1：bugreport源码篇](http://gityuan.com/2016/06/10/bugreport/)|bugreport|
 |8|[调试系列2：bugreport实战篇](http://gityuan.com/2016/06/11/bugreport-2/)|bugreport|
 |9|[dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)|dumpsys|
+
+#### 4.9 实战篇
+下面列举处理的部分问题
+
+|序号|文章名|类别|
+|1|[Binder Driver缺陷导致定屏问题分析](http://gityuan.com/2018/05/12/binder-driver-bug/)|binder|
+
 
 
 ### 五、结束语
