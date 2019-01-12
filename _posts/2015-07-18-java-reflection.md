@@ -90,7 +90,9 @@ Java程序在运行时，运行时系统对每一个对象都有一项类型标�
 
 
 #### 取任意对象所属的类
-Class.forName(String className)
+
+Class<?> clazz = Class.forName(String className);//根据类名来获取类对象
+Object obj = clazz.newInstance(); //构造
 
 ![class newinstance](/images/java-reflect/java_reflect_1.jpg)
 
