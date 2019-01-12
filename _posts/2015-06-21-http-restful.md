@@ -11,7 +11,7 @@ tags:
 
 >  **RESTful** 是一种非常流行的软件架构，或者说设计风格而非新的技术标准。提供了一组设计原则和约束条件，主要用于客户端与服务器的交互。RESTful架构更简洁，更有层次，更易于实现缓存等机制。
 
-## 1.理解RESTful
+## 理解RESTful
 RESTful, 全称Representational State Transfer。REST通常基于使用HTTP，URI，和XML以及HTML这些现有的广泛流行的协议和标准。要理解RESTful概念，需要明白下面的概念：
 
 ### 1.1 资源与URI
@@ -38,83 +38,74 @@ REST全称是表述性状态转移，表述指的就是资源。资源通过`URI
 ### 1.2 统一资源接口
    RESTful架构应该遵循统一接口原则，统一接口包含了一组受限的预定义的操作，所有资源的访问接口应该使用标准的HTTP方法如GET，PUT，POST，DELETE，并遵循这些方法的语义。
 
-如果按照HTTP方法的语义来暴露资源，那么接口将会拥有安全性和幂等性的特性，例如GET和HEAD请求都是安全的， 无论请求多少次，都不会改变服务器状态。而GET、HEAD、PUT和DELETE请求都是幂等的，无论对资源操作多少次， 结果总是一样的，后面的请求并不会产生比第一次更多的影响。
+如果按照HTTP方法的语义来暴露资源，那么接口将会拥有安全性和幂等性的特性，例如GET和POST请求都是安全的， 无论请求多少次，都不会改变服务器状态。而GET、POST、PUT和DELETE请求都是幂等的，无论对资源操作多少次， 结果总是一样的，后面的请求并不会产生比第一次更多的影响。
 
-#### 下面列出了GET，DELETE，PUT和POST的典型用法:
+下面列出了GET，DELETE，PUT和POST的典型用法:
 
-> **GET**
+#### 1.2.1 GET表
+安全且幂等，获取表示，变更时获取表示（缓存）
 
-安全且幂等
-获取表示
-变更时获取表示（缓存）
-200（OK） - 表示已在响应中发出
-204（无内容） - 资源有空表示
-301（Moved Permanently） - 资源的URI已被更新
-303（See Other） - 其他（如，负载均衡）
-304（not modified）- 资源未更改（缓存）
-400 （bad request）- 指代坏请求（如，参数错误）
-404 （not found）- 资源不存在
-406 （not acceptable）- 服务端不支持所需表示
-500 （internal server error）- 通用错误响应
-503 （Service Unavailable）- 服务端当前无法处理请求
+- 200（OK） - 表示已在响应中发出
+- 204（无内容） - 资源有空表示
+- 301（Moved Permanently） - 资源的URI已被更新
+- 303（See Other） - 其他（如，负载均衡）
+- 304（not modified）- 资源未更改（缓存）
+- 400 （bad request）- 指代坏请求（如，参数错误）
+- 404 （not found）- 资源不存在
+- 406 （not acceptable）- 服务端不支持所需表示
+- 500 （internal server error）- 通用错误响应
+- 503 （Service Unavailable）- 服务端当前无法处理请求
 
-> **POST**
+#### 1.2.2 POST
+不安全且不幂等，使用服务端管理的实例号创建资源，创建子资源，部分更新资源
 
-不安全且不幂等
-使用服务端管理的（自动产生）的实例号创建资源
-创建子资源
-部分更新资源
-如果没有被修改，则不过更新资源（乐观锁）
-200（OK）- 如果现有资源已被更改
-201（created）- 如果新资源被创建
-202（accepted）- 已接受处理请求但尚未完成（异步处理）
-301（Moved Permanently）- 资源的URI被更新
-303（See Other）- 其他（如，负载均衡）
-400（bad request）- 指代坏请求
-404 （not found）- 资源不存在
-406 （not acceptable）- 服务端不支持所需表示
-409 （conflict）- 通用冲突
-412 （Precondition Failed）- 前置条件失败（如执行条件更新时的冲突）
-415 （unsupported media type）- 接受到的表示不受支持
-500 （internal server error）- 通用错误响应
-503 （Service Unavailable）- 服务当前无法处理请求
+- 200（OK）- 如果现有资源已被更改
+- 201（created）- 如果新资源被创建
+- 202（accepted）- 已接受处理请求但尚未完成（异步处理）
+- 301（Moved Permanently）- 资源的URI被更新
+- 303（See Other）- 其他（如，负载均衡）
+- 400（bad request）- 指代坏请求
+- 404 （not found）- 资源不存在
+- 406 （not acceptable）- 服务端不支持所需表示
+- 409 （conflict）- 通用冲突
+- 412 （Precondition Failed）- 前置条件失败（如执行条件更新时的冲突）
+- 415 （unsupported media type）- 接受到的表示不受支持
+- 500 （internal server error）- 通用错误响应
+- 503 （Service Unavailable）- 服务当前无法处理请求
 
-> **PUT**
+#### 1.2.3 PUT
+不安全但幂等，用客户端管理的实例号创建一个资源，通过替换的方式更新资源
 
-不安全但幂等
-用客户端管理的实例号创建一个资源
-通过替换的方式更新资源
-如果未被修改，则更新资源（乐观锁）
-200 （OK）- 如果已存在资源被更改
-201 （created）- 如果新资源被创建
-301（Moved Permanently）- 资源的URI已更改
-303 （See Other）- 其他（如，负载均衡 ）
-400 （bad request）- 指代坏请求
-404 （not found）- 资源不存在
-406 （not acceptable）- 服务端不支持所需表示
-409 （conflict）- 通用冲突
-412 （Precondition Failed）- 前置条件失败（如执行条件更新时的冲突）
-415 （unsupported media type）- 接受到的表示不受支持
-500 （internal server error）- 通用错误响应
-503 （Service Unavailable）- 服务当前无法处理请求
+- 200 （OK）- 如果已存在资源被更改
+- 201 （created）- 如果新资源被创建
+- 301（Moved Permanently）- 资源的URI已更改
+- 303 （See Other）- 其他（如，负载均衡 ）
+- 400 （bad request）- 指代坏请求
+- 404 （not found）- 资源不存在
+- 406 （not acceptable）- 服务端不支持所需表示
+- 409 （conflict）- 通用冲突
+- 412 （Precondition Failed）- 前置条件失败（如执行条件更新时的冲突）
+- 415 （unsupported media type）- 接受到的表示不受支持
+- 500 （internal server error）- 通用错误响应
+- 503 （Service Unavailable）- 服务当前无法处理请求
 
 
-> **DELETE**
+#### 1.2.4 DELETE
+不安全但幂等，删除资源
 
-不安全但幂等
-删除资源
-200 （OK）- 资源已被删除
-301 （Moved Permanently）- 资源的URI已更改
-303 （See Other）- 其他，如负载均衡
-400 （bad request）- 指代坏请求
-404 （not found）- 资源不存在
-409 （conflict）- 通用冲突
-500 （internal server error）- 通用错误响应
-503 （Service Unavailable）- 服务端当前无法处理请求
+- 200 （OK）- 资源已被删除
+- 301 （Moved Permanently）- 资源的URI已更改
+- 303 （See Other）- 其他，如负载均衡
+- 400 （bad request）- 指代坏请求
+- 404 （not found）- 资源不存在
+- 409 （conflict）- 通用冲突
+- 500 （internal server error）- 通用错误响应
+- 503 （Service Unavailable）- 服务端当前无法处理请求
 
-#### 接下来再按一些实践中的常见问题
+#### 常见问题
+接下来再按一些实践中的常见问题
 
- -  POST和PUT在创建资源的区别：所创建的资源的名称(URI)是否由客户端决定。 例如为为博客增加一个android的分类，生成的路径就是分类名/categories/android，那么就可以采用PUT方法。
+ -  POST和PUT在创建资源的区别：所创建的资源的名称(URI)是否由客户端决定。 例如博客增加一个Android的分类，生成的路径就是分类名/categories/android，那么就可以采用PUT方法。
  - 客户端不一定都支持这些HTTP方法：较古老的基于浏览器的客户端，只能支持GET和POST两种方法。妥协的解决方法，通过隐藏参数_method=DELETE来传递真实的请求方法等措施来规避。
  - 统一资源接口对URI的意义：统一资源接口要求使用标准的HTTP方法对资源进行操作，所以URI只应该来表示资源的名称，而不应该包括资源的操作，如下是一些不符合统一接口要求的URI:
 
@@ -123,7 +114,7 @@ REST全称是表述性状态转移，表述指的就是资源。资源通过`URI
      - PUT /updateUser/1
      - DELETE /deleteUser/1
 
-    正确写法应该是 /User/1，不应该包含动词，具体的动作由请求方法来体现。
+正确写法应该是 /User/1，不应该包含动词，具体的动作由请求方法来体现。
 
 ### 1.3 资源的表述
 
@@ -151,7 +142,8 @@ REST是使用标准的HTTP方法来操作资源的，但仅仅因此就理解成
 
 REST原则中的无状态通信原则，并不是说客户端应用不能有状态，而是指服务端不应该保存客户端状态。
 
-#### 应用状态与资源状态
+**应用状态与资源状态**
+
 客户端负责维护应用状态，而服务端维护资源状态。客户端与服务端的交互必须是无状态的，并在每一次请求中包含处理该请求所需的一切信息。
 
 服务端不需要在请求间保留应用状态，只有在接受到实际请求的时候，服务端才会关注应用状态。这种无状态通信原则，使得服务端和中介能够理解独立的请求和响应。
@@ -159,10 +151,12 @@ REST原则中的无状态通信原则，并不是说客户端应用不能有状�
 
 但有时候我们会做出违反无状态通信原则的设计，例如利用Cookie跟踪某个服务端会话状态，常见的像J2EE里边的JSESSIONID。这意味着，浏览器随各次请求发出去的Cookie是被用于构建会话状态的。当然，如果Cookie保存的是一些服务器不依赖于会话状态即可验证的信息（比如认证令牌），这样的Cookie也是符合REST原则的。
 
-#### 应用状态的转移
+**应用状态的转移**
+
 状态转移到这里已经很好理解了， "会话"状态不是作为资源状态保存在服务端的，而是被客户端作为应用状态进行跟踪的。客户端应用状态在服务端提供的超媒体的指引下发生变迁。服务端通过超媒体告诉客户端当前状态有哪些后续状态可以进入。
 
 这些类似"下一页"之类的链接起的就是这种推进状态的作用——指引你如何从当前状态进入下一个可能的状态。这些类似"下一页"之类的链接起的就是这种推进状态的作用——指引你如何从当前状态进入下一个可能的状态。
 
 ## 总结
-本文从资源的定义、获取、表述、关联、状态变迁等角度， 试图快速理解RESTful架构背后的概念。RESTful架构与传统的RPC、SOAP等方式在理念上有很大的不同，希望本文能对各位理解REST有所帮助。
+
+本文从资源的定义、获取、表述、关联、状态变迁等角度，试图快速理解RESTful架构背后的概念。RESTful架构与传统的RPC、SOAP等方式在理念上有很大的不同。

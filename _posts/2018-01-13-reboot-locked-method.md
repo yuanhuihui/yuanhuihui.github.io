@@ -236,11 +236,4 @@ AS.finishTopRunningActivityLocked()方法的主要功能是结束当前在栈顶
 - 当发生ANR的应用如果只有单一activity，那么resume的一定是其他应用的activity；在发生异常的时候，便会移除其他应用的task。而发生ANR的应用的task并没有被移除，只是序号变小，则需重新计算该task所在mTaskHistory的位置序号。
 - 当发生ANR的应用至少有两个activity，那么resume的一定是还是当前app的下一个activity；在发生异常的时候，便会移除当前应用的task。此时要么task所在mTaskHistory的位置序号变小，要么当前task直接被移除了，这取决于该应用示范有多个task。这时还需要再执行finishActivityLocked()，否则有可能出现不断重启发生crash的应用。
 
-不管以上那种情况，只要出现了task被remove的情况，都需要更新计算task所在mTaskHistory的位置序号，才能确保不会出现数组越界。至于是否还需要执行finishActivityLocked，这就取决于被移除的
-
-- 当activityNdx=1 (只有一个activity), 且是单task情况下, 那么resume下一个activity的是其他app,  发生异常移除的便是其他app的task;
-  - 此时mTaskHistory.indexOf(r.task)返回值会减一 (多个task,减N), 而非-1;
-  - 策略: ANR activity的下一个activity和task已被移除, 没有必要再执行第二次finish动作. 因为当前crash app的next task已被remove, 不会出现restart crash app.
-- 当activityNdx>=2, 也就是该app的task至少有两个activity; 或者ANR activity存在多个task; 那么resume activity失败后, 移除的便是当前发生ANR的activity所在的task;
-  - 此时mTaskHistory.indexOf(r.task)返回的便是-1, 
-  - 应重新获取 --taskNdx 和 activityNdx; 来执行第2次finish动作, 防止可能出现的restart crash app情况;
+不管以上那种情况，只要出现了task被remove的情况，都需要更新计算task所在mTaskHistory的位置序号，才能确保不会出现数组越界。至于是否还需要执行finishActivityLocked，这就取决于是否会引发是否会引发重启crash应用的重启行为。

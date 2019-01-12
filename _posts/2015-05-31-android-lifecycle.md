@@ -27,15 +27,15 @@ tags:
     - 当前activity仍然是可见的。但被另一个activity处在最上方，最上方的activity是半透明的，或者是部分覆盖整个屏幕。被暂停的activity不会再接受用户的输入。
     - 处于活着的状态（Activity对象存留在内存，保持着所有的状态和成员信息，仍然吸附在window manager）。
     - 当处于极度低内存的状态时，系统会杀掉该activity，释放相应资源。
-    - 此状态由`onPause()`进入，退出可能o`nResume()`或者`onCreate()`重新唤醒软件，或者被`onStop()`杀掉
+    - 此状态由`onPause()`进入，退出可能`onResume()`或者`onCreate()`重新唤醒，或者被`onStop()`结束
 - **停止（Stopped）：**
     - 当前activity完全被隐藏，不被用户可见。可以认为是处于在后台。
     - 处于活着的状态（Activity对象存留在内存，保持着所有的状态和成员信息，不再吸附在window manager）。
-    - 由于对用户不再可见，只要有内存的需要，系统就会杀掉该activity来释放资源。
-    - 该状态由`onStop()`进入，或`onRestart()`或者`onCreate()`重新唤醒软件，或者被`onDestroy()`彻底死亡..
-其它状态 (Created与Started)都是短暂的，系统快速的执行那些回调函数并通过。
+    - 由于对用户不再可见，只要有内存的需要，系统就会清理该activity用以释放内存资源。
+    - 该状态由`onStop()`进入，或`onRestart()`或者`onCreate()`重新唤醒，或者被`onDestroy()`彻底死亡。
+    - 其它状态 (Created与Started)都是短暂的，系统快速的执行那些回调函数并通过。
 
-当acitivty处于暂停或者停止状态，系统可以通过`finish()`或 `android.os.Process.killProcess(android.os.Process.myPid())`来杀死其进程。当该activity再次被打开时(结束或杀死后)，需要重新创建，走一遍完整的流程。
+当acitivty处于暂停或者停止状态，系统可以通过`finish()`或 `android.os.Process.killProcess(android.os.Process.myPid())`来杀死其进程。当该activity再次被打开时(结束或杀死后)，需要重新创建Ativity，走一遍完整的流程。
 
 ### 1.2 Activities调用流程
 当Activity A 启动 Activity B时，两个activity都有自个的生命周期。Activity A暂停或者停止，Activity B被创建。记住，在Activity B创建之前，Activity A并不会完全停止，流程如下：
