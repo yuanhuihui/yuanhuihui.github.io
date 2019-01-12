@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "浅谈HTTP RESTful架构"
+title:  "浅谈HTTP RESTful"
 date:   2015-06-21 21:20:50
 catalog:  true
 tags:

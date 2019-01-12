@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "解读Java反射机制"
+title:  "理解Java反射机制"
 date:   2015-07-18 22:10:10
 catalog:  true
 tags:
@@ -77,36 +77,118 @@ Java程序在运行时，运行时系统对每一个对象都有一项类型标�
 
 ### 三、反射实例
 
+对于正常方式来调用方法，往往只需要一行到两行代码，即可完成相应工作。而反射则显得比较繁琐，之所以繁琐仍会才用反射方式，是因为反射能干很多正常实例化对象的方式所无法做到的事。比如操作那些private的类、方法、属性，以及@hide标记过的类、方法、属性。
 
-- 在运行时获取任意对象所属的类
-    `Class<?> clazz = Class.forName(String className);`
-- 在运行时构造类的实例对象
-    `Object obj = clazz.newInstance();`
-- 在运行时获取或修改类/成员的属性
-    `field.set(Object obj, Object value)；`
-    `field.get(Object obj)；`
-- 在运行时调用某个类/对象的方法：`method.invoke(Object obj, Object... args)；`
-- 另外还可获取类的其他信息，比如modifiers、superclass等
+为了到达即能有反射的功效，同时调用方法简单易用，建议大家自己封装一个反射工具类ReflectUtils。（注：以下实例为了代码精简，忽略Exception以及异常处理逻辑。）
 
+#### 3.1 创建对象
 
-#### 取任意对象所属的类
+    //根据类名来获取类
+    Class clazz = Class.forName("java.lang.String");
+    //根据对象来获取类
+    Class clazz = object.getClass();
+    //根据类来实例化对象
+    Object obj = clazz.newInstance();
+    
+通过Constructor创建对象
 
-Class<?> clazz = Class.forName(String className);//根据类名来获取类对象
-Object obj = clazz.newInstance(); //构造
+    //获取无参的构造函数
+    Constructor c = clazz.getConstructor(null);
+    //获取参数为String,int的构造函数
+    Constructor c = clazz.getConstructor(String.class, int.class);
+    //用于调用私有构造方法
+    c.setAccessible(true);
+    Object obj = c.newInstance("gityuan.com", 2015);
 
-![class newinstance](/images/java-reflect/java_reflect_1.jpg)
+#### 3.2 获取/修改属性
 
-#### 2.如何调用私有类，或者类的私有方法或属性？
-- 私有类： 通过getDeclaredConstructor获取constructor，再调用constructor.setAccessible(true);
-- 私有方法：通过getDeclaredMethod获取method，再调用method.setAccessible(true);
-- 私有属性：通过getDeclaredField获取field，再调用field.setAccessible(true);
+获取对象的属性
 
+    public static Object getField(Object object, String fieldName) {
+        Class clazz = object.getClass();
+        Field field = clazz.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(object)；
+    }
+    
+修改对象的属性
 
-#### 3.@hide标记是做什么的，反射能否调用@hide标记的类？
-在Android的源码中，我们会发现有很多被"@hide"标记的类，它的作用是使这个类或方法在生成SDK时不可见。那么应用程序便不可以直接调用。而反射机制可调用@hide标记的类或方法，如入无人之地，畅通无阻。
+    public static boolean setField(Object object, String fieldName, Object fieldValue) {
+        Class clazz = object.getClass();
+        Field field = clazz.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.set(object, fieldValue);
+    }
+    
+获取类的静态属性
 
-#### 4.如何通过反射调用内部类？
-假设com.reflect.Outer类有一个内部类inner，调用方法如下：
+    public static Object getField(Class clazz, String fieldName) {
+        Field field = clazz.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(clazz)；
+    }
+    
+修改类的静态属性
 
-    String className = "com.reflect.Outer$inner";
+    public static boolean setField(Class clazz, String fieldName, Object fieldValue) {
+        Field field = clazz.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.set(null, fieldValue);
+    }
+
+#### 3.3 调用方法
+
+调用对象方法
+
+    public static Object invokeMethod(Object object, String methodName, Object[] methodArgs) {
+        Class clazz = object.getClass();
+        Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
+        return method.invoke(object, methodArgs);
+    }
+    
+调用类的静态方法
+
+    public static Object invokeMethod(Class clazz, String methodName, Object[] methodArgs) {
+        Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
+        method.setAccessible(true);  
+        return method.invoke(null, methodArgs);
+    }
+
+    public static Class[] obj2class(Object[] methodArgs) {}
+        Class[] argsClass = new Class[args.length];    
+        for (int i = 0, j = args.length; i < j; i++) {    
+            argsClass[i] = args[i].getClass();    
+        } 
+        return argsClass;
+    }
+
+#### 3.4 调用内部类
+
+假设com.reflect.Outer类，有一个内部类inner和静态内部类StaticInner。
+那么静态内部类的构造函数为Outer$StaticInner(); 而普通内部类的构造函数为Outer$Inner(Outer outer)，多了一个final的Outer类型属性，即Outer$Inner.this$0，用于存储外部类的属性值，也就是说非static内部类保持了外部类的引用。
+
+直接实例化内部类方法如下：
+
+    // 静态内部类
+    Outer.StaticInner sInner = new Outer.StaticInner();
+    // 非静态内部类
+    Outer.Inner inner = new Outer().new Inner();
+    
+
+内部类的类名使用采用$符号，来连接外部类与内部类，格式为outer$Inner
+
+    String className = "com.reflect.Outer$Inner";
     Class.forName(className);
+
+除了格式了差异，关于内部类的属性和方法操作基本相似，下面以调用该静态类的静态方法为例
+
+    public static Object invokeMethod(String methodName, Object[] methodArgs) {
+        Class clazz = Class.forName(“com.reflect.Outer$StaticInner");
+        Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
+        method.setAccessible(true);  
+        return method.invoke(null, methodArgs);
+    }
+    
+### 四、小节
+
+反射机制为解耦合提供了保障机制，也为在运行时动态修改属性和调用方法提供的可能性。在Android的源码中，我们会发现有很多被"@hide"标记的类，它的作用是使这个类或方法在生成SDK时不可见。那么应用程序便不可以直接调用。而反射机制可调用@hide标记的类或方法，如入无人之地，畅通无阻。不过从Android P开始就不允许调用@hide方法，会在虚拟机层面拦截直接抛出异常。

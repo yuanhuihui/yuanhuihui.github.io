@@ -13,7 +13,7 @@ tags:
 ## 命名规范
 
 ### 1. 包命名
-规则：包名全部小写，才用反域名命名规则，一级包名是顶级域名，通常为com, edu, gov, net, org等，二级包名，通过为公司名或部门名或者个人名，三级包名通常为项目名，四级包名为模块名或者层级名。以下是从层级包名来划分android项目中采用的包划分结构
+规则：包名全部小写，采用反域名命名规则，一级包名是顶级域名，通常为com, edu, gov, net, org等，二级包名，通过为公司名或部门名或者个人名，三级包名通常为项目名，四级包名为模块名或者层级名。以下是从层级包名来划分android项目中采用的包划分结构
 
     com.domain.xxx.activity  //用户界面中所有的Activity类
     com.domain.xxx.fragment  //界面中所有的Fragment类
@@ -255,48 +255,46 @@ view缩写如下：
 
 ### 注释
 
-- 1.类注释
-每个类完成后应该有作者姓名和联系方式的注释，对自己的代码负责
+- 1.类注释，每个类完成后应该有作者姓名和联系方式的注释，对自己的代码负责
 
-    /**
-     * 作者: yuanhh
-     * 时间: 13-12-20 19：25
-     * 描述: 用户登录
-     * 联系方式: yuanhuihui208@163.com
-     */
-    public class Login{
-            ...
-    }
+        /**
+         * 作者: gityuan
+         * 时间: 13-12-20 19：25
+         * 描述: 用户登录
+         * 联系方式: gityuan@gmail.com
+         */
+        public class Login{
+                ...
+        }
 
 
-- 2.方法注释
-每一个成员方法（包括自定义成员方法、覆盖方法、属性方法）的方法头都必须做方法头注释
+- 2.方法注释，每一个成员方法（包括自定义成员方法、覆盖方法、属性方法）的方法头都必须做方法头注释
 
-    /*
-     * 方法名：
-     * 功    能：
-     * 参    数：
-     * 返回值：无
-     */
+        /*
+         * 方法名：
+         * 功    能：
+         * 参    数：
+         * 返回值：无
+         */
 
 
 - 3.快注释
 
-    private class MessageObserver extends ContentObserver {
-        public MessageObserver() {
-            super(mainHandler);
-        }
+        private class MessageObserver extends ContentObserver {
+            public MessageObserver() {
+                super(mainHandler);
+            }
 
-        public void onChange(boolean hasChanged) {
-         // 发送更新UI的消息
-         mHandler.sendMessage(mHandler.obtainMessage(0x2));
+            public void onChange(boolean hasChanged) {
+             // 发送更新UI的消息
+             mHandler.sendMessage(mHandler.obtainMessage(0x2));
+            }
         }
-    }
 
 
 - 4.资源文件注释
 
-    <!--红色  -->
-    <color name="red">#FF0000</color>
-    <!--深蓝色  -->
-    <color name="dark_blue">#0079FF</color>
+        <!--红色  -->
+        <color name="red">#FF0000</color>
+        <!--深蓝色  -->
+        <color name="dark_blue">#0079FF</color>
