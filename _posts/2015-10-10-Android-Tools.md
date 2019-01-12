@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android Studio 内存工具"
+title:  "AndroidStudio 内存工具"
 date:   2015-10-10 21:10:21
 catalog:  true
 tags:

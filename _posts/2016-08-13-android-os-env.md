@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android源码开发环境搭建"
+title:  "AndroidStudio源码开发环境搭建"
 date:   2016-08-13 20:30:00
 catalog:  true
 tags:
