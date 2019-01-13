@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Jvm系列2—字节码指令"
+title:  "Jvm系列3—字节码指令"
 date:   2015-10-24 22:09:12
 catalog:  true
 tags:
@@ -40,7 +40,7 @@ Java虚拟机采用基于栈的架构，其指令由操作码和操作数组成�
 
 |变量进栈|含义|变量保存|含义
 |---|---|
-|iload|第1个int型变量进栈|istore|栈顶nt数值存入第1局部变量|
+|iload|第1个int型变量进栈|istore|栈顶int数值存入第1局部变量|
 |iload_0|第1个int型变量进栈|istore_0|栈顶int数值存入第1局部变量|
 |iload_1|第2个int型变量进栈|istore_1|栈顶int数值存入第2局部变量|
 |iload_2|第3个int型变量进栈|istore_2|栈顶int数值存入第3局部变量|
