@@ -83,44 +83,48 @@ Java程序在运行时，运行时系统对每一个对象都有一项类型标�
 
 #### 3.1 创建对象
 
-    //根据类名来获取类
-    Class clazz = Class.forName("java.lang.String");
-    //根据对象来获取类
-    Class clazz = object.getClass();
-    //根据类来实例化对象
-    Object obj = clazz.newInstance();
-    
-通过Constructor创建对象
+```Java
+//根据类名来获取类
+Class clazz = Class.forName("java.lang.String");
+//根据对象来获取类
+Class clazz = object.getClass();
+//根据类来实例化对象
+Object obj = clazz.newInstance();
 
-    //获取无参的构造函数
-    Constructor c = clazz.getConstructor(null);
-    //获取参数为String,int的构造函数
-    Constructor c = clazz.getConstructor(String.class, int.class);
-    //用于调用私有构造方法
-    c.setAccessible(true);
-    Object obj = c.newInstance("gityuan.com", 2015);
+//获取无参的构造函数
+Constructor c = clazz.getConstructor(null);
+//获取参数为String,int的构造函数
+Constructor c = clazz.getConstructor(String.class, int.class);
+//用于调用私有构造方法
+c.setAccessible(true);
+Object obj = c.newInstance("gityuan.com", 2015);
+```
 
 #### 3.2 获取/修改属性
 
-获取对象的属性
+获取对象的属性:
 
-    public static Object getField(Object object, String fieldName) {
-        Class clazz = object.getClass();
-        Field field = clazz.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        return field.get(object)；
-    }
-    
-修改对象的属性
+```Java
+public static Object getField(Object object, String fieldName) {
+    Class clazz = object.getClass();
+    Field field = clazz.getDeclaredField(fieldName);
+    field.setAccessible(true);
+    return field.get(object)；
+}
+```
 
-    public static boolean setField(Object object, String fieldName, Object fieldValue) {
-        Class clazz = object.getClass();
-        Field field = clazz.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        return field.set(object, fieldValue);
-    }
-    
-获取类的静态属性
+修改对象的属性:
+
+```Java
+public static boolean setField(Object object, String fieldName, Object fieldValue) {
+    Class clazz = object.getClass();
+    Field field = clazz.getDeclaredField(fieldName);
+    field.setAccessible(true);
+    return field.set(object, fieldValue);
+}
+```
+
+获取类的静态属性:
 
     public static Object getField(Class clazz, String fieldName) {
         Field field = clazz.getDeclaredField(fieldName);
@@ -128,7 +132,7 @@ Java程序在运行时，运行时系统对每一个对象都有一项类型标�
         return field.get(clazz)；
     }
     
-修改类的静态属性
+修改类的静态属性:
 
     public static boolean setField(Class clazz, String fieldName, Object fieldValue) {
         Field field = clazz.getDeclaredField(fieldName);
@@ -140,27 +144,31 @@ Java程序在运行时，运行时系统对每一个对象都有一项类型标�
 
 调用对象方法
 
-    public static Object invokeMethod(Object object, String methodName, Object[] methodArgs) {
-        Class clazz = object.getClass();
-        Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
-        return method.invoke(object, methodArgs);
-    }
+```Java
+public static Object invokeMethod(Object object, String methodName, Object[] methodArgs) {
+    Class clazz = object.getClass();
+    Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
+    return method.invoke(object, methodArgs);
+}
+```
     
 调用类的静态方法
 
-    public static Object invokeMethod(Class clazz, String methodName, Object[] methodArgs) {
-        Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
-        method.setAccessible(true);  
-        return method.invoke(null, methodArgs);
-    }
+```Java
+public static Object invokeMethod(Class clazz, String methodName, Object[] methodArgs) {
+    Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
+    method.setAccessible(true);  
+    return method.invoke(null, methodArgs);
+}
 
-    public static Class[] obj2class(Object[] methodArgs) {}
-        Class[] argsClass = new Class[args.length];    
-        for (int i = 0, j = args.length; i < j; i++) {    
-            argsClass[i] = args[i].getClass();    
-        } 
-        return argsClass;
-    }
+public static Class[] obj2class(Object[] methodArgs) {}
+    Class[] argsClass = new Class[args.length];    
+    for (int i = 0, j = args.length; i < j; i++) {    
+        argsClass[i] = args[i].getClass();    
+    } 
+    return argsClass;
+}
+```
 
 #### 3.4 调用内部类
 
@@ -177,17 +185,21 @@ Java程序在运行时，运行时系统对每一个对象都有一项类型标�
 
 内部类的类名使用采用$符号，来连接外部类与内部类，格式为outer$Inner
 
+```Java
     String className = "com.reflect.Outer$Inner";
     Class.forName(className);
+```
 
 除了格式了差异，关于内部类的属性和方法操作基本相似，下面以调用该静态类的静态方法为例
 
-    public static Object invokeMethod(String methodName, Object[] methodArgs) {
-        Class clazz = Class.forName(“com.reflect.Outer$StaticInner");
-        Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
-        method.setAccessible(true);  
-        return method.invoke(null, methodArgs);
-    }
+```Java
+public static Object invokeMethod(String methodName, Object[] methodArgs) {
+    Class clazz = Class.forName(“com.reflect.Outer$StaticInner");
+    Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
+    method.setAccessible(true);  
+    return method.invoke(null, methodArgs);
+}
+```
     
 ### 四、小节
 

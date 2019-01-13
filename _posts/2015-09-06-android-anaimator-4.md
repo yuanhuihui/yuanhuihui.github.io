@@ -62,7 +62,7 @@ ObjectAnimator.ofFloat，是一个静态方法:
 
 ### 2.3 ObjectAnimator.start
 
-```
+```Java
 public void start() {
     // 获取AnimationHandler，并进行取消动画操作
     AnimationHandler handler = sAnimationHandler.get();
@@ -417,71 +417,73 @@ FrameHandler在收到信息时执行doFrame()，该方法重点是doCallbacks语
 #### 2.6.1 doAnimationFrame
 [-> ValueAnimator.java]
 
-     private void doAnimationFrame(long frameTime) {
-        // 清空mPendingAnimations
-        while (mPendingAnimations.size() > 0) {
-            ArrayList<ValueAnimator> pendingCopy =
-                    (ArrayList<ValueAnimator>) mPendingAnimations.clone();
-            mPendingAnimations.clear();
-            int count = pendingCopy.size();
-            for (int i = 0; i < count; ++i) {
-                ValueAnimator anim = pendingCopy.get(i);
-                if (anim.mStartDelay == 0) {
-                    anim.startAnimation(this); // 将mPendingAnimations动画添加到活动动画list
-                } else {
-                    mDelayedAnims.add(anim); // 如果有delay时间的，就添加到 mDelayedAnims
-                }
+```Java
+ private void doAnimationFrame(long frameTime) {
+    // 清空mPendingAnimations
+    while (mPendingAnimations.size() > 0) {
+        ArrayList<ValueAnimator> pendingCopy =
+                (ArrayList<ValueAnimator>) mPendingAnimations.clone();
+        mPendingAnimations.clear();
+        int count = pendingCopy.size();
+        for (int i = 0; i < count; ++i) {
+            ValueAnimator anim = pendingCopy.get(i);
+            if (anim.mStartDelay == 0) {
+                anim.startAnimation(this); // 将mPendingAnimations动画添加到活动动画list
+            } else {
+                mDelayedAnims.add(anim); // 如果有delay时间的，就添加到 mDelayedAnims
             }
-        }
-
-        // 将已经到时的延时动画，加入到mReadyAnims
-        int numDelayedAnims = mDelayedAnims.size();
-        for (int i = 0; i < numDelayedAnims; ++i) {
-            ValueAnimator anim = mDelayedAnims.get(i);
-            if (anim.delayedAnimationFrame(frameTime)) {
-                mReadyAnims.add(anim);
-            }
-        }
-        //移除mDelayedAnims动画，并清空mReadyAnims动画
-        int numReadyAnims = mReadyAnims.size();
-        if (numReadyAnims > 0) {
-            for (int i = 0; i < numReadyAnims; ++i) {
-                ValueAnimator anim = mReadyAnims.get(i);
-                anim.startAnimation(this);   //将mReadyAnims动画添加到活动动画list
-                anim.mRunning = true;
-                mDelayedAnims.remove(anim);
-            }
-            mReadyAnims.clear();
-        }
-
-        // 处理所有的活动动画，根据返回值决定是否将相应的动画添加到endAnims.
-        int numAnims = mAnimations.size();
-        for (int i = 0; i < numAnims; ++i) {
-            mTmpAnimations.add(mAnimations.get(i));
-        }
-        for (int i = 0; i < numAnims; ++i) {
-            ValueAnimator anim = mTmpAnimations.get(i);
-            //[见小节2.6.2]
-            if (mAnimations.contains(anim) && anim.doAnimationFrame(frameTime)) {
-                mEndingAnims.add(anim);
-            }
-        }
-        //清空mTmpAnimations 和 mEndingAnims
-        mTmpAnimations.clear();
-        if (mEndingAnims.size() > 0) {
-            for (int i = 0; i < mEndingAnims.size(); ++i) {
-                // 动画结束 [见小节2.6.3]
-                mEndingAnims.get(i).endAnimation(this);
-            }
-            mEndingAnims.clear();
-        }
-
-        // 活动或延时动画不会空时，调用scheduleAnimation
-        if (!mAnimations.isEmpty() || !mDelayedAnims.isEmpty()) {
-            //[见小节2.6.3]
-            scheduleAnimation();
         }
     }
+
+    // 将已经到时的延时动画，加入到mReadyAnims
+    int numDelayedAnims = mDelayedAnims.size();
+    for (int i = 0; i < numDelayedAnims; ++i) {
+        ValueAnimator anim = mDelayedAnims.get(i);
+        if (anim.delayedAnimationFrame(frameTime)) {
+            mReadyAnims.add(anim);
+        }
+    }
+    //移除mDelayedAnims动画，并清空mReadyAnims动画
+    int numReadyAnims = mReadyAnims.size();
+    if (numReadyAnims > 0) {
+        for (int i = 0; i < numReadyAnims; ++i) {
+            ValueAnimator anim = mReadyAnims.get(i);
+            anim.startAnimation(this);   //将mReadyAnims动画添加到活动动画list
+            anim.mRunning = true;
+            mDelayedAnims.remove(anim);
+        }
+        mReadyAnims.clear();
+    }
+
+    // 处理所有的活动动画，根据返回值决定是否将相应的动画添加到endAnims.
+    int numAnims = mAnimations.size();
+    for (int i = 0; i < numAnims; ++i) {
+        mTmpAnimations.add(mAnimations.get(i));
+    }
+    for (int i = 0; i < numAnims; ++i) {
+        ValueAnimator anim = mTmpAnimations.get(i);
+        //[见小节2.6.2]
+        if (mAnimations.contains(anim) && anim.doAnimationFrame(frameTime)) {
+            mEndingAnims.add(anim);
+        }
+    }
+    //清空mTmpAnimations 和 mEndingAnims
+    mTmpAnimations.clear();
+    if (mEndingAnims.size() > 0) {
+        for (int i = 0; i < mEndingAnims.size(); ++i) {
+            // 动画结束 [见小节2.6.3]
+            mEndingAnims.get(i).endAnimation(this);
+        }
+        mEndingAnims.clear();
+    }
+
+    // 活动或延时动画不会空时，调用scheduleAnimation
+    if (!mAnimations.isEmpty() || !mDelayedAnims.isEmpty()) {
+        //[见小节2.6.3]
+        scheduleAnimation();
+    }
+}
+```
 
 doAnimationFrame是消耗帧的过程，其中startAnimation会初始化`Evalutor`.
 
@@ -534,32 +536,33 @@ animateValue(fraction)，动画的每一帧变化，都会调用这个方式，�
 
 #### 2.6.3 endAnimation
 
-    protected void endAnimation(AnimationHandler handler) {
-        handler.mAnimations.remove(this);
-        handler.mPendingAnimations.remove(this);
-        handler.mDelayedAnims.remove(this);
-        mPlayingState = STOPPED;
-        mPaused = false;
-        if ((mStarted || mRunning) && mListeners != null) {
-            if (!mRunning) {
-                // If it's not yet running, then start listeners weren't called. Call them now.
-                notifyStartListeners();
-             }
-            ArrayList<AnimatorListener> tmpListeners =
-                    (ArrayList<AnimatorListener>) mListeners.clone();
-            int numListeners = tmpListeners.size();
-            for (int i = 0; i < numListeners; ++i) {
-                tmpListeners.get(i).onAnimationEnd(this); // 动画结束
-            }
+```Java
+protected void endAnimation(AnimationHandler handler) {
+    handler.mAnimations.remove(this);
+    handler.mPendingAnimations.remove(this);
+    handler.mDelayedAnims.remove(this);
+    mPlayingState = STOPPED;
+    mPaused = false;
+    if ((mStarted || mRunning) && mListeners != null) {
+        if (!mRunning) {
+            // If it's not yet running, then start listeners weren't called. Call them now.
+            notifyStartListeners();
+         }
+        ArrayList<AnimatorListener> tmpListeners =
+                (ArrayList<AnimatorListener>) mListeners.clone();
+        int numListeners = tmpListeners.size();
+        for (int i = 0; i < numListeners; ++i) {
+            tmpListeners.get(i).onAnimationEnd(this); // 动画结束
         }
-        mRunning = false;
-        mStarted = false;
-        mStartListenersCalled = false;
-        mPlayingBackwards = false;
-        mReversing = false;
-        mCurrentIteration = 0;
     }
-
+    mRunning = false;
+    mStarted = false;
+    mStartListenersCalled = false;
+    mPlayingBackwards = false;
+    mReversing = false;
+    mCurrentIteration = 0;
+}
+```
 
 动画结束是通过实现`AnimatorListener`接口的`onAnimationEnd()`方法。
 
@@ -580,22 +583,22 @@ scheduleAnimation再次调用mChoreographer, 跟小节[2.5]构成循环流程，
 
 动画主线流程：
 
-    ObjectAnimator.start()
-    -> ValueAnimator.start()
-    -> animationHandler.start()
-    -> AnimationHandler.scheduleAnimation()
-    -> Choreographer.postCallback()
-    -> postCallbackDelayed()
-    -> postCallbackDelayedInternal()
-    -> scheduleFrameLocked()
-    -> scheduleVsyncLocked()
-    -> DisplayEventReceiver.scheduleVsync()
-    -> onVsync()
-    -> doFrame(）
-    -> doCallbacks()
-    -> animationHandler.run()
-    -> doAnimationFrame()
-    -> animationFrame()
-    -> animateValue()
-
-目前先文字叙述，后面有空再画详细流程图。
+```Java
+ObjectAnimator.start()
+-> ValueAnimator.start()
+-> animationHandler.start()
+-> AnimationHandler.scheduleAnimation()
+-> Choreographer.postCallback()
+-> postCallbackDelayed()
+-> postCallbackDelayedInternal()
+-> scheduleFrameLocked()
+-> scheduleVsyncLocked()
+-> DisplayEventReceiver.scheduleVsync()
+-> onVsync()
+-> doFrame(）
+-> doCallbacks()
+-> animationHandler.run()
+-> doAnimationFrame()
+-> animationFrame()
+-> animateValue()
+```

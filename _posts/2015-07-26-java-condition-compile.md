@@ -102,28 +102,28 @@ Java语法的条件编译，是通过**判断条件为常量的if语句**实现�
 
 反编译解析后的结果如下：
 
+```Java
+// 空方法
+public void voidMethod();
+   Code:
+      0: return
 
-    // 空方法
-    public void voidMethod();
-       Code:
-          0: return
+//final常量
+public void constantFalseFlag();
+   Code:
+      0: return
 
-    //final常量
-    public void constantFalseFlag();
-       Code:
-          0: return
-
-    // 非final
-    public void falseFlag();
-       Code:
-          0: aload_0
-          1: getfield      #3                  // Field falseFlag:Z
-          4: ifeq          15
-          7: getstatic     #5                  // Field java/lang/System.out:Ljava/io/PrintStream;
-         10: ldc           #6                  // String debug log...
-         12: invokevirtual #7                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
-         15: return
-
+// 非final
+public void falseFlag();
+   Code:
+      0: aload_0
+      1: getfield      #3     // Field falseFlag:Z
+      4: ifeq          15
+      7: getstatic     #5     // Field java/lang/System.out:Ljava/io/PrintStream;
+     10: ldc           #6     // String debug log...
+     12: invokevirtual #7     // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+     15: return
+```
 
 从反编译的`Code`字段，可以看出`constantFalseFlag()`方法体内的内容经过编译后，对于常量false分支，是不可达分支，则在编译成class字节码文件时剪出该分支，最终效果等价于`voidMethod()`。而对于`falseFlag()`方法，则多了5条指令。
 

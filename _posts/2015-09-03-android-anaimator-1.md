@@ -16,21 +16,23 @@ tags:
 Android的动画主要包括三大类：逐帧动画Frame、补间动画Tween、属性动画，其中属性动画功能非常强大，也是最常用的动画方法。
 下面先列举一下这3类动画的实例代码，已形成初步印象：
 
-    //逐帧动画，需资源文件frame_animation.xml
-    ImageView img = (ImageView)findViewById(R.id.wheel_image);
-    img.setBackgroundResource(R.drawable.frame_animation);
-    AnimationDrawable frameAnimation = (AnimationDrawable) img.getBackground();
-    frameAnimation.start();
+```Java
+//逐帧动画，需资源文件frame_animation.xml
+ImageView img = (ImageView)findViewById(R.id.wheel_image);
+img.setBackgroundResource(R.drawable.frame_animation);
+AnimationDrawable frameAnimation = (AnimationDrawable) img.getBackground();
+frameAnimation.start();
 
-    //补间动画，需资源文件tween_animation.xml
-    ImageView img = (ImageView)findViewById(R.id.wheel_image);
-    Animation tweenAnimation = AnimationUtils.loadAnimation(this, R.anim.tween_animation);
-    img.startAnimation(tweenAnimation);
-    
-    // 属性动画，不需资源文件
-    ObjectAnimator anim = ObjectAnimator.ofFloat(targetObject, "alpha", 0f, 1f);
-    anim.setDuration(1000);
-    anim.start();
+//补间动画，需资源文件tween_animation.xml
+ImageView img = (ImageView)findViewById(R.id.wheel_image);
+Animation tweenAnimation = AnimationUtils.loadAnimation(this, R.anim.tween_animation);
+img.startAnimation(tweenAnimation);
+
+// 属性动画，不需资源文件
+ObjectAnimator anim = ObjectAnimator.ofFloat(targetObject, "alpha", 0f, 1f);
+anim.setDuration(1000);
+anim.start();
+```
 
 接下来，再来细说各种动画。
 
@@ -77,37 +79,39 @@ Android的动画主要包括三大类：逐帧动画Frame、补间动画Tween、
 
 `tween_animation.xml`放在文件夹`res/anim/`下, 该动画同时包括透明度，缩放，位移，旋转4种变化，当然也可以是其中一种，或几种变化的组合。
 
-    <?xml version="1.0" encoding="utf-8"?>
-    <set xmlns:android="http://schemas.android.com/apk/res/android"
-        android:interpolator="@[package:]anim/interpolator_resource"
-        android:shareInterpolator="true">
+```Java
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@[package:]anim/interpolator_resource"
+    android:shareInterpolator="true">
 
-        <alpha
-            android:fromAlpha="0.5"
-            android:toAlpha="1.0"
-            android:duration="1000" />
+    <alpha
+        android:fromAlpha="0.5"
+        android:toAlpha="1.0"
+        android:duration="1000" />
 
-        <scale
-            android:fromXScale="0.01"
-            android:toXScale="1.0"
-            android:fromYScale="0.01"
-            android:toYScale="1.0"
-            android:pivotX="50%"
-            android:pivotY="50%"
-            android:fillAfter="true" />
+    <scale
+        android:fromXScale="0.01"
+        android:toXScale="1.0"
+        android:fromYScale="0.01"
+        android:toYScale="1.0"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:fillAfter="true" />
 
-        <translate
-            android:fromXDelta="0.01"
-            android:toXDelta="0.95"
-            android:fromYDelta="0.01"
-            android:toYDelta="0.95" />
+    <translate
+        android:fromXDelta="0.01"
+        android:toXDelta="0.95"
+        android:fromYDelta="0.01"
+        android:toYDelta="0.95" />
 
-        <rotate
-            android:fromDegrees="0.01"
-            android:toDegrees="360"
-            android:pivotX="50%"
-            android:pivotY="50%" />
-    </set>
+    <rotate
+        android:fromDegrees="0.01"
+        android:toDegrees="360"
+        android:pivotX="50%"
+        android:pivotY="50%" />
+</set>
+```
 
 #### 3.2 代码实现
 
