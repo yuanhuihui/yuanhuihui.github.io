@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "AndroidStudio 内存工具"
+title:  "AndroidStudio内存工具"
 date:   2015-10-10 21:10:21
 catalog:  true
 tags:
@@ -11,10 +11,15 @@ tags:
 ---
 
 
-## 一、内存工具
+### 引言
 
 Android Studio提供了强大的分析功能，关于内存分析工具包含：
-Memory Monitor, Heap Viewer, Allocation Tracker
+
+- Memory Monitor
+- Heap Viewer
+- Allocation Tracker
+
+接下来，简单介绍一下使用
 
 ### 1. Memory Monitor
 

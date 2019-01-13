@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "AMS之dumpsys篇"
-date:   2017-07-04 2:20:00
+date:   2017-07-02 22:20:00
 catalog:  true
 tags:
     - android

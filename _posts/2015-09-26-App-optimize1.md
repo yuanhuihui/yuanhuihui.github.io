@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "APP优化(一)"
+title:  "APP优化小建议"
 date:   2015-09-26 21:21:50
 catalog:  true
 tags:
@@ -10,10 +10,7 @@ tags:
 
 ---
 
-> 本文是针对Android的App开发优化(一)
-
-
-# 一、代码优化
+> 从代码角度，列举一些针对Android的App开发的优化小建议
 
 ## 1.  广播
 
@@ -186,8 +183,7 @@ Enum比静态常量，至少需要多过于2倍以上的内存空间，应该在
 - 在性能敏感的代码，避免创建Java对象。比如onMeasure(), onLayout(), onDraw()， getView()等
 - 使用弱引用
 
-
-## 相关资料
+其他资料:
 
 - <http://developer.android.com/training/displaying-bitmaps/index.html>
 - <http://www.trinea.cn/android/hashmap-loop-performance/>

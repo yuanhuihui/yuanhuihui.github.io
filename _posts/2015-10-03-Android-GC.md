@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Dalvik与ART的GC调试"
+title:  "Dalvik与ART虚拟机的GC调试日志"
 date:   2015-10-03 22:10:54
 catalog:  true
 tags:
@@ -17,11 +17,13 @@ tags:
 
 Dalvik虚拟机，每一次GC打印内容格式：
 
-    D/dalvikvm: <GC_Reason> <Amount_freed>, <Heap_stats>, <External_memory_stats>, <Pause_time>
+    D/dalvikvm: <GC_Reason> <Amount_freed>,
+     <Heap_stats>, <External_memory_stats>, <Pause_time>
 
-中文版：
+对应项：
 
-    D/dalvikvm: <GC触发原因> <GC释放内存大小>, <堆统计信息>, <外部内存统计>, <暂停时间>
+    D/dalvikvm: <GC触发原因> <GC释放内存大小>, 
+    <堆统计信息>, <外部内存统计>, <暂停时间>
 
 **含义解析**
 
@@ -68,11 +70,13 @@ ART的log不同于Dalvik的log机制，正常情况不会打印非明确调用�
 
 ART虚拟机，每一次GC打印内容格式：
 
-    I/art: <GC_Reason> <GC_Name> <Objects_freed>(<Size_freed>) AllocSpace Objects, <Large_objects_freed>(<Large_object_size_freed>) <Heap_stats> LOS objects, <Pause_time(s)>
+    I/art: <GC_Reason> <GC_Name> <Objects_freed>(<Size_freed>) AllocSpace Objects,
+    <Large_objects_freed>(<Large_object_size_freed>) <Heap_stats> LOS objects, <Pause_time(s)>
 
-中文版：
+对应项：
 
-    I/art: <GC触发原因> <GC名称>   <释放对象个数>(<释放字节数>)    AllocSpace Objects, <释放大对象个数>(<释放大对象字节数>)  <堆统计> LOS objects, <暂停时间>
+    I/art: <GC触发原因> <GC名称>   <释放对象个数>(<释放字节数>)    AllocSpace Objects, 
+    <释放大对象个数>(<释放大对象字节数>)  <堆统计> LOS objects, <暂停时间>
 
 ### 2.2 GC解析
 
@@ -120,13 +124,10 @@ I/art : `Explicit` `concurrent mark sweep GC` freed `104710`(`7MB`) AllocSpace o
 
 ### 2.4 小结
 
-1. 当看到大量的GC log信息在logcat，可查看堆统计(如样例中 5MB/38MB)。如果这个值持续增长，并且一直不见它变小，那可能发生了内存泄露。
-2. 如果看到GC触发条件是`Alloc`，那当前环境已经接近堆内存的上限了，在不久后很快会出现OOM。
+- 当看到大量的GC log信息在logcat，可查看堆统计(如样例中 5MB/38MB)。如果这个值持续增长，并且一直不见它变小，那可能发生了内存泄露。
+- 如果看到GC触发条件是`Alloc`，那当前环境已经接近堆内存的上限了，在不久后很快会出现OOM。
 
 
-
-----------
-
-# 参考
+### 参考
 
 <http://developer.android.com/tools/debugging/debugging-memory.html>

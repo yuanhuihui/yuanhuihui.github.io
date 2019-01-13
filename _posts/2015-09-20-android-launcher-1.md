@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android Launcher原理分析"
+title:  "Android Launcher源码"
 date:   2015-09-20 19:55:00
 catalog:  true
 tags:
@@ -8,10 +8,12 @@ tags:
 
 ---
 
-## 基本概念
-本文主要讲述Launcher3屏幕滑动过程，首先需要了解Android的触摸事件分发机制。关于分发机制，可查看文章[Android事件分发机制](http://gityuan.com/2015/09/19/android-touch/)。
+## 一、引言
 
-### 常用类介绍
+最近遇到同一芯片平台的两款手机，在桌面滑动跟手性为何还有所差异呢，于是乎研究了一下Launcher滑动相关源码。
+本文主要是介绍Launcher3屏幕滑动过程，首先需要了解Android的触摸事件分发机制。关于分发机制，可查看文章[Android事件分发机制](http://gityuan.com/2015/09/19/android-touch/)。
+
+#### 1.1 常用类简介
 
 1. **Launcher.java:** launcher主要的activity，是launcher桌面第一次启动的activity.
 2. **Workspace.java:** 抽象的桌面。由N个cellLayout组成,从cellLayout更高一级的层面上对事件的处理。
@@ -20,7 +22,7 @@ tags:
 5. **LauncherModel.java:** 辅助的文件。里面有许多封装的对数据库的操作。包含几个线程，其中最主要的是ApplicationsLoader和DesktopItemsLoader。ApplicationsLoader在加载所有应用程序时使用，DesktopItemsLoader在加载workspace的时候使用。其他的函数就是对数据库的封装，比如在删除，替换，添加程序的时候做更新数据库和UI的工作。
 6. **LauncherProvider.java:** launcher的数据库，里面存储了桌面的item的信息。在创建数据库的时候会loadFavorites(db)方法，loadFavorites()会解析xml目录下的default_workspace.xml文件，把其中的内容读出来写到数据库中，这样就做到了桌面的预制。
 
-### 初始化参数
+#### 1.2 初始化参数
 PagedView是滑屏最主要的类,下面是init()方法出初始化参数，假设以1080*1440分辨率，即densiy=3为例，来计算各个阈值。
 
     protected void init() {
@@ -58,59 +60,68 @@ PagedView是滑屏最主要的类,下面是init()方法出初始化参数，假�
 
 下面主要讲述：Workspace，PagedView 这两个关于滑屏最为核心的类，也是代码量最大的类。
 
-## 2. 滑动原理：
+## 二、滑动原理
 先来看看launcher桌面的整体UI布局图：
 
 ![launcher ui](/images/launcher/1.png)
 
-### 1. 手指按下：
+手指在Launcher上滑动分为三个阶段：手指按下，手指滑动，手指离开。
+
+#### 2.1 手指按下
 当手指按下时，触发ACTION_DOWN事件，由Activity
 
 ![launcher_down](/images/launcher/launcher_down.jpg)
 
 当手指按下时，还没有准备滚动，此时`mTouchState = TOUCH_STATE_REST`，故Worksapce，PagedView并不会拦截事件，虽然没有拦截器进行拦截，也没有onTouchEvent消费，但由于CellLayout的clickable="true"，故ACTION_DOWN事件仍然是被消费了，具体说明见上一篇文章[Android事件分发机制](http://gityuan.com/2015/09/19/android-touch/).
 
-### 2. 手指移动：
+#### 2.2 手指移动：
 
 ![launcher_move](/images/launcher/launcher_move.jpg)
 
-决定是否屏幕是否开始滑动的阈值计算：
+决定屏幕是否开始滑动的阈值计算：
 
-    mTouchSlop = configuration.getScaledPagingTouchSlop()
-    mTouchSlop = res.getDimensionPixelSize(
-                com.android.internal.R.dimen.config_viewConfigurationTouchSlop)*2;
-常量定义在文件`data/res/values/config.xml`中`<dimen name="config_viewConfigurationTouchSlop">8dp</dimen>`。
-故mTouchSlop = 8dp * 2 = 16dp，这是系统默认值。
+```Java
+mTouchSlop = configuration.getScaledPagingTouchSlop()
+mTouchSlop = res.getDimensionPixelSize(
+            com.android.internal.R.dimen.config_viewConfigurationTouchSlop)*2;
+```
 
-当手指移动距离>mTouchSlop时，Wokespace开始拦截ACTION_MOVE事件，并调用`scrollBy()`,**这是整个过程第一次屏幕移动**。每收到一次ACTION_MOVE事件，并执行`scrollBy()`事件，直到用户手指离开屏幕。并执行`scrollBy()`事件，最终调用的还是`View.scrollTo()`来进行屏幕的滚动操作。
+常量定义在文件data/res/values/config.xml中`<dimen name="config_viewConfigurationTouchSlop">8dp</dimen>`。
+故**mTouchSlop** = 8dp * 2 = 16dp，这是系统默认值。
 
+当手指移动距离>mTouchSlop时，Wokespace开始拦截ACTION_MOVE事件，并调用scrollBy(),**这是整个过程第一次屏幕移动**。每收到一次ACTION_MOVE事件，并执行scrollBy()事件，直到用户手指离开屏幕。scrollBy()事件最终调用的是View.scrollTo()来进行屏幕的滚动操作。
 
-### 3. 手指离开屏幕
+#### 2.3 手指离开
 
 ![launcher_up](/images/launcher/launcher_up.jpg)
 
 达到下面两种情况之一，都可以触发launcher滑屏事件:
 
-- 滑动距离超过屏幕宽度的0.4倍,SIGNIFICANT_MOVE_THRESHOLD = 0.4
-    `boolean isSignificantMove = Math.abs(deltaX) > pageWidth * SIGNIFICANT_MOVE_THRESHOLD;`
+1) 当滑动距离超过屏幕宽度的0.4倍,SIGNIFICANT_MOVE_THRESHOLD = 0.4
 
-- 速度 大于500dp/s, 且滑动距离大于 25px。
-   `boolean isFling = mTotalMotionX > MIN_LENGTH_FOR_FLING &&  Math.abs(velocityX) > mFlingThresholdVelocity;`
+```Java
+boolean isSignificantMove = Math.abs(deltaX) > pageWidth * SIGNIFICANT_MOVE_THRESHOLD;
+```
 
-当满足屏幕翻页的条件时，开始执行翻页动画，通过插值器`ScrollInterpolator`来计算每一步需要移动的距离。
+2) 当速度大于500dp/s, 且滑动距离大于 25px
+
+```Java
+boolean isFling = mTotalMotionX > MIN_LENGTH_FOR_FLING &&  Math.abs(velocityX) > mFlingThresholdVelocity;
+```
+
+当满足屏幕翻页的条件时，开始执行翻页动画，通过插值器ScrollInterpolator来计算每一步需要移动的距离。
 插值函数为：`f(t)=1+(t-1)^5`。不断循环，直到timePassed > mDuration时，动画结束。
 
-## 部分源码
+## 三、源码分析
 
-### 1. determineScrollingStart滑动检测
+#### 3.1 determineScrollingStart滑动检测
+
 用于判断是否进行滑动操作
 
     protected void determineScrollingStart(MotionEvent ev, float touchSlopScale) {
-        // Disallow scrolling if we don't have a valid pointer index
         final int pointerIndex = ev.findPointerIndex(mActivePointerId);
         if (pointerIndex == -1) return;
 
-        // Disallow scrolling if we started the gesture from outside the viewport
         final float x = ev.getX(pointerIndex);
         final float y = ev.getY(pointerIndex);
         if (!isTouchPointInViewportWithBuffer((int) x, (int) y)) return;
@@ -139,7 +150,8 @@ PagedView是滑屏最主要的类,下面是init()方法出初始化参数，假�
         }
     }
 
-### 2. snapToPage滑屏方法
+#### 3.2 snapToPage滑屏方法
+
 手指离开屏幕后，调用的滑动动画的方法
 
     protected void snapToPage(int whichPage, int delta, int duration, boolean immediate,
@@ -192,7 +204,8 @@ PagedView是滑屏最主要的类,下面是init()方法出初始化参数，假�
         invalidate();
     }
 
-### 3.ScrollInterpolator插值器
+#### 3.3 ScrollInterpolator插值器
+
 滑屏时的插值器
 
     private static class ScrollInterpolator implements Interpolator {
@@ -206,8 +219,10 @@ PagedView是滑屏最主要的类,下面是init()方法出初始化参数，假�
     }
 
 
-### 4. LauncherScroller滑动器
+#### 3.4 LauncherScroller滑动器
 launcher桌面的滑动器
+
+```Java
     mDeceleration = computeDeceleration(ViewConfiguration.getScrollFriction());
     mPhysicalCoeff = computeDeceleration(0.84f); // look and feel tuning
 
@@ -224,7 +239,13 @@ launcher桌面的滑动器
         return mMode == FLING_MODE ?
                 mCurrVelocity : mVelocity - mDeceleration * timePassed() / 2000.0f;
     }
+```
 
-
-### 5.computeScroll
+#### 3.5 computeScroll
 computeScroll()：重写了父类的computeScroll()；主要功能是计算拖动的位移量、更新背景、设置要显示的屏幕
+
+## 四、总结
+
+从芯片平台CPU、内存大小、驱动、Framework等角度对比都没有差异的情况下，通过研究Laucher滑动机制，发现这两款手机动画插值器也一致。
+从文章[dp、sp与px关系](http://gityuan.com/2015/09/02/Android-multi-screen-adapter/)中，可得知1dp在物理上是固定的，
+1dp约等于1/160英寸，而px则是受屏幕的dpi影响，这就对滑动触发时机有略有影响，这只有敏感度极高的人才能感受到差异。

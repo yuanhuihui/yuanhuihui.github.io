@@ -126,7 +126,3 @@ Lowmemorykiller根据当前可用内存情况来进行进程释放，总设计�
 6. FOREGROUND_APP_ADJ
 
 系统内存从很宽裕到不足，Lowmemorykiller也会相应地从CACHED_APP_MAX_ADJ(第1档)开始杀进程，如果内存还不足，那么会杀CACHED_APP_MIN_ADJ(第2档)，不断深入，直到满足内存阈值条件。
-
----
-
-**参考**：<http://developer.android.com/intl/zh-cn/guide/components/processes-and-threads.html>
