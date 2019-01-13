@@ -208,23 +208,25 @@ Java提供了多种内建的注解，下面接下几个比较常用的注解：@
 
 创建自定义注解，与创建接口有几分相似，但注解需要以@开头，下面先声明一个自定义注解（AuthorAnno.java）文件：
 
-    package com.yuanhh.annotation;
-    import java.lang.annotation.Documented;
-    import java.lang.annotation.ElementType;
-    import java.lang.annotation.Inherited;
-    import java.lang.annotation.Retention;
-    import java.lang.annotation.RetentionPolicy;
-    import java.lang.annotation.Target;
+```Java
+package com.gityuan.annotation;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-    @Documented
-    @Target(ElementType.METHOD)
-    @Inherited
-    @Retention(RetentionPolicy.RUNTIME)
-    public @interface AuthorAnno{
-        String name();
-        String website() default "gityuan.com";
-        int revision() default 1;
-    }
+@Documented
+@Target(ElementType.METHOD)
+@Inherited
+@Retention(RetentionPolicy.RUNTIME)
+public @interface AuthorAnno{
+    String name();
+    String website() default "gityuan.com";
+    int revision() default 1;
+}
+```
 
 自定义注解规则：
 
@@ -235,20 +237,21 @@ Java提供了多种内建的注解，下面接下几个比较常用的注解：@
 
 有了前面的自定义注解@AuthorAnno，那么我们便可以在代码中使用(AnnotationDemo.java)，如下：
 
-    package com.yuanhh.annotation;
-
-    public class AnnotationDemo {
-        @AuthorAnno(name="yuanhh", website="gityuan.com", revision=1)
-        public static void main(String[] args) {
-            System.out.println("I am main method");
-        }
-
-        @SuppressWarnings({ "unchecked", "deprecation" })
-        @AuthorAnno(name="yuanhh", website="gityuan.com", revision=2)
-        public void demo(){
-            System.out.println("I am demo method");
-        }
+```Java
+package com.gityuan.annotation;
+public class AnnotationDemo {
+    @AuthorAnno(name="gityuan", website="gityuan.com", revision=1)
+    public static void main(String[] args) {
+        System.out.println("I am main method");
     }
+
+    @SuppressWarnings({ "unchecked", "deprecation" })
+    @AuthorAnno(name="gityuan", website="gityuan.com", revision=2)
+    public void demo(){
+        System.out.println("I am demo method");
+    }
+}
+```
 
 由于该注解的保留策略为RetentionPolicy.RUNTIME，故可在运行期通过反射机制来使用，否则无法通过反射机制来获取。
 
@@ -266,33 +269,35 @@ Java提供了多种内建的注解，下面接下几个比较常用的注解：@
 
 前面自定义的注解，适用对象为Method。类Method继承类AccessibleObject，而类AccessibleObject实现了AnnotatedElement接口，那么可以利用上面的反射方法，来实现解析@AuthorAnno的功能(AnnotationParser.java)，内容如下：
 
-    package com.yuanhh.annotation;
-    import java.lang.reflect.Method;
+```Java
+package com.gityuan.annotation;
+import java.lang.reflect.Method;
 
-    public class AnnotationParser {
-        public static void main(String[] args) throws SecurityException, ClassNotFoundException {
-            String clazz = "com.yuanhh.annotation.AnnotationDemo";
-            Method[]  demoMethod = AnnotationParser.class
-                    .getClassLoader().loadClass(clazz).getMethods();
+public class AnnotationParser {
+    public static void main(String[] args) throws SecurityException, ClassNotFoundException {
+        String clazz = "com.gityuan.annotation.AnnotationDemo";
+        Method[]  demoMethod = AnnotationParser.class
+                .getClassLoader().loadClass(clazz).getMethods();
 
-            for (Method method : demoMethod) {
-                if (method.isAnnotationPresent(AuthorAnno.class)) {
-                     AuthorAnno authorInfo = method.getAnnotation(AuthorAnno.class);
-                     System.out.println("method: "+ method);
-                     System.out.println("name= "+ authorInfo.name() +
-                             " , website= "+ authorInfo.website()
-                            + " , revision= "+authorInfo.revision());
-                }
+        for (Method method : demoMethod) {
+            if (method.isAnnotationPresent(AuthorAnno.class)) {
+                 AuthorAnno authorInfo = method.getAnnotation(AuthorAnno.class);
+                 System.out.println("method: "+ method);
+                 System.out.println("name= "+ authorInfo.name() +
+                         " , website= "+ authorInfo.website()
+                        + " , revision= "+authorInfo.revision());
             }
         }
     }
+}
+```
 
 程序运行的输出结果：
 
-    method: public void com.yuanhh.annotation.AnnotationDemo.demo()
-    name= yuanhh , website= gityuan.com , revision= 2
-    method: public static void com.yuanhh.annotation.AnnotationDemo.main(java.lang.String[])
-    name= yuanhh , website= gityuan.com , revision= 1
+    method: public void com.gityuan.annotation.AnnotationDemo.demo()
+    name= gityuan , website= gityuan.com , revision= 2
+    method: public static void com.gityuan.annotation.AnnotationDemo.main(java.lang.String[])
+    name= gityuan , website= gityuan.com , revision= 1
 
 
 这里通过反射将注解直接输出只是出于demo，完全可以根据拿到的注解信息做更多有意义的事。

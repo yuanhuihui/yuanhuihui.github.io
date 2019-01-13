@@ -9,12 +9,11 @@ tags:
 
 ---
 
-> 本文主要讲述Java ClassLoader的工作原理，这为后面将Android App代码热替换或者插件化升级做铺垫
+> 本文主要讲述Java ClassLoader的工作原理，为后面将Android App代码热替换或者插件化升级做铺垫
 
 ## 一、 类加载器
 
 ClassLoader即常说的类加载器，其功能是用于从Class文件加载所需的类，主要场景用于热部署、代码热替换等场景。
-
 系统提供3种的类加载器：Bootstrap ClassLoader、Extension ClassLoader、Application ClassLoader
 
 ### 1.1 Bootstrap ClassLoader

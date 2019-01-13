@@ -15,10 +15,6 @@ tags:
 解决此问题所涉及到的基础知识点有：Trace、CPU调度、Ramdump推导、Crash工具、GDB工具、Ftrace，
 尤其深入理解binder IPC机制。
 
-欢迎关注Gityuan的微信公众号：**Android达摩院(AndroidAcademy)**，后续会有更多精彩内容。
-
-![Android达摩院](/images/about-me/damoyuan.jpg)
-
 #### 1.1 工具简介
 
 - Trace：分析死锁问题的最基本的技能，通过kill -3可生成相应的traces.txt文件，里面记录着当前时刻系统各线程

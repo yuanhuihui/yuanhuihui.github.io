@@ -90,15 +90,12 @@ processAppUsage统计每个App的耗电情况
         }
     }
 
-流程分析：
-
-**mTypeBatteryRealtime**
+流程分析：**mTypeBatteryRealtime**
 
     mTypeBatteryRealtime = mStats.computeBatteryRealtime(rawRealtimeUs, mStatsType);
     private int mStatsType = BatteryStats.STATS_SINCE_CHARGED;
 
 BatteryStats.STATS_SINCE_CHARGED，计算规则是从上次充满电后数据；另外STATS_SINCE_UNPLUGGED是拔掉USB线后的数据。说明充电时间的计算是从上一次拔掉设备到现在的耗电量统计。
-
 
 **耗电计算项**
 
@@ -115,14 +112,12 @@ BatteryStats.STATS_SINCE_CHARGED，计算规则是从上次充满电后数据；
 |相机功耗|mCameraPowerCalculator.java
 |闪光灯功耗|mFlashlightPowerCalculator.java
 
-
 **计算值添加到列表**
 
 - mWifiSippers.add(app)： uid为wifi的情况
 - mBluetoothSippers.add(app)： uid为蓝牙的情况
 - mUsageList.add(app)： app耗电加入到mUsageList
 - osSipper： root用户，代表操作系统的耗电量，app之外的wakelock耗电也计算该项
-
 
 **公式**
 
@@ -132,15 +127,11 @@ Uid_Power = process_1_Power + ... + process_N_Power，其中所有进程都是�
 当同一的uid下，只有一个进程时，Uid_Power = process_Power;
 
 其中process_Power = CPU功耗 + Wakelock功耗 + 无线电功耗 + WIFI功耗 + 蓝牙功耗 + Sensor功耗 + 相机功耗 +  闪光灯功耗。
-
 接下来开始分配说明每一项的功耗计算公式。
-
 
 ### 2.1 CPU
 
-CPU功耗项的计算是通过CpuPowerCalculator类
-
-**初始化**
+CPU功耗项的计算是通过CpuPowerCalculator类，**初始化：**
 
     public CpuPowerCalculator(PowerProfile profile) {
         final int speedSteps = profile.getNumSpeedSteps(); //获取cpu的主频等级的级数
@@ -212,10 +203,8 @@ CPU功耗可配置项：
 
 **子公式**
 
-cpuPower = ratio_1 * cpu_time * cpu_ratio_1_power + ... +ratio_n * cpu_time * cpu_ratio_n_power
-
+cpuPower = ratio_1 * cpu_time * cpu_ratio_1_power + ... +ratio_n * cpu_time * cpu_ratio_n_power.
 其中： ratio_i = cpu_speed_time/ cpu_speeds_total_time，（i=1,2,...,N，N为CPU频点个数）
-
 
 ### 2.2 Wakelock
 
@@ -227,13 +216,9 @@ Wakelock功耗项的计算是通过WakelockPowerCalculator类
         mPowerWakelock = profile.getAveragePower(PowerProfile.POWER_CPU_AWAKE);
     }
 
-Wakelock功耗可配置项：
-
-power_profile.xml文件：
+Wakelock功耗可配置项：power_profile.xml文件：
 
 - POWER_CPU_AWAKE = "cpu.awake" 所对应的值
-
-
 
 **功耗计算**
 
@@ -266,7 +251,6 @@ wakeLockPowerMah = (app.wakeLockTimeMs * mPowerWakelock) / (1000*60*60);
 #### WifiPowerCalculator
 
 Wifi功耗项的计算是通过WifiPowerCalculator类
-
 
 **初始化**
 
@@ -359,11 +343,9 @@ wifiPowerMah = ((idleTime * mIdleCurrentMa) + (txTime * mTxCurrentMa) + (rxTime 
 **子公式**
 
 wifiPowerMah = wifiPacketPower + wifiLockPower + wifiScanPower + wifiBatchScanPower;
-
 wifiPacketPower = (wifiRxPackets + wifiTxPackets) * mWifiPowerPerPacket;
 wifiLockPower = (wifiRunningTimeMs * mWifiPowerOn) / (1000* 60* 60);
 wifiScanPower = (wifiScanTimeMs * mWifiPowerScan) / (1000* 60* 60);
-
 wifiBatchScanPower = ∑ (batchScanTimeMs * mWifiPowerBatchScan) / (1000* 60* 60) ，5次相加。
 
 ### 2.4 Bluetooth
@@ -384,8 +366,6 @@ Bluetooth功耗可配置项(目前蓝牙功耗计算的方法为空，此配置�
 - POWER_BLUETOOTH_CONTROLLER_RX = "bluetooth.controller.rx" 所对应的值
 - POWER_BLUETOOTH_CONTROLLER_TX = "bluetooth.controller.tx" 所对应的值
 
-
-
 **功耗计算**
 
     public void calculateApp(BatterySipper app, BatteryStats.Uid u, long rawRealtimeUs,
@@ -395,11 +375,7 @@ Bluetooth功耗可配置项(目前蓝牙功耗计算的方法为空，此配置�
 
 **子公式**
 
-bluePower = 0;
-
-还没有给每个App统计蓝牙的算法。
-
-
+bluePower = 0;还没有给每个App统计蓝牙的算法。
 
 ### 2.5 Camera
 
@@ -470,8 +446,6 @@ Flashlight功耗可配置项：
 flashlightPowerMah = (totalTime * mFlashlightPowerOnAvg) / (1000*60*60);
 
 flashlight计算方式与Camera功耗计算思路一样。
-
-
 
 ### 2.7  MobileRadio
 
@@ -545,8 +519,6 @@ mobileRadioPowerMah = (app.mobileRxPackets + app.mobileTxPackets) * MobilePowerP
 其中MobilePowerPerPacket = (（mPowerRadioOn / 3600） / mobilePps) / (60*60)，
 mobilePps= （mobileRx + mobileTx）/radioDataUptimeMs
 
-
-
 ### 2.8 Sensor
 
 Sensor功耗项的计算是通过SensorPowerCalculator类
@@ -608,7 +580,6 @@ BatterySipper中，功耗计算方法：
                 flashlightPowerMah;
     }
 
-
 软件功耗的子项共分为9项：
 
 |功耗项|解释|
@@ -628,7 +599,6 @@ BatterySipper中，功耗计算方法：
 **软件功耗总公式**
 
 ![calculate_software_power](/images/android-service/battery_stats_service/calculate_software_power.png)
-
 
 ## 三、 硬件排行榜
 
@@ -698,7 +668,6 @@ user_power = user_1_power + user_2_power + ... +　user_n_power; (n为所有的u
 
 - POWER_RADIO_ACTIVE = "radio.active" 所对应的值
 
-
 **功耗计算**
 
     private void addPhoneUsage() {
@@ -713,7 +682,6 @@ user_power = user_1_power + user_2_power + ... +　user_n_power; (n为所有的u
 **子公式**
 
 phone_powers = (phoneOnTimeMs * phoneOnPower) / (60* 60* 1000)
-
 
 ### 3.3 CPU Idle
 
@@ -732,7 +700,6 @@ CPU Idle功耗可配置项：
             addEntry(BatterySipper.DrainType.IDLE, idleTimeMs, idlePower);
         }
     }
-
 
 **子公式**
 
