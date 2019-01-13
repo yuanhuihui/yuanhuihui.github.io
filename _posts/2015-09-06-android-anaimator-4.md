@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android动画之原理篇（四）"
+title:  "源码解读Android属性动画"
 date:   2015-09-06 19:00:00
 catalog:    true
 tags:
@@ -13,11 +13,15 @@ tags:
 
 前面已介绍Android属性动画的启动方式：
 
-    ObjectAnimator anim = ObjectAnimator.ofFloat(targetObject, "alpha", 0f, 1f); //[见小节2.1]
-    anim.setDuration(1000); // [见小节2.2]
-    anim.start();           // [见小节2.3]
+    // [见小节2.1]
+    ObjectAnimator anim = ObjectAnimator.ofFloat(targetObject, "alpha", 0f, 1f);
+    // [见小节2.2]
+    anim.setDuration(1000); 
+    // [见小节2.3]
+    anim.start();           
 
-接下来从源码角度来分析这三条语句.
+这个属性动画是把目标帧的透明度由完全透明到不透明，整个动画持续1秒，下面从源码角度来分析这三条语句.
+动画持续时间，如果没有设置则默认为300ms。
 
 ## 二. 流程分析
 
@@ -58,41 +62,43 @@ ObjectAnimator.ofFloat，是一个静态方法:
 
 ### 2.3 ObjectAnimator.start
 
-    public void start() {
-        // 获取AnimationHandler，并进行取消动画操作
-        AnimationHandler handler = sAnimationHandler.get();
-        if (handler != null) {
-            int numAnims = handler.mAnimations.size();
-            for (int i = numAnims - 1; i >= 0; i--) {
-                if (handler.mAnimations.get(i) instanceof ObjectAnimator) {
-                    ObjectAnimator anim = (ObjectAnimator) handler.mAnimations.get(i);
-                    if (anim.mAutoCancel && hasSameTargetAndProperties(anim)) {
-                        anim.cancel();
-                    }
-                }
-            }
-            numAnims = handler.mPendingAnimations.size();
-            for (int i = numAnims - 1; i >= 0; i--) {
-                if (handler.mPendingAnimations.get(i) instanceof ObjectAnimator) {
-                    ObjectAnimator anim = (ObjectAnimator) handler.mPendingAnimations.get(i);
-                    if (anim.mAutoCancel && hasSameTargetAndProperties(anim)) {
-                        anim.cancel();
-                    }
-                }
-            }
-            numAnims = handler.mDelayedAnims.size();
-            for (int i = numAnims - 1; i >= 0; i--) {
-                if (handler.mDelayedAnims.get(i) instanceof ObjectAnimator) {
-                    ObjectAnimator anim = (ObjectAnimator) handler.mDelayedAnims.get(i);
-                    if (anim.mAutoCancel && hasSameTargetAndProperties(anim)) {
-                        anim.cancel();
-                    }
+```
+public void start() {
+    // 获取AnimationHandler，并进行取消动画操作
+    AnimationHandler handler = sAnimationHandler.get();
+    if (handler != null) {
+        int numAnims = handler.mAnimations.size();
+        for (int i = numAnims - 1; i >= 0; i--) {
+            if (handler.mAnimations.get(i) instanceof ObjectAnimator) {
+                ObjectAnimator anim = (ObjectAnimator) handler.mAnimations.get(i);
+                if (anim.mAutoCancel && hasSameTargetAndProperties(anim)) {
+                    anim.cancel();
                 }
             }
         }
-        super.start(); //调用父类方法 [见小节2.4]
+        numAnims = handler.mPendingAnimations.size();
+        for (int i = numAnims - 1; i >= 0; i--) {
+            if (handler.mPendingAnimations.get(i) instanceof ObjectAnimator) {
+                ObjectAnimator anim = (ObjectAnimator) handler.mPendingAnimations.get(i);
+                if (anim.mAutoCancel && hasSameTargetAndProperties(anim)) {
+                    anim.cancel();
+                }
+            }
+        }
+        numAnims = handler.mDelayedAnims.size();
+        for (int i = numAnims - 1; i >= 0; i--) {
+            if (handler.mDelayedAnims.get(i) instanceof ObjectAnimator) {
+                ObjectAnimator anim = (ObjectAnimator) handler.mDelayedAnims.get(i);
+                if (anim.mAutoCancel && hasSameTargetAndProperties(anim)) {
+                    anim.cancel();
+                }
+            }
+        }
     }
-
+    super.start(); //调用父类方法 [见小节2.4]
+}
+```
+    
 首先判断是否存在活动或将要活动的，若存在则根据条件进行相应的取消操作。
 其中AnimationHandler包含mAnimations（活动动画）， mPendingAnimations（下一帧的动画），mDelayedAnims（延时动画）这3个动画ArrayList。
 
@@ -125,67 +131,72 @@ ObjectAnimator.ofFloat，是一个静态方法:
 
 #### 2.4.1 getOrCreateAnimationHandler
 
-    private static AnimationHandler getOrCreateAnimationHandler() {
-        AnimationHandler handler = sAnimationHandler.get();
-        if (handler == null) {
-            handler = new AnimationHandler();
-            sAnimationHandler.set(handler);
-        }
-        return handler;
+```Java
+private static AnimationHandler getOrCreateAnimationHandler() {
+    AnimationHandler handler = sAnimationHandler.get();
+    if (handler == null) {
+        handler = new AnimationHandler();
+        sAnimationHandler.set(handler);
     }
+    return handler;
+}
 
-    private AnimationHandler() {
-        mChoreographer = Choreographer.getInstance();
+private AnimationHandler() {
+    mChoreographer = Choreographer.getInstance();
+}
+
+private Choreographer(Looper looper) {
+    mLooper = looper;
+    mHandler = new FrameHandler(looper);
+    mDisplayEventReceiver = USE_VSYNC ? new FrameDisplayEventReceiver(looper) : null;
+    mLastFrameTimeNanos = Long.MIN_VALUE;
+
+    mFrameIntervalNanos = (long)(1000000000 / getRefreshRate());
+    mCallbackQueues = new CallbackQueue[CALLBACK_LAST + 1];
+    for (int i = 0; i <= CALLBACK_LAST; i++) {
+        mCallbackQueues[i] = new CallbackQueue();
     }
-
-    private Choreographer(Looper looper) {
-        mLooper = looper;
-        mHandler = new FrameHandler(looper);
-        mDisplayEventReceiver = USE_VSYNC ? new FrameDisplayEventReceiver(looper) : null;
-        mLastFrameTimeNanos = Long.MIN_VALUE;
-
-        mFrameIntervalNanos = (long)(1000000000 / getRefreshRate());
-        mCallbackQueues = new CallbackQueue[CALLBACK_LAST + 1];
-        for (int i = 0; i <= CALLBACK_LAST; i++) {
-            mCallbackQueues[i] = new CallbackQueue();
-        }
-    }
+}
+```
 
 #### 2.4.2 animateValue
 
-    void animateValue(float fraction) {
+```Java
+void animateValue(float fraction) {
 
-        fraction = mInterpolator.getInterpolation(fraction);
-        mCurrentFraction = fraction;
-        int numValues = mValues.length;
-        for (int i = 0; i < numValues; ++i) {
-            mValues[i].calculateValue(fraction);
-        }
-        if (mUpdateListeners != null) {
-            int numListeners = mUpdateListeners.size();
-            for (int i = 0; i < numListeners; ++i) {
-                mUpdateListeners.get(i).onAnimationUpdate(this); //更新动画状态
-            }
+    fraction = mInterpolator.getInterpolation(fraction);
+    mCurrentFraction = fraction;
+    int numValues = mValues.length;
+    for (int i = 0; i < numValues; ++i) {
+        mValues[i].calculateValue(fraction);
+    }
+    if (mUpdateListeners != null) {
+        int numListeners = mUpdateListeners.size();
+        for (int i = 0; i < numListeners; ++i) {
+            mUpdateListeners.get(i).onAnimationUpdate(this); //更新动画状态
         }
     }
-
+}
+```
 
 其中setCurrentPlayTime(0)，多次跳转后，调用animateValue(1)，插值器默认为`AccelerateDecelerateInterpolator`。此处首次调用onAnimationUpdate方法，
 动画更新是通过实现`AnimatorUpdateListener`接口的`onAnimationUpdate()`方法。
 
 #### 2.4.3 notifyStartListeners
 
-    private void notifyStartListeners() {
-        if (mListeners != null && !mStartListenersCalled) {
-            ArrayList<AnimatorListener> tmpListeners =
-                    (ArrayList<AnimatorListener>) mListeners.clone();
-            int numListeners = tmpListeners.size();
-            for (int i = 0; i < numListeners; ++i) {
-                tmpListeners.get(i).onAnimationStart(this); //动画开始
-            }
+```Java
+private void notifyStartListeners() {
+    if (mListeners != null && !mStartListenersCalled) {
+        ArrayList<AnimatorListener> tmpListeners =
+                (ArrayList<AnimatorListener>) mListeners.clone();
+        int numListeners = tmpListeners.size();
+        for (int i = 0; i < numListeners; ++i) {
+            tmpListeners.get(i).onAnimationStart(this); //动画开始
         }
-        mStartListenersCalled = true;
     }
+    mStartListenersCalled = true;
+}
+```
 
 
 其中notifyStartListeners()，主要功能是调用`onAnimationStart(this)`,动画启动：

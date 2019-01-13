@@ -1,12 +1,12 @@
 ---
 layout: post
 title:  "Android Launcher原理分析"
-date:   2015-9-20 15:30:00
+date:   2015-09-20 19:55:00
 catalog:  true
 tags:
     - android
 
-----------
+---
 
 ## 基本概念
 本文主要讲述Launcher3屏幕滑动过程，首先需要了解Android的触摸事件分发机制。关于分发机制，可查看文章[Android事件分发机制](http://gityuan.com/2015/09/19/android-touch/)。
