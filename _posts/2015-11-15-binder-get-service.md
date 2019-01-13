@@ -501,26 +501,28 @@ TLS是指Thread local storage(线程本地储存空间)，每个线程都拥有�
 #### 2.9.1 unflatten_binder
 [-> Parcel.cpp]
 
-    status_t unflatten_binder(const sp<ProcessState>& proc,
-        const Parcel& in, sp<IBinder>* out)
-    {
-        const flat_binder_object* flat = in.readObject(false);
-        if (flat) {
-            switch (flat->type) {
-                case BINDER_TYPE_BINDER:
-                    // 当请求服务的进程与服务属于同一进程
-                    *out = reinterpret_cast<IBinder*>(flat->cookie);
-                    return finish_unflatten_binder(NULL, *flat, in);
-                case BINDER_TYPE_HANDLE:
-                    //请求服务的进程与服务属于不同进程【见2.9.2】
-                    *out = proc->getStrongProxyForHandle(flat->handle);
-                    //创建BpBinder对象
-                    return finish_unflatten_binder(
-                        static_cast<BpBinder*>(out->get()), *flat, in);
-            }
+```CPP
+status_t unflatten_binder(const sp<ProcessState>& proc,
+    const Parcel& in, sp<IBinder>* out)
+{
+    const flat_binder_object* flat = in.readObject(false);
+    if (flat) {
+        switch (flat->type) {
+            case BINDER_TYPE_BINDER:
+                // 当请求服务的进程与服务属于同一进程
+                *out = reinterpret_cast<IBinder*>(flat->cookie);
+                return finish_unflatten_binder(NULL, *flat, in);
+            case BINDER_TYPE_HANDLE:
+                //请求服务的进程与服务属于不同进程【见2.9.2】
+                *out = proc->getStrongProxyForHandle(flat->handle);
+                //创建BpBinder对象
+                return finish_unflatten_binder(
+                    static_cast<BpBinder*>(out->get()), *flat, in);
         }
-        return BAD_TYPE;
     }
+    return BAD_TYPE;
+}
+```
 
 #### 2.9.2 getStrongProxyForHandle
 [-> ProcessState.cpp]

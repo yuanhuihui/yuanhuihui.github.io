@@ -87,113 +87,115 @@ RemoteService.java
 
 ClientActivity.java
 
-    public class ClientActivity extends AppCompatActivity {
-        private static final String TAG = "BinderSimple";
+```Java
+public class ClientActivity extends AppCompatActivity {
+    private static final String TAG = "BinderSimple";
 
-        private IRemoteService mRemoteService;
+    private IRemoteService mRemoteService;
 
-        private boolean mIsBound;
-        private TextView mCallBackTv;
+    private boolean mIsBound;
+    private TextView mCallBackTv;
 
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Log.i(TAG, "[ClientActivity] onCreate");
+
+        setContentView(R.layout.activity_main);
+
+        mCallBackTv = (TextView) findViewById(R.id.tv_callback);
+        mCallBackTv.setText(R.string.remote_service_unattached);
+    }
+
+    /**
+     * 用语监控远程服务连接的状态
+     */
+    private ServiceConnection mConnection = new ServiceConnection() {
         @Override
-        protected void onCreate(Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
-            Log.i(TAG, "[ClientActivity] onCreate");
+        public void onServiceConnected(ComponentName name, IBinder service) {
 
-            setContentView(R.layout.activity_main);
-
-            mCallBackTv = (TextView) findViewById(R.id.tv_callback);
-            mCallBackTv.setText(R.string.remote_service_unattached);
-        }
-
-        /**
-         * 用语监控远程服务连接的状态
-         */
-        private ServiceConnection mConnection = new ServiceConnection() {
-            @Override
-            public void onServiceConnected(ComponentName name, IBinder service) {
-
-                mRemoteService = IRemoteService.Stub.asInterface(service);
-                String pidInfo = null;
-                try {
-                    MyData myData = mRemoteService.getMyData();
-                    pidInfo = "pid="+ mRemoteService.getPid() +
-                            ", data1 = "+ myData.getData1() +
-                            ", data2="+ myData.getData2();
-                } catch (RemoteException e) {
-                    e.printStackTrace();
-                }
-                Log.i(TAG, "[ClientActivity] onServiceConnected  "+pidInfo);
-                mCallBackTv.setText(pidInfo);
-                Toast.makeText(ClientActivity.this, R.string.remote_service_connected, Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onServiceDisconnected(ComponentName name) {
-                Log.i(TAG, "[ClientActivity] onServiceDisconnected");
-                mCallBackTv.setText(R.string.remote_service_disconnected);
-                mRemoteService = null;
-                Toast.makeText(ClientActivity.this, R.string.remote_service_disconnected, Toast.LENGTH_SHORT).show();
-            }
-        };
-
-
-        public void clickHandler(View view){
-            switch (view.getId()){
-                case R.id.btn_bind:
-                    bindRemoteService();
-                    break;
-
-                case R.id.btn_unbind:
-                    unbindRemoteService();
-                    break;
-
-                case R.id.btn_kill:
-                    killRemoteService();
-                    break;
-            }
-        }
-
-        /**
-         * 绑定远程服务
-         */
-        private void bindRemoteService(){
-            Log.i(TAG, "[ClientActivity] bindRemoteService");
-            Intent intent = new Intent(ClientActivity.this, RemoteService.class);
-            intent.setAction(IRemoteService.class.getName());
-            bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-
-            mIsBound = true;
-            mCallBackTv.setText(R.string.binding);
-        }
-
-        /**
-         * 解除绑定远程服务
-         */
-        private void unbindRemoteService(){
-            if(!mIsBound){
-                return;
-            }
-            Log.i(TAG, "[ClientActivity] unbindRemoteService ==>");
-            unbindService(mConnection);
-            mIsBound = false;
-            mCallBackTv.setText(R.string.unbinding);
-        }
-
-        /**
-         * 杀死远程服务
-         */
-        private void killRemoteService(){
-            Log.i(TAG, "[ClientActivity] killRemoteService");
+            mRemoteService = IRemoteService.Stub.asInterface(service);
+            String pidInfo = null;
             try {
-                android.os.Process.killProcess(mRemoteService.getPid());
-                mCallBackTv.setText(R.string.kill_success);
+                MyData myData = mRemoteService.getMyData();
+                pidInfo = "pid="+ mRemoteService.getPid() +
+                        ", data1 = "+ myData.getData1() +
+                        ", data2="+ myData.getData2();
             } catch (RemoteException e) {
                 e.printStackTrace();
-                Toast.makeText(ClientActivity.this, R.string.kill_failure, Toast.LENGTH_SHORT).show();
             }
+            Log.i(TAG, "[ClientActivity] onServiceConnected  "+pidInfo);
+            mCallBackTv.setText(pidInfo);
+            Toast.makeText(ClientActivity.this, R.string.remote_service_connected, Toast.LENGTH_SHORT).show();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.i(TAG, "[ClientActivity] onServiceDisconnected");
+            mCallBackTv.setText(R.string.remote_service_disconnected);
+            mRemoteService = null;
+            Toast.makeText(ClientActivity.this, R.string.remote_service_disconnected, Toast.LENGTH_SHORT).show();
+        }
+    };
+
+
+    public void clickHandler(View view){
+        switch (view.getId()){
+            case R.id.btn_bind:
+                bindRemoteService();
+                break;
+
+            case R.id.btn_unbind:
+                unbindRemoteService();
+                break;
+
+            case R.id.btn_kill:
+                killRemoteService();
+                break;
         }
     }
+
+    /**
+     * 绑定远程服务
+     */
+    private void bindRemoteService(){
+        Log.i(TAG, "[ClientActivity] bindRemoteService");
+        Intent intent = new Intent(ClientActivity.this, RemoteService.class);
+        intent.setAction(IRemoteService.class.getName());
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+
+        mIsBound = true;
+        mCallBackTv.setText(R.string.binding);
+    }
+
+    /**
+     * 解除绑定远程服务
+     */
+    private void unbindRemoteService(){
+        if(!mIsBound){
+            return;
+        }
+        Log.i(TAG, "[ClientActivity] unbindRemoteService ==>");
+        unbindService(mConnection);
+        mIsBound = false;
+        mCallBackTv.setText(R.string.unbinding);
+    }
+
+    /**
+     * 杀死远程服务
+     */
+    private void killRemoteService(){
+        Log.i(TAG, "[ClientActivity] killRemoteService");
+        try {
+            android.os.Process.killProcess(mRemoteService.getPid());
+            mCallBackTv.setText(R.string.kill_success);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+            Toast.makeText(ClientActivity.this, R.string.kill_failure, Toast.LENGTH_SHORT).show();
+        }
+    }
+}
+```
 
 ### 1.3 AIDL文件
 
@@ -214,71 +216,72 @@ ClientActivity.java
 ### 1.4 Parcel数据
 MyData.java
 
-    public class MyData implements Parcelable {
-        private int data1;
-        private int data2;
+```Java
+public class MyData implements Parcelable {
+    private int data1;
+    private int data2;
 
-        public MyData(){
+    public MyData(){
 
-        }
-
-        protected MyData(Parcel in) {
-            readFromParcel(in);
-        }
-
-        public static final Creator<MyData> CREATOR = new Creator<MyData>() {
-            @Override
-            public MyData createFromParcel(Parcel in) {
-                return new MyData(in);
-            }
-
-            @Override
-            public MyData[] newArray(int size) {
-                return new MyData[size];
-            }
-        };
-
-        @Override
-        public int describeContents() {
-            return 0;
-        }
-
-        /** 将数据写入到Parcel **/
-        @Override
-        public void writeToParcel(Parcel dest, int flags) {
-            dest.writeInt(data1);
-            dest.writeInt(data2);
-        }
-
-        /** 从Parcel中读取数据 **/
-        public void readFromParcel(Parcel in){
-            data1 = in.readInt();
-            data2 = in.readInt();
-        }
-
-
-        public int getData2() {
-            return data2;
-        }
-
-        public void setData2(int data2) {
-            this.data2 = data2;
-        }
-
-        public int getData1() {
-            return data1;
-        }
-
-        public void setData1(int data1) {
-            this.data1 = data1;
-        }
-
-        @Override
-        public String toString() {
-            return "data1 = "+ data1 + ", data2="+ data2;
-        }
     }
 
+    protected MyData(Parcel in) {
+        readFromParcel(in);
+    }
+
+    public static final Creator<MyData> CREATOR = new Creator<MyData>() {
+        @Override
+        public MyData createFromParcel(Parcel in) {
+            return new MyData(in);
+        }
+
+        @Override
+        public MyData[] newArray(int size) {
+            return new MyData[size];
+        }
+    };
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    /** 将数据写入到Parcel **/
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeInt(data1);
+        dest.writeInt(data2);
+    }
+
+    /** 从Parcel中读取数据 **/
+    public void readFromParcel(Parcel in){
+        data1 = in.readInt();
+        data2 = in.readInt();
+    }
+
+
+    public int getData2() {
+        return data2;
+    }
+
+    public void setData2(int data2) {
+        this.data2 = data2;
+    }
+
+    public int getData1() {
+        return data1;
+    }
+
+    public void setData1(int data1) {
+        this.data1 = data1;
+    }
+
+    @Override
+    public String toString() {
+        return "data1 = "+ data1 + ", data2="+ data2;
+    }
+}
+```
 
 ### 1.5 运行
 

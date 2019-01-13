@@ -149,11 +149,13 @@ ServiceManager是由[init进程](http://gityuan.com/2016/02/05/android-init/)通
 ### 2.3 binder_become_context_manager
 [-> servicemanager/binder.c]
 
-    int binder_become_context_manager(struct binder_state *bs)
-    {
-        //通过ioctl，传递BINDER_SET_CONTEXT_MGR指令【见小节2.3.1】
-        return ioctl(bs->fd, BINDER_SET_CONTEXT_MGR, 0);
-    }
+```Cpp
+int binder_become_context_manager(struct binder_state *bs)
+{
+    //通过ioctl，传递BINDER_SET_CONTEXT_MGR指令【见小节2.3.1】
+    return ioctl(bs->fd, BINDER_SET_CONTEXT_MGR, 0);
+}
+```
 
 成为上下文的管理者，整个系统中只有一个这样的管理者。
 通过ioctl()方法经过系统调用，对应于Binder驱动层的[binder_ioctl()](http://gityuan.com/2015/11/01/binder-driver/#binderioctl)方法.
@@ -679,23 +681,25 @@ servicemanager的核心工作就是注册服务和查询服务。
 
 #### 3.1.2 bio_put_ref
 
-    void bio_put_ref(struct binder_io *bio, uint32_t handle)
-    {
-        struct flat_binder_object *obj;
+```C++
+void bio_put_ref(struct binder_io *bio, uint32_t handle)
+{
+    struct flat_binder_object *obj;
 
-        if (handle)
-            obj = bio_alloc_obj(bio); //[见小节3.1.3]
-        else
-            obj = bio_alloc(bio, sizeof(*obj));
+    if (handle)
+        obj = bio_alloc_obj(bio); //[见小节3.1.3]
+    else
+        obj = bio_alloc(bio, sizeof(*obj));
 
-        if (!obj)
-            return;
+    if (!obj)
+        return;
 
-        obj->flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
-        obj->type = BINDER_TYPE_HANDLE; //返回的是HANDLE类型
-        obj->handle = handle;
-        obj->cookie = 0;
-    }
+    obj->flags = 0x7f | FLAT_BINDER_FLAG_ACCEPTS_FDS;
+    obj->type = BINDER_TYPE_HANDLE; //返回的是HANDLE类型
+    obj->handle = handle;
+    obj->cookie = 0;
+}
+```
 
 #### 3.1.3 bio_alloc_obj
 
@@ -795,33 +799,37 @@ servicemanager的核心工作就是注册服务和查询服务。
 #### 3.2.2 svcinfo_death
 [-> service_manager.c]
 
-    void svcinfo_death(struct binder_state *bs, void *ptr)
-    {
-        struct svcinfo *si = (struct svcinfo* ) ptr;
+```C
+void svcinfo_death(struct binder_state *bs, void *ptr)
+{
+    struct svcinfo *si = (struct svcinfo* ) ptr;
 
-        if (si->handle) {
-            binder_release(bs, si->handle);
-            si->handle = 0;
-        }
+    if (si->handle) {
+        binder_release(bs, si->handle);
+        si->handle = 0;
     }
+}
+```
 
 #### 3.2.3 bio_get_ref
 [-> servicemanager/binder.c]
 
-    uint32_t bio_get_ref(struct binder_io *bio)
-    {
-        struct flat_binder_object *obj;
+```C
+uint32_t bio_get_ref(struct binder_io *bio)
+{
+    struct flat_binder_object *obj;
 
-        obj = _bio_get_obj(bio);
-        if (!obj)
-            return 0;
-
-        if (obj->type == BINDER_TYPE_HANDLE)
-            return obj->handle;
-
+    obj = _bio_get_obj(bio);
+    if (!obj)
         return 0;
-    }
-    
+
+    if (obj->type == BINDER_TYPE_HANDLE)
+        return obj->handle;
+
+    return 0;
+}
+```
+
 ### 3.3 binder_link_to_death
 [-> servicemanager/binder.c]
 
@@ -893,61 +901,63 @@ binder_write经过跟小节2.4.1一样的方式, 进入Binder driver后,直接�
 #### 3.3.2 binder_thread_write
 [-> kernel/drivers/android/binder.c]
 
-    static int binder_thread_write(struct binder_proc *proc,
-          struct binder_thread *thread,
-          binder_uintptr_t binder_buffer, size_t size,
-          binder_size_t *consumed)
-    {
-      uint32_t cmd;
-      struct binder_context *context = proc->context;
-      void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
-      void __user *ptr = buffer + *consumed; //ptr指向小节3.2.3中bwr中write_buffer的data.
-      void __user *end = buffer + size;
-      while (ptr < end && thread->return_error == BR_OK) {
-        get_user(cmd, (uint32_t __user *)ptr); //获取BC_REQUEST_DEATH_NOTIFICATION
-        ptr += sizeof(uint32_t);
-        switch (cmd) {
-            case BC_REQUEST_DEATH_NOTIFICATION:{ //注册死亡通知
-                uint32_t target;
-                void __user *cookie;
-                struct binder_ref *ref;
-                struct binder_ref_death *death;
+```C
+static int binder_thread_write(struct binder_proc *proc,
+      struct binder_thread *thread,
+      binder_uintptr_t binder_buffer, size_t size,
+      binder_size_t *consumed)
+{
+  uint32_t cmd;
+  struct binder_context *context = proc->context;
+  void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
+  void __user *ptr = buffer + *consumed; //ptr指向小节3.2.3中bwr中write_buffer的data.
+  void __user *end = buffer + size;
+  while (ptr < end && thread->return_error == BR_OK) {
+    get_user(cmd, (uint32_t __user *)ptr); //获取BC_REQUEST_DEATH_NOTIFICATION
+    ptr += sizeof(uint32_t);
+    switch (cmd) {
+        case BC_REQUEST_DEATH_NOTIFICATION:{ //注册死亡通知
+            uint32_t target;
+            void __user *cookie;
+            struct binder_ref *ref;
+            struct binder_ref_death *death;
 
-                get_user(target, (uint32_t __user *)ptr); //获取target
-                ptr += sizeof(uint32_t);
-                get_user(cookie, (void __user * __user *)ptr); //获取death
-                ptr += sizeof(void *);
+            get_user(target, (uint32_t __user *)ptr); //获取target
+            ptr += sizeof(uint32_t);
+            get_user(cookie, (void __user * __user *)ptr); //获取death
+            ptr += sizeof(void *);
 
-                ref = binder_get_ref(proc, target); //拿到目标服务的binder_ref
+            ref = binder_get_ref(proc, target); //拿到目标服务的binder_ref
 
-                if (cmd == BC_REQUEST_DEATH_NOTIFICATION) {
-                    if (ref->death) {
-                        break;  //已设置死亡通知
-                    }
-                    death = kzalloc(sizeof(*death), GFP_KERNEL);
-
-                    INIT_LIST_HEAD(&death->work.entry);
-                    death->cookie = cookie;
-                    ref->death = death;
-                    if (ref->node->proc == NULL) { //当目标binder服务所在进程已死,则发送死亡通知
-                        ref->death->work.type = BINDER_WORK_DEAD_BINDER;
-                        //当前线程为binder线程,则直接添加到当前线程的todo队列. 接下来,进入[小节3.2.6]
-                        if (thread->looper & (BINDER_LOOPER_STATE_REGISTERED | BINDER_LOOPER_STATE_ENTERED)) {
-                            list_add_tail(&ref->death->work.entry, &thread->todo);
-                        } else {
-                            list_add_tail(&ref->death->work.entry, &proc->todo);
-                            wake_up_interruptible(&proc->wait);
-                        }
-                    }
-                } else {
-                    ...
+            if (cmd == BC_REQUEST_DEATH_NOTIFICATION) {
+                if (ref->death) {
+                    break;  //已设置死亡通知
                 }
-            } break;
-          case ...;
-        }
-        *consumed = ptr - buffer;
-      }
-   }
+                death = kzalloc(sizeof(*death), GFP_KERNEL);
+
+                INIT_LIST_HEAD(&death->work.entry);
+                death->cookie = cookie;
+                ref->death = death;
+                if (ref->node->proc == NULL) { //当目标binder服务所在进程已死,则发送死亡通知
+                    ref->death->work.type = BINDER_WORK_DEAD_BINDER;
+                    //当前线程为binder线程,则直接添加到当前线程的todo队列. 接下来,进入[小节3.2.6]
+                    if (thread->looper & (BINDER_LOOPER_STATE_REGISTERED | BINDER_LOOPER_STATE_ENTERED)) {
+                        list_add_tail(&ref->death->work.entry, &thread->todo);
+                    } else {
+                        list_add_tail(&ref->death->work.entry, &proc->todo);
+                        wake_up_interruptible(&proc->wait);
+                    }
+                }
+            } else {
+                ...
+            }
+        } break;
+      case ...;
+    }
+    *consumed = ptr - buffer;
+  }
+}
+```
 
 此方法中的proc, thread都是指当前servicemanager进程的信息. 此时TODO队列有数据,则进入binder_thread_read.
 
@@ -1054,15 +1064,17 @@ binder_write经过跟小节2.4.1一样的方式, 进入Binder driver后,直接�
 #### 3.3.5 svcinfo_death
 [-> service_manager.c]
 
-    void svcinfo_death(struct binder_state *bs, void *ptr)
-    {
-        struct svcinfo *si = (struct svcinfo* ) ptr;
+```C
+void svcinfo_death(struct binder_state *bs, void *ptr)
+{
+    struct svcinfo *si = (struct svcinfo* ) ptr;
 
-        if (si->handle) {
-            binder_release(bs, si->handle);
-            si->handle = 0;
-        }
+    if (si->handle) {
+        binder_release(bs, si->handle);
+        si->handle = 0;
     }
+}
+```
 
 #### 3.3.6 binder_release
 [-> service_manager.c]

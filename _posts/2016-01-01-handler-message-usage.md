@@ -12,17 +12,14 @@ tags:
 
 > 本文基于Android 6.0的源代码，来分析Handler的用法
 
-**相关源码**
-
     framework/base/core/java/andorid/os/HandlerThread.java
 
 
 ## 一、HandlerThread
 
-[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)
-[Android消息机制2-Handler(native篇)](http://gityuan.com/2015/12/27/handler-message-native/#nativepollonce)
-
-这两篇文章已经讲解了消息机制，那么对于Handler的用法，往往是在一个线程中运行Looper，其他线程通过Handler来发送消息到Looper所在线程，这里涉及线程间的通信。既然涉及多个线程的通信，会有同步的问题，Android对此直接提供了HandlerThread类，下面来讲讲HandlerThread类的设计。
+[Android消息机制1](http://gityuan.com/2015/12/26/handler-message-framework/)，
+[Android消息机制2](http://gityuan.com/2015/12/27/handler-message-native/#nativepollonce)
+这两篇文章已经分别从Java和Native角度讲解了消息机制，那么对于Handler的用法，往往是在一个线程中运行Looper，其他线程通过Handler来发送消息到Looper所在线程，这里涉及线程间的通信。既然涉及多个线程的通信，会有同步的问题，Android对此直接提供了HandlerThread类，下面来讲讲HandlerThread类的设计。
 
 
 ### 1.1 创建

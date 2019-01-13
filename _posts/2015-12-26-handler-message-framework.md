@@ -70,14 +70,16 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 对于无参的情况，默认调用`prepare(true)`，表示的是这个Looper运行退出，而对于false的情况则表示当前Looper不运行退出。
 
-    private static void prepare(boolean quitAllowed) {
-        //每个线程只允许执行一次该方法，第二次执行时线程的TLS已有数据，则会抛出异常。
-        if (sThreadLocal.get() != null) {
-            throw new RuntimeException("Only one Looper may be created per thread");
-        }
-        //创建Looper对象，并保存到当前线程的TLS区域
-        sThreadLocal.set(new Looper(quitAllowed));
+```Java
+private static void prepare(boolean quitAllowed) {
+    //每个线程只允许执行一次该方法，第二次执行时线程的TLS已有数据，则会抛出异常。
+    if (sThreadLocal.get() != null) {
+        throw new RuntimeException("Only one Looper may be created per thread");
     }
+    //创建Looper对象，并保存到当前线程的TLS区域
+    sThreadLocal.set(new Looper(quitAllowed));
+}
+```
 
 这里的`sThreadLocal`是ThreadLocal类型，下面，先说说ThreadLocal。
 
@@ -86,34 +88,38 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 - `ThreadLocal.set(T value)`：将value存储到当前线程的TLS区域，源码如下：
 
-        public void set(T value) {
-            Thread currentThread = Thread.currentThread(); //获取当前线程
-            Values values = values(currentThread); //查找当前线程的本地储存区
-            if (values == null) {
-                //当线程本地存储区，尚未存储该线程相关信息时，则创建Values对象
-                values = initializeValues(currentThread);
-            }
-            //保存数据value到当前线程this
-            values.put(this, value);
-        }
+```Java
+public void set(T value) {
+    Thread currentThread = Thread.currentThread(); //获取当前线程
+    Values values = values(currentThread); //查找当前线程的本地储存区
+    if (values == null) {
+        //当线程本地存储区，尚未存储该线程相关信息时，则创建Values对象
+        values = initializeValues(currentThread);
+    }
+    //保存数据value到当前线程this
+    values.put(this, value);
+}
+```
 
 - `ThreadLocal.get()`：获取当前线程TLS区域的数据，源码如下：
 
-        public T get() {
-            Thread currentThread = Thread.currentThread(); //获取当前线程
-            Values values = values(currentThread); //查找当前线程的本地储存区
-            if (values != null) {
-                Object[] table = values.table;
-                int index = hash & values.mask;
-                if (this.reference == table[index]) {
-                    return (T) table[index + 1]; //返回当前线程储存区中的数据
-                }
-            } else {
-                //创建Values对象
-                values = initializeValues(currentThread);
-            }
-            return (T) values.getAfterMiss(this); //从目标线程存储区没有查询是则返回null
+```Java
+public T get() {
+    Thread currentThread = Thread.currentThread(); //获取当前线程
+    Values values = values(currentThread); //查找当前线程的本地储存区
+    if (values != null) {
+        Object[] table = values.table;
+        int index = hash & values.mask;
+        if (this.reference == table[index]) {
+            return (T) table[index + 1]; //返回当前线程储存区中的数据
         }
+    } else {
+        //创建Values对象
+        values = initializeValues(currentThread);
+    }
+    return (T) values.getAfterMiss(this); //从目标线程存储区没有查询是则返回null
+}
+```
 
 ThreadLocal的get()和set()方法操作的类型都是泛型，接着回到前面提到的`sThreadLocal`变量，其定义如下：
 
@@ -291,16 +297,18 @@ Looper.quit()方法的实现最终调用的是MessageQueue.quit()方法
 
 #### 3.1.2 有参构造
 
-    public Handler(Looper looper) {
-        this(looper, null, false);
-    }
+```Java
+public Handler(Looper looper) {
+    this(looper, null, false);
+}
 
-    public Handler(Looper looper, Callback callback, boolean async) {
-        mLooper = looper;
-        mQueue = looper.mQueue;
-        mCallback = callback;
-        mAsynchronous = async;
-    }
+public Handler(Looper looper, Callback callback, boolean async) {
+    mLooper = looper;
+    mQueue = looper.mQueue;
+    mCallback = callback;
+    mAsynchronous = async;
+}
+```
 
 Handler类在构造方法中，可指定Looper，Callback回调方法以及消息的处理方式(同步或异步)，对于无参的handler，默认是当前线程的Looper。
 
@@ -571,124 +579,130 @@ MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心�
 
 添加一条消息到消息队列
 
-    boolean enqueueMessage(Message msg, long when) {
-        // 每一个普通Message必须有一个target
-        if (msg.target == null) {
-            throw new IllegalArgumentException("Message must have a target.");
-        }
-        if (msg.isInUse()) {
-            throw new IllegalStateException(msg + " This message is already in use.");
-        }
-        synchronized (this) {
-            if (mQuitting) {  //正在退出时，回收msg，加入到消息池
-                msg.recycle();
-                return false;
-            }
-            msg.markInUse();
-            msg.when = when;
-            Message p = mMessages;
-            boolean needWake;
-            if (p == null || when == 0 || when < p.when) {
-                //p为null(代表MessageQueue没有消息） 或者msg的触发时间是队列中最早的， 则进入该该分支
-                msg.next = p;
-                mMessages = msg;
-                needWake = mBlocked; //当阻塞时需要唤醒
-            } else {
-                //将消息按时间顺序插入到MessageQueue。一般地，不需要唤醒事件队列，除非
-                //消息队头存在barrier，并且同时Message是队列中最早的异步消息。
-                needWake = mBlocked && p.target == null && msg.isAsynchronous();
-                Message prev;
-                for (;;) {
-                    prev = p;
-                    p = p.next;
-                    if (p == null || when < p.when) {
-                        break;
-                    }
-                    if (needWake && p.isAsynchronous()) {
-                        needWake = false;
-                    }
-                }
-                msg.next = p;
-                prev.next = msg;
-            }
-            //消息没有退出，我们认为此时mPtr != 0
-            if (needWake) {
-                nativeWake(mPtr);
-            }
-        }
-        return true;
+```Java
+boolean enqueueMessage(Message msg, long when) {
+    // 每一个普通Message必须有一个target
+    if (msg.target == null) {
+        throw new IllegalArgumentException("Message must have a target.");
     }
+    if (msg.isInUse()) {
+        throw new IllegalStateException(msg + " This message is already in use.");
+    }
+    synchronized (this) {
+        if (mQuitting) {  //正在退出时，回收msg，加入到消息池
+            msg.recycle();
+            return false;
+        }
+        msg.markInUse();
+        msg.when = when;
+        Message p = mMessages;
+        boolean needWake;
+        if (p == null || when == 0 || when < p.when) {
+            //p为null(代表MessageQueue没有消息） 或者msg的触发时间是队列中最早的， 则进入该该分支
+            msg.next = p;
+            mMessages = msg;
+            needWake = mBlocked; //当阻塞时需要唤醒
+        } else {
+            //将消息按时间顺序插入到MessageQueue。一般地，不需要唤醒事件队列，除非
+            //消息队头存在barrier，并且同时Message是队列中最早的异步消息。
+            needWake = mBlocked && p.target == null && msg.isAsynchronous();
+            Message prev;
+            for (;;) {
+                prev = p;
+                p = p.next;
+                if (p == null || when < p.when) {
+                    break;
+                }
+                if (needWake && p.isAsynchronous()) {
+                    needWake = false;
+                }
+            }
+            msg.next = p;
+            prev.next = msg;
+        }
+        //消息没有退出，我们认为此时mPtr != 0
+        if (needWake) {
+            nativeWake(mPtr);
+        }
+    }
+    return true;
+}
+```
 
 `MessageQueue`是按照Message触发时间的先后顺序排列的，队头的消息是将要最早触发的消息。当有消息需要加入消息队列时，会从队列头开始遍历，直到找到消息应该插入的合适位置，以保证所有消息的时间顺序。
 
 
 ### 4.4 removeMessages
 
-    void removeMessages(Handler h, int what, Object object) {
-        if (h == null) {
-            return;
+```Java
+void removeMessages(Handler h, int what, Object object) {
+    if (h == null) {
+        return;
+    }
+    synchronized (this) {
+        Message p = mMessages;
+        //从消息队列的头部开始，移除所有符合条件的消息
+        while (p != null && p.target == h && p.what == what
+               && (object == null || p.obj == object)) {
+            Message n = p.next;
+            mMessages = n;
+            p.recycleUnchecked();
+            p = n;
         }
-        synchronized (this) {
-            Message p = mMessages;
-            //从消息队列的头部开始，移除所有符合条件的消息
-            while (p != null && p.target == h && p.what == what
-                   && (object == null || p.obj == object)) {
-                Message n = p.next;
-                mMessages = n;
-                p.recycleUnchecked();
-                p = n;
-            }
-            //移除剩余的符合要求的消息
-            while (p != null) {
-                Message n = p.next;
-                if (n != null) {
-                    if (n.target == h && n.what == what
-                        && (object == null || n.obj == object)) {
-                        Message nn = n.next;
-                        n.recycleUnchecked();
-                        p.next = nn;
-                        continue;
-                    }
+        //移除剩余的符合要求的消息
+        while (p != null) {
+            Message n = p.next;
+            if (n != null) {
+                if (n.target == h && n.what == what
+                    && (object == null || n.obj == object)) {
+                    Message nn = n.next;
+                    n.recycleUnchecked();
+                    p.next = nn;
+                    continue;
                 }
-                p = n;
             }
+            p = n;
         }
     }
+}
+```
 
 这个移除消息的方法，采用了两个while循环，第一个循环是从队头开始，移除符合条件的消息，第二个循环是从头部移除完连续的满足条件的消息之后，再从队列后面继续查询是否有满足条件的消息需要被移除。
 
 ### 4.5 postSyncBarrier
 
-  public int postSyncBarrier() {
-      return postSyncBarrier(SystemClock.uptimeMillis());
-  }
+```Java
+public int postSyncBarrier() {
+    return postSyncBarrier(SystemClock.uptimeMillis());
+}
 
-  private int postSyncBarrier(long when) {
-      synchronized (this) {
-          final int token = mNextBarrierToken++;
-          final Message msg = Message.obtain();
-          msg.markInUse();
-          msg.when = when;
-          msg.arg1 = token;
+private int postSyncBarrier(long when) {
+    synchronized (this) {
+        final int token = mNextBarrierToken++;
+        final Message msg = Message.obtain();
+        msg.markInUse();
+        msg.when = when;
+        msg.arg1 = token;
 
-          Message prev = null;
-          Message p = mMessages;
-          if (when != 0) {
-              while (p != null && p.when <= when) {
-                  prev = p;
-                  p = p.next;
-              }
-          }
-          if (prev != null) { // invariant: p == prev.next
-              msg.next = p;
-              prev.next = msg;
-          } else {
-              msg.next = p;
-              mMessages = msg;
-          }
-          return token;
-      }
-  }
+        Message prev = null;
+        Message p = mMessages;
+        if (when != 0) {
+            while (p != null && p.when <= when) {
+                prev = p;
+                p = p.next;
+            }
+        }
+        if (prev != null) { // invariant: p == prev.next
+            msg.next = p;
+            prev.next = msg;
+        } else {
+            msg.next = p;
+            mMessages = msg;
+        }
+        return token;
+    }
+}
+```
 
 前面小节[4.3]已说明每一个普通Message必须有一个target，对于特殊的message是没有target，即同步barrier token。
 这个消息的价值就是用于拦截同步消息，所以并不会唤醒Looper.

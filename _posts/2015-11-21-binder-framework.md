@@ -11,24 +11,26 @@ tags:
 
 > 主要分析Binder在java framework层的框架，相关源码：
 
-    framework/base/core/java/android/os/
-      - IInterface.java
-      - IServiceManager.java
-      - ServiceManager.java
-      - ServiceManagerNative.java(包含内部类ServiceManagerProxy)
+```Java
+framework/base/core/java/android/os/
+  - IInterface.java
+  - IServiceManager.java
+  - ServiceManager.java
+  - ServiceManagerNative.java(包含内部类ServiceManagerProxy)
 
-    framework/base/core/java/android/os/
-      - IBinder.java
-      - Binder.java(包含内部类BinderProxy)
-      - Parcel.java
-    
-    framework/base/core/java/com/android/internal/os/
-      - BinderInternal.java
+framework/base/core/java/android/os/
+  - IBinder.java
+  - Binder.java(包含内部类BinderProxy)
+  - Parcel.java
 
-    framework/base/core/jni/
-      - AndroidRuntime.cpp
-      - android_os_Parcel.cpp
-      - android_util_Binder.cpp
+framework/base/core/java/com/android/internal/os/
+  - BinderInternal.java
+
+framework/base/core/jni/
+  - AndroidRuntime.cpp
+  - android_os_Parcel.cpp
+  - android_util_Binder.cpp
+```
 
 ## 一、概述
 
@@ -369,18 +371,20 @@ BinderInternal.java中有一个native方法getContextObject()，JNI调用执行�
 ### 3.3  SMN.asInterface
 [-> ServiceManagerNative.java]
 
-     static public IServiceManager asInterface(IBinder obj)
-    {
-        if (obj == null) { //obj为BpBinder
-            return null;
-        }
-        //由于obj为BpBinder，该方法默认返回null
-        IServiceManager in = (IServiceManager)obj.queryLocalInterface(descriptor);
-        if (in != null) {
-            return in;
-        }
-        return new ServiceManagerProxy(obj); //【见小节3.3.1】
+```Java
+ static public IServiceManager asInterface(IBinder obj)
+{
+    if (obj == null) { //obj为BpBinder
+        return null;
     }
+    //由于obj为BpBinder，该方法默认返回null
+    IServiceManager in = (IServiceManager)obj.queryLocalInterface(descriptor);
+    if (in != null) {
+        return in;
+    }
+    return new ServiceManagerProxy(obj); //【见小节3.3.1】
+}
+```
 
 由此，可知ServiceManagerNative.asInterface(new BinderProxy()) 等价于`new ServiceManagerProxy(new BinderProxy())`. 为了方便，ServiceManagerProxy简称为SMP。
 
@@ -466,17 +470,19 @@ framework层的ServiceManager的调用实际的工作确实交给SMP的成员变
 #### 3.5.3 JavaBBinderHolder.get()
 [-> android_util_Binder.cpp]
 
-    sp<JavaBBinder> get(JNIEnv* env, jobject obj)
-    {
-        AutoMutex _l(mLock);
-        sp<JavaBBinder> b = mBinder.promote();
-        if (b == NULL) {
-            //首次进来，创建JavaBBinder对象【见3.5.4】
-            b = new JavaBBinder(env, obj);
-            mBinder = b;
-        }
-        return b;
+```Java
+sp<JavaBBinder> get(JNIEnv* env, jobject obj)
+{
+    AutoMutex _l(mLock);
+    sp<JavaBBinder> b = mBinder.promote();
+    if (b == NULL) {
+        //首次进来，创建JavaBBinder对象【见3.5.4】
+        b = new JavaBBinder(env, obj);
+        mBinder = b;
     }
+    return b;
+}
+```
 
 JavaBBinderHolder有一个成员变量mBinder，保存当前创建的JavaBBinder对象，这是一个wp类型的，可能会被垃圾回收器给回收，所以每次使用前，都需要先判断是否存在。
 
@@ -617,19 +623,21 @@ addService的核心过程：
 ### 4.1 SM.getService
 [-> ServiceManager.java]
 
-    public static IBinder getService(String name) {
-        try {
-            IBinder service = sCache.get(name); //先从缓存中查看
-            if (service != null) {
-                return service;
-            } else {
-                return getIServiceManager().getService(name); 【见4.2】
-            }
-        } catch (RemoteException e) {
-            Log.e(TAG, "error in getService", e);
+```Java
+public static IBinder getService(String name) {
+    try {
+        IBinder service = sCache.get(name); //先从缓存中查看
+        if (service != null) {
+            return service;
+        } else {
+            return getIServiceManager().getService(name); 【见4.2】
         }
-        return null;
+    } catch (RemoteException e) {
+        Log.e(TAG, "error in getService", e);
     }
+    return null;
+}
+```
 
 关于getIServiceManager()，在前面[小节3.2](http://gityuan.com/2015/11/21/binder-framework/#getiservicemanager)已经讲述了，等价于new ServiceManagerProxy(new BinderProxy())。
 其中sCache = new HashMap<String, IBinder>()以hashmap格式缓存已组成的名称。请求获取服务过程中，先从缓存中查询是否存在，如果缓存中不存在的话，再通过binder交互来查询相应的服务。
@@ -844,25 +852,27 @@ javaObjectForIBinder 将native层BpBinder对象转换为Java层BinderProxy对象
 #### 4.8.2 unflatten_binder
 [-> Parcel.cpp]
 
-    status_t unflatten_binder(const sp<ProcessState>& proc,
-        const Parcel& in, sp<IBinder>* out)
-    {
-        const flat_binder_object* flat = in.readObject(false);
-        if (flat) {
-            switch (flat->type) {
-                case BINDER_TYPE_BINDER:
-                    *out = reinterpret_cast<IBinder*>(flat->cookie);
-                    return finish_unflatten_binder(NULL, *flat, in);
-                case BINDER_TYPE_HANDLE:
-                    //进入该分支【见4.8.3】
-                    *out = proc->getStrongProxyForHandle(flat->handle);
-                    //创建BpBinder对象
-                    return finish_unflatten_binder(
-                        static_cast<BpBinder*>(out->get()), *flat, in);
-            }
+```Java
+status_t unflatten_binder(const sp<ProcessState>& proc,
+    const Parcel& in, sp<IBinder>* out)
+{
+    const flat_binder_object* flat = in.readObject(false);
+    if (flat) {
+        switch (flat->type) {
+            case BINDER_TYPE_BINDER:
+                *out = reinterpret_cast<IBinder*>(flat->cookie);
+                return finish_unflatten_binder(NULL, *flat, in);
+            case BINDER_TYPE_HANDLE:
+                //进入该分支【见4.8.3】
+                *out = proc->getStrongProxyForHandle(flat->handle);
+                //创建BpBinder对象
+                return finish_unflatten_binder(
+                    static_cast<BpBinder*>(out->get()), *flat, in);
         }
-        return BAD_TYPE;
     }
+    return BAD_TYPE;
+}
+```
 
 #### 4.8.3 getStrongProxyForHandle
 [-> ProcessState.cpp]

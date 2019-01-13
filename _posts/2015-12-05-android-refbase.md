@@ -22,46 +22,48 @@ sp强指针其实就是一个模块类，先来看看其定义：
 
 ### 1.1 sp模块类
 
-    template<typename T>
-    class sp {
-    public:
-       inline sp() : m_ptr(0) { }
+```CPP
+template<typename T>
+class sp {
+public:
+   inline sp() : m_ptr(0) { }
 
-       sp(T* other);
-       sp(const sp<T>& other); //对应于方法1
-       template<typename U> sp(U* other);
-       template<typename U> sp(const sp<U>& other);
+   sp(T* other);
+   sp(const sp<T>& other); //对应于方法1
+   template<typename U> sp(U* other);
+   template<typename U> sp(const sp<U>& other);
 
-       ~sp();
+   ~sp();
 
-       sp& operator = (T* other); //对应于方法2
-       sp& operator = (const sp<T>& other);
+   sp& operator = (T* other); //对应于方法2
+   sp& operator = (const sp<T>& other);
 
-       template<typename U> sp& operator = (const sp<U>& other);
-       template<typename U> sp& operator = (U* other);
+   template<typename U> sp& operator = (const sp<U>& other);
+   template<typename U> sp& operator = (U* other);
 
-       void force_set(T* other);
-       void clear(); //重置
+   void force_set(T* other);
+   void clear(); //重置
 
-       //重载Accessors
-       inline  T&      operator* () const  { return *m_ptr; }
-       inline  T*      operator-> () const { return m_ptr;  }
-       inline  T*      get() const         { return m_ptr; }
+   //重载Accessors
+   inline  T&      operator* () const  { return *m_ptr; }
+   inline  T*      operator-> () const { return m_ptr;  }
+   inline  T*      get() const         { return m_ptr; }
 
-       //操作符
-       COMPARE(==)
-       COMPARE(!=)
-       COMPARE(>)
-       COMPARE(<)
-       COMPARE(<=)
-       COMPARE(>=)
+   //操作符
+   COMPARE(==)
+   COMPARE(!=)
+   COMPARE(>)
+   COMPARE(<)
+   COMPARE(<=)
+   COMPARE(>=)
 
-    private:
-        template<typename Y> friend class sp;
-        template<typename Y> friend class wp;
-        void set_pointer(T* ptr);
-        T* m_ptr; //指针
-    };
+private:
+    template<typename Y> friend class sp;
+    template<typename Y> friend class wp;
+    void set_pointer(T* ptr);
+    T* m_ptr; //指针
+};
+```
 
 ### 1.2 关系图
 
@@ -74,10 +76,12 @@ sp强指针其实就是一个模块类，先来看看其定义：
 
 位于StrongPointer.h文件，有4种方式来初始化sp对象，如下：
 
-    sp(T* other); //方式1
-    sp(const sp<T>& other); //方式2
-    sp& operator = (T* other); //方式3
-    sp& operator = (const sp<T>& other);//方式4
+```CPP
+sp(T* other); //方式1
+sp(const sp<T>& other); //方式2
+sp& operator = (T* other); //方式3
+sp& operator = (const sp<T>& other);//方式4
+```
 
 从以下实现来看，可知：
 

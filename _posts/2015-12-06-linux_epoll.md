@@ -9,7 +9,7 @@ tags:
 
 ---
 
-select/poll/epoll都是IO多路复用机制，可以同时监控多个描述符，当某个描述符就绪(读或写就绪)，则立刻通知相应程序进行读或写操作。本质上select/poll/epoll都是同步I/O，即读写是阻塞的。
+> select/poll/epoll都是IO多路复用机制，可以同时监控多个描述符，当某个描述符就绪(读或写就绪)，则立刻通知相应程序进行读或写操作。本质上select/poll/epoll都是同步I/O，即读写是阻塞的。
 
 ## 一、select
 
@@ -63,7 +63,9 @@ select/poll都只有一个方法，而epoll的操作过程有3个方法，分别
 
 ### 3.2 epoll_ctl()
 
-    int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)；
+```CPP
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)；
+```
 
 用于对需要监听的文件描述符(fd)执行op操作，比如将fd加入到epoll句柄。
 
