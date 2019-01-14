@@ -60,7 +60,9 @@ tags:
 
 mask相加，其实现其实是利用或运算，通过一个变量控制16个开关，而不是采用16个变量，这是比较经典的设计方案。在binder Driver中通过下面语句完成节点控制debug的功能：
 
-    module_param_named(debug_mask, binder_debug_mask, uint, S_IWUSR | S_IRUGO);
+```CPP
+module_param_named(debug_mask, binder_debug_mask, uint, S_IWUSR | S_IRUGO);
+```
 
 module_param_named的功能：
 
@@ -71,11 +73,13 @@ module_param_named的功能：
 
 binder_debug宏定义，如下：
 
-    #define binder_debug(mask, x...) \
-    	do { \
-    		if (binder_debug_mask & mask) \
-    			pr_info(x); \
-    	} while (0)
+```CPP
+#define binder_debug(mask, x...) \
+	do { \
+		if (binder_debug_mask & mask) \
+			pr_info(x); \
+	} while (0)
+```
 
 当然，也可以通过代码直接修改`binder_debug_mask`值来控制调试开关，默认值为：
 

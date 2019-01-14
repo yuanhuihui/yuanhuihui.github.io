@@ -257,23 +257,25 @@ print_binder_transaction
 
 #### 5.2 proc/436
 
-      proc 436
-        thread 436: l 00
-        thread 490: l 12
-        thread 492: l 11
-        thread 499: l 00
-        thread 500: l 00
-        thread 3068: l 11
-        thread 4063: l 11
-        thread 8317: l 11
+```Java
+proc 436
+thread 436: l 00
+thread 490: l 12
+thread 492: l 11
+thread 499: l 00
+thread 500: l 00
+thread 3068: l 11
+thread 4063: l 11
+thread 8317: l 11
 
-        node 3079465: u0000005593cc3540 c0000005593f37030 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 8963
-        node 3076788: u0000005593f270d0 c0000005594049818 hs 1 hw 1 ls 0 lw 0 is 2 iw 2 proc 9687 8963
-        ...
+node 3079465: u0000005593cc3540 c0000005593f37030 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 8963
+node 3076788: u0000005593f270d0 c0000005594049818 hs 1 hw 1 ls 0 lw 0 is 2 iw 2 proc 9687 8963
+...
 
-        ref 18: desc 0 node 1 s 1 w 1 d           (null)
-        ref 340122: desc 1 node 340121 s 1 w 1 d ffffffc04f90a340
-        ...
+ref 18: desc 0 node 1 s 1 w 1 d           (null)
+ref 340122: desc 1 node 340121 s 1 w 1 d ffffffc04f90a340
+...
+```Java
 
 已知该进程有8个binder_thread,其中
 

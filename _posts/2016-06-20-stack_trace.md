@@ -118,18 +118,20 @@ Android有一套异常处理机制, 分析Crash时最常见的便是先查看其
 
 #### 2.2.2 getInternalStackTrace
 
-    private StackTraceElement[] getInternalStackTrace() {
-        if (stackTrace == EmptyArray.STACK_TRACE_ELEMENT) {
-            // 当stackTrace为空, 则获取native调用栈
-            stackTrace = nativeGetStackTrace(stackState); 
-            stackState = null;
-            return stackTrace;
-        } else if (stackTrace == null) {
-            return EmptyArray.STACK_TRACE_ELEMENT;
-        } else {
-          return stackTrace;
-        }
+```Java
+private StackTraceElement[] getInternalStackTrace() {
+    if (stackTrace == EmptyArray.STACK_TRACE_ELEMENT) {
+        // 当stackTrace为空, 则获取native调用栈
+        stackTrace = nativeGetStackTrace(stackState); 
+        stackState = null;
+        return stackTrace;
+    } else if (stackTrace == null) {
+        return EmptyArray.STACK_TRACE_ELEMENT;
+    } else {
+      return stackTrace;
     }
+}
+```
 
 #### 2.2.3 getCause
 

@@ -48,31 +48,33 @@ debuggerd守护进程会打开socket服务端，当需要调用debuggerd服务�
 
 [-> /debuggerd/debuggerd.cpp]
 
-    int main(int argc, char** argv) {
-      ...
-      bool dump_backtrace = false;
-      bool have_tid = false;
-      pid_t tid = 0;
-      //参数解析backtrace与tid信息
-      for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "-b")) {
-          dump_backtrace = true;
-        } else if (!have_tid) {
-          tid = atoi(argv[i]);
-          have_tid = true;
-        } else {
-          usage();
-          return 1;
-        }
-      }
-      //没有指定tid则直接返回
-      if (!have_tid) {
-        usage();
-        return 1;
-      }
-      //【见小节2.2】
-      return do_explicit_dump(tid, dump_backtrace);
+```CPP
+int main(int argc, char** argv) {
+  ...
+  bool dump_backtrace = false;
+  bool have_tid = false;
+  pid_t tid = 0;
+  //参数解析backtrace与tid信息
+  for (int i = 1; i < argc; i++) {
+    if (!strcmp(argv[i], "-b")) {
+      dump_backtrace = true;
+    } else if (!have_tid) {
+      tid = atoi(argv[i]);
+      have_tid = true;
+    } else {
+      usage();
+      return 1;
     }
+  }
+  //没有指定tid则直接返回
+  if (!have_tid) {
+    usage();
+    return 1;
+  }
+  //【见小节2.2】
+  return do_explicit_dump(tid, dump_backtrace);
+}
+```
 
 对于debuggerd命令，必须指定线程tid，否则不做任何操作，直接返回。
 
@@ -185,22 +187,24 @@ dump_backtrace等于true代表的是输出backtrace到控制台，否则意味�
 
 [-> libcutils/debugger.c]
 
-    static int make_dump_request(debugger_action_t action, pid_t tid, int timeout_secs) {
-      debugger_msg_t msg;
-      memset(&msg, 0, sizeof(msg));
-      msg.tid = tid;
-      msg.action = action;
-      //与debuggerd服务端建立socket通信，获取client端描述符sock_fd
-      int sock_fd = socket_local_client(DEBUGGER_SOCKET_NAME, ANDROID_SOCKET_NAMESPACE_ABSTRACT,
-          SOCK_STREAM | SOCK_CLOEXEC);
-      ...
-      //通过write()方法将msg信息写入文件描述符sock_fd【见小节2.6】
-      if (send_request(sock_fd, &msg, sizeof(msg)) < 0) {
-        close(sock_fd);
-        return -1;
-      }
-      return sock_fd;
-    }
+```C
+static int make_dump_request(debugger_action_t action, pid_t tid, int timeout_secs) {
+  debugger_msg_t msg;
+  memset(&msg, 0, sizeof(msg));
+  msg.tid = tid;
+  msg.action = action;
+  //与debuggerd服务端建立socket通信，获取client端描述符sock_fd
+  int sock_fd = socket_local_client(DEBUGGER_SOCKET_NAME, ANDROID_SOCKET_NAMESPACE_ABSTRACT,
+      SOCK_STREAM | SOCK_CLOEXEC);
+  ...
+  //通过write()方法将msg信息写入文件描述符sock_fd【见小节2.6】
+  if (send_request(sock_fd, &msg, sizeof(msg)) < 0) {
+    close(sock_fd);
+    return -1;
+  }
+  return sock_fd;
+}
+```
 
 该函数的功能是与debuggerd服务端建立socket通信，并发送action请求，以执行相应操作。
 
@@ -1512,22 +1516,24 @@ dump_thread(log, pid, sibling, map, 0, 0, 0, false);
 
 ####  5.3 兄弟线程dump_thread
 
-    --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
-    //【见小节4.4.1】dump_thread_info
-    pid: 1789, tid: 1803, name: Binder_1  >>> system_server <<<
-    //【见小节4.4.4】dump_registers
-        r0 0000000b  r1 c0186201  r2 b3589868  r3 b3589860
-    //【见小节4.4.5】dump_backtrace_and_stack
-    backtrace:
-        #00 pc 00040aac  /system/lib/libc.so (__ioctl+8)
-        #01 pc 00047529  /system/lib/libc.so (ioctl+14)
-        #02 pc 0001e909  /system/lib/libbinder.so (_ZN7android14IPCThreadState14talkWithDriverEb+132)
+```Java
+--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+//【见小节4.4.1】dump_thread_info
+pid: 1789, tid: 1803, name: Binder_1  >>> system_server <<<
+//【见小节4.4.4】dump_registers
+    r0 0000000b  r1 c0186201  r2 b3589868  r3 b3589860
+//【见小节4.4.5】dump_backtrace_and_stack
+backtrace:
+    #00 pc 00040aac  /system/lib/libc.so (__ioctl+8)
+    #01 pc 00047529  /system/lib/libc.so (ioctl+14)
+    #02 pc 0001e909  /system/lib/libbinder.so (_ZN7android14IPCThreadState14talkWithDriverEb+132)
 
-    stack:
-             b3589810  00000000
-             b3589814  00000000
-             b3589818  b6ebf07c  /system/lib/libcutils.so
-             b358981c  b6eb4405  /system/lib/libcutils.so
+stack:
+         b3589810  00000000
+         b3589814  00000000
+         b3589818  b6ebf07c  /system/lib/libcutils.so
+         b358981c  b6eb4405  /system/lib/libcutils.so
+```
 
 所有兄弟线程是以一系列`---`作为开头的分割符。
 

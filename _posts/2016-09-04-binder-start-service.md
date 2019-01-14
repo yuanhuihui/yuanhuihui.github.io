@@ -267,10 +267,11 @@ nativeCreate这是native方法,经过JNI进入native层, 调用android_os_Parcel
 **Tips:** 除了writeString(),在`Parcel.java`中大量的native方法, 都是调用`android_os_Parcel.cpp`相对应的方法, 该方法再调用`Parcel.cpp`中对应的方法.    
 调用流程:    Parcel.java -->  android_os_Parcel.cpp  --> Parcel.cpp.
 
-    /frameworks/base/core/java/android/os/Parcel.java
-    /frameworks/base/core/jni/android_os_Parcel.cpp
-    /frameworks/native/libs/binder/Parcel.cpp
-
+```Java
+frameworks/base/core/java/android/os/Parcel.java
+frameworks/base/core/jni/android_os_Parcel.cpp
+frameworks/native/libs/binder/Parcel.cpp
+```
 
 简单说,就是
 
@@ -281,11 +282,12 @@ mRemote的出生,要出先说说ActivityManagerProxy对象(简称AMP)创建说�
 #### 2.4.1 AMN.getDefault
 [-> ActivityManagerNative.java]
 
-    static public IActivityManager getDefault() {
-        // [见流程2.4.2]
-        return gDefault.get();
-    }
-
+```Java
+static public IActivityManager getDefault() {
+    // [见流程2.4.2]
+    return gDefault.get();
+}
+```
 gDefault的数据类型为`Singleton<IActivityManager>`, 这是一个单例模式, 接下来看看Singleto.get()的过程
 
 #### 2.4.2 gDefault.get

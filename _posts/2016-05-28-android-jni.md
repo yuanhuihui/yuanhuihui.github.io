@@ -10,21 +10,23 @@ tags:
 
 > 引言：分析Android源码6.0的过程，一定离不开Java与C/C++代码直接的来回跳转，那么就很有必要掌握JNI，这是链接Java层和Native层的桥梁，本文涉及相关源码：
 
-    frameworks/base/core/jni/AndroidRuntime.cpp
+```Java
+frameworks/base/core/jni/AndroidRuntime.cpp
 
-    libcore/luni/src/main/java/java/lang/System.java
-    libcore/luni/src/main/java/java/lang/Runtime.java
-    libnativehelper/JNIHelp.cpp
-    libnativehelper/include/nativehelper/jni.h
+libcore/luni/src/main/java/java/lang/System.java
+libcore/luni/src/main/java/java/lang/Runtime.java
+libnativehelper/JNIHelp.cpp
+libnativehelper/include/nativehelper/jni.h
 
-    frameworks/base/core/java/android/os/MessageQueue.java
-    frameworks/base/core/jni/android_os_MessageQueue.cpp
+frameworks/base/core/java/android/os/MessageQueue.java
+frameworks/base/core/jni/android_os_MessageQueue.cpp
 
-    frameworks/base/core/java/android/os/Binder.java
-    frameworks/base/core/jni/android_util_Binder.cpp
+frameworks/base/core/java/android/os/Binder.java
+frameworks/base/core/jni/android_util_Binder.cpp
 
-    frameworks/base/media/java/android/media/MediaPlayer.java
-    frameworks/base/media/jni/android_media_MediaPlayer.cpp
+frameworks/base/media/java/android/media/MediaPlayer.java
+frameworks/base/media/jni/android_media_MediaPlayer.cpp
+```
 
 ## 一、JNI概述
 
@@ -338,14 +340,16 @@ jniRegisterNativeMethods该方法是由Android JNI帮助类`JNIHelp.cpp`来完�
 ### 3.6 RegisterNatives
 [-> jni.h]
 
-    struct _JNIEnv {
-        const struct JNINativeInterface* functions;
+```C
+struct _JNIEnv {
+    const struct JNINativeInterface* functions;
 
-        jint RegisterNatives(jclass clazz, const JNINativeMethod* methods,
-                jint nMethods)
-        { return functions->RegisterNatives(this, clazz, methods, nMethods); }
-        ...
-    }
+    jint RegisterNatives(jclass clazz, const JNINativeMethod* methods,
+            jint nMethods)
+    { return functions->RegisterNatives(this, clazz, methods, nMethods); }
+    ...
+}
+```
 
 functions是指向`JNINativeInterface`结构体指针，也就是将调用下面方法：
 

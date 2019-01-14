@@ -157,18 +157,20 @@ lmkd启动后，接下里的操作都在`platform/system/core/lmkd/lmkd.c`文件
 
 ### 3.1 main
 
-    int main(int argc __unused, char **argv __unused) {
-        struct sched_param param = {
-                .sched_priority = 1,
-        };
-        mlockall(MCL_FUTURE);
-        sched_setscheduler(0, SCHED_FIFO, &param);
-        //初始化【见小节3.2】
-        if (!init())
-            mainloop(); //成功后进入loop [见小节3.3]
-        ALOGI("exiting");
-        return 0;
-    }
+```CPP
+int main(int argc __unused, char **argv __unused) {
+    struct sched_param param = {
+            .sched_priority = 1,
+    };
+    mlockall(MCL_FUTURE);
+    sched_setscheduler(0, SCHED_FIFO, &param);
+    //初始化【见小节3.2】
+    if (!init())
+        mainloop(); //成功后进入loop [见小节3.3]
+    ALOGI("exiting");
+    return 0;
+}
+```
 
 ### 3.2 init
 
@@ -334,36 +336,38 @@ lmkd启动后，接下里的操作都在`platform/system/core/lmkd/lmkd.c`文件
 
 ### 3.7 cmd_procprio
 
-    static void cmd_procprio(int pid, int uid, int oomadj) {
-        struct proc *procp;
-        char path[80];
-        char val[20];
-        ...
-        snprintf(path, sizeof(path), "/proc/%d/oom_score_adj", pid);
-        snprintf(val, sizeof(val), "%d", oomadj);
-        //向节点/proc/<pid>/oom_score_adj写入oomadj
-        writefilestring(path, val);
+```CPP
+static void cmd_procprio(int pid, int uid, int oomadj) {
+    struct proc *procp;
+    char path[80];
+    char val[20];
+    ...
+    snprintf(path, sizeof(path), "/proc/%d/oom_score_adj", pid);
+    snprintf(val, sizeof(val), "%d", oomadj);
+    //向节点/proc/<pid>/oom_score_adj写入oomadj
+    writefilestring(path, val);
 
-        //当使用kernel方式则直接返回
-        if (use_inkernel_interface)
-            return;
-        procp = pid_lookup(pid);
-        if (!procp) {
-                procp = malloc(sizeof(struct proc));
-                if (!procp) {
-                    // Oh, the irony.  May need to rebuild our state.
-                    return;
-                }
-                procp->pid = pid;
-                procp->uid = uid;
-                procp->oomadj = oomadj;
-                proc_insert(procp);
-        } else {
-            proc_unslot(procp);
+    //当使用kernel方式则直接返回
+    if (use_inkernel_interface)
+        return;
+    procp = pid_lookup(pid);
+    if (!procp) {
+            procp = malloc(sizeof(struct proc));
+            if (!procp) {
+                // Oh, the irony.  May need to rebuild our state.
+                return;
+            }
+            procp->pid = pid;
+            procp->uid = uid;
             procp->oomadj = oomadj;
-            proc_slot(procp);
-        }
+            proc_insert(procp);
+    } else {
+        proc_unslot(procp);
+        procp->oomadj = oomadj;
+        proc_slot(procp);
     }
+}
+```
 
 向节点/proc/<pid>/oom_score_adj`写入oomadj。由于use_inkernel_interface=1，那么再接下里需要看看kernel的情况
 
@@ -529,8 +533,10 @@ ANON代表匿名映射，没有后备存储器；FILE代表文件映射；
 
 另外，lowmem_minfree[]和lowmem_adj[]数组大小个数为6，通过如下两条命令：
 
-    module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);    
-    module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size, S_IRUGO | S_IWUSR);
+```Java
+e_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);    
+module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size, S_IRUGO | S_IWUSR);
+```
 
 当如下节点数据发送变化时，会通过修改lowmem_minfree[]和lowmem_adj[]数组：
 

@@ -42,14 +42,16 @@ tags:
 
 [-> linker.cpp]
 
-    extern "C" ElfW(Addr) __linker_init(void* raw_args) {
-      KernelArgumentBlock args(raw_args);
-      ElfW(Addr) linker_addr = args.getauxval(AT_BASE);
-      ...
-      //【见小节1.3】
-      ElfW(Addr) start_address = __linker_init_post_relocation(args, linker_addr);
-      return start_address;
-    }
+```CPP
+extern "C" ElfW(Addr) __linker_init(void* raw_args) {
+  KernelArgumentBlock args(raw_args);
+  ElfW(Addr) linker_addr = args.getauxval(AT_BASE);
+  ...
+  //【见小节1.3】
+  ElfW(Addr) start_address = __linker_init_post_relocation(args, linker_addr);
+  return start_address;
+}
+```
 
 ### 1.3 __linker_init_post_relocation
 

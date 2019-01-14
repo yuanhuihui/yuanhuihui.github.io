@@ -229,17 +229,19 @@ tags:
 
 #### 2.2.2 各进程信息
 
-    proc 18650
-      thread 18650: l 00
-      thread 18658: l 00
-      thread 18663: l 12
-      thread 18665: l 11
-      node 24805986: u00000000e153f070 c00000000e197dd80 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
-      node 24805990: u00000000e153f090 c00000000e197dda0 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
-      ref 24804528: desc 0 node 1 s 1 w 1 d 0000000000000000
-      ref 24804531: desc 1 node 24532956 s 1 w 1 d 0000000000000000
-      buffer 24805817: ffffff8018e00050 size 1896:0 delivered
-      buffer 24806788: ffffff8018e00808 size 152:0 delivered
+```Java
+proc 18650
+  thread 18650: l 00
+  thread 18658: l 00
+  thread 18663: l 12
+  thread 18665: l 11
+  node 24805986: u00000000e153f070 c00000000e197dd80 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
+  node 24805990: u00000000e153f090 c00000000e197dda0 hs 1 hw 1 ls 0 lw 0 is 1 iw 1 proc 12396
+  ref 24804528: desc 0 node 1 s 1 w 1 d 0000000000000000
+  ref 24804531: desc 1 node 24532956 s 1 w 1 d 0000000000000000
+  buffer 24805817: ffffff8018e00050 size 1896:0 delivered
+  buffer 24806788: ffffff8018e00808 size 152:0 delivered
+```
 
 遍历进程的thread/node/ref/buffer信息.  当然如果存在,还会有pending transaction信息.
 

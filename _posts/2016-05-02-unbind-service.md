@@ -11,9 +11,11 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析bind service的启动流程。
 
-    /frameworks/base/core/java/android/app/ContextImpl.java
-    /frameworks/base/core/java/android/app/LoadedApk.java
-    /frameworks/base/core/java/android/app/IServiceConnection.aidl(自动生成Binder两端)
+```Java
+frameworks/base/core/java/android/app/ContextImpl.java
+frameworks/base/core/java/android/app/LoadedApk.java
+frameworks/base/core/java/android/app/IServiceConnection.aidl(自动生成Binder两端)
+```
 
 ## 一. unbind
 

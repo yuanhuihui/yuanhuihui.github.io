@@ -867,199 +867,201 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 
 #### 10. Service情况
 
-     //是否显示在最顶部
-     boolean mayBeTop = false;
-     for (int is = app.services.size()-1;
-             is >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
-                     || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
-                     || procState > ActivityManager.PROCESS_STATE_TOP);
-             is--) {
-         //当adj>0 或 schedGroup为后台线程组 或procState>2时执行
-         ServiceRecord s = app.services.valueAt(is);
-         if (s.startRequested) {
-             app.hasStartedServices = true;
-             //当service已启动，则procState<=10；
-             if (procState > ActivityManager.PROCESS_STATE_SERVICE) {
-                 procState = ActivityManager.PROCESS_STATE_SERVICE;
-             }
-             if (app.hasShownUi && app != mHomeProcess) {
-                 if (adj > ProcessList.SERVICE_ADJ) {
-                     app.adjType = "cch-started-ui-services";
-                 }
-             } else {
-                 if (now < (s.lastActivity + ActiveServices.MAX_SERVICE_INACTIVITY)) {
-                     //当service在30分钟内活动过，则adj=5；
-                     if (adj > ProcessList.SERVICE_ADJ) {
-                         adj = ProcessList.SERVICE_ADJ;
-                         app.adjType = "started-services";
-                         app.cached = false;
-                     }
-                 }
-                 if (adj > ProcessList.SERVICE_ADJ) {
-                     app.adjType = "cch-started-services";
-                 }
-             }
-         }
+```Java
+//是否显示在最顶部
+boolean mayBeTop = false;
+for (int is = app.services.size()-1;
+       is >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
+               || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
+               || procState > ActivityManager.PROCESS_STATE_TOP);
+       is--) {
+   //当adj>0 或 schedGroup为后台线程组 或procState>2时执行
+   ServiceRecord s = app.services.valueAt(is);
+   if (s.startRequested) {
+       app.hasStartedServices = true;
+       //当service已启动，则procState<=10；
+       if (procState > ActivityManager.PROCESS_STATE_SERVICE) {
+           procState = ActivityManager.PROCESS_STATE_SERVICE;
+       }
+       if (app.hasShownUi && app != mHomeProcess) {
+           if (adj > ProcessList.SERVICE_ADJ) {
+               app.adjType = "cch-started-ui-services";
+           }
+       } else {
+           if (now < (s.lastActivity + ActiveServices.MAX_SERVICE_INACTIVITY)) {
+               //当service在30分钟内活动过，则adj=5；
+               if (adj > ProcessList.SERVICE_ADJ) {
+                   adj = ProcessList.SERVICE_ADJ;
+                   app.adjType = "started-services";
+                   app.cached = false;
+               }
+           }
+           if (adj > ProcessList.SERVICE_ADJ) {
+               app.adjType = "cch-started-services";
+           }
+       }
+   }
 
-         for (int conni = s.connections.size()-1;
-                 conni >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
-                         || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
-                         || procState > ActivityManager.PROCESS_STATE_TOP);
-                 conni--) {
-             // 获取service所绑定的connections
-             ArrayList<ConnectionRecord> clist = s.connections.valueAt(conni);
-             for (int i = 0;
-                     i < clist.size() && (adj > ProcessList.FOREGROUND_APP_ADJ
-                             || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
-                             || procState > ActivityManager.PROCESS_STATE_TOP);
-                     i++) {
-                 ConnectionRecord cr = clist.get(i);
-                 //当client与当前app同一个进程，则continue;
-                 if (cr.binding.client == app) {
-                     continue;
-                 }
-                 if ((cr.flags&Context.BIND_WAIVE_PRIORITY) == 0) {
-                     ProcessRecord client = cr.binding.client;
-                     //计算connections所对应的client进程的adj
-                     int clientAdj = computeOomAdjLocked(client, cachedAdj,
-                             TOP_APP, doingAll, now);
-                     int clientProcState = client.curProcState;
+   for (int conni = s.connections.size()-1;
+           conni >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
+                   || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
+                   || procState > ActivityManager.PROCESS_STATE_TOP);
+           conni--) {
+       // 获取service所绑定的connections
+       ArrayList<ConnectionRecord> clist = s.connections.valueAt(conni);
+       for (int i = 0;
+               i < clist.size() && (adj > ProcessList.FOREGROUND_APP_ADJ
+                       || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
+                       || procState > ActivityManager.PROCESS_STATE_TOP);
+               i++) {
+           ConnectionRecord cr = clist.get(i);
+           //当client与当前app同一个进程，则continue;
+           if (cr.binding.client == app) {
+               continue;
+           }
+           if ((cr.flags&Context.BIND_WAIVE_PRIORITY) == 0) {
+               ProcessRecord client = cr.binding.client;
+               //计算connections所对应的client进程的adj
+               int clientAdj = computeOomAdjLocked(client, cachedAdj,
+                       TOP_APP, doingAll, now);
+               int clientProcState = client.curProcState;
 
-                     //当client进程的ProcState >=cache，则设置为空进程
-                     if (clientProcState >= ActivityManager.PROCESS_STATE_CACHED_ACTIVITY) {
-                         clientProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY;
-                     }
-                     String adjType = null;
-                     if ((cr.flags&Context.BIND_ALLOW_OOM_MANAGEMENT) != 0) {
-                         //当进程存在显示的ui，则将当前进程的adj和ProcState值赋予给client进程
-                         if (app.hasShownUi && app != mHomeProcess) {
-                             if (adj > clientAdj) {
-                                 adjType = "cch-bound-ui-services";
-                             }
-                             app.cached = false;
-                             clientAdj = adj;
-                             clientProcState = procState;
-                         } else {
-                             //当不存在显示的ui，且service上次活动时间距离现在超过30分钟，则只将当前进程的adj值赋予给client进程
-                             if (now >= (s.lastActivity
-                                     + ActiveServices.MAX_SERVICE_INACTIVITY)) {
-                                 if (adj > clientAdj) {
-                                     adjType = "cch-bound-services";
-                                 }
-                                 clientAdj = adj;
-                             }
-                         }
-                     }
-                     //当前进程adj > client进程adj的情况
-                     if (adj > clientAdj) {
-                         if (app.hasShownUi && app != mHomeProcess
-                                 && clientAdj > ProcessList.PERCEPTIBLE_APP_ADJ) {
-                             adjType = "cch-bound-ui-services";
-                         } else {
-                             //当service进程比较重要时，设置adj >= -11
-                             if ((cr.flags&(Context.BIND_ABOVE_CLIENT
-                                     |Context.BIND_IMPORTANT)) != 0) {
-                                 adj = clientAdj >= ProcessList.PERSISTENT_SERVICE_ADJ
-                                         ? clientAdj : ProcessList.PERSISTENT_SERVICE_ADJ;
-                             //当client进程adj<2,且当前进程adj>2时，设置adj=2;
-                             } else if ((cr.flags&Context.BIND_NOT_VISIBLE) != 0
-                                     && clientAdj < ProcessList.PERCEPTIBLE_APP_ADJ
-                                     && adj > ProcessList.PERCEPTIBLE_APP_ADJ) {
-                                 adj = ProcessList.PERCEPTIBLE_APP_ADJ;
-                             //当client进程adj>1时，则设置adj = clientAdj
-                             } else if (clientAdj > ProcessList.VISIBLE_APP_ADJ) {
-                                 adj = clientAdj;
-                             } else {
-                                 //否则，设置adj <= 1
-                                 if (adj > ProcessList.VISIBLE_APP_ADJ) {
-                                     adj = ProcessList.VISIBLE_APP_ADJ;
-                                 }
-                             }
-                             //当client进程不是cache进程，则当前进程也设置为非cache进程
-                             if (!client.cached) {
-                                 app.cached = false;
-                             }
-                             adjType = "service";
-                         }
-                     }
+               //当client进程的ProcState >=cache，则设置为空进程
+               if (clientProcState >= ActivityManager.PROCESS_STATE_CACHED_ACTIVITY) {
+                   clientProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY;
+               }
+               String adjType = null;
+               if ((cr.flags&Context.BIND_ALLOW_OOM_MANAGEMENT) != 0) {
+                   //当进程存在显示的ui，则将当前进程的adj和ProcState值赋予给client进程
+                   if (app.hasShownUi && app != mHomeProcess) {
+                       if (adj > clientAdj) {
+                           adjType = "cch-bound-ui-services";
+                       }
+                       app.cached = false;
+                       clientAdj = adj;
+                       clientProcState = procState;
+                   } else {
+                       //当不存在显示的ui，且service上次活动时间距离现在超过30分钟，则只将当前进程的adj值赋予给client进程
+                       if (now >= (s.lastActivity
+                               + ActiveServices.MAX_SERVICE_INACTIVITY)) {
+                           if (adj > clientAdj) {
+                               adjType = "cch-bound-services";
+                           }
+                           clientAdj = adj;
+                       }
+                   }
+               }
+               //当前进程adj > client进程adj的情况
+               if (adj > clientAdj) {
+                   if (app.hasShownUi && app != mHomeProcess
+                           && clientAdj > ProcessList.PERCEPTIBLE_APP_ADJ) {
+                       adjType = "cch-bound-ui-services";
+                   } else {
+                       //当service进程比较重要时，设置adj >= -11
+                       if ((cr.flags&(Context.BIND_ABOVE_CLIENT
+                               |Context.BIND_IMPORTANT)) != 0) {
+                           adj = clientAdj >= ProcessList.PERSISTENT_SERVICE_ADJ
+                                   ? clientAdj : ProcessList.PERSISTENT_SERVICE_ADJ;
+                       //当client进程adj<2,且当前进程adj>2时，设置adj=2;
+                       } else if ((cr.flags&Context.BIND_NOT_VISIBLE) != 0
+                               && clientAdj < ProcessList.PERCEPTIBLE_APP_ADJ
+                               && adj > ProcessList.PERCEPTIBLE_APP_ADJ) {
+                           adj = ProcessList.PERCEPTIBLE_APP_ADJ;
+                       //当client进程adj>1时，则设置adj = clientAdj
+                       } else if (clientAdj > ProcessList.VISIBLE_APP_ADJ) {
+                           adj = clientAdj;
+                       } else {
+                           //否则，设置adj <= 1
+                           if (adj > ProcessList.VISIBLE_APP_ADJ) {
+                               adj = ProcessList.VISIBLE_APP_ADJ;
+                           }
+                       }
+                       //当client进程不是cache进程，则当前进程也设置为非cache进程
+                       if (!client.cached) {
+                           app.cached = false;
+                       }
+                       adjType = "service";
+                   }
+               }
 
-                     //当绑定的是前台进程的情况
-                     if ((cr.flags&Context.BIND_NOT_FOREGROUND) == 0) {
-                         if (client.curSchedGroup == Process.THREAD_GROUP_DEFAULT) {
-                             schedGroup = Process.THREAD_GROUP_DEFAULT;
-                         }
-                         if (clientProcState <= ActivityManager.PROCESS_STATE_TOP) {
-                             //当client进程状态为前台时，则设置mayBeTop=true，并设置client进程procState=16
-                             if (clientProcState == ActivityManager.PROCESS_STATE_TOP) {
-                                 mayBeTop = true;
-                                 clientProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY;
-                             //当client进程状态 < 2的前提下：若绑定前台service，则clientProcState=3；否则clientProcState=6
-                             } else {
-                                 if ((cr.flags&Context.BIND_FOREGROUND_SERVICE) != 0) {
-                                     clientProcState =
-                                             ActivityManager.PROCESS_STATE_BOUND_FOREGROUND_SERVICE;
-                                 } else if (mWakefulness
-                                                 == PowerManagerInternal.WAKEFULNESS_AWAKE &&
-                                         (cr.flags&Context.BIND_FOREGROUND_SERVICE_WHILE_AWAKE)
-                                                 != 0) {
-                                     clientProcState =
-                                             ActivityManager.PROCESS_STATE_BOUND_FOREGROUND_SERVICE;
-                                 } else {
-                                     clientProcState =
-                                             ActivityManager.PROCESS_STATE_IMPORTANT_FOREGROUND;
-                                 }
-                             }
-                         }
-                     //当connections并没有绑定前台service时，则clientProcState >= 7
-                     } else {
-                         if (clientProcState <
-                                 ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND) {
-                             clientProcState =
-                                     ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND;
-                         }
-                     }
-                     //保证当前进程procState不会必client进程的procState大
-                     if (procState > clientProcState) {
-                         procState = clientProcState;
-                     }
-                     if (procState < ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND
-                             && (cr.flags&Context.BIND_SHOWING_UI) != 0) {
-                         app.pendingUiClean = true;
-                     }
-                     if (adjType != null) {
-                         app.adjType = adjType;
-                         app.adjTypeCode = ActivityManager.RunningAppProcessInfo
-                                 .REASON_SERVICE_IN_USE;
-                         app.adjSource = cr.binding.client;
-                         app.adjSourceProcState = clientProcState;
-                         app.adjTarget = s.name;
-                     }
-                 }
-                 if ((cr.flags&Context.BIND_TREAT_LIKE_ACTIVITY) != 0) {
-                     app.treatLikeActivity = true;
-                 }
-                 final ActivityRecord a = cr.activity;
-                 if ((cr.flags&Context.BIND_ADJUST_WITH_ACTIVITY) != 0) {
-                     //当进程adj >0，且activity可见 或者resumed 或 正在暂停，则设置adj = 0
-                     if (a != null && adj > ProcessList.FOREGROUND_APP_ADJ &&
-                             (a.visible || a.state == ActivityState.RESUMED
-                              || a.state == ActivityState.PAUSING)) {
-                         adj = ProcessList.FOREGROUND_APP_ADJ;
-                         if ((cr.flags&Context.BIND_NOT_FOREGROUND) == 0) {
-                             schedGroup = Process.THREAD_GROUP_DEFAULT;
-                         }
-                         app.cached = false;
-                         app.adjType = "service";
-                         app.adjTypeCode = ActivityManager.RunningAppProcessInfo
-                                 .REASON_SERVICE_IN_USE;
-                         app.adjSource = a;
-                         app.adjSourceProcState = procState;
-                         app.adjTarget = s.name;
-                     }
-                 }
-             }
-         }
-     }
+               //当绑定的是前台进程的情况
+               if ((cr.flags&Context.BIND_NOT_FOREGROUND) == 0) {
+                   if (client.curSchedGroup == Process.THREAD_GROUP_DEFAULT) {
+                       schedGroup = Process.THREAD_GROUP_DEFAULT;
+                   }
+                   if (clientProcState <= ActivityManager.PROCESS_STATE_TOP) {
+                       //当client进程状态为前台时，则设置mayBeTop=true，并设置client进程procState=16
+                       if (clientProcState == ActivityManager.PROCESS_STATE_TOP) {
+                           mayBeTop = true;
+                           clientProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY;
+                       //当client进程状态 < 2的前提下：若绑定前台service，则clientProcState=3；否则clientProcState=6
+                       } else {
+                           if ((cr.flags&Context.BIND_FOREGROUND_SERVICE) != 0) {
+                               clientProcState =
+                                       ActivityManager.PROCESS_STATE_BOUND_FOREGROUND_SERVICE;
+                           } else if (mWakefulness
+                                           == PowerManagerInternal.WAKEFULNESS_AWAKE &&
+                                   (cr.flags&Context.BIND_FOREGROUND_SERVICE_WHILE_AWAKE)
+                                           != 0) {
+                               clientProcState =
+                                       ActivityManager.PROCESS_STATE_BOUND_FOREGROUND_SERVICE;
+                           } else {
+                               clientProcState =
+                                       ActivityManager.PROCESS_STATE_IMPORTANT_FOREGROUND;
+                           }
+                       }
+                   }
+               //当connections并没有绑定前台service时，则clientProcState >= 7
+               } else {
+                   if (clientProcState <
+                           ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND) {
+                       clientProcState =
+                               ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND;
+                   }
+               }
+               //保证当前进程procState不会必client进程的procState大
+               if (procState > clientProcState) {
+                   procState = clientProcState;
+               }
+               if (procState < ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND
+                       && (cr.flags&Context.BIND_SHOWING_UI) != 0) {
+                   app.pendingUiClean = true;
+               }
+               if (adjType != null) {
+                   app.adjType = adjType;
+                   app.adjTypeCode = ActivityManager.RunningAppProcessInfo
+                           .REASON_SERVICE_IN_USE;
+                   app.adjSource = cr.binding.client;
+                   app.adjSourceProcState = clientProcState;
+                   app.adjTarget = s.name;
+               }
+           }
+           if ((cr.flags&Context.BIND_TREAT_LIKE_ACTIVITY) != 0) {
+               app.treatLikeActivity = true;
+           }
+           final ActivityRecord a = cr.activity;
+           if ((cr.flags&Context.BIND_ADJUST_WITH_ACTIVITY) != 0) {
+               //当进程adj >0，且activity可见 或者resumed 或 正在暂停，则设置adj = 0
+               if (a != null && adj > ProcessList.FOREGROUND_APP_ADJ &&
+                       (a.visible || a.state == ActivityState.RESUMED
+                        || a.state == ActivityState.PAUSING)) {
+                   adj = ProcessList.FOREGROUND_APP_ADJ;
+                   if ((cr.flags&Context.BIND_NOT_FOREGROUND) == 0) {
+                       schedGroup = Process.THREAD_GROUP_DEFAULT;
+                   }
+                   app.cached = false;
+                   app.adjType = "service";
+                   app.adjTypeCode = ActivityManager.RunningAppProcessInfo
+                           .REASON_SERVICE_IN_USE;
+                   app.adjSource = a;
+                   app.adjSourceProcState = procState;
+                   app.adjTarget = s.name;
+               }
+           }
+       }
+   }
+}
+```
 
  当adj>0 或 schedGroup为后台线程组 或procState>2时，双重循环遍历：
 
@@ -1085,82 +1087,83 @@ updateOomAdjLocked过程比较复杂，主要分为更新adj(满足条件则杀�
 
 #### 11. ContentProvider情况
 
-     //当adj>0 或 schedGroup为后台线程组 或procState>2时
-     for (int provi = app.pubProviders.size()-1;
-             provi >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
-                     || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
-                     || procState > ActivityManager.PROCESS_STATE_TOP);
-             provi--) {
-         ContentProviderRecord cpr = app.pubProviders.valueAt(provi);
-         for (int i = cpr.connections.size()-1;
-                 i >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
-                         || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
-                         || procState > ActivityManager.PROCESS_STATE_TOP);
-                 i--) {
-             ContentProviderConnection conn = cpr.connections.get(i);
-             ProcessRecord client = conn.client;
-             // 当client与当前app同一个进程，则continue;
-             if (client == app) {
-                 continue;
-             }
-             // 计算client进程的adj
-             int clientAdj = computeOomAdjLocked(client, cachedAdj, TOP_APP, doingAll, now);
-             int clientProcState = client.curProcState;
-             //当client进程procState >=14，则设置成procState =16
-             if (clientProcState >= ActivityManager.PROCESS_STATE_CACHED_ACTIVITY) {
-                 clientProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY; 【】
-             }
-             if (adj > clientAdj) {
-                 if (app.hasShownUi && app != mHomeProcess
-                         && clientAdj > ProcessList.PERCEPTIBLE_APP_ADJ) {
-                     app.adjType = "cch-ui-provider";
-                 } else {
-                     //没有ui展示，则保证adj >=0
-                     adj = clientAdj > ProcessList.FOREGROUND_APP_ADJ
-                             ? clientAdj : ProcessList.FOREGROUND_APP_ADJ;
-                     app.adjType = "provider";
-                 }
-                 app.cached &= client.cached;
-                 app.adjTypeCode = ActivityManager.RunningAppProcessInfo
-                         .REASON_PROVIDER_IN_USE;
-                 app.adjSource = client;
-                 app.adjSourceProcState = clientProcState;
-                 app.adjTarget = cpr.name;
-             }
-             if (clientProcState <= ActivityManager.PROCESS_STATE_TOP) {
-                 if (clientProcState == ActivityManager.PROCESS_STATE_TOP) {
-                     mayBeTop = true;
-                     //当client进程状态为前台时，则设置mayBeTop=true，并设置client进程procState=16设置为空进程
-                     clientProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY;
-                 } else {
-                     //当client进程状态 < 2时，则clientProcState=3；
-                     clientProcState = ActivityManager.PROCESS_STATE_BOUND_FOREGROUND_SERVICE;
-                 }
-             }
-             //procState 比client进程值更大时，则取client端的状态值。
-             if (procState > clientProcState) {
-                 procState = clientProcState;
-             }
-             if (client.curSchedGroup == Process.THREAD_GROUP_DEFAULT) {
-                 schedGroup = Process.THREAD_GROUP_DEFAULT;
-             }
-         }
-         //当contentprovider存在外部进程依赖(非framework)时
-         if (cpr.hasExternalProcessHandles()) {
-             //设置adj =0, procState=6
-             if (adj > ProcessList.FOREGROUND_APP_ADJ) {
-                 adj = ProcessList.FOREGROUND_APP_ADJ;
-                 schedGroup = Process.THREAD_GROUP_DEFAULT;
-                 app.cached = false;
-                 app.adjType = "provider";
-                 app.adjTarget = cpr.name;
-             }
-             if (procState > ActivityManager.PROCESS_STATE_IMPORTANT_FOREGROUND) {
-                 procState = ActivityManager.PROCESS_STATE_IMPORTANT_FOREGROUND;
-             }
-         }
-     }
-
+```Java
+//当adj>0 或 schedGroup为后台线程组 或procState>2时
+for (int provi = app.pubProviders.size()-1;
+       provi >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
+               || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
+               || procState > ActivityManager.PROCESS_STATE_TOP);
+       provi--) {
+   ContentProviderRecord cpr = app.pubProviders.valueAt(provi);
+   for (int i = cpr.connections.size()-1;
+           i >= 0 && (adj > ProcessList.FOREGROUND_APP_ADJ
+                   || schedGroup == Process.THREAD_GROUP_BG_NONINTERACTIVE
+                   || procState > ActivityManager.PROCESS_STATE_TOP);
+           i--) {
+       ContentProviderConnection conn = cpr.connections.get(i);
+       ProcessRecord client = conn.client;
+       // 当client与当前app同一个进程，则continue;
+       if (client == app) {
+           continue;
+       }
+       // 计算client进程的adj
+       int clientAdj = computeOomAdjLocked(client, cachedAdj, TOP_APP, doingAll, now);
+       int clientProcState = client.curProcState;
+       //当client进程procState >=14，则设置成procState =16
+       if (clientProcState >= ActivityManager.PROCESS_STATE_CACHED_ACTIVITY) {
+           clientProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY; 【】
+       }
+       if (adj > clientAdj) {
+           if (app.hasShownUi && app != mHomeProcess
+                   && clientAdj > ProcessList.PERCEPTIBLE_APP_ADJ) {
+               app.adjType = "cch-ui-provider";
+           } else {
+               //没有ui展示，则保证adj >=0
+               adj = clientAdj > ProcessList.FOREGROUND_APP_ADJ
+                       ? clientAdj : ProcessList.FOREGROUND_APP_ADJ;
+               app.adjType = "provider";
+           }
+           app.cached &= client.cached;
+           app.adjTypeCode = ActivityManager.RunningAppProcessInfo
+                   .REASON_PROVIDER_IN_USE;
+           app.adjSource = client;
+           app.adjSourceProcState = clientProcState;
+           app.adjTarget = cpr.name;
+       }
+       if (clientProcState <= ActivityManager.PROCESS_STATE_TOP) {
+           if (clientProcState == ActivityManager.PROCESS_STATE_TOP) {
+               mayBeTop = true;
+               //当client进程状态为前台时，则设置mayBeTop=true，并设置client进程procState=16设置为空进程
+               clientProcState = ActivityManager.PROCESS_STATE_CACHED_EMPTY;
+           } else {
+               //当client进程状态 < 2时，则clientProcState=3；
+               clientProcState = ActivityManager.PROCESS_STATE_BOUND_FOREGROUND_SERVICE;
+           }
+       }
+       //procState 比client进程值更大时，则取client端的状态值。
+       if (procState > clientProcState) {
+           procState = clientProcState;
+       }
+       if (client.curSchedGroup == Process.THREAD_GROUP_DEFAULT) {
+           schedGroup = Process.THREAD_GROUP_DEFAULT;
+       }
+   }
+   //当contentprovider存在外部进程依赖(非framework)时
+   if (cpr.hasExternalProcessHandles()) {
+       //设置adj =0, procState=6
+       if (adj > ProcessList.FOREGROUND_APP_ADJ) {
+           adj = ProcessList.FOREGROUND_APP_ADJ;
+           schedGroup = Process.THREAD_GROUP_DEFAULT;
+           app.cached = false;
+           app.adjType = "provider";
+           app.adjTarget = cpr.name;
+       }
+       if (procState > ActivityManager.PROCESS_STATE_IMPORTANT_FOREGROUND) {
+           procState = ActivityManager.PROCESS_STATE_IMPORTANT_FOREGROUND;
+       }
+   }
+}
+```
 
  当adj>0 或 schedGroup为后台线程组 或procState>2时，双重循环遍历：
 

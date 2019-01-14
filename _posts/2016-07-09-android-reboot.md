@@ -9,8 +9,10 @@ tags:
 
 ---
 
-    framework/base/services/core/java/com/android/server/power/PowerManagerServer.java
-    framework/base/services/core/java/com/android/server/power/ShutdownThread.java
+```Java
+framework/base/services/core/java/com/android/server/power/PowerManagerServer.java
+framework/base/services/core/java/com/android/server/power/ShutdownThread.java
+```
 
 ## 一、概述
 
@@ -119,109 +121,112 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
 
 [-> ShutdownThread.java]
 
-    static void shutdownInner(final Context context, boolean confirm) {
-        //确保只有唯一的线程执行shutdown/reboot操作
-        synchronized (sIsStartedGuard) {
-            if (sIsStarted) {
-                return;
-            }
-        }
-
-        final int longPressBehavior = context.getResources().getInteger(
-                        com.android.internal.R.integer.config_longPressOnPowerBehavior);
-        final int resourceId = mRebootSafeMode
-                ? com.android.internal.R.string.reboot_safemode_confirm
-                : (longPressBehavior == 2
-                        ? com.android.internal.R.string.shutdown_confirm_question
-                        : com.android.internal.R.string.shutdown_confirm);
-
-        Log.d(TAG, "Notifying thread to start shutdown longPressBehavior=" + longPressBehavior);
-
-        if (confirm) {
-            //这里是走弹出关机/重启提示框
-            ...
-        } else {
-            //本次confirm=false进入该分支【见小节2.6】
-            beginShutdownSequence(context);
+```Java
+static void shutdownInner(final Context context, boolean confirm) {
+    //确保只有唯一的线程执行shutdown/reboot操作
+    synchronized (sIsStartedGuard) {
+        if (sIsStarted) {
+            return;
         }
     }
+
+    final int longPressBehavior = context.getResources().getInteger(
+                    com.android.internal.R.integer.config_longPressOnPowerBehavior);
+    final int resourceId = mRebootSafeMode
+            ? com.android.internal.R.string.reboot_safemode_confirm
+            : (longPressBehavior == 2
+                    ? com.android.internal.R.string.shutdown_confirm_question
+                    : com.android.internal.R.string.shutdown_confirm);
+
+    Log.d(TAG, "Notifying thread to start shutdown longPressBehavior=" + longPressBehavior);
+
+    if (confirm) {
+        //这里是走弹出关机/重启提示框
+        ...
+    } else {
+        //本次confirm=false进入该分支【见小节2.6】
+        beginShutdownSequence(context);
+    }
+}
+```
 
 ### 2.6 SDT.beginShutdownSequence
 
 [-> ShutdownThread.java]
 
-    private static void beginShutdownSequence(Context context) {
-        synchronized (sIsStartedGuard) {
-            if (sIsStarted) {
-                return; //shutdown操作正在执行，则直接返回
-            }
-            sIsStarted = true;
+```Java
+private static void beginShutdownSequence(Context context) {
+    synchronized (sIsStartedGuard) {
+        if (sIsStarted) {
+            return; //shutdown操作正在执行，则直接返回
         }
-        //创建进度显示对话框
-        ProgressDialog pd = new ProgressDialog(context);
+        sIsStarted = true;
+    }
+    //创建进度显示对话框
+    ProgressDialog pd = new ProgressDialog(context);
 
-        //当重启原因为"recovery"
-        if (PowerManager.REBOOT_RECOVERY.equals(mReason)) {
-            mRebootUpdate = new File(UNCRYPT_PACKAGE_FILE).exists();
-            if (mRebootUpdate) {
-                pd.setTitle(context.getText(com.android.internal.R.string.reboot_to_update_title));
-                pd.setMessage(context.getText(
-                        com.android.internal.R.string.reboot_to_update_prepare));
-                pd.setMax(100);
-                pd.setProgressNumberFormat(null);
-                pd.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-                pd.setProgress(0);
-                pd.setIndeterminate(false);
-            } else {
-                pd.setTitle(context.getText(com.android.internal.R.string.reboot_to_reset_title));
-                pd.setMessage(context.getText(
-                        com.android.internal.R.string.reboot_to_reset_message));
-                pd.setIndeterminate(true);
-            }
+    //当重启原因为"recovery"
+    if (PowerManager.REBOOT_RECOVERY.equals(mReason)) {
+        mRebootUpdate = new File(UNCRYPT_PACKAGE_FILE).exists();
+        if (mRebootUpdate) {
+            pd.setTitle(context.getText(com.android.internal.R.string.reboot_to_update_title));
+            pd.setMessage(context.getText(
+                    com.android.internal.R.string.reboot_to_update_prepare));
+            pd.setMax(100);
+            pd.setProgressNumberFormat(null);
+            pd.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            pd.setProgress(0);
+            pd.setIndeterminate(false);
         } else {
-            //重启/关机则进入该分支
-            pd.setTitle(context.getText(com.android.internal.R.string.power_off));
-            pd.setMessage(context.getText(com.android.internal.R.string.shutdown_progress));
+            pd.setTitle(context.getText(com.android.internal.R.string.reboot_to_reset_title));
+            pd.setMessage(context.getText(
+                    com.android.internal.R.string.reboot_to_reset_message));
             pd.setIndeterminate(true);
         }
-        pd.setCancelable(false);
-        pd.getWindow().setType(WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG);
+    } else {
+        //重启/关机则进入该分支
+        pd.setTitle(context.getText(com.android.internal.R.string.power_off));
+        pd.setMessage(context.getText(com.android.internal.R.string.shutdown_progress));
+        pd.setIndeterminate(true);
+    }
+    pd.setCancelable(false);
+    pd.getWindow().setType(WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG);
 
-        pd.show();
+    pd.show();
 
-        sInstance.mProgressDialog = pd;
-        sInstance.mContext = context;
-        sInstance.mPowerManager = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
+    sInstance.mProgressDialog = pd;
+    sInstance.mContext = context;
+    sInstance.mPowerManager = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
 
-        //确保系统不会进入休眠状态
+    //确保系统不会进入休眠状态
+    sInstance.mCpuWakeLock = null;
+    try {
+        sInstance.mCpuWakeLock = sInstance.mPowerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK, TAG + "-cpu");
+        sInstance.mCpuWakeLock.setReferenceCounted(false);
+        sInstance.mCpuWakeLock.acquire();
+    } catch (SecurityException e) {
         sInstance.mCpuWakeLock = null;
-        try {
-            sInstance.mCpuWakeLock = sInstance.mPowerManager.newWakeLock(
-                    PowerManager.PARTIAL_WAKE_LOCK, TAG + "-cpu");
-            sInstance.mCpuWakeLock.setReferenceCounted(false);
-            sInstance.mCpuWakeLock.acquire();
-        } catch (SecurityException e) {
-            sInstance.mCpuWakeLock = null;
-        }
-
-        //当处理亮屏状态，则获取亮屏锁，提供用户体验
-        sInstance.mScreenWakeLock = null;
-        if (sInstance.mPowerManager.isScreenOn()) {
-            try {
-                sInstance.mScreenWakeLock = sInstance.mPowerManager.newWakeLock(
-                        PowerManager.FULL_WAKE_LOCK, TAG + "-screen");
-                sInstance.mScreenWakeLock.setReferenceCounted(false);
-                sInstance.mScreenWakeLock.acquire();
-            } catch (SecurityException e) {
-                sInstance.mScreenWakeLock = null;
-            }
-        }
-
-        sInstance.mHandler = new Handler() {};
-        //启动线程来执行shutdown初始化【见小节2.7】
-        sInstance.start();
     }
 
+    //当处理亮屏状态，则获取亮屏锁，提供用户体验
+    sInstance.mScreenWakeLock = null;
+    if (sInstance.mPowerManager.isScreenOn()) {
+        try {
+            sInstance.mScreenWakeLock = sInstance.mPowerManager.newWakeLock(
+                    PowerManager.FULL_WAKE_LOCK, TAG + "-screen");
+            sInstance.mScreenWakeLock.setReferenceCounted(false);
+            sInstance.mScreenWakeLock.acquire();
+        } catch (SecurityException e) {
+            sInstance.mScreenWakeLock = null;
+        }
+    }
+
+    sInstance.mHandler = new Handler() {};
+    //启动线程来执行shutdown初始化【见小节2.7】
+    sInstance.start();
+}
+```
 
 此处`ProgressDialog`根据不同reboot reason会不同UI框：
 
@@ -424,44 +429,46 @@ mReboot为true则代表重启操作，值为false则代表关机操作。
 
 对于force=true，接下来调用writeInternal方法。
 
-    private class PackageUsage {
-        private void writeInternal() {
-            synchronized (mPackages) {
-                synchronized (mFileLock) {
-                    //file是指/data/system/package-usage.list
-                    AtomicFile file = getFile();
-                    FileOutputStream f = null;
-                    try {
-                        //将原来的文件记录到package-usage.list.bak
-                        f = file.startWrite();
-                        BufferedOutputStream out = new BufferedOutputStream(f);
-                        FileUtils.setPermissions(file.getBaseFile().getPath(), 0640, SYSTEM_UID, PACKAGE_INFO_GID);
-                        StringBuilder sb = new StringBuilder();
-                        for (PackageParser.Package pkg : mPackages.values()) {
-                            if (pkg.mLastPackageUsageTimeInMills == 0) {
-                                continue;
-                            }
-                            sb.setLength(0);
-                            sb.append(pkg.packageName);
-                            sb.append(' ');
-                            sb.append((long)pkg.mLastPackageUsageTimeInMills);
-                            sb.append('\n');
-                            out.write(sb.toString().getBytes(StandardCharsets.US_ASCII));
+```Java
+private class PackageUsage {
+    private void writeInternal() {
+        synchronized (mPackages) {
+            synchronized (mFileLock) {
+                //file是指/data/system/package-usage.list
+                AtomicFile file = getFile();
+                FileOutputStream f = null;
+                try {
+                    //将原来的文件记录到package-usage.list.bak
+                    f = file.startWrite();
+                    BufferedOutputStream out = new BufferedOutputStream(f);
+                    FileUtils.setPermissions(file.getBaseFile().getPath(), 0640, SYSTEM_UID, PACKAGE_INFO_GID);
+                    StringBuilder sb = new StringBuilder();
+                    for (PackageParser.Package pkg : mPackages.values()) {
+                        if (pkg.mLastPackageUsageTimeInMills == 0) {
+                            continue;
                         }
-                        out.flush();
-                        //将文件内容同步到磁盘，并删除.bak文件
-                        file.finishWrite(f);
-                    } catch (IOException e) {
-                        if (f != null) {
-                            file.failWrite(f);
-                        }
-                        Log.e(TAG, "Failed to write package usage times", e);
+                        sb.setLength(0);
+                        sb.append(pkg.packageName);
+                        sb.append(' ');
+                        sb.append((long)pkg.mLastPackageUsageTimeInMills);
+                        sb.append('\n');
+                        out.write(sb.toString().getBytes(StandardCharsets.US_ASCII));
                     }
+                    out.flush();
+                    //将文件内容同步到磁盘，并删除.bak文件
+                    file.finishWrite(f);
+                } catch (IOException e) {
+                    if (f != null) {
+                        file.failWrite(f);
+                    }
+                    Log.e(TAG, "Failed to write package usage times", e);
                 }
             }
-            mLastWritten.set(SystemClock.elapsedRealtime());
         }
+        mLastWritten.set(SystemClock.elapsedRealtime());
     }
+}
+```
 
 /data/system/package-usage.list文件中每一行记录一条package及其上次使用时间(单位ms)。
 
@@ -602,22 +609,24 @@ observer的回调方法onShutDownComplete()，会调用actionDone()，该方法�
 
 ### 2.9 PMS.lowLevelReboot
 
-    public static void lowLevelReboot(String reason) {
-        if (reason == null) {
-            reason = "";
-        }
-        if (reason.equals(PowerManager.REBOOT_RECOVERY)) {
-            SystemProperties.set("ctl.start", "pre-recovery");
-        } else {
-            SystemProperties.set("sys.powerctl", "reboot," + reason);
-        }
-        try {
-            Thread.sleep(20 * 1000L);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        Slog.wtf(TAG, "Unexpected return from lowLevelReboot!");
+```Java
+public static void lowLevelReboot(String reason) {
+    if (reason == null) {
+        reason = "";
     }
+    if (reason.equals(PowerManager.REBOOT_RECOVERY)) {
+        SystemProperties.set("ctl.start", "pre-recovery");
+    } else {
+        SystemProperties.set("sys.powerctl", "reboot," + reason);
+    }
+    try {
+        Thread.sleep(20 * 1000L);
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+    }
+    Slog.wtf(TAG, "Unexpected return from lowLevelReboot!");
+}
+```
 
 - 当reboot原因是“recovery”，则设置属性`ctl.start=pre-recovery`；
 - 当其他情况，则设置属性"sys.powerctl=reboot,[reason]"。

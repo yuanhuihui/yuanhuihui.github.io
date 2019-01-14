@@ -106,65 +106,67 @@ mSystemServiceManager.startService(MOUNT_SERVICE_CLASS)主要完成3件事：
 
 [-> MountService.java]
 
-    public MountService(Context context) {
-        sSelf = this;
+```Java
+public MountService(Context context) {
+    sSelf = this;
 
-        mContext = context;
-        //FgThread线程名为“"android.fg"，创建IMountServiceListener回调方法【见小节2.4】
-        mCallbacks = new Callbacks(FgThread.get().getLooper());
-        //获取PKMS的Client端对象
-        mPms = (PackageManagerService) ServiceManager.getService("package");
-        //创建“MountService”线程
-        HandlerThread hthread = new HandlerThread(TAG);
-        hthread.start();
+    mContext = context;
+    //FgThread线程名为“"android.fg"，创建IMountServiceListener回调方法【见小节2.4】
+    mCallbacks = new Callbacks(FgThread.get().getLooper());
+    //获取PKMS的Client端对象
+    mPms = (PackageManagerService) ServiceManager.getService("package");
+    //创建“MountService”线程
+    HandlerThread hthread = new HandlerThread(TAG);
+    hthread.start();
 
-        mHandler = new MountServiceHandler(hthread.getLooper());
-        //IoThread线程名为"android.io"，创建OBB操作的handler
-        mObbActionHandler = new ObbActionHandler(IoThread.get().getLooper());
+    mHandler = new MountServiceHandler(hthread.getLooper());
+    //IoThread线程名为"android.io"，创建OBB操作的handler
+    mObbActionHandler = new ObbActionHandler(IoThread.get().getLooper());
 
-        File dataDir = Environment.getDataDirectory();
-        File systemDir = new File(dataDir, "system");
-        mLastMaintenanceFile = new File(systemDir, LAST_FSTRIM_FILE);
-        //判断/data/system/last-fstrim文件，不存在则创建，存在则更新最后修改时间
-        if (!mLastMaintenanceFile.exists()) {
-            (new FileOutputStream(mLastMaintenanceFile)).close();
-            ...
-        } else {
-            mLastMaintenance = mLastMaintenanceFile.lastModified();
-        }
+    File dataDir = Environment.getDataDirectory();
+    File systemDir = new File(dataDir, "system");
+    mLastMaintenanceFile = new File(systemDir, LAST_FSTRIM_FILE);
+    //判断/data/system/last-fstrim文件，不存在则创建，存在则更新最后修改时间
+    if (!mLastMaintenanceFile.exists()) {
+        (new FileOutputStream(mLastMaintenanceFile)).close();
         ...
-        //将MountServiceInternalImpl登记到sLocalServiceObjects
-        LocalServices.addService(MountServiceInternal.class, mMountServiceInternal);
-        //创建用于VoldConnector的NDC对象【见小节2.5】
-        mConnector = new NativeDaemonConnector(this, "vold", MAX_CONTAINERS * 2, VOLD_TAG, 25,
-                null);
-        mConnector.setDebug(true);
-        //创建线程名为"VoldConnector"的线程，用于跟vold通信【见小节2.6】
-        Thread thread = new Thread(mConnector, VOLD_TAG);
-        thread.start();
-
-        //创建用于CryptdConnector工作的NDC对象
-        mCryptConnector = new NativeDaemonConnector(this, "cryptd",
-                MAX_CONTAINERS * 2, CRYPTD_TAG, 25, null);
-        mCryptConnector.setDebug(true);
-        //创建线程名为"CryptdConnector"的线程，用于加密
-        Thread crypt_thread = new Thread(mCryptConnector, CRYPTD_TAG);
-        crypt_thread.start();
-
-        //注册监听用户添加、删除的广播
-        final IntentFilter userFilter = new IntentFilter();
-        userFilter.addAction(Intent.ACTION_USER_ADDED);
-        userFilter.addAction(Intent.ACTION_USER_REMOVED);
-        mContext.registerReceiver(mUserReceiver, userFilter, null, mHandler);
-
-        //内部私有volume的路径为/data，该volume通过dumpsys mount是不会显示的
-        addInternalVolume();
-
-        //默认为false
-        if (WATCHDOG_ENABLE) {
-            Watchdog.getInstance().addMonitor(this);
-        }
+    } else {
+        mLastMaintenance = mLastMaintenanceFile.lastModified();
     }
+    ...
+    //将MountServiceInternalImpl登记到sLocalServiceObjects
+    LocalServices.addService(MountServiceInternal.class, mMountServiceInternal);
+    //创建用于VoldConnector的NDC对象【见小节2.5】
+    mConnector = new NativeDaemonConnector(this, "vold", MAX_CONTAINERS * 2, VOLD_TAG, 25,
+            null);
+    mConnector.setDebug(true);
+    //创建线程名为"VoldConnector"的线程，用于跟vold通信【见小节2.6】
+    Thread thread = new Thread(mConnector, VOLD_TAG);
+    thread.start();
+
+    //创建用于CryptdConnector工作的NDC对象
+    mCryptConnector = new NativeDaemonConnector(this, "cryptd",
+            MAX_CONTAINERS * 2, CRYPTD_TAG, 25, null);
+    mCryptConnector.setDebug(true);
+    //创建线程名为"CryptdConnector"的线程，用于加密
+    Thread crypt_thread = new Thread(mCryptConnector, CRYPTD_TAG);
+    crypt_thread.start();
+
+    //注册监听用户添加、删除的广播
+    final IntentFilter userFilter = new IntentFilter();
+    userFilter.addAction(Intent.ACTION_USER_ADDED);
+    userFilter.addAction(Intent.ACTION_USER_REMOVED);
+    mContext.registerReceiver(mUserReceiver, userFilter, null, mHandler);
+
+    //内部私有volume的路径为/data，该volume通过dumpsys mount是不会显示的
+    addInternalVolume();
+
+    //默认为false
+    if (WATCHDOG_ENABLE) {
+        Watchdog.getInstance().addMonitor(this);
+    }
+}
+```
 
 其主要功能依次是：
 
@@ -228,30 +230,32 @@ mSystemServiceManager.startService(MOUNT_SERVICE_CLASS)主要完成3件事：
 ### 2.5 NativeDaemonConnector
 [-> NativeDaemonConnector.java]
 
-    NativeDaemonConnector(INativeDaemonConnectorCallbacks callbacks, String socket,
-            int responseQueueSize, String logTag, int maxLogSize, PowerManager.WakeLock wl) {
-        this(callbacks, socket, responseQueueSize, logTag, maxLogSize, wl,
-                FgThread.get().getLooper());
-    }
+```Java
+NativeDaemonConnector(INativeDaemonConnectorCallbacks callbacks, String socket,
+        int responseQueueSize, String logTag, int maxLogSize, PowerManager.WakeLock wl) {
+    this(callbacks, socket, responseQueueSize, logTag, maxLogSize, wl,
+            FgThread.get().getLooper());
+}
 
-    NativeDaemonConnector(INativeDaemonConnectorCallbacks callbacks, String socket,
-            int responseQueueSize, String logTag, int maxLogSize, PowerManager.WakeLock wl,
-            Looper looper) {
-        mCallbacks = callbacks;
-        //socket名为"vold"
-        mSocket = socket;
-        //对象响应个数为500
-        mResponseQueue = new ResponseQueue(responseQueueSize);
-        mWakeLock = wl;
-        if (mWakeLock != null) {
-            mWakeLock.setReferenceCounted(true);
-        }
-        mLooper = looper;
-        mSequenceNumber = new AtomicInteger(0);
-        //TAG为"VoldConnector"
-        TAG = logTag != null ? logTag : "NativeDaemonConnector";
-        mLocalLog = new LocalLog(maxLogSize);
+NativeDaemonConnector(INativeDaemonConnectorCallbacks callbacks, String socket,
+        int responseQueueSize, String logTag, int maxLogSize, PowerManager.WakeLock wl,
+        Looper looper) {
+    mCallbacks = callbacks;
+    //socket名为"vold"
+    mSocket = socket;
+    //对象响应个数为500
+    mResponseQueue = new ResponseQueue(responseQueueSize);
+    mWakeLock = wl;
+    if (mWakeLock != null) {
+        mWakeLock.setReferenceCounted(true);
     }
+    mLooper = looper;
+    mSequenceNumber = new AtomicInteger(0);
+    //TAG为"VoldConnector"
+    TAG = logTag != null ? logTag : "NativeDaemonConnector";
+    mLocalLog = new LocalLog(maxLogSize);
+}
+```
 
 - mLooper为FgThread.get().getLooper()，即运行在"android.fg"线程；
 - mResponseQueue对象中成员变量`mPendingCmds`数据类型为LinkedList，记录着vold进程上报的响应事件，事件个数上限为500。
@@ -457,23 +461,25 @@ mSystemServiceManager.startService(MOUNT_SERVICE_CLASS)主要完成3件事：
 #### responses.poll
 [-> ArrayBlockingQueue.java]
 
-    public E poll(long timeout, TimeUnit unit) throws InterruptedException {
-        long nanos = unit.toNanos(timeout);
-        final ReentrantLock lock = this.lock;
-        //可中断的锁等待
-        lock.lockInterruptibly();
-        try {
-            //当队列长度为空，循环等待
-            while (count == 0) {
-                if (nanos <= 0)
-                    return null;
-                nanos = notEmpty.awaitNanos(nanos);
-            }
-            return extract();
-        } finally {
-            lock.unlock();
+```Java
+public E poll(long timeout, TimeUnit unit) throws InterruptedException {
+    long nanos = unit.toNanos(timeout);
+    final ReentrantLock lock = this.lock;
+    //可中断的锁等待
+    lock.lockInterruptibly();
+    try {
+        //当队列长度为空，循环等待
+        while (count == 0) {
+            if (nanos <= 0)
+                return null;
+            nanos = notEmpty.awaitNanos(nanos);
         }
+        return extract();
+    } finally {
+        lock.unlock();
     }
+}
+```
 
 **小知识**：这里用到了ReentrantLock同步锁，该锁跟synchronized有功能有很相似，用于多线程并发访问。那么ReentrantLock与synchronized相比,
 
@@ -493,75 +499,77 @@ ReentrantLock的劣势：
 ### 2.13 listenToSocket
 [-> NativeDaemonConnector.java]
 
-    private void listenToSocket() throws IOException {
-        LocalSocket socket = null;
+```Java
+private void listenToSocket() throws IOException {
+    LocalSocket socket = null;
 
-        try {
-            socket = new LocalSocket();
-            LocalSocketAddress address = determineSocketAddress();
-            //建立与"/dev/socket/vold"的socket连接
-            socket.connect(address);
+    try {
+        socket = new LocalSocket();
+        LocalSocketAddress address = determineSocketAddress();
+        //建立与"/dev/socket/vold"的socket连接
+        socket.connect(address);
 
-            InputStream inputStream = socket.getInputStream();
-            synchronized (mDaemonLock) {
-                mOutputStream = socket.getOutputStream();
-            }
-            //建立连接后，回调MS.onDaemonConnected【见小节2.15】
-            mCallbacks.onDaemonConnected();
+        InputStream inputStream = socket.getInputStream();
+        synchronized (mDaemonLock) {
+            mOutputStream = socket.getOutputStream();
+        }
+        //建立连接后，回调MS.onDaemonConnected【见小节2.15】
+        mCallbacks.onDaemonConnected();
 
-            byte[] buffer = new byte[BUFFER_SIZE];
-            int start = 0;
+        byte[] buffer = new byte[BUFFER_SIZE];
+        int start = 0;
 
-            while (true) {
-                int count = inputStream.read(buffer, start, BUFFER_SIZE - start);
-                ...
+        while (true) {
+            int count = inputStream.read(buffer, start, BUFFER_SIZE - start);
+            ...
 
-                for (int i = 0; i < count; i++) {
-                    if (buffer[i] == 0) {
-                        final String rawEvent = new String(
-                                buffer, start, i - start, StandardCharsets.UTF_8);
+            for (int i = 0; i < count; i++) {
+                if (buffer[i] == 0) {
+                    final String rawEvent = new String(
+                            buffer, start, i - start, StandardCharsets.UTF_8);
 
-                        boolean releaseWl = false;
-                        try {
-                            //解析socket服务端发送的event
-                            final NativeDaemonEvent event = NativeDaemonEvent.parseRawEvent(
-                                    rawEvent);
+                    boolean releaseWl = false;
+                    try {
+                        //解析socket服务端发送的event
+                        final NativeDaemonEvent event = NativeDaemonEvent.parseRawEvent(
+                                rawEvent);
 
-                            log("RCV <- {" + event + "}");
-                            //当事件的响应码区间为[600,700)，则发送消息交由mCallbackHandler处理
-                            if (event.isClassUnsolicited()) {
-                                if (mCallbacks.onCheckHoldWakeLock(event.getCode())
-                                        && mWakeLock != null) {
-                                    mWakeLock.acquire();
-                                    releaseWl = true;
-                                }
-                                if (mCallbackHandler.sendMessage(mCallbackHandler.obtainMessage(
-                                        event.getCode(), event.getRawEvent()))) {
-                                    releaseWl = false;
-                                }
-                            } else {
-                                //对于其他的响应码则添加到mResponseQueue队列【见小节2.14】
-                                mResponseQueue.add(event.getCmdNumber(), event);
-                            }
-                        } catch (IllegalArgumentException e) {
-                            log("Problem parsing message " + e);
-                        } finally {
-                            if (releaseWl) {
+                        log("RCV <- {" + event + "}");
+                        //当事件的响应码区间为[600,700)，则发送消息交由mCallbackHandler处理
+                        if (event.isClassUnsolicited()) {
+                            if (mCallbacks.onCheckHoldWakeLock(event.getCode())
+                                    && mWakeLock != null) {
                                 mWakeLock.acquire();
+                                releaseWl = true;
                             }
+                            if (mCallbackHandler.sendMessage(mCallbackHandler.obtainMessage(
+                                    event.getCode(), event.getRawEvent()))) {
+                                releaseWl = false;
+                            }
+                        } else {
+                            //对于其他的响应码则添加到mResponseQueue队列【见小节2.14】
+                            mResponseQueue.add(event.getCmdNumber(), event);
                         }
-                        start = i + 1;
+                    } catch (IllegalArgumentException e) {
+                        log("Problem parsing message " + e);
+                    } finally {
+                        if (releaseWl) {
+                            mWakeLock.acquire();
+                        }
                     }
+                    start = i + 1;
                 }
-                ...
             }
-        } catch (IOException ex) {
-            throw ex;
-        } finally {
-            //收尾清理类工作，关闭mOutputStream, socket
             ...
         }
+    } catch (IOException ex) {
+        throw ex;
+    } finally {
+        //收尾清理类工作，关闭mOutputStream, socket
+        ...
     }
+}
+```
 
 这里有一个动作是mResponseQueue.add()，通过该方法便能触发ResponseQueue.poll阻塞操作继续往下执行。
 
@@ -598,20 +606,21 @@ ReentrantLock的劣势：
 #### responses.put
 [-> ArrayBlockingQueue.java]
 
-    public void put(E e) throws InterruptedException {
-        checkNotNull(e);
-        final ReentrantLock lock = this.lock;
-        lock.lockInterruptibly();
-        try {
-            //当队列满了则等待
-            while (count == items.length)
-                notFull.await();
-            insert(e);
-        } finally {
-            lock.unlock();
-        }
+```Java
+public void put(E e) throws InterruptedException {
+    checkNotNull(e);
+    final ReentrantLock lock = this.lock;
+    lock.lockInterruptibly();
+    try {
+        //当队列满了则等待
+        while (count == items.length)
+            notFull.await();
+        insert(e);
+    } finally {
+        lock.unlock();
     }
-
+}
+```
 
 看完了如何向mPendingCmds中增加待处理的命令,再来回过来看看,当当listenToSocket刚开始监听前,收到Native的Daemon连接后的执行操作.
 

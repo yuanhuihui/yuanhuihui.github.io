@@ -11,26 +11,27 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android进程是如何一步步创建的，本文涉及到的源码：
 
-    /frameworks/base/core/java/com/android/internal/os/
-        - ZygoteInit.java
-        - ZygoteConnection.java
-        - RuntimeInit.java
-        - Zygote.java
+```Java
+/frameworks/base/core/java/com/android/internal/os/
+    - ZygoteInit.java
+    - ZygoteConnection.java
+    - RuntimeInit.java
+    - Zygote.java
 
-    /frameworks/base/core/java/android/os/Process.java
-    /frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
-    /frameworks/base/core/jni/AndroidRuntime.cpp
-    /frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
+/frameworks/base/core/java/android/os/Process.java
+/frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
+/frameworks/base/core/jni/AndroidRuntime.cpp
+/frameworks/base/cmds/app_process/App_main.cpp （内含AppRuntime类）
 
-    /bionic/libc/bionic/fork.cpp
-    /bionic/libc/bionic/pthread_atfork.cpp
-    
-    /libcore/dalvik/src/main/java/dalvik/system/ZygoteHooks.java
-    /art/runtime/native/dalvik_system_ZygoteHooks.cc
-    /art/runtime/Runtime.cc
-    /art/runtime/Thread.cc
-    /art/runtime/signal_catcher.cc
+/bionic/libc/bionic/fork.cpp
+/bionic/libc/bionic/pthread_atfork.cpp
 
+/libcore/dalvik/src/main/java/dalvik/system/ZygoteHooks.java
+/art/runtime/native/dalvik_system_ZygoteHooks.cc
+/art/runtime/Runtime.cc
+/art/runtime/Thread.cc
+/art/runtime/signal_catcher.cc
+```
 
 ## 一. 概述
 
@@ -428,13 +429,15 @@ VM_HOOKS是Zygote对象的静态成员变量：VM_HOOKS = new ZygoteHooks();
 
 #### 8.2 waitUntilAllThreadsStopped
 
-    private static void waitUntilAllThreadsStopped() {
-        File tasks = new File("/proc/self/task");
-        // 当/proc中线程数大于1，就出让CPU直到只有一个线程，才退出循环
-        while (tasks.list().length > 1) {
-            Thread.yield();
-        }
+```Java
+private static void waitUntilAllThreadsStopped() {
+    File tasks = new File("/proc/self/task");
+    // 当/proc中线程数大于1，就出让CPU直到只有一个线程，才退出循环
+    while (tasks.list().length > 1) {
+        Thread.yield();
     }
+}
+```
 
 #### 8.3 nativePreFork
 nativePreFork通过JNI最终调用如下方法：

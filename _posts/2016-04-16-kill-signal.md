@@ -11,19 +11,21 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析kill进程的实现原理，以及讲讲系统调用(syscall)过程，涉及源码：
 
-    /framework/base/core/java/android/os/Process.java
-    /framework/base/core/jni/android_util_Process.cpp
-    /system/core/libprocessgroup/processgroup.cpp
-    /frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
+```Java
+/framework/base/core/java/android/os/Process.java
+/framework/base/core/jni/android_util_Process.cpp
+/system/core/libprocessgroup/processgroup.cpp
+/frameworks/base/core/jni/com_android_internal_os_Zygote.cpp
 
-    /kernel/kernel/signal.c
-    /Kernel/include/linux/syscalls.h
-    /kernel/include/uapi/asm-generic/unistd.h
-    /bionic/libc/kernel/uapi/asm-generic/unistd.h
+/kernel/kernel/signal.c
+/Kernel/include/linux/syscalls.h
+/kernel/include/uapi/asm-generic/unistd.h
+/bionic/libc/kernel/uapi/asm-generic/unistd.h
 
-    /art/runtime/Runtime.cc
-    /art/runtime/signal_catcher.h
-    /art/runtime/signal_catcher.cc
+/art/runtime/Runtime.cc
+/art/runtime/signal_catcher.h
+/art/runtime/signal_catcher.cc
+```
 
 ### 概述
 
@@ -163,20 +165,22 @@ tags:
 #### 1.3.3.2 removeProcessGroup
 [-> processgroup.cpp]
 
-    static int removeProcessGroup(uid_t uid, int pid)
-    {
-        int ret;
-        char path[PROCESSGROUP_MAX_PATH_LEN] = {0};
+```Java
+static int removeProcessGroup(uid_t uid, int pid)
+{
+    int ret;
+    char path[PROCESSGROUP_MAX_PATH_LEN] = {0};
 
-        //删除目录 /acct/uid_<uid>/pid_<pid>/
-        convertUidPidToPath(path, sizeof(path), uid, pid);
-        ret = rmdir(path);
+    //删除目录 /acct/uid_<uid>/pid_<pid>/
+    convertUidPidToPath(path, sizeof(path), uid, pid);
+    ret = rmdir(path);
 
-        //删除目录 /acct/uid_<uid>/
-        convertUidToPath(path, sizeof(path), uid);
-        rmdir(path);
-        return ret;
-    }
+    //删除目录 /acct/uid_<uid>/
+    convertUidToPath(path, sizeof(path), uid);
+    rmdir(path);
+    return ret;
+}
+```
 
 ### 1.4 小结
 
@@ -226,40 +230,42 @@ tags:
 
 [-> signal.c]
 
-    static int kill_something_info(int sig, struct siginfo *info, pid_t pid)
-    {
-        int ret;
-        if (pid > 0) {
-            rcu_read_lock();
-            //当pid>0时，则发送给pid所对应的进程【见流程2.3】
-            ret = kill_pid_info(sig, info, find_vpid(pid));
-            rcu_read_unlock();
-            return ret;
-        }
-        read_lock(&tasklist_lock);
-        if (pid != -1) {
-            //当pid=0时，则发送给当前进程组；
-            //当pid<-1时，则发送给-pid所对应的进程。
-            ret = __kill_pgrp_info(sig, info,
-                    pid ? find_vpid(-pid) : task_pgrp(current));
-        } else {
-            //当pid=-1时，则发送给所有进程
-            int retval = 0, count = 0;
-            struct task_struct * p;
-            for_each_process(p) {
-                if (task_pid_vnr(p) > 1 &&
-                        !same_thread_group(p, current)) {
-                    int err = group_send_sig_info(sig, info, p);
-                    ++count;
-                    if (err != -EPERM)
-                        retval = err;
-                }
-            }
-            ret = count ? retval : -ESRCH;
-        }
-        read_unlock(&tasklist_lock);
+```C
+static int kill_something_info(int sig, struct siginfo *info, pid_t pid)
+{
+    int ret;
+    if (pid > 0) {
+        rcu_read_lock();
+        //当pid>0时，则发送给pid所对应的进程【见流程2.3】
+        ret = kill_pid_info(sig, info, find_vpid(pid));
+        rcu_read_unlock();
         return ret;
     }
+    read_lock(&tasklist_lock);
+    if (pid != -1) {
+        //当pid=0时，则发送给当前进程组；
+        //当pid<-1时，则发送给-pid所对应的进程。
+        ret = __kill_pgrp_info(sig, info,
+                pid ? find_vpid(-pid) : task_pgrp(current));
+    } else {
+        //当pid=-1时，则发送给所有进程
+        int retval = 0, count = 0;
+        struct task_struct * p;
+        for_each_process(p) {
+            if (task_pid_vnr(p) > 1 &&
+                    !same_thread_group(p, current)) {
+                int err = group_send_sig_info(sig, info, p);
+                ++count;
+                if (err != -EPERM)
+                    retval = err;
+            }
+        }
+        ret = count ? retval : -ESRCH;
+    }
+    read_unlock(&tasklist_lock);
+    return ret;
+}
+```
 
 功能：
 
@@ -272,201 +278,208 @@ tags:
 
 [-> signal.c]
 
-    int kill_pid_info(int sig, struct siginfo *info, struct pid *pid)
-    {
-        int error = -ESRCH;
-        struct task_struct *p;
-        rcu_read_lock();
-    retry:
-        //根据pid查询到task结构体
-        p = pid_task(pid, PIDTYPE_PID);
-        if (p) {
-            error = group_send_sig_info(sig, info, p); //【见流程2.4】
-            if (unlikely(error == -ESRCH))
-                goto retry;
-        }
-        rcu_read_unlock();
-        return error;
+```C
+int kill_pid_info(int sig, struct siginfo *info, struct pid *pid)
+{
+    int error = -ESRCH;
+    struct task_struct *p;
+    rcu_read_lock();
+retry:
+    //根据pid查询到task结构体
+    p = pid_task(pid, PIDTYPE_PID);
+    if (p) {
+        error = group_send_sig_info(sig, info, p); //【见流程2.4】
+        if (unlikely(error == -ESRCH))
+            goto retry;
     }
-
+    rcu_read_unlock();
+    return error;
+}
+```
 
 ### 2.4 group_send_sig_info
 
 [-> signal.c]
 
-    int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
-    {
-        int ret;
-        rcu_read_lock();
-        //检查sig是否合法以及隐私等权限问题
-        ret = check_kill_permission(sig, info, p);
-        rcu_read_unlock();
-        if (!ret && sig)
-            ret = do_send_sig_info(sig, info, p, true); //【见流程2.5】
-        return ret;
-    }
+```C
+int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
+{
+    int ret;
+    rcu_read_lock();
+    //检查sig是否合法以及隐私等权限问题
+    ret = check_kill_permission(sig, info, p);
+    rcu_read_unlock();
+    if (!ret && sig)
+        ret = do_send_sig_info(sig, info, p, true); //【见流程2.5】
+    return ret;
+}
+```
 
 ### 2.5 do_send_sig_info
 
 [-> signal.c]
 
-    int do_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
-                bool group)
-    {
-        unsigned long flags;
-        int ret = -ESRCH;
-        if (lock_task_sighand(p, &flags)) {
-            ret = send_signal(sig, info, p, group); //【见流程2.6】
-            unlock_task_sighand(p, &flags);
-        }
-        return ret;
+```C
+int do_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
+            bool group)
+{
+    unsigned long flags;
+    int ret = -ESRCH;
+    if (lock_task_sighand(p, &flags)) {
+        ret = send_signal(sig, info, p, group); //【见流程2.6】
+        unlock_task_sighand(p, &flags);
     }
+    return ret;
+}
+```
 
 ### 2.6 send_signal
-
 [-> signal.c]
 
-    static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
-                int group)
-    {
-        int from_ancestor_ns = 0;
-    #ifdef CONFIG_PID_NS
-        from_ancestor_ns = si_fromuser(info) &&
-                   !task_pid_nr_ns(current, task_active_pid_ns(t));
-    #endif
-        return __send_signal(sig, info, t, group, from_ancestor_ns); //【见流程2.7】
-    }
+```C
+static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
+            int group)
+{
+    int from_ancestor_ns = 0;
+#ifdef CONFIG_PID_NS
+    from_ancestor_ns = si_fromuser(info) &&
+               !task_pid_nr_ns(current, task_active_pid_ns(t));
+#endif
+    return __send_signal(sig, info, t, group, from_ancestor_ns); //【见流程2.7】
+}
+```
 
 ### 2.7 __send_signal
-
 [-> signal.c]
 
-    static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
-                int group, int from_ancestor_ns)
-    {
-        struct sigpending *pending;
-        struct sigqueue *q;
-        int override_rlimit;
-        int ret = 0, result;
-        assert_spin_locked(&t->sighand->siglock);
-        result = TRACE_SIGNAL_IGNORED;
-        if (!prepare_signal(sig, t,
-                from_ancestor_ns || (info == SEND_SIG_FORCED)))
-            goto ret;
-        pending = group ? &t->signal->shared_pending : &t->pending;
+```C
+static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
+            int group, int from_ancestor_ns)
+{
+    struct sigpending *pending;
+    struct sigqueue *q;
+    int override_rlimit;
+    int ret = 0, result;
+    assert_spin_locked(&t->sighand->siglock);
+    result = TRACE_SIGNAL_IGNORED;
+    if (!prepare_signal(sig, t,
+            from_ancestor_ns || (info == SEND_SIG_FORCED)))
+        goto ret;
+    pending = group ? &t->signal->shared_pending : &t->pending;
 
-        result = TRACE_SIGNAL_ALREADY_PENDING;
-        if (legacy_queue(pending, sig))
-            goto ret;
-        result = TRACE_SIGNAL_DELIVERED;
+    result = TRACE_SIGNAL_ALREADY_PENDING;
+    if (legacy_queue(pending, sig))
+        goto ret;
+    result = TRACE_SIGNAL_DELIVERED;
 
-        if (info == SEND_SIG_FORCED)
-            goto out_set;
+    if (info == SEND_SIG_FORCED)
+        goto out_set;
 
-        if (sig < SIGRTMIN)
-            override_rlimit = (is_si_special(info) || info->si_code >= 0);
-        else
-            override_rlimit = 0;
-        q = __sigqueue_alloc(sig, t, GFP_ATOMIC | __GFP_NOTRACK_FALSE_POSITIVE,
-            override_rlimit);
-        if (q) {
-            list_add_tail(&q->list, &pending->list);
-            switch ((unsigned long) info) {
-            case (unsigned long) SEND_SIG_NOINFO:
-                q->info.si_signo = sig;
-                q->info.si_errno = 0;
-                q->info.si_code = SI_USER;
-                q->info.si_pid = task_tgid_nr_ns(current,
-                                task_active_pid_ns(t));
-                q->info.si_uid = from_kuid_munged(current_user_ns(), current_uid());
-                break;
-            case (unsigned long) SEND_SIG_PRIV:
-                q->info.si_signo = sig;
-                q->info.si_errno = 0;
-                q->info.si_code = SI_KERNEL;
+    if (sig < SIGRTMIN)
+        override_rlimit = (is_si_special(info) || info->si_code >= 0);
+    else
+        override_rlimit = 0;
+    q = __sigqueue_alloc(sig, t, GFP_ATOMIC | __GFP_NOTRACK_FALSE_POSITIVE,
+        override_rlimit);
+    if (q) {
+        list_add_tail(&q->list, &pending->list);
+        switch ((unsigned long) info) {
+        case (unsigned long) SEND_SIG_NOINFO:
+            q->info.si_signo = sig;
+            q->info.si_errno = 0;
+            q->info.si_code = SI_USER;
+            q->info.si_pid = task_tgid_nr_ns(current,
+                            task_active_pid_ns(t));
+            q->info.si_uid = from_kuid_munged(current_user_ns(), current_uid());
+            break;
+        case (unsigned long) SEND_SIG_PRIV:
+            q->info.si_signo = sig;
+            q->info.si_errno = 0;
+            q->info.si_code = SI_KERNEL;
+            q->info.si_pid = 0;
+            q->info.si_uid = 0;
+            break;
+        default:
+            copy_siginfo(&q->info, info);
+            if (from_ancestor_ns)
                 q->info.si_pid = 0;
-                q->info.si_uid = 0;
-                break;
-            default:
-                copy_siginfo(&q->info, info);
-                if (from_ancestor_ns)
-                    q->info.si_pid = 0;
-                break;
-            }
-            userns_fixup_signal_uid(&q->info, t);
-        } else if (!is_si_special(info)) {
-            if (sig >= SIGRTMIN && info->si_code != SI_USER) {
-                result = TRACE_SIGNAL_OVERFLOW_FAIL;
-                ret = -EAGAIN;
-                goto ret;
-            } else {
-                result = TRACE_SIGNAL_LOSE_INFO;
-            }
+            break;
         }
-    out_set:
-        //将信号sig传递给正处于监听状态的signalfd
-        signalfd_notify(t, sig);
-        //向信号集中加入信号sig
-        sigaddset(&pending->signal, sig);
-        //完成信号过程，【见流程2.8】
-        complete_signal(sig, t, group);
-    ret:
-        trace_signal_generate(sig, info, t, group, result);
-        return ret;
+        userns_fixup_signal_uid(&q->info, t);
+    } else if (!is_si_special(info)) {
+        if (sig >= SIGRTMIN && info->si_code != SI_USER) {
+            result = TRACE_SIGNAL_OVERFLOW_FAIL;
+            ret = -EAGAIN;
+            goto ret;
+        } else {
+            result = TRACE_SIGNAL_LOSE_INFO;
+        }
     }
+out_set:
+    //将信号sig传递给正处于监听状态的signalfd
+    signalfd_notify(t, sig);
+    //向信号集中加入信号sig
+    sigaddset(&pending->signal, sig);
+    //完成信号过程，【见流程2.8】
+    complete_signal(sig, t, group);
+ret:
+    trace_signal_generate(sig, info, t, group, result);
+    return ret;
+}
+```
 
 ### 2.8 complete_signal
-
 [-> signal.c]
 
-    static void complete_signal(int sig, struct task_struct *p, int group)
-    {
-        struct signal_struct *signal = p->signal;
-        struct task_struct *t;
+```C
+static void complete_signal(int sig, struct task_struct *p, int group)
+{
+    struct signal_struct *signal = p->signal;
+    struct task_struct *t;
 
-        //查找能处理该信号的线程
-        if (wants_signal(sig, p))
-            t = p;
-        else if (!group || thread_group_empty(p))
-            return;
-        else {
-            // 递归查找适合的线程
-            t = signal->curr_target;
-            while (!wants_signal(sig, t)) {
-                t = next_thread(t);
-                if (t == signal->curr_target)
-                    return;
-            }
-            signal->curr_target = t;
-        }
-
-        //找到一个能被杀掉的线程，如果这个信号是SIGKILL，则立刻干掉整个线程组
-        if (sig_fatal(p, sig) &&
-            !(signal->flags & (SIGNAL_UNKILLABLE | SIGNAL_GROUP_EXIT)) &&
-            !sigismember(&t->real_blocked, sig) &&
-            (sig == SIGKILL || !t->ptrace)) {
-            //信号将终结整个线程组
-            if (!sig_kernel_coredump(sig)) {
-                signal->flags = SIGNAL_GROUP_EXIT;
-                signal->group_exit_code = sig;
-                signal->group_stop_count = 0;
-                t = p;
-                //遍历整个线程组，全部结束
-                do {
-                    task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
-                    //向信号集中加入信号SIGKILL
-                    sigaddset(&t->pending.signal, SIGKILL);
-                    signal_wake_up(t, 1);
-                } while_each_thread(p, t);
-                return;
-            }
-        }
-
-        //该信号处于共享队列里(即将要处理的)。唤醒已选中的目标线程，并将该信号移出队列。
-        signal_wake_up(t, sig == SIGKILL);
+    //查找能处理该信号的线程
+    if (wants_signal(sig, p))
+        t = p;
+    else if (!group || thread_group_empty(p))
         return;
+    else {
+        // 递归查找适合的线程
+        t = signal->curr_target;
+        while (!wants_signal(sig, t)) {
+            t = next_thread(t);
+            if (t == signal->curr_target)
+                return;
+        }
+        signal->curr_target = t;
     }
 
+    //找到一个能被杀掉的线程，如果这个信号是SIGKILL，则立刻干掉整个线程组
+    if (sig_fatal(p, sig) &&
+        !(signal->flags & (SIGNAL_UNKILLABLE | SIGNAL_GROUP_EXIT)) &&
+        !sigismember(&t->real_blocked, sig) &&
+        (sig == SIGKILL || !t->ptrace)) {
+        //信号将终结整个线程组
+        if (!sig_kernel_coredump(sig)) {
+            signal->flags = SIGNAL_GROUP_EXIT;
+            signal->group_exit_code = sig;
+            signal->group_stop_count = 0;
+            t = p;
+            //遍历整个线程组，全部结束
+            do {
+                task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
+                //向信号集中加入信号SIGKILL
+                sigaddset(&t->pending.signal, SIGKILL);
+                signal_wake_up(t, 1);
+            } while_each_thread(p, t);
+            return;
+        }
+    }
+
+    //该信号处于共享队列里(即将要处理的)。唤醒已选中的目标线程，并将该信号移出队列。
+    signal_wake_up(t, sig == SIGKILL);
+    return;
+}
+```
 
 ### 2.9 小结
 
@@ -561,19 +574,21 @@ SIGCHLD=17，代表子进程退出时所相应的操作动作为`SigChldHandler`
 
 [-> Runtime.cc]
 
-    void Runtime::DidForkFromZygote(JNIEnv* env, NativeBridgeAction action, const char* isa) {
-        ...
-        //创建Java堆处理的线程池
-        heap_->CreateThreadPool();
-        //重置gc性能数据，以保证进程在创建之前的GCs不会计算到当前app上。
-        heap_->ResetGcPerformanceInfo();
+```CPP
+void Runtime::DidForkFromZygote(JNIEnv* env, NativeBridgeAction action, const char* isa) {
+    ...
+    //创建Java堆处理的线程池
+    heap_->CreateThreadPool();
+    //重置gc性能数据，以保证进程在创建之前的GCs不会计算到当前app上。
+    heap_->ResetGcPerformanceInfo();
 
-        ...
-        //启动信号捕获 【见流程3.5】
-        StartSignalCatcher();
-        //启动JDWP线程，当命令debuger的flags指定"suspend=y"时，则暂停runtime
-        Dbg::StartJdwp();
-    }
+    ...
+    //启动信号捕获 【见流程3.5】
+    StartSignalCatcher();
+    //启动JDWP线程，当命令debuger的flags指定"suspend=y"时，则暂停runtime
+    Dbg::StartJdwp();
+}
+```
 
 ### 3.5 StartSignalCatcher
 

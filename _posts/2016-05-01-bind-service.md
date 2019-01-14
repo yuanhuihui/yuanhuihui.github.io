@@ -11,14 +11,16 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析bind service的启动流程。
 
-    /frameworks/base/core/java/android/app/ContextImpl.java
-    /frameworks/base/core/java/android/app/LoadedApk.java
-    /frameworks/base/core/java/android/app/IServiceConnection.aidl(自动生成Binder两端)
+```Java
+/frameworks/base/core/java/android/app/ContextImpl.java
+/frameworks/base/core/java/android/app/LoadedApk.java
+/frameworks/base/core/java/android/app/IServiceConnection.aidl
+```
 
 ## 一. 概述
 
 文章[startService启动过程分析](http://gityuan.com/2016/03/06/start-service/)，介绍了
-startService的过程，本文介绍另一种通过bind方式来启动服务。
+startService的过程，本文介绍通过bind方式来启动服务。
 
 ### 1.1 实例
 
@@ -564,25 +566,27 @@ ServiceDispatcher是LoadedApk的静态内部类。InnerConnection是ServiceDispa
 #### 7.2 SR.retrieveAppBindingLocked
 [-> ServiceRecord.java]
 
-    public AppBindRecord retrieveAppBindingLocked(Intent intent,
-            ProcessRecord app) {
-        Intent.FilterComparison filter = new Intent.FilterComparison(intent);
-        IntentBindRecord i = bindings.get(filter);
-        if (i == null) {
-            //创建连接ServiceRecord和filter的记录信息
-            i = new IntentBindRecord(this, filter);
-            bindings.put(filter, i);
-        }
-        //此处app是指调用方所在进程
-        AppBindRecord a = i.apps.get(app);
-        if (a != null) {
-            return a;
-        }
-        //创建ServiceRecord跟进程绑定的记录信息
-        a = new AppBindRecord(this, i, app);
-        i.apps.put(app, a);
+```Java
+public AppBindRecord retrieveAppBindingLocked(Intent intent,
+        ProcessRecord app) {
+    Intent.FilterComparison filter = new Intent.FilterComparison(intent);
+    IntentBindRecord i = bindings.get(filter);
+    if (i == null) {
+        //创建连接ServiceRecord和filter的记录信息
+        i = new IntentBindRecord(this, filter);
+        bindings.put(filter, i);
+    }
+    //此处app是指调用方所在进程
+    AppBindRecord a = i.apps.get(app);
+    if (a != null) {
         return a;
     }
+    //创建ServiceRecord跟进程绑定的记录信息
+    a = new AppBindRecord(this, i, app);
+    i.apps.put(app, a);
+    return a;
+}
+```
 
 AppBindRecord对象记录着当前ServiceRecord,intent以及发起方的进程信息。
 
@@ -815,19 +819,21 @@ AppBindRecord对象记录着当前ServiceRecord,intent以及发起方的进程�
 ### 14. ATP.scheduleBindService
 [-> ApplicationThreadProxy.java]
 
-    public final void scheduleBindService(IBinder token, Intent intent, boolean rebind,
-            int processState) throws RemoteException {
-        Parcel data = Parcel.obtain();
-        data.writeInterfaceToken(IApplicationThread.descriptor);
-        data.writeStrongBinder(token);
-        intent.writeToParcel(data, 0);
-        data.writeInt(rebind ? 1 : 0);
-        data.writeInt(processState);
-        //【见流程15】
-        mRemote.transact(SCHEDULE_BIND_SERVICE_TRANSACTION, data, null,
-                IBinder.FLAG_ONEWAY);
-        data.recycle();
-    }
+```Java
+public final void scheduleBindService(IBinder token, Intent intent, boolean rebind,
+        int processState) throws RemoteException {
+    Parcel data = Parcel.obtain();
+    data.writeInterfaceToken(IApplicationThread.descriptor);
+    data.writeStrongBinder(token);
+    intent.writeToParcel(data, 0);
+    data.writeInt(rebind ? 1 : 0);
+    data.writeInt(processState);
+    //【见流程15】
+    mRemote.transact(SCHEDULE_BIND_SERVICE_TRANSACTION, data, null,
+            IBinder.FLAG_ONEWAY);
+    data.recycle();
+}
+```
 
 ## 五. 远程服务进程
 
@@ -945,38 +951,40 @@ Service的onBind()是抽象方法, 所以大家创建Service子类时必须要�
 ### 17. publishServiceLocked
 [-> ActiveServices.java]
 
-    void publishServiceLocked(ServiceRecord r, Intent intent, IBinder service) {
-        final long origId = Binder.clearCallingIdentity();
-        try {
-            if (r != null) {
-                Intent.FilterComparison filter = new Intent.FilterComparison(intent);
-                IntentBindRecord b = r.bindings.get(filter);
-                if (b != null && !b.received) {
-                    b.binder = service;
-                    b.requested = true;
-                    b.received = true;
-                    for (int conni=r.connections.size()-1; conni>=0; conni--) {
-                        ArrayList<ConnectionRecord> clist = r.connections.valueAt(conni);
-                        for (int i=0; i<clist.size(); i++) {
-                            ConnectionRecord c = clist.get(i);
-                            if (!filter.equals(c.binding.intent.intent)) {
-                                continue;
-                            }
-                            try {
-                                //【见流程18】
-                                c.conn.connected(r.name, service);
-                            } catch (Exception e) {
-                                ...
-                            }
+```Java
+void publishServiceLocked(ServiceRecord r, Intent intent, IBinder service) {
+    final long origId = Binder.clearCallingIdentity();
+    try {
+        if (r != null) {
+            Intent.FilterComparison filter = new Intent.FilterComparison(intent);
+            IntentBindRecord b = r.bindings.get(filter);
+            if (b != null && !b.received) {
+                b.binder = service;
+                b.requested = true;
+                b.received = true;
+                for (int conni=r.connections.size()-1; conni>=0; conni--) {
+                    ArrayList<ConnectionRecord> clist = r.connections.valueAt(conni);
+                    for (int i=0; i<clist.size(); i++) {
+                        ConnectionRecord c = clist.get(i);
+                        if (!filter.equals(c.binding.intent.intent)) {
+                            continue;
+                        }
+                        try {
+                            //【见流程18】
+                            c.conn.connected(r.name, service);
+                        } catch (Exception e) {
+                            ...
                         }
                     }
                 }
-                serviceDoneExecutingLocked(r, mDestroyingServices.contains(r), false);
             }
-        } finally {
-            Binder.restoreCallingIdentity(origId);
+            serviceDoneExecutingLocked(r, mDestroyingServices.contains(r), false);
         }
+    } finally {
+        Binder.restoreCallingIdentity(origId);
     }
+}
+```
 
 [小节7]AS.bindServiceLocked的过程中初始化, 可知c.conn是指通往发起端进程的IServiceConnection.Stub.Proxy代理对象.
 通过Binder IPC调用, 进入发起方进程的IServiceConnection.Stub对象. 由于LoadedApk.ServiceDispatcher.InnerConnection  继承于IServiceConnection.Stub.

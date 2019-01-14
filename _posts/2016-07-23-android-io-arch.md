@@ -90,65 +90,67 @@ Tips: 同一个模块可以运行在各个不同的进程/线程， 同一个进
 
 Android存储系统中涉及各个进程间通信，这个架构采用的socket，并没有采用Android binder IPC机制。这样的架构代码大量更少，整体架构逻辑也相对简单，在介绍通信过程前，先来看看MountService对象的实例化过程，那么也就基本明白进程架构中system_sever进程为了MountService服务而单独创建与共享使用到线程情况。
 
-    public MountService(Context context) {
-        sSelf = this;
+```Java
+public MountService(Context context) {
+    sSelf = this;
 
-        mContext = context;
-        //FgThread线程名为“"android.fg"，创建IMountServiceListener回调方法
-        mCallbacks = new Callbacks(FgThread.get().getLooper());
-        //获取PKMS的Client端对象
-        mPms = (PackageManagerService) ServiceManager.getService("package");
-        //创建“MountService”线程
-        HandlerThread hthread = new HandlerThread(TAG);
-        hthread.start();
+    mContext = context;
+    //FgThread线程名为“"android.fg"，创建IMountServiceListener回调方法
+    mCallbacks = new Callbacks(FgThread.get().getLooper());
+    //获取PKMS的Client端对象
+    mPms = (PackageManagerService) ServiceManager.getService("package");
+    //创建“MountService”线程
+    HandlerThread hthread = new HandlerThread(TAG);
+    hthread.start();
 
-        mHandler = new MountServiceHandler(hthread.getLooper());
-        //IoThread线程名为"android.io"，创建OBB操作的handler
-        mObbActionHandler = new ObbActionHandler(IoThread.get().getLooper());
+    mHandler = new MountServiceHandler(hthread.getLooper());
+    //IoThread线程名为"android.io"，创建OBB操作的handler
+    mObbActionHandler = new ObbActionHandler(IoThread.get().getLooper());
 
-        File dataDir = Environment.getDataDirectory();
-        File systemDir = new File(dataDir, "system");
-        mLastMaintenanceFile = new File(systemDir, LAST_FSTRIM_FILE);
-        //判断/data/system/last-fstrim文件，不存在则创建，存在则更新最后修改时间
-        if (!mLastMaintenanceFile.exists()) {
-            (new FileOutputStream(mLastMaintenanceFile)).close();
-            ...
-        } else {
-            mLastMaintenance = mLastMaintenanceFile.lastModified();
-        }
+    File dataDir = Environment.getDataDirectory();
+    File systemDir = new File(dataDir, "system");
+    mLastMaintenanceFile = new File(systemDir, LAST_FSTRIM_FILE);
+    //判断/data/system/last-fstrim文件，不存在则创建，存在则更新最后修改时间
+    if (!mLastMaintenanceFile.exists()) {
+        (new FileOutputStream(mLastMaintenanceFile)).close();
         ...
-        //将MountServiceInternalImpl登记到sLocalServiceObjects
-        LocalServices.addService(MountServiceInternal.class, mMountServiceInternal);
-        //创建用于VoldConnector的NDC对象
-        mConnector = new NativeDaemonConnector(this, "vold", MAX_CONTAINERS * 2, VOLD_TAG, 25,
-                null);
-        mConnector.setDebug(true);
-        //创建线程名为"VoldConnector"的线程，用于跟vold通信
-        Thread thread = new Thread(mConnector, VOLD_TAG);
-        thread.start();
-
-        //创建用于CryptdConnector工作的NDC对象
-        mCryptConnector = new NativeDaemonConnector(this, "cryptd",
-                MAX_CONTAINERS * 2, CRYPTD_TAG, 25, null);
-        mCryptConnector.setDebug(true);
-        //创建线程名为"CryptdConnector"的线程，用于加密
-        Thread crypt_thread = new Thread(mCryptConnector, CRYPTD_TAG);
-        crypt_thread.start();
-
-        //注册监听用户添加、删除的广播
-        final IntentFilter userFilter = new IntentFilter();
-        userFilter.addAction(Intent.ACTION_USER_ADDED);
-        userFilter.addAction(Intent.ACTION_USER_REMOVED);
-        mContext.registerReceiver(mUserReceiver, userFilter, null, mHandler);
-
-        //内部私有volume的路径为/data，该volume通过dumpsys mount是不会显示的
-        addInternalVolume();
-
-        //默认为false
-        if (WATCHDOG_ENABLE) {
-            Watchdog.getInstance().addMonitor(this);
-        }
+    } else {
+        mLastMaintenance = mLastMaintenanceFile.lastModified();
     }
+    ...
+    //将MountServiceInternalImpl登记到sLocalServiceObjects
+    LocalServices.addService(MountServiceInternal.class, mMountServiceInternal);
+    //创建用于VoldConnector的NDC对象
+    mConnector = new NativeDaemonConnector(this, "vold", MAX_CONTAINERS * 2, VOLD_TAG, 25,
+            null);
+    mConnector.setDebug(true);
+    //创建线程名为"VoldConnector"的线程，用于跟vold通信
+    Thread thread = new Thread(mConnector, VOLD_TAG);
+    thread.start();
+
+    //创建用于CryptdConnector工作的NDC对象
+    mCryptConnector = new NativeDaemonConnector(this, "cryptd",
+            MAX_CONTAINERS * 2, CRYPTD_TAG, 25, null);
+    mCryptConnector.setDebug(true);
+    //创建线程名为"CryptdConnector"的线程，用于加密
+    Thread crypt_thread = new Thread(mCryptConnector, CRYPTD_TAG);
+    crypt_thread.start();
+
+    //注册监听用户添加、删除的广播
+    final IntentFilter userFilter = new IntentFilter();
+    userFilter.addAction(Intent.ACTION_USER_ADDED);
+    userFilter.addAction(Intent.ACTION_USER_REMOVED);
+    mContext.registerReceiver(mUserReceiver, userFilter, null, mHandler);
+
+    //内部私有volume的路径为/data，该volume通过dumpsys mount是不会显示的
+    addInternalVolume();
+
+    //默认为false
+    if (WATCHDOG_ENABLE) {
+        Watchdog.getInstance().addMonitor(this);
+    }
+}
+```
 
 其主要功能依次是：
 
@@ -443,49 +445,51 @@ sendMsg经过层层调用，进入sendDataLockedv方法
 
 [-> NativeDaemonConnector.java]
 
-    private void listenToSocket() throws IOException {
-        LocalSocket socket = null;
-        try {
-            socket = new LocalSocket();
-            LocalSocketAddress address = determineSocketAddress();
-            //建立与"/dev/socket/vold"的socket连接
-            socket.connect(address);
-            InputStream inputStream = socket.getInputStream();
-            synchronized (mDaemonLock) {
-                mOutputStream = socket.getOutputStream();
-            }
+```Java
+private void listenToSocket() throws IOException {
+    LocalSocket socket = null;
+    try {
+        socket = new LocalSocket();
+        LocalSocketAddress address = determineSocketAddress();
+        //建立与"/dev/socket/vold"的socket连接
+        socket.connect(address);
+        InputStream inputStream = socket.getInputStream();
+        synchronized (mDaemonLock) {
+            mOutputStream = socket.getOutputStream();
+        }
+        ...
+        while (true) {
+            int count = inputStream.read(buffer, start, BUFFER_SIZE - start);
             ...
-            while (true) {
-                int count = inputStream.read(buffer, start, BUFFER_SIZE - start);
-                ...
-                for (int i = 0; i < count; i++) {
-                    if (buffer[i] == 0) {
-                        final String rawEvent = new String(
-                                buffer, start, i - start, StandardCharsets.UTF_8);
-                        //解析socket服务端发送的event
-                        final NativeDaemonEvent event = NativeDaemonEvent.parseRawEvent(
-                                rawEvent);
-                        log("RCV <- {" + event + "}");
+            for (int i = 0; i < count; i++) {
+                if (buffer[i] == 0) {
+                    final String rawEvent = new String(
+                            buffer, start, i - start, StandardCharsets.UTF_8);
+                    //解析socket服务端发送的event
+                    final NativeDaemonEvent event = NativeDaemonEvent.parseRawEvent(
+                            rawEvent);
+                    log("RCV <- {" + event + "}");
 
-                        if (event.isClassUnsolicited()) {
-                            ...
-                            //当响应码区间为[600,700)，则发送消息交由mCallbackHandler处理
-                            if (mCallbackHandler.sendMessage(mCallbackHandler.obtainMessage(
-                                    event.getCode(), event.getRawEvent()))) {
-                                releaseWl = false;
-                            }
-                        } else {
-                            //对于其他响应码则添加到mResponseQueue队列
-                            mResponseQueue.add(event.getCmdNumber(), event);
+                    if (event.isClassUnsolicited()) {
+                        ...
+                        //当响应码区间为[600,700)，则发送消息交由mCallbackHandler处理
+                        if (mCallbackHandler.sendMessage(mCallbackHandler.obtainMessage(
+                                event.getCode(), event.getRawEvent()))) {
+                            releaseWl = false;
                         }
+                    } else {
+                        //对于其他响应码则添加到mResponseQueue队列
+                        mResponseQueue.add(event.getCmdNumber(), event);
                     }
                 }
             }
-        } finally {
-            //收尾清理类工作
-            ...
         }
+    } finally {
+        //收尾清理类工作
+        ...
     }
+}
+```
 
 监听也是阻塞的过程，当收到不同的消息相应码，采用不同的行为：
 
@@ -736,49 +740,51 @@ NetlinkManager启动的过程中，会创建并启动NetlinkHandler，在该过�
 
 [-> NativeDaemonConnector.java]
 
-    private void listenToSocket() throws IOException {
-        LocalSocket socket = null;
-        try {
-            socket = new LocalSocket();
-            LocalSocketAddress address = determineSocketAddress();
-            //建立与"/dev/socket/vold"的socket连接
-            socket.connect(address);
-            InputStream inputStream = socket.getInputStream();
-            synchronized (mDaemonLock) {
-                mOutputStream = socket.getOutputStream();
-            }
+```Java
+private void listenToSocket() throws IOException {
+    LocalSocket socket = null;
+    try {
+        socket = new LocalSocket();
+        LocalSocketAddress address = determineSocketAddress();
+        //建立与"/dev/socket/vold"的socket连接
+        socket.connect(address);
+        InputStream inputStream = socket.getInputStream();
+        synchronized (mDaemonLock) {
+            mOutputStream = socket.getOutputStream();
+        }
+        ...
+        while (true) {
+            int count = inputStream.read(buffer, start, BUFFER_SIZE - start);
             ...
-            while (true) {
-                int count = inputStream.read(buffer, start, BUFFER_SIZE - start);
-                ...
-                for (int i = 0; i < count; i++) {
-                    if (buffer[i] == 0) {
-                        final String rawEvent = new String(
-                                buffer, start, i - start, StandardCharsets.UTF_8);
-                        //解析socket服务端发送的event
-                        final NativeDaemonEvent event = NativeDaemonEvent.parseRawEvent(
-                                rawEvent);
-                        log("RCV <- {" + event + "}");
+            for (int i = 0; i < count; i++) {
+                if (buffer[i] == 0) {
+                    final String rawEvent = new String(
+                            buffer, start, i - start, StandardCharsets.UTF_8);
+                    //解析socket服务端发送的event
+                    final NativeDaemonEvent event = NativeDaemonEvent.parseRawEvent(
+                            rawEvent);
+                    log("RCV <- {" + event + "}");
 
-                        if (event.isClassUnsolicited()) {
-                            ...
-                            //当响应码区间为[600,700)，则发送消息交由mCallbackHandler处理【2.4.2】
-                            if (mCallbackHandler.sendMessage(mCallbackHandler.obtainMessage(
-                                    event.getCode(), event.getRawEvent()))) {
-                                releaseWl = false;
-                            }
-                        } else {
-                            //对于其他响应码则添加到mResponseQueue队列
-                            mResponseQueue.add(event.getCmdNumber(), event);
+                    if (event.isClassUnsolicited()) {
+                        ...
+                        //当响应码区间为[600,700)，则发送消息交由mCallbackHandler处理【2.4.2】
+                        if (mCallbackHandler.sendMessage(mCallbackHandler.obtainMessage(
+                                event.getCode(), event.getRawEvent()))) {
+                            releaseWl = false;
                         }
+                    } else {
+                        //对于其他响应码则添加到mResponseQueue队列
+                        mResponseQueue.add(event.getCmdNumber(), event);
                     }
                 }
             }
-        } finally {
-            //收尾清理类工作
-            ...
         }
+    } finally {
+        //收尾清理类工作
+        ...
     }
+}
+```
 
 通过handler消息机制，由mCallbackHandler处理，先来看看其初始化过程：
 
@@ -791,14 +797,16 @@ NetlinkManager启动的过程中，会创建并启动NetlinkHandler，在该过�
 #### 2.4.2 NDC.handleMessage
 [-> NativeDaemonConnector.java]
 
-    public boolean handleMessage(Message msg) {
-        String event = (String) msg.obj;
-        ...
-        mCallbacks.onEvent(msg.what, event, NativeDaemonEvent.unescapeArgs(event))
-                log(String.format("Unhandled event '%s'", event));
-        ...
-        return true;
-    }
+```Java
+public boolean handleMessage(Message msg) {
+    String event = (String) msg.obj;
+    ...
+    mCallbacks.onEvent(msg.what, event, NativeDaemonEvent.unescapeArgs(event))
+            log(String.format("Unhandled event '%s'", event));
+    ...
+    return true;
+}
+```
 
 此处的mCallbacks，是由实例化NativeDaemonConnector对象时传递进来的，在这里是指MountService。转了一圈，又回到MountService。
 

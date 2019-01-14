@@ -132,9 +132,11 @@ ActivityManagerService是Android的Java framework的服务框架最重要的服�
 #### 3.1 AMN.getDefault
 [-> ActivityManagerNative.java]
 
-    static public IActivityManager getDefault() {
-        return gDefault.get();
-    }
+```Java
+static public IActivityManager getDefault() {
+    return gDefault.get();
+}
+```
 
 gDefault为Singleton类型对象，此次采用单例模式，mInstance为IActivityManager类的代理对象，即ActivityManagerProxy。
 

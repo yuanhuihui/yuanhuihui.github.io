@@ -245,129 +245,131 @@ AMP通过Binder驱动将这些信息发送给system_server进程中的AMS对象�
 
 [-> ActivityManagerService.java]
 
-    public Intent registerReceiver(IApplicationThread caller, String callerPackage,
-            IIntentReceiver receiver, IntentFilter filter, String permission, int userId) {
-        ArrayList<Intent> stickyIntents = null;
-        ProcessRecord callerApp = null;
-        ...
-        synchronized(this) {
-            if (caller != null) {
-                //从mLruProcesses查询调用者的进程信息【见2.5.1】
-                callerApp = getRecordForAppLocked(caller);
-                ...
-                callingUid = callerApp.info.uid;
-                callingPid = callerApp.pid;
-            } else {
-                callerPackage = null;
-                callingUid = Binder.getCallingUid();
-                callingPid = Binder.getCallingPid();
-            }
-
-            userId = handleIncomingUser(callingPid, callingUid, userId,
-                    true, ALLOW_FULL_ONLY, "registerReceiver", callerPackage);
-
-            //获取IntentFilter中的actions. 这就是平时所加需要监听的广播action
-            Iterator<String> actions = filter.actionsIterator();
-            if (actions == null) {
-                ArrayList<String> noAction = new ArrayList<String>(1);
-                noAction.add(null);
-                actions = noAction.iterator();
-            }
-
-            int[] userIds = { UserHandle.USER_ALL, UserHandle.getUserId(callingUid) };
-            while (actions.hasNext()) {
-                String action = actions.next();
-                for (int id : userIds) {
-                    //从mStickyBroadcasts中查看用户的sticky Intent
-                    ArrayMap<String, ArrayList<Intent>> stickies = mStickyBroadcasts.get(id);
-                    if (stickies != null) {
-                        ArrayList<Intent> intents = stickies.get(action);
-                        if (intents != null) {
-                            if (stickyIntents == null) {
-                                stickyIntents = new ArrayList<Intent>();
-                            }
-                            //将sticky Intent加入到队列
-                            stickyIntents.addAll(intents);
-                        }
-                    }
-                }
-            }
-        }
-
-        ArrayList<Intent> allSticky = null;
-        if (stickyIntents != null) {
-            final ContentResolver resolver = mContext.getContentResolver();
-            for (int i = 0, N = stickyIntents.size(); i < N; i++) {
-                Intent intent = stickyIntents.get(i);
-                //查询匹配的sticky广播 【见2.5.2】
-                if (filter.match(resolver, intent, true, TAG) >= 0) {
-                    if (allSticky == null) {
-                        allSticky = new ArrayList<Intent>();
-                    }
-                    //匹配成功，则将给intent添加到allSticky队列
-                    allSticky.add(intent);
-                }
-            }
-        }
-
-        //当IIntentReceiver为空，则直接返回第一个sticky Intent，
-        Intent sticky = allSticky != null ? allSticky.get(0) : null;
-        if (receiver == null) {
-            return sticky;
-        }
-
-        synchronized (this) {
-            if (callerApp != null && (callerApp.thread == null
-                    || callerApp.thread.asBinder() != caller.asBinder())) {
-                return null; //调用者已经死亡
-            }
-            ReceiverList rl = mRegisteredReceivers.get(receiver.asBinder());
-            if (rl == null) {
-                //对于没有注册的广播，则创建接收者队列
-                rl = new ReceiverList(this, callerApp, callingPid, callingUid,
-                        userId, receiver);
-                if (rl.app != null) {
-                    rl.app.receivers.add(rl);
-                } else {
-                    receiver.asBinder().linkToDeath(rl, 0); //注册死亡通知
-                    ...
-                    rl.linkedToDeath = true;
-                }
-                //新创建的接收者队列，添加到已注册广播队列。
-                mRegisteredReceivers.put(receiver.asBinder(), rl);
-            }
+```Java
+public Intent registerReceiver(IApplicationThread caller, String callerPackage,
+        IIntentReceiver receiver, IntentFilter filter, String permission, int userId) {
+    ArrayList<Intent> stickyIntents = null;
+    ProcessRecord callerApp = null;
+    ...
+    synchronized(this) {
+        if (caller != null) {
+            //从mLruProcesses查询调用者的进程信息【见2.5.1】
+            callerApp = getRecordForAppLocked(caller);
             ...
-            //创建BroadcastFilter对象，并添加到接收者队列
-            BroadcastFilter bf = new BroadcastFilter(filter, rl, callerPackage,
-                    permission, callingUid, userId);
-            rl.add(bf);
-            //新创建的广播过滤者，添加到ReceiverResolver队列
-            mReceiverResolver.addFilter(bf);
+            callingUid = callerApp.info.uid;
+            callingPid = callerApp.pid;
+        } else {
+            callerPackage = null;
+            callingUid = Binder.getCallingUid();
+            callingPid = Binder.getCallingPid();
+        }
 
-            //所有匹配该filter的sticky广播执行入队操作
-            //如果没有使用sendStickyBroadcast，则allSticky=null。
-            if (allSticky != null) {
-                ArrayList receivers = new ArrayList();
-                receivers.add(bf);
+        userId = handleIncomingUser(callingPid, callingUid, userId,
+                true, ALLOW_FULL_ONLY, "registerReceiver", callerPackage);
 
-                final int stickyCount = allSticky.size();
-                for (int i = 0; i < stickyCount; i++) {
-                    Intent intent = allSticky.get(i);
-                    //根据intent返回前台或后台广播队列【见2.5.3】
-                    BroadcastQueue queue = broadcastQueueForIntent(intent);
-                    //创建BroadcastRecord
-                    BroadcastRecord r = new BroadcastRecord(queue, intent, null,
-                            null, -1, -1, null, null, AppOpsManager.OP_NONE, null, receivers,
-                            null, 0, null, null, false, true, true, -1);
-                    //该广播加入到并行广播队列
-                    queue.enqueueParallelBroadcastLocked(r);
-                    //调度广播，发送BROADCAST_INTENT_MSG消息，触发处理下一个广播。
-                    queue.scheduleBroadcastsLocked();
+        //获取IntentFilter中的actions. 这就是平时所加需要监听的广播action
+        Iterator<String> actions = filter.actionsIterator();
+        if (actions == null) {
+            ArrayList<String> noAction = new ArrayList<String>(1);
+            noAction.add(null);
+            actions = noAction.iterator();
+        }
+
+        int[] userIds = { UserHandle.USER_ALL, UserHandle.getUserId(callingUid) };
+        while (actions.hasNext()) {
+            String action = actions.next();
+            for (int id : userIds) {
+                //从mStickyBroadcasts中查看用户的sticky Intent
+                ArrayMap<String, ArrayList<Intent>> stickies = mStickyBroadcasts.get(id);
+                if (stickies != null) {
+                    ArrayList<Intent> intents = stickies.get(action);
+                    if (intents != null) {
+                        if (stickyIntents == null) {
+                            stickyIntents = new ArrayList<Intent>();
+                        }
+                        //将sticky Intent加入到队列
+                        stickyIntents.addAll(intents);
+                    }
                 }
             }
-            return sticky;
         }
     }
+
+    ArrayList<Intent> allSticky = null;
+    if (stickyIntents != null) {
+        final ContentResolver resolver = mContext.getContentResolver();
+        for (int i = 0, N = stickyIntents.size(); i < N; i++) {
+            Intent intent = stickyIntents.get(i);
+            //查询匹配的sticky广播 【见2.5.2】
+            if (filter.match(resolver, intent, true, TAG) >= 0) {
+                if (allSticky == null) {
+                    allSticky = new ArrayList<Intent>();
+                }
+                //匹配成功，则将给intent添加到allSticky队列
+                allSticky.add(intent);
+            }
+        }
+    }
+
+    //当IIntentReceiver为空，则直接返回第一个sticky Intent，
+    Intent sticky = allSticky != null ? allSticky.get(0) : null;
+    if (receiver == null) {
+        return sticky;
+    }
+
+    synchronized (this) {
+        if (callerApp != null && (callerApp.thread == null
+                || callerApp.thread.asBinder() != caller.asBinder())) {
+            return null; //调用者已经死亡
+        }
+        ReceiverList rl = mRegisteredReceivers.get(receiver.asBinder());
+        if (rl == null) {
+            //对于没有注册的广播，则创建接收者队列
+            rl = new ReceiverList(this, callerApp, callingPid, callingUid,
+                    userId, receiver);
+            if (rl.app != null) {
+                rl.app.receivers.add(rl);
+            } else {
+                receiver.asBinder().linkToDeath(rl, 0); //注册死亡通知
+                ...
+                rl.linkedToDeath = true;
+            }
+            //新创建的接收者队列，添加到已注册广播队列。
+            mRegisteredReceivers.put(receiver.asBinder(), rl);
+        }
+        ...
+        //创建BroadcastFilter对象，并添加到接收者队列
+        BroadcastFilter bf = new BroadcastFilter(filter, rl, callerPackage,
+                permission, callingUid, userId);
+        rl.add(bf);
+        //新创建的广播过滤者，添加到ReceiverResolver队列
+        mReceiverResolver.addFilter(bf);
+
+        //所有匹配该filter的sticky广播执行入队操作
+        //如果没有使用sendStickyBroadcast，则allSticky=null。
+        if (allSticky != null) {
+            ArrayList receivers = new ArrayList();
+            receivers.add(bf);
+
+            final int stickyCount = allSticky.size();
+            for (int i = 0; i < stickyCount; i++) {
+                Intent intent = allSticky.get(i);
+                //根据intent返回前台或后台广播队列【见2.5.3】
+                BroadcastQueue queue = broadcastQueueForIntent(intent);
+                //创建BroadcastRecord
+                BroadcastRecord r = new BroadcastRecord(queue, intent, null,
+                        null, -1, -1, null, null, AppOpsManager.OP_NONE, null, receivers,
+                        null, 0, null, null, false, true, true, -1);
+                //该广播加入到并行广播队列
+                queue.enqueueParallelBroadcastLocked(r);
+                //调度广播，发送BROADCAST_INTENT_MSG消息，触发处理下一个广播。
+                queue.scheduleBroadcastsLocked();
+            }
+        }
+        return sticky;
+    }
+}
+```
 
 其中`mRegisteredReceivers`记录着所有已注册的广播，以receiver IBinder为key, ReceiverList为value为HashMap。
 
@@ -786,60 +788,62 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
 
 #### 3.4.7 合并registeredReceivers到receivers
 
-    int ir = 0;
-    if (receivers != null) {
-        //防止应用监听该广播，在安装时直接运行。
-        String skipPackages[] = null;
-        if (Intent.ACTION_PACKAGE_ADDED.equals(intent.getAction())
-                || Intent.ACTION_PACKAGE_RESTARTED.equals(intent.getAction())
-                || Intent.ACTION_PACKAGE_DATA_CLEARED.equals(intent.getAction())) {
-            Uri data = intent.getData();
-            if (data != null) {
-                String pkgName = data.getSchemeSpecificPart();
-                if (pkgName != null) {
-                    skipPackages = new String[] { pkgName };
-                }
+```Java
+int ir = 0;
+if (receivers != null) {
+    //防止应用监听该广播，在安装时直接运行。
+    String skipPackages[] = null;
+    if (Intent.ACTION_PACKAGE_ADDED.equals(intent.getAction())
+            || Intent.ACTION_PACKAGE_RESTARTED.equals(intent.getAction())
+            || Intent.ACTION_PACKAGE_DATA_CLEARED.equals(intent.getAction())) {
+        Uri data = intent.getData();
+        if (data != null) {
+            String pkgName = data.getSchemeSpecificPart();
+            if (pkgName != null) {
+                skipPackages = new String[] { pkgName };
             }
-        } else if (Intent.ACTION_EXTERNAL_APPLICATIONS_AVAILABLE.equals(intent.getAction())) {
-            skipPackages = intent.getStringArrayExtra(Intent.EXTRA_CHANGED_PACKAGE_LIST);
         }
+    } else if (Intent.ACTION_EXTERNAL_APPLICATIONS_AVAILABLE.equals(intent.getAction())) {
+        skipPackages = intent.getStringArrayExtra(Intent.EXTRA_CHANGED_PACKAGE_LIST);
+    }
 
-        //将skipPackages相关的广播接收者从receivers列表中移除
-        if (skipPackages != null && (skipPackages.length > 0)) {
-            ...
+    //将skipPackages相关的广播接收者从receivers列表中移除
+    if (skipPackages != null && (skipPackages.length > 0)) {
+        ...
+    }
+
+    //[3.4.6]有一个处理动态广播的过程，处理完后再执行将动态注册的registeredReceivers合并到receivers
+    int NT = receivers != null ? receivers.size() : 0;
+    int it = 0;
+    ResolveInfo curt = null;
+    BroadcastFilter curr = null;
+    while (it < NT && ir < NR) {
+        if (curt == null) {
+            curt = (ResolveInfo)receivers.get(it);
         }
-
-        //[3.4.6]有一个处理动态广播的过程，处理完后再执行将动态注册的registeredReceivers合并到receivers
-        int NT = receivers != null ? receivers.size() : 0;
-        int it = 0;
-        ResolveInfo curt = null;
-        BroadcastFilter curr = null;
-        while (it < NT && ir < NR) {
-            if (curt == null) {
-                curt = (ResolveInfo)receivers.get(it);
-            }
-            if (curr == null) {
-                curr = registeredReceivers.get(ir);
-            }
-            if (curr.getPriority() >= curt.priority) {
-                receivers.add(it, curr);
-                ir++;
-                curr = null;
-                it++;
-                NT++;
-            } else {
-                it++;
-                curt = null;
-            }
+        if (curr == null) {
+            curr = registeredReceivers.get(ir);
+        }
+        if (curr.getPriority() >= curt.priority) {
+            receivers.add(it, curr);
+            ir++;
+            curr = null;
+            it++;
+            NT++;
+        } else {
+            it++;
+            curt = null;
         }
     }
-    while (ir < NR) {
-        if (receivers == null) {
-            receivers = new ArrayList();
-        }
-        receivers.add(registeredReceivers.get(ir));
-        ir++;
+}
+while (ir < NR) {
+    if (receivers == null) {
+        receivers = new ArrayList();
     }
+    receivers.add(registeredReceivers.get(ir));
+    ir++;
+}
+```
 
 动态注册的registeredReceivers，全部合并都receivers，再统一按串行方式处理。
 
