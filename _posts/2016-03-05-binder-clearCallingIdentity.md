@@ -13,9 +13,11 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Binder IPC通信的权限控制方法clearCallingIdentity和restoreCallingIdentity的原理和用途。
 
-    /frameworks/base/core/java/android/os/Binder.java
-    /frameworks/base/core/jni/android_util_Binder.cpp
-    /frameworks/native/libs/binder/IPCThreadState.cpp
+```Java
+frameworks/base/core/java/android/os/Binder.java
+frameworks/base/core/jni/android_util_Binder.cpp
+frameworks/native/libs/binder/IPCThreadState.cpp
+```
 
 ## 一、概述
 
@@ -116,6 +118,7 @@ UID和PID是IPCThreadState的成员变量， 都是32位的int型数据，通过
     }
 
 ### 2.4 远程调用
+
 #### 2.4.1 binder_thread_read
 
     binder_thread_read（）{

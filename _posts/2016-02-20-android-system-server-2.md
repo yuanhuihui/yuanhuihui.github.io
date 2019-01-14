@@ -51,71 +51,73 @@ tags:
 
 ### 1.2 SystemServer.run
 
-    private void run() {
-        //当系统时间比1970年更早，就设置当前系统时间为1970年
-        if (System.currentTimeMillis() < EARLIEST_SUPPORTED_TIME) {
-            SystemClock.setCurrentTimeMillis(EARLIEST_SUPPORTED_TIME);
-        }
-
-        //变更虚拟机的库文件，对于Android 6.0默认采用的是libart.so
-        SystemProperties.set("persist.sys.dalvik.vm.lib.2", VMRuntime.getRuntime().vmLibrary());
-
-        if (SamplingProfilerIntegration.isEnabled()) {
-            ...
-        }
-
-        //清除vm内存增长上限，由于启动过程需要较多的虚拟机内存空间
-        VMRuntime.getRuntime().clearGrowthLimit();
-
-        //设置内存的可能有效使用率为0.8
-        VMRuntime.getRuntime().setTargetHeapUtilization(0.8f);
-        // 针对部分设备依赖于运行时就产生指纹信息，因此需要在开机完成前已经定义
-        Build.ensureFingerprintProperty();
-
-        //访问环境变量前，需要明确地指定用户
-        Environment.setUserRequired(true);
-
-        //确保当前系统进程的binder调用，总是运行在前台优先级(foreground priority)
-        BinderInternal.disableBackgroundScheduling(true);
-        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_FOREGROUND);
-        android.os.Process.setCanSelfBackground(false);
-
-        // 主线程looper就在当前线程运行
-        Looper.prepareMainLooper();
-
-        //加载android_servers.so库，该库包含的源码在frameworks/base/services/目录下
-        System.loadLibrary("android_servers");
-
-        //检测上次关机过程是否失败，该方法可能不会返回[见小节1.2.1]
-        performPendingShutdown();
-
-        //初始化系统上下文 【见小节1.3】
-        createSystemContext();
-
-        //创建系统服务管理
-        mSystemServiceManager = new SystemServiceManager(mSystemContext);
-        //将mSystemServiceManager添加到本地服务的成员sLocalServiceObjects
-        LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
-
-
-        //启动各种系统服务
-        try {
-            startBootstrapServices(); // 启动引导服务【见小节1.4】
-            startCoreServices();      // 启动核心服务【见小节1.5】
-            startOtherServices();     // 启动其他服务【见小节1.6】
-        } catch (Throwable ex) {
-            Slog.e("System", "************ Failure starting system services", ex);
-            throw ex;
-        }
-
-        //用于debug版本，将log事件不断循环地输出到dropbox（用于分析）
-        if (StrictMode.conditionallyEnableDebugLogging()) {
-            Slog.i(TAG, "Enabled StrictMode for system server main thread.");
-        }
-        //一直循环执行
-        Looper.loop();
-        throw new RuntimeException("Main thread loop unexpectedly exited");
+```Java
+private void run() {
+    //当系统时间比1970年更早，就设置当前系统时间为1970年
+    if (System.currentTimeMillis() < EARLIEST_SUPPORTED_TIME) {
+        SystemClock.setCurrentTimeMillis(EARLIEST_SUPPORTED_TIME);
     }
+
+    //变更虚拟机的库文件，对于Android 6.0默认采用的是libart.so
+    SystemProperties.set("persist.sys.dalvik.vm.lib.2", VMRuntime.getRuntime().vmLibrary());
+
+    if (SamplingProfilerIntegration.isEnabled()) {
+        ...
+    }
+
+    //清除vm内存增长上限，由于启动过程需要较多的虚拟机内存空间
+    VMRuntime.getRuntime().clearGrowthLimit();
+
+    //设置内存的可能有效使用率为0.8
+    VMRuntime.getRuntime().setTargetHeapUtilization(0.8f);
+    // 针对部分设备依赖于运行时就产生指纹信息，因此需要在开机完成前已经定义
+    Build.ensureFingerprintProperty();
+
+    //访问环境变量前，需要明确地指定用户
+    Environment.setUserRequired(true);
+
+    //确保当前系统进程的binder调用，总是运行在前台优先级(foreground priority)
+    BinderInternal.disableBackgroundScheduling(true);
+    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_FOREGROUND);
+    android.os.Process.setCanSelfBackground(false);
+
+    // 主线程looper就在当前线程运行
+    Looper.prepareMainLooper();
+
+    //加载android_servers.so库，该库包含的源码在frameworks/base/services/目录下
+    System.loadLibrary("android_servers");
+
+    //检测上次关机过程是否失败，该方法可能不会返回[见小节1.2.1]
+    performPendingShutdown();
+
+    //初始化系统上下文 【见小节1.3】
+    createSystemContext();
+
+    //创建系统服务管理
+    mSystemServiceManager = new SystemServiceManager(mSystemContext);
+    //将mSystemServiceManager添加到本地服务的成员sLocalServiceObjects
+    LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
+
+
+    //启动各种系统服务
+    try {
+        startBootstrapServices(); // 启动引导服务【见小节1.4】
+        startCoreServices();      // 启动核心服务【见小节1.5】
+        startOtherServices();     // 启动其他服务【见小节1.6】
+    } catch (Throwable ex) {
+        Slog.e("System", "************ Failure starting system services", ex);
+        throw ex;
+    }
+
+    //用于debug版本，将log事件不断循环地输出到dropbox（用于分析）
+    if (StrictMode.conditionallyEnableDebugLogging()) {
+        Slog.i(TAG, "Enabled StrictMode for system server main thread.");
+    }
+    //一直循环执行
+    Looper.loop();
+    throw new RuntimeException("Main thread loop unexpectedly exited");
+}
+```
 
 LocalServices通过用静态Map变量sLocalServiceObjects，来保存以服务类名为key，以具体服务对象为value的Map结构。
 

@@ -11,19 +11,21 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程的system_server进程
 
-    /frameworks/base/core/java/com/android/internal/os/
-      - ZygoteInit.java
-      - RuntimeInit.java
-      - Zygote.java
+```Java
+/frameworks/base/core/java/com/android/internal/os/
+  - ZygoteInit.java
+  - RuntimeInit.java
+  - Zygote.java
 
-    /frameworks/base/core/services/java/com/android/server/
-      - SystemServer.java
-    
-    /frameworks/base/core/jni/
-      - com_android_internal_os_Zygote.cpp
-      - AndroidRuntime.cpp
-      
-    /frameworks/base/cmds/app_process/App_main.cpp
+/frameworks/base/core/services/java/com/android/server/
+  - SystemServer.java
+
+/frameworks/base/core/jni/
+  - com_android_internal_os_Zygote.cpp
+  - AndroidRuntime.cpp
+  
+/frameworks/base/cmds/app_process/App_main.cpp
+```
 
 ### 启动流程
 
@@ -230,7 +232,7 @@ fork()创建新进程，采用copy on write方式，这是linux创建进程的�
         } else {
             ClassLoader cl = null;
             if (systemServerClasspath != null) {
-                创建类加载器，并赋予当前线程
+                // 创建类加载器，并赋予当前线程
                 cl = new PathClassLoader(systemServerClasspath, ClassLoader.getSystemClassLoader());
                 Thread.currentThread().setContextClassLoader(cl);
             }

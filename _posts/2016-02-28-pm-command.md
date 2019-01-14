@@ -12,6 +12,8 @@ tags:
 
 ## 一、Pm命令
 
+#### 1.1 命令列表
+
 命令格式：
 
     pm <command>
@@ -38,9 +40,7 @@ tags:
 
 pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManagerService`相应的方法来完成的。disbale之后，在桌面和应用程序列表里边都看到不该app。
 
-## 二、详细参数
-
-### 2.1 list packages
+#### 1.2 pm list packages命令
 
 查看所有的package
 
@@ -76,7 +76,7 @@ pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManage
     pm list packages google
 
 
-### 2.2 pm install
+#### 1.3 pm install命令
 
 
 安装应用
@@ -95,11 +95,9 @@ pm命令实的实现方式在Pm.java，最后大多数都是调用`PackageManage
 - -g: 准许Apk manifest中的所有权限；
 
 
-**`<PATH`>参数：**
+**PATH参数：**该参数是必须的，是指需要安装的apk所在的路径。
 
-该参数是必须的，是指需要安装的apk所在的路径。
-
-### 2.3 其他参数
+#### 1.4 其他参数
 
     pm list users //查看当前手机用户
     pm list libraries //查看当前设备所支持的库

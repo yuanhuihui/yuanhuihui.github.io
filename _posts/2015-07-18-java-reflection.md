@@ -102,7 +102,7 @@ Object obj = c.newInstance("gityuan.com", 2015);
 
 #### 3.2 获取/修改属性
 
-获取对象的属性:
+1) 获取对象的属性:
 
 ```Java
 public static Object getField(Object object, String fieldName) {
@@ -113,7 +113,7 @@ public static Object getField(Object object, String fieldName) {
 }
 ```
 
-修改对象的属性:
+2) 修改对象的属性:
 
 ```Java
 public static boolean setField(Object object, String fieldName, Object fieldValue) {
@@ -124,15 +124,15 @@ public static boolean setField(Object object, String fieldName, Object fieldValu
 }
 ```
 
-获取类的静态属性:
+3) 获取类的静态属性:
 
     public static Object getField(Class clazz, String fieldName) {
         Field field = clazz.getDeclaredField(fieldName);
         field.setAccessible(true);
-        return field.get(clazz)；
+        return field.get(null)；
     }
     
-修改类的静态属性:
+4) 修改类的静态属性:
 
     public static boolean setField(Class clazz, String fieldName, Object fieldValue) {
         Field field = clazz.getDeclaredField(fieldName);
@@ -142,7 +142,7 @@ public static boolean setField(Object object, String fieldName, Object fieldValu
 
 #### 3.3 调用方法
 
-调用对象方法
+1) 调用对象方法
 
 ```Java
 public static Object invokeMethod(Object object, String methodName, Object[] methodArgs) {
@@ -152,7 +152,7 @@ public static Object invokeMethod(Object object, String methodName, Object[] met
 }
 ```
     
-调用类的静态方法
+2) 调用类的静态方法
 
 ```Java
 public static Object invokeMethod(Class clazz, String methodName, Object[] methodArgs) {
@@ -161,7 +161,7 @@ public static Object invokeMethod(Class clazz, String methodName, Object[] metho
     return method.invoke(null, methodArgs);
 }
 
-public static Class[] obj2class(Object[] methodArgs) {}
+public static Class[] obj2class(Object[] args) {
     Class[] argsClass = new Class[args.length];    
     for (int i = 0, j = args.length; i < j; i++) {    
         argsClass[i] = args[i].getClass();    

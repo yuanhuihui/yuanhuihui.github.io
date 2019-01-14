@@ -149,25 +149,19 @@ SystemServiceManager.startService(ActivityManagerService.Lifecycle.class) 功能
         mProcessCpuThread = new Thread("CpuTracker") {
             public void run() {
               while (true) {
-                try {
-                  try {
-                    synchronized(this) {
-                      final long now = SystemClock.uptimeMillis();
-                      long nextCpuDelay = (mLastCpuTime.get()+MONITOR_CPU_MAX_TIME)-now;
-                      long nextWriteDelay = (mLastWriteTime+BATTERY_STATS_TIME)-now;
-                      if (nextWriteDelay < nextCpuDelay) {
-                          nextCpuDelay = nextWriteDelay;
-                      }
-                      if (nextCpuDelay > 0) {
-                          mProcessCpuMutexFree.set(true);
-                          this.wait(nextCpuDelay);
-                      }
+                  synchronized(this) {
+                    final long now = SystemClock.uptimeMillis();
+                    long nextCpuDelay = (mLastCpuTime.get()+MONITOR_CPU_MAX_TIME)-now;
+                    long nextWriteDelay = (mLastWriteTime+BATTERY_STATS_TIME)-now;
+                    if (nextWriteDelay < nextCpuDelay) {
+                        nextCpuDelay = nextWriteDelay;
                     }
-                  } catch (InterruptedException e) {
+                    if (nextCpuDelay > 0) {
+                        mProcessCpuMutexFree.set(true);
+                        this.wait(nextCpuDelay);
+                    }
                   }
                   updateCpuStatsNow(); //更新CPU状态
-                } catch (Exception e) {
-                }
               }
             }
         };
@@ -233,10 +227,8 @@ SystemServiceManager.startService(ActivityManagerService.Lifecycle.class) 功能
 
     public void installSystemApplicationInfo(ApplicationInfo info, ClassLoader classLoader) {
         synchronized (this) {
-            //
             getSystemContext().installSystemApplicationInfo(info, classLoader);
-            //创建用于性能统计的Profiler对象
-            mProfiler = new Profiler();
+            mProfiler = new Profiler();    //创建用于性能统计的Profiler对象
         }
     }
 
@@ -310,9 +302,9 @@ SystemServiceManager.startService(ActivityManagerService.Lifecycle.class) 功能
 AMS.systemReady()方法的参数为Runable类型的goingCallback， 该方法执行简单划分以下几部分：
 
     public void systemReady(final Runnable goingCallback) {
-        before goingCallback;
-        goingCallback.run();
-        after goingCallback;
+        before goingCallback; // 见小节[3.1]
+        goingCallback.run(); // 见小节[3.2]
+        after goingCallback; // 见小节[3.3]
     }
 
 ### 3.1 before goingCallback
@@ -448,25 +440,24 @@ AMS.systemReady()方法的参数为Runable类型的goingCallback， 该方法执
 
 #### 3.1.3 PreBootContinuation.go
 
-    void go() {
-        if (lastRi != curRi) {
-            ActivityInfo ai = ris.get(curRi).activityInfo;
-            ComponentName comp = new ComponentName(ai.packageName, ai.name);
-            intent.setComponent(comp);
-            doneReceivers.add(comp);
-            lastRi = curRi;
-            CharSequence label = ai.loadLabel(mContext.getPackageManager());
-            showBootMessage(mContext.getString(R.string.android_preparing_apk, label), false);
-        }
-
-        Slog.i(TAG, "Pre-boot of " + intent.getComponent().toShortString()
-                            + " for user " + users[curUser]);
-        EventLogTags.writeAmPreBoot(users[curUser], intent.getComponent().getPackageName());
-        //发送广播
-        broadcastIntentLocked(null, null, intent, null, this,
-                0, null, null, null, AppOpsManager.OP_NONE,
-                null, true, false, MY_PID, Process.SYSTEM_UID, users[curUser]);
+```Java
+void go() {
+    if (lastRi != curRi) {
+        ActivityInfo ai = ris.get(curRi).activityInfo;
+        ComponentName comp = new ComponentName(ai.packageName, ai.name);
+        intent.setComponent(comp);
+        doneReceivers.add(comp);
+        lastRi = curRi;
+        CharSequence label = ai.loadLabel(mContext.getPackageManager());
+        showBootMessage(mContext.getString(R.string.android_preparing_apk, label), false);
     }
+
+    //发送广播
+    broadcastIntentLocked(null, null, intent, null, this,
+            0, null, null, null, AppOpsManager.OP_NONE,
+            null, true, false, MY_PID, Process.SYSTEM_UID, users[curUser]);
+}
+```
 
 ### 3.2 goingCallback.run()
 
@@ -688,4 +679,4 @@ startProcessLocked()过程对于非persistent进程必须等待mProcessesReady =
 还有一个特殊情况，可以创建进程：processNextBroadcast()过程对于flag为FLAG_RECEIVER_BOOT_UPGRADE的广播拉进程
 ，只在小节3.1.1的升级过程会出现。
 
-由此可见，mProcessesReady为没有处于ready状态之前则基本没有其他进程。
+由此可见，mProcessesReady在没有ready前，则基本没有应用进程。

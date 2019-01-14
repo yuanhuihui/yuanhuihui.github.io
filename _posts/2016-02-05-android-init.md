@@ -7,7 +7,6 @@ tags:
     - android
     - 系统启动
 
-
 ---
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程进程号为1的init进程的工作内容
@@ -31,72 +30,74 @@ init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启�
 ### 1.1 main
 [-> init.cpp]
 
-    int main(int argc, char** argv) {
-        ...
-        umask(0); //设置文件属性0777
-        
-        klog_init();  //初始化kernel log，位于设备节点/dev/kmsg【见小节1.2】
-        klog_set_level(KLOG_NOTICE_LEVEL); //设置输出的log级别
-        // 输出init启动阶段的log
-        NOTICE("init%s started!\n", is_first_stage ? "" : " second stage");
-        
-        property_init(); //创建一块共享的内存空间，用于属性服务
-        signal_handler_init();  //初始化子进程退出的信号处理过程【见小节2.1】
+```CPP
+int main(int argc, char** argv) {
+    ...
+    umask(0); //设置文件属性0777
+    
+    klog_init();  //初始化kernel log，位于设备节点/dev/kmsg【见小节1.2】
+    klog_set_level(KLOG_NOTICE_LEVEL); //设置输出的log级别
+    // 输出init启动阶段的log
+    NOTICE("init%s started!\n", is_first_stage ? "" : " second stage");
+    
+    property_init(); //创建一块共享的内存空间，用于属性服务
+    signal_handler_init();  //初始化子进程退出的信号处理过程【见小节2.1】
 
-        property_load_boot_defaults(); //加载default.prop文件
-        start_property_service();   //启动属性服务器(通过socket通信)【5.1】
-        init_parse_config_file("/init.rc"); //解析init.rc文件
+    property_load_boot_defaults(); //加载default.prop文件
+    start_property_service();   //启动属性服务器(通过socket通信)【见小节5.1】
+    init_parse_config_file("/init.rc"); //解析init.rc文件
 
-        //执行rc文件中触发器为 on early-init的语句
-        action_for_each_trigger("early-init", action_add_queue_tail);
-        //等冷插拔设备初始化完成
-        queue_builtin_action(wait_for_coldboot_done_action, "wait_for_coldboot_done");
-        queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
-        //设备组合键的初始化操作
-        queue_builtin_action(keychord_init_action, "keychord_init");
-        // 屏幕上显示Android静态Logo 【见小节1.3】
-        queue_builtin_action(console_init_action, "console_init");
-        
-        //执行rc文件中触发器为 on init的语句
-        action_for_each_trigger("init", action_add_queue_tail);
-        queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
-        
-        char bootmode[PROP_VALUE_MAX];
-        //当处于充电模式，则charger加入执行队列；否则late-init加入队列。
-        if (property_get("ro.bootmode", bootmode) > 0 && strcmp(bootmode, "charger") == 0) {
-           action_for_each_trigger("charger", action_add_queue_tail);
-        } else {
-           action_for_each_trigger("late-init", action_add_queue_tail);
-        }
-        //触发器为属性是否设置
-        queue_builtin_action(queue_property_triggers_action, "queue_property_triggers");
-         
-        while (true) {
-            if (!waiting_for_exec) {
-                execute_one_command();
-                restart_processes(); //【见小节1.4】
-            }
-            int timeout = -1;
-            if (process_needs_restart) {
-                timeout = (process_needs_restart - gettime()) * 1000;
-                if (timeout < 0)
-                    timeout = 0;
-            }
-            if (!action_queue_empty() || cur_action) {
-                timeout = 0;
-            }
-
-            epoll_event ev;
-            //循环 等待事件发生
-            int nr = TEMP_FAILURE_RETRY(epoll_wait(epoll_fd, &ev, 1, timeout));
-            if (nr == -1) {
-                ERROR("epoll_wait failed: %s\n", strerror(errno));
-            } else if (nr == 1) {
-                ((void (*)()) ev.data.ptr)();
-            }
-        }
-        return 0;
+    //执行rc文件中触发器为 on early-init的语句
+    action_for_each_trigger("early-init", action_add_queue_tail);
+    //等冷插拔设备初始化完成
+    queue_builtin_action(wait_for_coldboot_done_action, "wait_for_coldboot_done");
+    queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
+    //设备组合键的初始化操作
+    queue_builtin_action(keychord_init_action, "keychord_init");
+    // 屏幕上显示Android静态Logo 【见小节1.3】
+    queue_builtin_action(console_init_action, "console_init");
+    
+    //执行rc文件中触发器为 on init的语句
+    action_for_each_trigger("init", action_add_queue_tail);
+    queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
+    
+    char bootmode[PROP_VALUE_MAX];
+    //当处于充电模式，则charger加入执行队列；否则late-init加入队列。
+    if (property_get("ro.bootmode", bootmode) > 0 && strcmp(bootmode, "charger") == 0) {
+       action_for_each_trigger("charger", action_add_queue_tail);
+    } else {
+       action_for_each_trigger("late-init", action_add_queue_tail);
     }
+    //触发器为属性是否设置
+    queue_builtin_action(queue_property_triggers_action, "queue_property_triggers");
+     
+    while (true) {
+        if (!waiting_for_exec) {
+            execute_one_command();
+            restart_processes(); //【见小节1.4】
+        }
+        int timeout = -1;
+        if (process_needs_restart) {
+            timeout = (process_needs_restart - gettime()) * 1000;
+            if (timeout < 0)
+                timeout = 0;
+        }
+        if (!action_queue_empty() || cur_action) {
+            timeout = 0;
+        }
+
+        epoll_event ev;
+        //循环 等待事件发生
+        int nr = TEMP_FAILURE_RETRY(epoll_wait(epoll_fd, &ev, 1, timeout));
+        if (nr == -1) {
+            ERROR("epoll_wait failed: %s\n", strerror(errno));
+        } else if (nr == 1) {
+            ((void (*)()) ev.data.ptr)();
+        }
+    }
+    return 0;
+}
+```
 
 ### 1.2 log系统
 
@@ -187,7 +188,7 @@ init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启�
 
 ## 二、信号处理
 
-在init.cpp的main()方法中，通过signal_handler_init()来初始化信号处理过程。
+在小节[1.1]的init.cpp的main()方法中通过signal_handler_init()来初始化信号处理过程。
 
 主要工作：
 
