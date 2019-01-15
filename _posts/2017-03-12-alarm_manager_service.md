@@ -15,9 +15,11 @@ tags:
 
 AlarmManager的用法  
 
-    PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_JOB_EXPIRED), 0);
-    AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE);
-    alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), pi);  
+```Java
+PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_JOB_EXPIRED), 0);
+AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE);
+alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), pi);  
+```
 
 对于alarmManager关于alarm的类型, 以及时间到达后可以选择发送广播, 启动Activity或许启动服务等自由组合.
 
@@ -76,48 +78,49 @@ AlarmManagerService的初始化比JobScheduler更早。
 ### 2.3 ALMS.onStart
 [-> AlarmManagerService.java]
 
-    public void onStart() {
-        mNativeData = init(); //【2.4】
-        mNextWakeup = mNextNonWakeup = 0;
+```Java
+public void onStart() {
+    mNativeData = init(); //【2.4】
+    mNextWakeup = mNextNonWakeup = 0;
 
-        //由于重启后内核并没有保存时区信息，则必须将当前时区设置到内核；若时区改变则会发送相应
-        setTimeZoneImpl(SystemProperties.get(TIMEZONE_PROPERTY));
+    //由于重启后内核并没有保存时区信息，则必须将当前时区设置到内核；若时区改变则会发送相应
+    setTimeZoneImpl(SystemProperties.get(TIMEZONE_PROPERTY));
 
-        PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
-        mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "*alarm*");
-        //TIME_TICK广播
-        mTimeTickSender = PendingIntent.getBroadcastAsUser(getContext(), 0,
-                new Intent(Intent.ACTION_TIME_TICK).addFlags(
-                        Intent.FLAG_RECEIVER_REGISTERED_ONLY
-                        | Intent.FLAG_RECEIVER_FOREGROUND), 0,
-                        UserHandle.ALL);
-        //DATE_CHANGED广播
-        Intent intent = new Intent(Intent.ACTION_DATE_CHANGED);
-        intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
-        mDateChangeSender = PendingIntent.getBroadcastAsUser(getContext(), 0, intent,
-                Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT, UserHandle.ALL);
+    PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+    mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "*alarm*");
+    //TIME_TICK广播
+    mTimeTickSender = PendingIntent.getBroadcastAsUser(getContext(), 0,
+            new Intent(Intent.ACTION_TIME_TICK).addFlags(
+                    Intent.FLAG_RECEIVER_REGISTERED_ONLY
+                    | Intent.FLAG_RECEIVER_FOREGROUND), 0,
+                    UserHandle.ALL);
+    //DATE_CHANGED广播
+    Intent intent = new Intent(Intent.ACTION_DATE_CHANGED);
+    intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
+    mDateChangeSender = PendingIntent.getBroadcastAsUser(getContext(), 0, intent,
+            Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT, UserHandle.ALL);
 
-        //【见小节2.5】
-        mClockReceiver = new ClockReceiver();
-        //首次调度一次，后面每分钟执行一次【见小节2.6】
-        mClockReceiver.scheduleTimeTickEvent();
-        //日期改变的广播，流程同上
-        mClockReceiver.scheduleDateChangedEvent();
+    //【见小节2.5】
+    mClockReceiver = new ClockReceiver();
+    //首次调度一次，后面每分钟执行一次【见小节2.6】
+    mClockReceiver.scheduleTimeTickEvent();
+    //日期改变的广播，流程同上
+    mClockReceiver.scheduleDateChangedEvent();
 
-        //用于监听亮屏/灭屏广播
-        mInteractiveStateReceiver = new InteractiveStateReceiver();
-        //用于监听package移除/重启，sdcard不可用的广播
-        mUninstallReceiver = new UninstallReceiver();
+    //用于监听亮屏/灭屏广播
+    mInteractiveStateReceiver = new InteractiveStateReceiver();
+    //用于监听package移除/重启，sdcard不可用的广播
+    mUninstallReceiver = new UninstallReceiver();
 
-        if (mNativeData != 0) {
-            //创建"AlarmManager"【见小节2.8】
-            AlarmThread waitThread = new AlarmThread();
-            waitThread.start();
-        }
-        //发布alarm服务
-        publishBinderService(Context.ALARM_SERVICE, mService);
+    if (mNativeData != 0) {
+        //创建"AlarmManager"【见小节2.8】
+        AlarmThread waitThread = new AlarmThread();
+        waitThread.start();
     }
-
+    //发布alarm服务
+    publishBinderService(Context.ALARM_SERVICE, mService);
+}
+```
 
 该方法主要功能：
 
@@ -264,17 +267,19 @@ AlarmManagerService的初始化比JobScheduler更早。
 
 #### 2.7.1 ALMS.setImplLocked
 
-    private void setImplLocked(int type, long when, long whenElapsed, long windowLength,
-            long maxWhen, long interval, PendingIntent operation, int flags,
-            boolean doValidate, WorkSource workSource, AlarmManager.AlarmClockInfo alarmClock,
-            int uid) {
-        //创建Alarm对象
-        Alarm a = new Alarm(type, when, whenElapsed, windowLength, maxWhen, interval,
-                operation, workSource, flags, alarmClock, uid);
-        removeLocked(operation);
-        //【见小节2.7.2】
-        setImplLocked(a, false, doValidate);
-    }
+```Java
+private void setImplLocked(int type, long when, long whenElapsed, long windowLength,
+        long maxWhen, long interval, PendingIntent operation, int flags,
+        boolean doValidate, WorkSource workSource, AlarmManager.AlarmClockInfo alarmClock,
+        int uid) {
+    //创建Alarm对象
+    Alarm a = new Alarm(type, when, whenElapsed, windowLength, maxWhen, interval,
+            operation, workSource, flags, alarmClock, uid);
+    removeLocked(operation);
+    //【见小节2.7.2】
+    setImplLocked(a, false, doValidate);
+}
+```
 
 #### 2.7.2 ALMS.setImplLocked
 
@@ -441,11 +446,13 @@ AlarmManagerService的初始化比JobScheduler更早。
 
 ### 三. alarm使用
 
-    //【见小节3.1】
-    PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_JOB_EXPIRED), 0);
-    AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE);
-    //[见小节3.3]
-    alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), pi);  
+```Java
+//【见小节3.1】
+PendingIntent pi = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_JOB_EXPIRED), 0);
+AlarmManager alarmManager=(AlarmManager)getSystemService(Service.ALARM_SERVICE);
+//[见小节3.3]
+alarmManager.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime(), pi);  
+```
 
 alarm使用过程会使用到PendingIntent，先来简单介绍下PendingIntent.
 
@@ -564,49 +571,51 @@ getIntentSender()获取的是PendingIntentRecord对象, 而该对象继承于IIn
 
 #### 3.1.5 AMS.getIntentSenderLocked
 
-    IIntentSender getIntentSenderLocked(int type, String packageName,
-            int callingUid, int userId, IBinder token, String resultWho,
-            int requestCode, Intent[] intents, String[] resolvedTypes, int flags,
-            Bundle options) {
-        ActivityRecord activity = null;
-        ...
-        //创建Key对象
-        PendingIntentRecord.Key key = new PendingIntentRecord.Key(
-                type, packageName, activity, resultWho,
-                requestCode, intents, resolvedTypes, flags, options, userId);
-        WeakReference<PendingIntentRecord> ref;
-        ref = mIntentSenderRecords.get(key);
-        PendingIntentRecord rec = ref != null ? ref.get() : null;
-        if (rec != null) {
-            if (!cancelCurrent) {
-                if (updateCurrent) {
-                    if (rec.key.requestIntent != null) {
-                        rec.key.requestIntent.replaceExtras(intents != null ?
-                                intents[intents.length - 1] : null);
-                    }
-                    if (intents != null) {
-                        intents[intents.length-1] = rec.key.requestIntent;
-                        rec.key.allIntents = intents;
-                        rec.key.allResolvedTypes = resolvedTypes;
-                    } else {
-                        rec.key.allIntents = null;
-                        rec.key.allResolvedTypes = null;
-                    }
+```Java
+IIntentSender getIntentSenderLocked(int type, String packageName,
+        int callingUid, int userId, IBinder token, String resultWho,
+        int requestCode, Intent[] intents, String[] resolvedTypes, int flags,
+        Bundle options) {
+    ActivityRecord activity = null;
+    ...
+    //创建Key对象
+    PendingIntentRecord.Key key = new PendingIntentRecord.Key(
+            type, packageName, activity, resultWho,
+            requestCode, intents, resolvedTypes, flags, options, userId);
+    WeakReference<PendingIntentRecord> ref;
+    ref = mIntentSenderRecords.get(key);
+    PendingIntentRecord rec = ref != null ? ref.get() : null;
+    if (rec != null) {
+        if (!cancelCurrent) {
+            if (updateCurrent) {
+                if (rec.key.requestIntent != null) {
+                    rec.key.requestIntent.replaceExtras(intents != null ?
+                            intents[intents.length - 1] : null);
                 }
-                return rec;
+                if (intents != null) {
+                    intents[intents.length-1] = rec.key.requestIntent;
+                    rec.key.allIntents = intents;
+                    rec.key.allResolvedTypes = resolvedTypes;
+                } else {
+                    rec.key.allIntents = null;
+                    rec.key.allResolvedTypes = null;
+                }
             }
-            rec.canceled = true;
-            mIntentSenderRecords.remove(key);
-        }
-        if (noCreate) {
             return rec;
         }
-        //创建PendingIntentRecord对象
-        rec = new PendingIntentRecord(this, key, callingUid);
-        mIntentSenderRecords.put(key, rec.ref);
-        ...
+        rec.canceled = true;
+        mIntentSenderRecords.remove(key);
+    }
+    if (noCreate) {
         return rec;
     }
+    //创建PendingIntentRecord对象
+    rec = new PendingIntentRecord(this, key, callingUid);
+    mIntentSenderRecords.put(key, rec.ref);
+    ...
+    return rec;
+}
+```
 
 ### 3.2 AlarmManager
 
@@ -947,5 +956,3 @@ Type有4种类型：
 |RTC|否|否|
 |ELAPSED_REALTIME_WAKEUP|是|是|
 |ELAPSED_REALTIME|否|是|
-
-未完, 待续...

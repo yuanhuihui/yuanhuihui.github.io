@@ -662,19 +662,21 @@ linux程序执行fork方法，通过中断(syscall)陷入内核，执行系统�
 #### 3.2.3 count_open_files
 [-> kernel/fs/file.c]
 
-    static int count_open_files(struct fdtable *fdt)
-    {
-      int size = fdt->max_fds; //文件描述符的最大上限
-      int i;
+```C
+static int count_open_files(struct fdtable *fdt)
+{
+  int size = fdt->max_fds; //文件描述符的最大上限
+  int i;
 
-      //查询最后打开的fd, 其中BITS_PER_LONG=32
-      for (i = size / BITS_PER_LONG; i > 0; ) {
-        if (fdt->open_fds[--i])
-          break;
-      }
-      i = (i + 1) * BITS_PER_LONG;
-      return i;
-    }
+  //查询最后打开的fd, 其中BITS_PER_LONG=32
+  for (i = size / BITS_PER_LONG; i > 0; ) {
+    if (fdt->open_fds[--i])
+      break;
+  }
+  i = (i + 1) * BITS_PER_LONG;
+  return i;
+}
+```
 
 #### 3.2.4 alloc_fdtable
 [-> kernel/fs/file.c]
@@ -1205,29 +1207,31 @@ signal_struct结构体并没有自己的锁，而是利用sighand_struct lock。
 ### 3.8 copy_io
 [-> fork.c]
 
-    static int copy_io(unsigned long clone_flags, struct task_struct *tsk)
-    {
-    #ifdef CONFIG_BLOCK
-      struct io_context *ioc = current->io_context;
-      struct io_context *new_ioc;
+```C
+static int copy_io(unsigned long clone_flags, struct task_struct *tsk)
+{
+#ifdef CONFIG_BLOCK
+  struct io_context *ioc = current->io_context;
+  struct io_context *new_ioc;
 
-      if (!ioc)
-        return 0;
+  if (!ioc)
+    return 0;
 
-      if (clone_flags & CLONE_IO) {
-        ioc_task_link(ioc); //nr_tasks加1
-        tsk->io_context = ioc;
-      } else if (ioprio_valid(ioc->ioprio)) {
-        new_ioc = get_task_io_context(tsk, GFP_KERNEL, NUMA_NO_NODE);
-        if (unlikely(!new_ioc))
-          return -ENOMEM;
+  if (clone_flags & CLONE_IO) {
+    ioc_task_link(ioc); //nr_tasks加1
+    tsk->io_context = ioc;
+  } else if (ioprio_valid(ioc->ioprio)) {
+    new_ioc = get_task_io_context(tsk, GFP_KERNEL, NUMA_NO_NODE);
+    if (unlikely(!new_ioc))
+      return -ENOMEM;
 
-        new_ioc->ioprio = ioc->ioprio;
-        put_io_context(new_ioc);
-      }
-    #endif
-      return 0;
-    }
+    new_ioc->ioprio = ioc->ioprio;
+    put_io_context(new_ioc);
+  }
+#endif
+  return 0;
+}
+```
 
  - 当设置CLONE_IO，则父子进程间共享io context，nr_tasks加1
  - 否则，创建新io_context结构体

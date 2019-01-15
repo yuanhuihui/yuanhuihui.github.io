@@ -10,18 +10,20 @@ tags:
 
 > 基于Android 6.0源码， 分析PackageManagerService的启动过程
 
-    frameworks/base/services/core/java/com/android/server/pm/PackageManagerService.java
-    frameworks/base/services/core/java/com/android/server/pm/PackageInstallerService.java
-    frameworks/base/services/core/java/com/android/server/pm/Settings.java
-    frameworks/base/services/core/java/com/android/server/SystemConfig
-    frameworks/base/core/java/android/content/pm/PackageManager.java
+```Java
+frameworks/base/services/core/java/com/android/server/pm/PackageManagerService.java
+frameworks/base/services/core/java/com/android/server/pm/PackageInstallerService.java
+frameworks/base/services/core/java/com/android/server/pm/Settings.java
+frameworks/base/services/core/java/com/android/server/SystemConfig
+frameworks/base/core/java/android/content/pm/PackageManager.java
 
-    frameworks/base/core/android/java/content/pm/IPackageManager.aidl
-    frameworks/base/core/java/android/content/pm/PackageParser.java
-    frameworks/base/cmds/pm/src/com/android/commands/pm/Pm.java
+frameworks/base/core/android/java/content/pm/IPackageManager.aidl
+frameworks/base/core/java/android/content/pm/PackageParser.java
+frameworks/base/cmds/pm/src/com/android/commands/pm/Pm.java
 
-    frameworks/base/services/core/java/com/android/server/pm/Installer.java
-    frameworks/base/core/java/com/android/internal/os/InstallerConnection.java
+frameworks/base/services/core/java/com/android/server/pm/Installer.java
+frameworks/base/core/java/com/android/internal/os/InstallerConnection.java
+```
 
 ## 一.概述
 
@@ -36,33 +38,35 @@ PKMS服务也是通过binder进行通信，IPackageManager.aidl由工具转换�
 
 Android系统启动过程中，一路启动到[SystemServer](http://gityuan.com/2016/02/20/android-system-server-2/)后，便可以启动framework的各大服务，本文将介绍PKMS的启动过程。
 
-### PKMS启动
+#### PKMS启动
 
 SystemServer启动过程中涉及到的PKMS如下：
 
-    private void startBootstrapServices() {
-        //启动installer服务
-        Installer installer = mSystemServiceManager.startService(Installer.class);
-        ...
+```Java
+private void startBootstrapServices() {
+    //启动installer服务
+    Installer installer = mSystemServiceManager.startService(Installer.class);
+    ...
 
-        //处于加密状态则仅仅解析核心应用
-        String cryptState = SystemProperties.get("vold.decrypt");
-        if (ENCRYPTING_STATE.equals(cryptState)) {
-            mOnlyCore = true; // ENCRYPTING_STATE = "trigger_restart_min_framework"
-        } else if (ENCRYPTED_STATE.equals(cryptState)) {
-            mOnlyCore = true; // ENCRYPTED_STATE = "1"
-        }
-
-        //创建PKMS对象【见小节2.1】
-        mPackageManagerService = PackageManagerService.main(mSystemContext, installer,
-                    mFactoryTestMode != FactoryTest.FACTORY_TEST_OFF, mOnlyCore);
-        //PKMS是否首次启动
-        mFirstBoot = mPackageManagerService.isFirstBoot();
-
-        //【见小节3.1】
-        mPackageManager = mSystemContext.getPackageManager();
-        ...
+    //处于加密状态则仅仅解析核心应用
+    String cryptState = SystemProperties.get("vold.decrypt");
+    if (ENCRYPTING_STATE.equals(cryptState)) {
+        mOnlyCore = true; // ENCRYPTING_STATE = "trigger_restart_min_framework"
+    } else if (ENCRYPTED_STATE.equals(cryptState)) {
+        mOnlyCore = true; // ENCRYPTED_STATE = "1"
     }
+
+    //创建PKMS对象【见小节2.1】
+    mPackageManagerService = PackageManagerService.main(mSystemContext, installer,
+                mFactoryTestMode != FactoryTest.FACTORY_TEST_OFF, mOnlyCore);
+    //PKMS是否首次启动
+    mFirstBoot = mPackageManagerService.isFirstBoot();
+
+    //【见小节3.1】
+    mPackageManager = mSystemContext.getPackageManager();
+    ...
+}
+```
 
 PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家。
 
@@ -131,54 +135,56 @@ PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家
 
 阶段1 PMS_START有两部分组成，由无需加锁的前部分和同时持有两个锁的后半部分，先来说说前半部分：
 
-    EventLog.writeEvent(EventLogTags.BOOT_PROGRESS_PMS_START,
-            SystemClock.uptimeMillis());
-    mContext = context;
-    mFactoryTest = factoryTest;
-    mOnlyCore = onlyCore; //标记是否只加载核心服务
-    //对于eng版本则延迟执行dexopt操作
-    mLazyDexOpt = "eng".equals(SystemProperties.get("ro.build.type"));
-    mMetrics = new DisplayMetrics();
-    mSettings = new Settings(mPackages); //创建Settings对象【见小节2.1.1】
+```Java
+EventLog.writeEvent(EventLogTags.BOOT_PROGRESS_PMS_START,
+        SystemClock.uptimeMillis());
+mContext = context;
+mFactoryTest = factoryTest;
+mOnlyCore = onlyCore; //标记是否只加载核心服务
+//对于eng版本则延迟执行dexopt操作
+mLazyDexOpt = "eng".equals(SystemProperties.get("ro.build.type"));
+mMetrics = new DisplayMetrics();
+mSettings = new Settings(mPackages); //创建Settings对象【见小节2.1.1】
 
-    // 添加system, phone, log, nfc, bluetooth, shell这六种shareUserId到mSettings；
-    mSettings.addSharedUserLPw("android.uid.system", Process.SYSTEM_UID,
-            ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
-    mSettings.addSharedUserLPw("android.uid.phone", RADIO_UID,
-            ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
-    mSettings.addSharedUserLPw("android.uid.log", LOG_UID,
-            ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
-    mSettings.addSharedUserLPw("android.uid.nfc", NFC_UID,
-            ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
-    mSettings.addSharedUserLPw("android.uid.bluetooth", BLUETOOTH_UID,
-            ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
-    mSettings.addSharedUserLPw("android.uid.shell", SHELL_UID,
-            ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
+// 添加system, phone, log, nfc, bluetooth, shell这六种shareUserId到mSettings；
+mSettings.addSharedUserLPw("android.uid.system", Process.SYSTEM_UID,
+        ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
+mSettings.addSharedUserLPw("android.uid.phone", RADIO_UID,
+        ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
+mSettings.addSharedUserLPw("android.uid.log", LOG_UID,
+        ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
+mSettings.addSharedUserLPw("android.uid.nfc", NFC_UID,
+        ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
+mSettings.addSharedUserLPw("android.uid.bluetooth", BLUETOOTH_UID,
+        ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
+mSettings.addSharedUserLPw("android.uid.shell", SHELL_UID,
+        ApplicationInfo.FLAG_SYSTEM, ApplicationInfo.PRIVATE_FLAG_PRIVILEGED);
 
-    long dexOptLRUThresholdInMinutes;
-    if (mLazyDexOpt) {
-        dexOptLRUThresholdInMinutes = 30; //对于eng版本，则只会对30分钟之内使用过的app执行dex优化
-    } else {
-        dexOptLRUThresholdInMinutes = 7 * 24 * 60; //否则，用户一周内使用过的app执行dex优化
-    }
-    mDexOptLRUThresholdInMills = dexOptLRUThresholdInMinutes * 60 * 1000;
-    ...
+long dexOptLRUThresholdInMinutes;
+if (mLazyDexOpt) {
+    dexOptLRUThresholdInMinutes = 30; //对于eng版本，则只会对30分钟之内使用过的app执行dex优化
+} else {
+    dexOptLRUThresholdInMinutes = 7 * 24 * 60; //否则，用户一周内使用过的app执行dex优化
+}
+mDexOptLRUThresholdInMills = dexOptLRUThresholdInMinutes * 60 * 1000;
+...
 
-    mInstaller = installer; //保存installer对象
-    mPackageDexOptimizer = new PackageDexOptimizer(this); //用于dex优化
-    //运行在”android.fg"线程的handler对象
-    mMoveCallbacks = new MoveCallbacks(FgThread.get().getLooper());
+mInstaller = installer; //保存installer对象
+mPackageDexOptimizer = new PackageDexOptimizer(this); //用于dex优化
+//运行在”android.fg"线程的handler对象
+mMoveCallbacks = new MoveCallbacks(FgThread.get().getLooper());
 
-    mOnPermissionChangeListeners = new OnPermissionChangeListeners(
-            FgThread.get().getLooper());
+mOnPermissionChangeListeners = new OnPermissionChangeListeners(
+        FgThread.get().getLooper());
 
-    getDefaultDisplayMetrics(context, mMetrics);
+getDefaultDisplayMetrics(context, mMetrics);
 
-    //获取系统配置信息【见小节2.1.2】
-    SystemConfig systemConfig = SystemConfig.getInstance();
-    mGlobalGids = systemConfig.getGlobalGids();
-    mSystemPermissions = systemConfig.getSystemPermissions();
-    mAvailableFeatures = systemConfig.getAvailableFeatures();
+//获取系统配置信息【见小节2.1.2】
+SystemConfig systemConfig = SystemConfig.getInstance();
+mGlobalGids = systemConfig.getGlobalGids();
+mSystemPermissions = systemConfig.getSystemPermissions();
+mAvailableFeatures = systemConfig.getAvailableFeatures();
+```
 
 这里有一个参数mDexOptLRUThresholdInMills用于决定执行dex优化操作的时间阈，这个参数用于后续的PKMS.performBootDexOpt()过程。
 
@@ -235,29 +241,31 @@ PKMS.main()过程主要是创建PKMS服务，并注册到ServiceManager大管家
 
 #### 2.1.1  创建Settings
 
-    Settings(Object lock) {
-         this(Environment.getDataDirectory(), lock);
-     }
+```Java
+Settings(Object lock) {
+    this(Environment.getDataDirectory(), lock);
+}
 
-     Settings(File dataDir, Object lock) {
-         mLock = lock;
+Settings(File dataDir, Object lock) {
+    mLock = lock;
 
-         mRuntimePermissionsPersistence = new RuntimePermissionPersistence(mLock);
+    mRuntimePermissionsPersistence = new RuntimePermissionPersistence(mLock);
 
-         mSystemDir = new File(dataDir, "system");
-         mSystemDir.mkdirs(); //创建/data/system
-         FileUtils.setPermissions(mSystemDir.toString(),
-                 FileUtils.S_IRWXU|FileUtils.S_IRWXG
-                 |FileUtils.S_IROTH|FileUtils.S_IXOTH,
-                 -1, -1);
-         mSettingsFilename = new File(mSystemDir, "packages.xml");
-         mBackupSettingsFilename = new File(mSystemDir, "packages-backup.xml");
-         mPackageListFilename = new File(mSystemDir, "packages.list");
-         FileUtils.setPermissions(mPackageListFilename, 0640, SYSTEM_UID, PACKAGE_INFO_GID);
+    mSystemDir = new File(dataDir, "system");
+    mSystemDir.mkdirs(); //创建/data/system
+    FileUtils.setPermissions(mSystemDir.toString(),
+           FileUtils.S_IRWXU|FileUtils.S_IRWXG
+           |FileUtils.S_IROTH|FileUtils.S_IXOTH,
+           -1, -1);
+    mSettingsFilename = new File(mSystemDir, "packages.xml");
+    mBackupSettingsFilename = new File(mSystemDir, "packages-backup.xml");
+    mPackageListFilename = new File(mSystemDir, "packages.list");
+    FileUtils.setPermissions(mPackageListFilename, 0640, SYSTEM_UID, PACKAGE_INFO_GID);
 
-         mStoppedPackagesFilename = new File(mSystemDir, "packages-stopped.xml");
-         mBackupStoppedPackagesFilename = new File(mSystemDir, "packages-stopped-backup.xml");
-     }
+    mStoppedPackagesFilename = new File(mSystemDir, "packages-stopped.xml");
+    mBackupStoppedPackagesFilename = new File(mSystemDir, "packages-stopped-backup.xml");
+}
+```
 
 此处mSystemDir是指目录`/data/system`，在该目录有以下5个文件：
 

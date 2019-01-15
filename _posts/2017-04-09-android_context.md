@@ -177,33 +177,35 @@ startActivity的过程最终会在目标进程执行performLaunchActivity()方�
 ### 2.3 handleReceiver
 [-> ActivityThread.java]
 
-    private void handleReceiver(ReceiverData data) {
-        ...
-        String component = data.intent.getComponent().getClassName();
-        //step 1: 创建LoadedApk对象
-        LoadedApk packageInfo = getPackageInfoNoCheck(
-                data.info.applicationInfo, data.compatInfo);
+```Java
+private void handleReceiver(ReceiverData data) {
+    ...
+    String component = data.intent.getComponent().getClassName();
+    //step 1: 创建LoadedApk对象
+    LoadedApk packageInfo = getPackageInfoNoCheck(
+            data.info.applicationInfo, data.compatInfo);
 
-        IActivityManager mgr = ActivityManagerNative.getDefault();
-        java.lang.ClassLoader cl = packageInfo.getClassLoader();
-        data.intent.setExtrasClassLoader(cl);
-        data.intent.prepareToEnterProcess();
-        data.setExtrasClassLoader(cl);
-        //step 2: 创建BroadcastReceiver对象
-        BroadcastReceiver receiver = (BroadcastReceiver)cl.loadClass(component).newInstance();
+    IActivityManager mgr = ActivityManagerNative.getDefault();
+    java.lang.ClassLoader cl = packageInfo.getClassLoader();
+    data.intent.setExtrasClassLoader(cl);
+    data.intent.prepareToEnterProcess();
+    data.setExtrasClassLoader(cl);
+    //step 2: 创建BroadcastReceiver对象
+    BroadcastReceiver receiver = (BroadcastReceiver)cl.loadClass(component).newInstance();
 
-        //step 3: 创建Application对象
-        Application app = packageInfo.makeApplication(false, mInstrumentation);
+    //step 3: 创建Application对象
+    Application app = packageInfo.makeApplication(false, mInstrumentation);
 
-        //step 4: 创建ContextImpl对象
-        ContextImpl context = (ContextImpl)app.getBaseContext();
-        sCurrentBroadcastIntent.set(data.intent);
-        receiver.setPendingResult(data);
+    //step 4: 创建ContextImpl对象
+    ContextImpl context = (ContextImpl)app.getBaseContext();
+    sCurrentBroadcastIntent.set(data.intent);
+    receiver.setPendingResult(data);
 
-        //step 5: 执行onReceive回调 [见小节4.3]
-        receiver.onReceive(context.getReceiverRestrictedContext(), data.intent);
-        ...
-    }
+    //step 5: 执行onReceive回调 [见小节4.3]
+    receiver.onReceive(context.getReceiverRestrictedContext(), data.intent);
+    ...
+}
+```
 
 整个过程:
 
@@ -324,41 +326,43 @@ startActivity的过程最终会在目标进程执行performLaunchActivity()方�
 #### 3.1.2 AT.getPackageInfo
 [-> ActivityThread.java]
 
-    private LoadedApk getPackageInfo(ApplicationInfo aInfo, CompatibilityInfo compatInfo,
-        ClassLoader baseLoader, boolean securityViolation, boolean includeCode,
-            boolean registerPackage) {
-        final boolean differentUser = (UserHandle.myUserId() != UserHandle.getUserId(aInfo.uid));
-        synchronized (mResourcesManager) {
-            WeakReference<LoadedApk> ref;
+```Java
+private LoadedApk getPackageInfo(ApplicationInfo aInfo, CompatibilityInfo compatInfo,
+    ClassLoader baseLoader, boolean securityViolation, boolean includeCode,
+        boolean registerPackage) {
+    final boolean differentUser = (UserHandle.myUserId() != UserHandle.getUserId(aInfo.uid));
+    synchronized (mResourcesManager) {
+        WeakReference<LoadedApk> ref;
+        if (differentUser) {
+            ref = null;
+        } else if (includeCode) {
+            ref = mPackages.get(aInfo.packageName); //从mPackages查询
+        } else {
+            ...
+        }
+
+        LoadedApk packageInfo = ref != null ? ref.get() : null;
+        if (packageInfo == null || (packageInfo.mResources != null
+                && !packageInfo.mResources.getAssets().isUpToDate())) {
+            //创建LoadedApk对象, 此时baseLoader为null
+            packageInfo = new LoadedApk(this, aInfo, compatInfo, baseLoader,
+                        securityViolation, includeCode &&
+                        (aInfo.flags&ApplicationInfo.FLAG_HAS_CODE) != 0, registerPackage);
+            ...
+
             if (differentUser) {
-                ref = null;
+                ...
             } else if (includeCode) {
-                ref = mPackages.get(aInfo.packageName); //从mPackages查询
+                //将新创建的LoadedApk加入到mPackages
+                mPackages.put(aInfo.packageName, new WeakReference<LoadedApk>(packageInfo));
             } else {
                 ...
             }
-
-            LoadedApk packageInfo = ref != null ? ref.get() : null;
-            if (packageInfo == null || (packageInfo.mResources != null
-                    && !packageInfo.mResources.getAssets().isUpToDate())) {
-                //创建LoadedApk对象, 此时baseLoader为null
-                packageInfo = new LoadedApk(this, aInfo, compatInfo, baseLoader,
-                            securityViolation, includeCode &&
-                            (aInfo.flags&ApplicationInfo.FLAG_HAS_CODE) != 0, registerPackage);
-                ...
-
-                if (differentUser) {
-                    ...
-                } else if (includeCode) {
-                    //将新创建的LoadedApk加入到mPackages
-                    mPackages.put(aInfo.packageName, new WeakReference<LoadedApk>(packageInfo));
-                } else {
-                    ...
-                }
-            }
-            return packageInfo;
         }
+        return packageInfo;
     }
+}
+```
 
 该方法主要功能:
 

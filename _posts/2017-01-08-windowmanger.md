@@ -147,16 +147,18 @@ tags:
 
 ### 2.3 WMS.initPolicy
 
-    private void initPolicy() {
-        //运行在"android.ui"线程
-        UiThread.getHandler().runWithScissors(new Runnable() {
-            public void run() {
-                WindowManagerPolicyThread.set(Thread.currentThread(), Looper.myLooper());
-                //此处mPolicy为PhoneWindowManager.[见小节2.4]
-                mPolicy.init(mContext, WindowManagerService.this, WindowManagerService.this);
-            }
-        }, 0);
-    }
+```Java
+private void initPolicy() {
+    //运行在"android.ui"线程
+    UiThread.getHandler().runWithScissors(new Runnable() {
+        public void run() {
+            WindowManagerPolicyThread.set(Thread.currentThread(), Looper.myLooper());
+            //此处mPolicy为PhoneWindowManager.[见小节2.4]
+            mPolicy.init(mContext, WindowManagerService.this, WindowManagerService.this);
+        }
+    }, 0);
+}
+```
 
 #### 2.3.1 Handler.runWithScissors
 [-> Handler.java]

@@ -12,10 +12,12 @@ tags:
 
 > 基于Android 6.0源码， 分析当发生ANR时系统的处理过程
 
-    frameworks/base/core/java/android/os/Debug.java
-    frameworks/base/core/jni/android_os_Debug.cpp
-    system/core/libcutils/debugger.c
-    
+```Java
+frameworks/base/core/java/android/os/Debug.java
+frameworks/base/core/jni/android_os_Debug.cpp
+system/core/libcutils/debugger.c
+```
+
 ## 一. ANR场景
 
 无论是四大组件或者进程等只要发生ANR，最终都会调用AMS.appNotResponding()方法，下面从这个方法说起。

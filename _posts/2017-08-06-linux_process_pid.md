@@ -244,13 +244,15 @@ pidmap->page的大小为4KB，每一个bit位代表一个进程pid的分配情�
 ### 2.4 pid_nr
 [-> kernel/include/linux/pid.h]
 
-    static inline pid_t pid_nr(struct pid *pid)
-    {
-      pid_t nr = 0;
-      if (pid)
-        nr = pid->numbers[0].nr;
-      return nr;
-    }
+```C
+static inline pid_t pid_nr(struct pid *pid)
+{
+  pid_t nr = 0;
+  if (pid)
+    nr = pid->numbers[0].nr;
+  return nr;
+}
+```
 
 根据pid结构体找到真正的pid数值。
 

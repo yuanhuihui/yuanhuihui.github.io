@@ -10,9 +10,11 @@ tags:
 
 > 基于Android 6.0源码, 涉及相关源码
 
-    frameworks/base/core/java/android/os/Binder.java
-    frameworks/base/core/jni/android_util_Binder.cpp
-    frameworks/native/libs/binder/BpBinder.cpp
+```Java
+frameworks/base/core/java/android/os/Binder.java
+frameworks/base/core/jni/android_util_Binder.cpp
+frameworks/native/libs/binder/BpBinder.cpp
+```
 
 ## 一. 概述
 
@@ -275,64 +277,66 @@ binder_ioctl_write_read()方法。
 ### 3.2 binder_thread_write
 [-> kernel/drivers/android/binder.c]
 
-    static int binder_thread_write(struct binder_proc *proc,
-          struct binder_thread *thread,
-          binder_uintptr_t binder_buffer, size_t size,
-          binder_size_t *consumed)
-    {
-      uint32_t cmd;
-      //proc, thread都是指当前发起端进程的信息
-      struct binder_context *context = proc->context;
-      void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
-      void __user *ptr = buffer + *consumed; 
-      void __user *end = buffer + size;
-      while (ptr < end && thread->return_error == BR_OK) {
-        get_user(cmd, (uint32_t __user *)ptr); //获取BC_REQUEST_DEATH_NOTIFICATION
-        ptr += sizeof(uint32_t);
-        switch (cmd) {
-            case BC_REQUEST_DEATH_NOTIFICATION:{ //注册死亡通知
-                uint32_t target;
-                void __user *cookie;
-                struct binder_ref *ref;
-                struct binder_ref_death *death;
+```C
+static int binder_thread_write(struct binder_proc *proc,
+      struct binder_thread *thread,
+      binder_uintptr_t binder_buffer, size_t size,
+      binder_size_t *consumed)
+{
+  uint32_t cmd;
+  //proc, thread都是指当前发起端进程的信息
+  struct binder_context *context = proc->context;
+  void __user *buffer = (void __user *)(uintptr_t)binder_buffer;
+  void __user *ptr = buffer + *consumed; 
+  void __user *end = buffer + size;
+  while (ptr < end && thread->return_error == BR_OK) {
+    get_user(cmd, (uint32_t __user *)ptr); //获取BC_REQUEST_DEATH_NOTIFICATION
+    ptr += sizeof(uint32_t);
+    switch (cmd) {
+        case BC_REQUEST_DEATH_NOTIFICATION:{ //注册死亡通知
+            uint32_t target;
+            void __user *cookie;
+            struct binder_ref *ref;
+            struct binder_ref_death *death;
 
-                get_user(target, (uint32_t __user *)ptr); //获取target
-                ptr += sizeof(uint32_t);
-                get_user(cookie, (void __user * __user *)ptr); //获取BpBinder
-                ptr += sizeof(void *);
+            get_user(target, (uint32_t __user *)ptr); //获取target
+            ptr += sizeof(uint32_t);
+            get_user(cookie, (void __user * __user *)ptr); //获取BpBinder
+            ptr += sizeof(void *);
 
-                ref = binder_get_ref(proc, target); //拿到目标服务的binder_ref
+            ref = binder_get_ref(proc, target); //拿到目标服务的binder_ref
 
-                if (cmd == BC_REQUEST_DEATH_NOTIFICATION) {
-                    //native Bp可注册多个，但Kernel只允许注册一个死亡通知
-                    if (ref->death) {
-                        break; 
-                    }
-                    death = kzalloc(sizeof(*death), GFP_KERNEL);
-
-                    INIT_LIST_HEAD(&death->work.entry);
-                    death->cookie = cookie; //BpBinder指针
-                    ref->death = death;
-                    //当目标binder服务所在进程已死,则直接发送死亡通知。这是非常规情况
-                    if (ref->node->proc == NULL) { 
-                        ref->death->work.type = BINDER_WORK_DEAD_BINDER;
-                        //当前线程为binder线程,则直接添加到当前线程的todo队列. 
-                        if (thread->looper & (BINDER_LOOPER_STATE_REGISTERED | BINDER_LOOPER_STATE_ENTERED)) {
-                            list_add_tail(&ref->death->work.entry, &thread->todo);
-                        } else {
-                            list_add_tail(&ref->death->work.entry, &proc->todo);
-                            wake_up_interruptible(&proc->wait);
-                        }
-                    }
-                } else {
-                    ...
+            if (cmd == BC_REQUEST_DEATH_NOTIFICATION) {
+                //native Bp可注册多个，但Kernel只允许注册一个死亡通知
+                if (ref->death) {
+                    break; 
                 }
-            } break;
-          case ...;
-        }
-        *consumed = ptr - buffer;
-      }
-   }
+                death = kzalloc(sizeof(*death), GFP_KERNEL);
+
+                INIT_LIST_HEAD(&death->work.entry);
+                death->cookie = cookie; //BpBinder指针
+                ref->death = death;
+                //当目标binder服务所在进程已死,则直接发送死亡通知。这是非常规情况
+                if (ref->node->proc == NULL) { 
+                    ref->death->work.type = BINDER_WORK_DEAD_BINDER;
+                    //当前线程为binder线程,则直接添加到当前线程的todo队列. 
+                    if (thread->looper & (BINDER_LOOPER_STATE_REGISTERED | BINDER_LOOPER_STATE_ENTERED)) {
+                        list_add_tail(&ref->death->work.entry, &thread->todo);
+                    } else {
+                        list_add_tail(&ref->death->work.entry, &proc->todo);
+                        wake_up_interruptible(&proc->wait);
+                    }
+                }
+            } else {
+                ...
+            }
+        } break;
+      case ...;
+    }
+    *consumed = ptr - buffer;
+  }
+}
+```
 
 该方法在处理BC_REQUEST_DEATH_NOTIFICATION过程，正好遇到对端目标binder服务所在进程已死的情况，
 向todo队列增加BINDER_WORK_DEAD_BINDER事务，直接发送死亡通知，但这属于非常规情况。
@@ -363,14 +367,16 @@ binder_open打开binder驱动/dev/binder，这是字符设备，获取文件描�
         
 ### 4.2 binder_release
 
-    static int binder_release(struct inode *nodp, struct file *filp)
-    {
-      struct binder_proc *proc = filp->private_data;
-      debugfs_remove(proc->debugfs_entry);
-      //[见小节4.3]
-      binder_defer_work(proc, BINDER_DEFERRED_RELEASE);
-      return 0;
-    }
+```C
+static int binder_release(struct inode *nodp, struct file *filp)
+{
+  struct binder_proc *proc = filp->private_data;
+  debugfs_remove(proc->debugfs_entry);
+  //[见小节4.3]
+  binder_defer_work(proc, BINDER_DEFERRED_RELEASE);
+  return 0;
+}
+```
 
 ### 4.3 binder_defer_work
 
@@ -389,35 +395,38 @@ binder_open打开binder驱动/dev/binder，这是字符设备，获取文件描�
 
 ### 4.4 queue_work
 
-    //全局工作队列
-    static struct workqueue_struct *binder_deferred_workqueue;
+```C
+//全局工作队列
+static struct workqueue_struct *binder_deferred_workqueue;
 
-    static int __init binder_init(void)
-    {
-      int ret;
-      //创建了名叫“binder”的工作队列
-      binder_deferred_workqueue = create_singlethread_workqueue("binder");
-      if (!binder_deferred_workqueue)
-        return -ENOMEM;
-      ...
-    }
-    
-    device_initcall(binder_init);
+static int __init binder_init(void)
+{
+  int ret;
+  //创建了名叫“binder”的工作队列
+  binder_deferred_workqueue = create_singlethread_workqueue("binder");
+  if (!binder_deferred_workqueue)
+    return -ENOMEM;
+  ...
+}
+
+device_initcall(binder_init);
+```
 
 关于binder_deferred_work的定义：
 
-    static DECLARE_WORK(binder_deferred_work, binder_deferred_func);
+```C
+static DECLARE_WORK(binder_deferred_work, binder_deferred_func);
 
-    #define DECLARE_WORK(n, f)            \
-      struct work_struct n = __WORK_INITIALIZER(n, f)
+#define DECLARE_WORK(n, f)            \
+  struct work_struct n = __WORK_INITIALIZER(n, f)
 
-    #define __WORK_INITIALIZER(n, f) {          \
-      .data = WORK_DATA_STATIC_INIT(),        \
-      .entry  = { &(n).entry, &(n).entry },        \
-      .func = (f),              \
-      __WORK_INIT_LOCKDEP_MAP(#n, &(n))        \
-      }
-
+#define __WORK_INITIALIZER(n, f) {          \
+  .data = WORK_DATA_STATIC_INIT(),        \
+  .entry  = { &(n).entry, &(n).entry },        \
+  .func = (f),              \
+  __WORK_INIT_LOCKDEP_MAP(#n, &(n))        \
+  }
+```
       
 在Binder设备驱动初始化的过程执行binder_init()方法中，调用
 create_singlethread_workqueue("binder")，创建了名叫“binder”的工作队列(workqueue)。
@@ -644,22 +653,24 @@ workqueue是kernel提供的一种实现简单而有效的内核线程机制，�
 
 #### 4.6.3 binder_delete_ref
 
-    static void binder_delete_ref(struct binder_ref *ref)
-    {
-      rb_erase(&ref->rb_node_desc, &ref->proc->refs_by_desc);
-      rb_erase(&ref->rb_node_node, &ref->proc->refs_by_node);
-      if (ref->strong)
-        binder_dec_node(ref->node, 1, 1);
-      hlist_del(&ref->node_entry);
-      binder_dec_node(ref->node, 0, 1);
-      if (ref->death) {
-        list_del(&ref->death->work.entry);
-        kfree(ref->death);
-        binder_stats_deleted(BINDER_STAT_DEATH);
-      }
-      kfree(ref);
-      binder_stats_deleted(BINDER_STAT_REF);
-    }
+```C
+static void binder_delete_ref(struct binder_ref *ref)
+{
+  rb_erase(&ref->rb_node_desc, &ref->proc->refs_by_desc);
+  rb_erase(&ref->rb_node_node, &ref->proc->refs_by_node);
+  if (ref->strong)
+    binder_dec_node(ref->node, 1, 1);
+  hlist_del(&ref->node_entry);
+  binder_dec_node(ref->node, 0, 1);
+  if (ref->death) {
+    list_del(&ref->death->work.entry);
+    kfree(ref->death);
+    binder_stats_deleted(BINDER_STAT_DEATH);
+  }
+  kfree(ref);
+  binder_stats_deleted(BINDER_STAT_REF);
+}
+```
 
 #### 4.6.4 binder_release_work
 
@@ -737,6 +748,7 @@ workqueue是kernel提供的一种实现简单而有效的内核线程机制，�
         t = next;
       }
     }  
+    
 #### 4.6.5 binder_free_buf
 
     static void binder_free_buf(struct binder_proc *proc,

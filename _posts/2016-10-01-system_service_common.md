@@ -15,7 +15,7 @@ tags:
 - ServiceManager的addService()
 - SystemServiceManager的startService()
 
-其核心都是向servicemanager进程注册binder服务，但功能略有不同，下面从源码角度详加说明。
+其核心都是向ServiceManager进程注册binder服务，但功能略有不同，下面从源码角度详加说明。
 
 ## 二. SM.addService方式
 

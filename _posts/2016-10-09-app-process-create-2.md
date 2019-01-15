@@ -1095,53 +1095,55 @@ ATP经过binder ipc传递到ATN的onTransact过程.
 #### 3.13.1 getPackageInfoNoCheck
 [-> ActivityThread.java]
 
-    public final LoadedApk getPackageInfoNoCheck(ApplicationInfo ai,
-            CompatibilityInfo compatInfo) {
-        return getPackageInfo(ai, compatInfo, null, false, true, false);
-    }
+```Java
+public final LoadedApk getPackageInfoNoCheck(ApplicationInfo ai,
+        CompatibilityInfo compatInfo) {
+    return getPackageInfo(ai, compatInfo, null, false, true, false);
+}
 
-    private LoadedApk getPackageInfo(ApplicationInfo aInfo, CompatibilityInfo compatInfo,
-        ClassLoader baseLoader, boolean securityViolation, boolean includeCode,
-            boolean registerPackage) {
-        final boolean differentUser = (UserHandle.myUserId() != UserHandle.getUserId(aInfo.uid));
-        synchronized (mResourcesManager) {
-            WeakReference<LoadedApk> ref;
+private LoadedApk getPackageInfo(ApplicationInfo aInfo, CompatibilityInfo compatInfo,
+    ClassLoader baseLoader, boolean securityViolation, boolean includeCode,
+        boolean registerPackage) {
+    final boolean differentUser = (UserHandle.myUserId() != UserHandle.getUserId(aInfo.uid));
+    synchronized (mResourcesManager) {
+        WeakReference<LoadedApk> ref;
+        if (differentUser) {
+            //不支持跨用户
+            ref = null;
+        } else if (includeCode) {
+            ref = mPackages.get(aInfo.packageName);
+        } else {
+            ref = mResourcePackages.get(aInfo.packageName);
+        }
+
+        LoadedApk packageInfo = ref != null ? ref.get() : null;
+        if (packageInfo == null || (packageInfo.mResources != null
+                && !packageInfo.mResources.getAssets().isUpToDate())) {
+            //创建LoadedApk对象
+            packageInfo =
+                new LoadedApk(this, aInfo, compatInfo, baseLoader,
+                        securityViolation, includeCode &&
+                        (aInfo.flags&ApplicationInfo.FLAG_HAS_CODE) != 0, registerPackage);
+
+            if (mSystemThread && "android".equals(aInfo.packageName)) {
+                packageInfo.installSystemApplicationInfo(aInfo,
+                        getSystemContext().mPackageInfo.getClassLoader());
+            }
+
             if (differentUser) {
                 //不支持跨用户
-                ref = null;
             } else if (includeCode) {
-                ref = mPackages.get(aInfo.packageName);
+                mPackages.put(aInfo.packageName,
+                        new WeakReference<LoadedApk>(packageInfo));
             } else {
-                ref = mResourcePackages.get(aInfo.packageName);
+                mResourcePackages.put(aInfo.packageName,
+                        new WeakReference<LoadedApk>(packageInfo));
             }
-
-            LoadedApk packageInfo = ref != null ? ref.get() : null;
-            if (packageInfo == null || (packageInfo.mResources != null
-                    && !packageInfo.mResources.getAssets().isUpToDate())) {
-                //创建LoadedApk对象
-                packageInfo =
-                    new LoadedApk(this, aInfo, compatInfo, baseLoader,
-                            securityViolation, includeCode &&
-                            (aInfo.flags&ApplicationInfo.FLAG_HAS_CODE) != 0, registerPackage);
-
-                if (mSystemThread && "android".equals(aInfo.packageName)) {
-                    packageInfo.installSystemApplicationInfo(aInfo,
-                            getSystemContext().mPackageInfo.getClassLoader());
-                }
-
-                if (differentUser) {
-                    //不支持跨用户
-                } else if (includeCode) {
-                    mPackages.put(aInfo.packageName,
-                            new WeakReference<LoadedApk>(packageInfo));
-                } else {
-                    mResourcePackages.put(aInfo.packageName,
-                            new WeakReference<LoadedApk>(packageInfo));
-                }
-            }
-            return packageInfo;
         }
+        return packageInfo;
     }
+}
+```
 
 创建LoadedApk对象
 

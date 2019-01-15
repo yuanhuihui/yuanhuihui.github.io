@@ -10,10 +10,12 @@ tags:
 
 > 基于Android 6.0的源码剖析多用户模型
 
-    framework/base/services/core/java/com/android/server/pm/UserManagerService.java
-    framework/base/core/java/android/os/UserManager.java
-    framework/base/core/java/android/content/pm/UserInfo.java
-    framework/base/core/java/android/os/UserHandle.java
+```Java
+framework/base/services/core/java/com/android/server/pm/UserManagerService.java
+framework/base/core/java/android/os/UserManager.java
+framework/base/core/java/android/content/pm/UserInfo.java
+framework/base/core/java/android/os/UserHandle.java
+```
 
 ## 一.概述
 

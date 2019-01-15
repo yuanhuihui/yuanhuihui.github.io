@@ -288,6 +288,7 @@ static public IActivityManager getDefault() {
     return gDefault.get();
 }
 ```
+
 gDefault的数据类型为`Singleton<IActivityManager>`, 这是一个单例模式, 接下来看看Singleto.get()的过程
 
 #### 2.4.2 gDefault.get

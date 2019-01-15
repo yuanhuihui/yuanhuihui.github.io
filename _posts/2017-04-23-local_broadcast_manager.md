@@ -75,29 +75,31 @@ LocalBroadcastManager注册只能通过代码注册方式，而不能通过xml�
     
 ### 2.2 registerReceiver
 
-    public void registerReceiver(BroadcastReceiver receiver, IntentFilter filter) {
-        synchronized (mReceivers) {
-            //创建ReceiverRecord对象
-            ReceiverRecord entry = new ReceiverRecord(filter, receiver);
-            //查询或创建数据到mReceivers
-            ArrayList<IntentFilter> filters = mReceivers.get(receiver);
-            if (filters == null) {
-                filters = new ArrayList<IntentFilter>(1);
-                mReceivers.put(receiver, filters);
+```Java
+public void registerReceiver(BroadcastReceiver receiver, IntentFilter filter) {
+    synchronized (mReceivers) {
+        //创建ReceiverRecord对象
+        ReceiverRecord entry = new ReceiverRecord(filter, receiver);
+        //查询或创建数据到mReceivers
+        ArrayList<IntentFilter> filters = mReceivers.get(receiver);
+        if (filters == null) {
+            filters = new ArrayList<IntentFilter>(1);
+            mReceivers.put(receiver, filters);
+        }
+        filters.add(filter);
+        //查询或创建数据到mActions
+        for (int i=0; i<filter.countActions(); i++) {
+            String action = filter.getAction(i);
+            ArrayList<ReceiverRecord> entries = mActions.get(action);
+            if (entries == null) {
+                entries = new ArrayList<ReceiverRecord>(1);
+                mActions.put(action, entries);
             }
-            filters.add(filter);
-            //查询或创建数据到mActions
-            for (int i=0; i<filter.countActions(); i++) {
-                String action = filter.getAction(i);
-                ArrayList<ReceiverRecord> entries = mActions.get(action);
-                if (entries == null) {
-                    entries = new ArrayList<ReceiverRecord>(1);
-                    mActions.put(action, entries);
-                }
-                entries.add(entry);
-            }
+            entries.add(entry);
         }
     }
+}
+```
 
 注册过程，主要是向mReceivers和mActions添加相应数据：
 
@@ -189,36 +191,38 @@ LocalBroadcastManager注册只能通过代码注册方式，而不能通过xml�
   
 ### 2.4 unregisterReceiver
 
-    public void unregisterReceiver(BroadcastReceiver receiver) {
-        synchronized (mReceivers) {
-            //从mReceivers移除该广播接收者
-            ArrayList<IntentFilter> filters = mReceivers.remove(receiver);
-            if (filters == null) {
-                return;
-            }
-            
-            //从mActions移除接收者为空的action
-            for (int i=0; i<filters.size(); i++) {
-                IntentFilter filter = filters.get(i);
-                for (int j=0; j<filter.countActions(); j++) {
-                    String action = filter.getAction(j);
-                    ArrayList<ReceiverRecord> receivers = mActions.get(action);
-                    if (receivers != null) {
-                        for (int k=0; k<receivers.size(); k++) {
-                            if (receivers.get(k).receiver == receiver) {
-                                receivers.remove(k);
-                                k--;
-                            }
+```Java
+public void unregisterReceiver(BroadcastReceiver receiver) {
+    synchronized (mReceivers) {
+        //从mReceivers移除该广播接收者
+        ArrayList<IntentFilter> filters = mReceivers.remove(receiver);
+        if (filters == null) {
+            return;
+        }
+        
+        //从mActions移除接收者为空的action
+        for (int i=0; i<filters.size(); i++) {
+            IntentFilter filter = filters.get(i);
+            for (int j=0; j<filter.countActions(); j++) {
+                String action = filter.getAction(j);
+                ArrayList<ReceiverRecord> receivers = mActions.get(action);
+                if (receivers != null) {
+                    for (int k=0; k<receivers.size(); k++) {
+                        if (receivers.get(k).receiver == receiver) {
+                            receivers.remove(k);
+                            k--;
                         }
-                        if (receivers.size() <= 0) {
-                            mActions.remove(action);
-                        }
+                    }
+                    if (receivers.size() <= 0) {
+                        mActions.remove(action);
                     }
                 }
             }
         }
     }
-    
+}
+```
+
 ## 三. 总结
 
 广播注册/发送/取消注册过程都使用同步锁mReceivers来保护，从而保证进程内的多线程访问安全。

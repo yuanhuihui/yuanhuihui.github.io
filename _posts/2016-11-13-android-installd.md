@@ -10,11 +10,12 @@ tags:
 
 > 基于Android 6.0的源码剖析installd的过程
 
-    system/core/rootdir/init.rc
-    frameworks/base/cmds/installd/installd.cpp
-    rameworks/base/cmds/installd/commands.cpp
-    rameworks/base/cmds/installd/utils.cpp
-
+```Java
+system/core/rootdir/init.rc
+frameworks/base/cmds/installd/installd.cpp
+frameworks/base/cmds/installd/commands.cpp
+frameworks/base/cmds/installd/utils.cpp
+```
 
 ## 一、 概述
 
@@ -98,73 +99,74 @@ installd进程，通过监听套接字”installd"，当接收到socket消息则
 ### 2.2  initialize_globals
 [-> installd.cpp]
 
-    int initialize_globals() {
-        // 数据目录/data/
-        if (get_path_from_env(&android_data_dir, "ANDROID_DATA") < 0) {
-            return -1;
-        }
-
-        // app目录/data/app/
-        if (copy_and_append(&android_app_dir, &android_data_dir, APP_SUBDIR) < 0) {
-            return -1;
-        }
-
-        // 受保护的app目录/data/priv-app/
-        if (copy_and_append(&android_app_private_dir, &android_data_dir, PRIVATE_APP_SUBDIR) < 0) {
-            return -1;
-        }
-
-        // app本地库目录/data/app-lib/
-        if (copy_and_append(&android_app_lib_dir, &android_data_dir, APP_LIB_SUBDIR) < 0) {
-            return -1;
-        }
-
-        // sdcard挂载点/mnt/asec
-        if (get_path_from_env(&android_asec_dir, "ASEC_MOUNTPOINT") < 0) {
-            return -1;
-        }
-
-        // 多媒体目录/data/media
-        if (copy_and_append(&android_media_dir, &android_data_dir, MEDIA_SUBDIR) < 0) {
-            return -1;
-        }
-
-        // 外部app目录/mnt/expand
-        if (get_path_from_string(&android_mnt_expand_dir, "/mnt/expand/") < 0) {
-            return -1;
-        }
-
-        // 系统和厂商目录
-        android_system_dirs.count = 4;
-
-        android_system_dirs.dirs = (dir_rec_t*) calloc(android_system_dirs.count, sizeof(dir_rec_t));
-        ...
-
-        dir_rec_t android_root_dir;
-        // 目录/system
-        if (get_path_from_env(&android_root_dir, "ANDROID_ROOT") < 0) {
-            return -1;
-        }
-
-        // 目录/system/app
-        android_system_dirs.dirs[0].path = build_string2(android_root_dir.path, APP_SUBDIR);
-        android_system_dirs.dirs[0].len = strlen(android_system_dirs.dirs[0].path);
-        
-        // 目录/system/app-lib
-        android_system_dirs.dirs[1].path = build_string2(android_root_dir.path, PRIV_APP_SUBDIR);
-        android_system_dirs.dirs[1].len = strlen(android_system_dirs.dirs[1].path);
-
-        // 目录/vendor/app/
-        android_system_dirs.dirs[2].path = strdup("/vendor/app/");
-        android_system_dirs.dirs[2].len = strlen(android_system_dirs.dirs[2].path);
-
-        // 目录/oem/app/
-        android_system_dirs.dirs[3].path = strdup("/oem/app/");
-        android_system_dirs.dirs[3].len = strlen(android_system_dirs.dirs[3].path);
-
-        return 0;
+```CPP
+int initialize_globals() {
+    // 数据目录/data/
+    if (get_path_from_env(&android_data_dir, "ANDROID_DATA") < 0) {
+        return -1;
     }
 
+    // app目录/data/app/
+    if (copy_and_append(&android_app_dir, &android_data_dir, APP_SUBDIR) < 0) {
+        return -1;
+    }
+
+    // 受保护的app目录/data/priv-app/
+    if (copy_and_append(&android_app_private_dir, &android_data_dir, PRIVATE_APP_SUBDIR) < 0) {
+        return -1;
+    }
+
+    // app本地库目录/data/app-lib/
+    if (copy_and_append(&android_app_lib_dir, &android_data_dir, APP_LIB_SUBDIR) < 0) {
+        return -1;
+    }
+
+    // sdcard挂载点/mnt/asec
+    if (get_path_from_env(&android_asec_dir, "ASEC_MOUNTPOINT") < 0) {
+        return -1;
+    }
+
+    // 多媒体目录/data/media
+    if (copy_and_append(&android_media_dir, &android_data_dir, MEDIA_SUBDIR) < 0) {
+        return -1;
+    }
+
+    // 外部app目录/mnt/expand
+    if (get_path_from_string(&android_mnt_expand_dir, "/mnt/expand/") < 0) {
+        return -1;
+    }
+
+    // 系统和厂商目录
+    android_system_dirs.count = 4;
+
+    android_system_dirs.dirs = (dir_rec_t*) calloc(android_system_dirs.count, sizeof(dir_rec_t));
+    ...
+
+    dir_rec_t android_root_dir;
+    // 目录/system
+    if (get_path_from_env(&android_root_dir, "ANDROID_ROOT") < 0) {
+        return -1;
+    }
+
+    // 目录/system/app
+    android_system_dirs.dirs[0].path = build_string2(android_root_dir.path, APP_SUBDIR);
+    android_system_dirs.dirs[0].len = strlen(android_system_dirs.dirs[0].path);
+    
+    // 目录/system/app-lib
+    android_system_dirs.dirs[1].path = build_string2(android_root_dir.path, PRIV_APP_SUBDIR);
+    android_system_dirs.dirs[1].len = strlen(android_system_dirs.dirs[1].path);
+
+    // 目录/vendor/app/
+    android_system_dirs.dirs[2].path = strdup("/vendor/app/");
+    android_system_dirs.dirs[2].len = strlen(android_system_dirs.dirs[2].path);
+
+    // 目录/oem/app/
+    android_system_dirs.dirs[3].path = strdup("/oem/app/");
+    android_system_dirs.dirs[3].len = strlen(android_system_dirs.dirs[3].path);
+
+    return 0;
+}
+```
 
 ### 2.3 initialize_directories
 

@@ -625,92 +625,91 @@ handleTransactionLocked方法的主要工作：
 
 ## 四. setUpHWComposer
 
-    void SurfaceFlinger::setUpHWComposer() {
-        for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
-            bool dirty = !mDisplays[dpy]->getDirtyRegion(false).isEmpty();
-            bool empty = mDisplays[dpy]->getVisibleLayersSortedByZ().size() == 0;
-            bool wasEmpty = !mDisplays[dpy]->lastCompositionHadVisibleLayers;
-            bool mustRecompose = dirty && !(empty && wasEmpty);
-            mDisplays[dpy]->beginFrame(mustRecompose);
+```CPP
+void SurfaceFlinger::setUpHWComposer() {
+    for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+        bool dirty = !mDisplays[dpy]->getDirtyRegion(false).isEmpty();
+        bool empty = mDisplays[dpy]->getVisibleLayersSortedByZ().size() == 0;
+        bool wasEmpty = !mDisplays[dpy]->lastCompositionHadVisibleLayers;
+        bool mustRecompose = dirty && !(empty && wasEmpty);
+        mDisplays[dpy]->beginFrame(mustRecompose);
 
-            if (mustRecompose) {
-                mDisplays[dpy]->lastCompositionHadVisibleLayers = !empty;
-            }
-        }
-
-        HWComposer& hwc(getHwComposer());
-        if (hwc.initCheck() == NO_ERROR) {
-            if (CC_UNLIKELY(mHwWorkListDirty)) {
-                mHwWorkListDirty = false;
-                for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
-                    sp<const DisplayDevice> hw(mDisplays[dpy]);
-                    const int32_t id = hw->getHwcDisplayId();
-                    if (id >= 0) {
-                        const Vector< sp<Layer> >& currentLayers(
-                            hw->getVisibleLayersSortedByZ());
-                        const size_t count = currentLayers.size();
-                        //在HWComposer中创建列表
-                        if (hwc.createWorkList(id, count) == NO_ERROR) {
-                            HWComposer::LayerListIterator cur = hwc.begin(id);
-                            const HWComposer::LayerListIterator end = hwc.end(id);
-                            for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
-                                const sp<Layer>& layer(currentLayers[i]);
-                                layer->setGeometry(hw, *cur);
-                            }
-                        }
-                    }
-                }
-            }
-
-            //设置每帧的数据
-            for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
-                sp<const DisplayDevice> hw(mDisplays[dpy]);
-                const int32_t id = hw->getHwcDisplayId();
-                if (id >= 0) {
-                    const Vector< sp<Layer> >& currentLayers(
-                        hw->getVisibleLayersSortedByZ());
-                    const size_t count = currentLayers.size();
-                    HWComposer::LayerListIterator cur = hwc.begin(id);
-                    const HWComposer::LayerListIterator end = hwc.end(id);
-                    for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
-                        /*
-                         * update the per-frame h/w composer data for each layer
-                         * and build the transparent region of the FB
-                        /为每一个layer,更新每帧h/w合成器的数据
-                        const sp<Layer>& layer(currentLayers[i]);
-                        layer->setPerFrameData(hw, *cur);
-                    }
-                }
-            }
-
-            //在每一个显示屏上，尝试使用cursor overlay
-            for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
-                sp<const DisplayDevice> hw(mDisplays[dpy]);
-                const int32_t id = hw->getHwcDisplayId();
-                if (id >= 0) {
-                    const Vector< sp<Layer> >& currentLayers(
-                        hw->getVisibleLayersSortedByZ());
-                    const size_t count = currentLayers.size();
-                    HWComposer::LayerListIterator cur = hwc.begin(id);
-                    const HWComposer::LayerListIterator end = hwc.end(id);
-                    for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
-                        const sp<Layer>& layer(currentLayers[i]);
-                        if (layer->isPotentialCursor()) {
-                            cur->setIsCursorLayerHint();
-                            break;
-                        }
-                    }
-                }
-            }
-
-            status_t err = hwc.prepare(); //【见小节4.1】
-            for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
-                sp<const DisplayDevice> hw(mDisplays[dpy]);
-                hw->prepareFrame(hwc);
-            }
+        if (mustRecompose) {
+            mDisplays[dpy]->lastCompositionHadVisibleLayers = !empty;
         }
     }
-  
+
+    HWComposer& hwc(getHwComposer());
+    if (hwc.initCheck() == NO_ERROR) {
+        if (CC_UNLIKELY(mHwWorkListDirty)) {
+            mHwWorkListDirty = false;
+            for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+                sp<const DisplayDevice> hw(mDisplays[dpy]);
+                const int32_t id = hw->getHwcDisplayId();
+                if (id >= 0) {
+                    const Vector< sp<Layer> >& currentLayers(
+                        hw->getVisibleLayersSortedByZ());
+                    const size_t count = currentLayers.size();
+                    //在HWComposer中创建列表
+                    if (hwc.createWorkList(id, count) == NO_ERROR) {
+                        HWComposer::LayerListIterator cur = hwc.begin(id);
+                        const HWComposer::LayerListIterator end = hwc.end(id);
+                        for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
+                            const sp<Layer>& layer(currentLayers[i]);
+                            layer->setGeometry(hw, *cur);
+                        }
+                    }
+                }
+            }
+        }
+
+        //设置每帧的数据
+        for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+            sp<const DisplayDevice> hw(mDisplays[dpy]);
+            const int32_t id = hw->getHwcDisplayId();
+            if (id >= 0) {
+                const Vector< sp<Layer> >& currentLayers(
+                    hw->getVisibleLayersSortedByZ());
+                const size_t count = currentLayers.size();
+                HWComposer::LayerListIterator cur = hwc.begin(id);
+                const HWComposer::LayerListIterator end = hwc.end(id);
+                for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
+                    // 为每一个layer,更新每帧h/w合成器的数据
+                    const sp<Layer>& layer(currentLayers[i]);
+                    layer->setPerFrameData(hw, *cur);
+                }
+            }
+        }
+
+        //在每一个显示屏上，尝试使用cursor overlay
+        for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+            sp<const DisplayDevice> hw(mDisplays[dpy]);
+            const int32_t id = hw->getHwcDisplayId();
+            if (id >= 0) {
+                const Vector< sp<Layer> >& currentLayers(
+                    hw->getVisibleLayersSortedByZ());
+                const size_t count = currentLayers.size();
+                HWComposer::LayerListIterator cur = hwc.begin(id);
+                const HWComposer::LayerListIterator end = hwc.end(id);
+                for (size_t i=0 ; cur!=end && i<count ; ++i, ++cur) {
+                    const sp<Layer>& layer(currentLayers[i]);
+                    if (layer->isPotentialCursor()) {
+                        cur->setIsCursorLayerHint();
+                        break;
+                    }
+                }
+            }
+        }
+
+        status_t err = hwc.prepare(); //【见小节4.1】
+        for (size_t dpy=0 ; dpy<mDisplays.size() ; dpy++) {
+            sp<const DisplayDevice> hw(mDisplays[dpy]);
+            hw->prepareFrame(hwc);
+        }
+    }
+}
+```
+
 ### 4.1 HWC.prepare
 
     status_t HWComposer::prepare() {

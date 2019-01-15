@@ -58,34 +58,36 @@ schedule过程说明：
 ### 2.2 JobSchedulerService
 [-> JobSchedulerService.java]
 
-    JobSchedulerService {
-        List<StateController> mControllers;
-        final JobHandler mHandler;
-        final JobSchedulerStub mJobSchedulerStub;
-        final JobStore mJobs;
-        ...
+```Java
+JobSchedulerService {
+    List<StateController> mControllers;
+    final JobHandler mHandler;
+    final JobSchedulerStub mJobSchedulerStub;
+    final JobStore mJobs;
+    ...
 
-        public JobSchedulerService(Context context) {
-            super(context);
-            mControllers = new ArrayList<StateController>();
-            mControllers.add(ConnectivityController.get(this));
-            mControllers.add(TimeController.get(this));
-            mControllers.add(IdleController.get(this));
-            mControllers.add(BatteryController.get(this));
-            mControllers.add(AppIdleController.get(this));
+    public JobSchedulerService(Context context) {
+        super(context);
+        mControllers = new ArrayList<StateController>();
+        mControllers.add(ConnectivityController.get(this));
+        mControllers.add(TimeController.get(this));
+        mControllers.add(IdleController.get(this));
+        mControllers.add(BatteryController.get(this));
+        mControllers.add(AppIdleController.get(this));
 
-            //创建主线程的looper[见小节2.3]
-            mHandler = new JobHandler(context.getMainLooper());
-            //创建binder服务端[见小节2.4]
-            mJobSchedulerStub = new JobSchedulerStub();
-            //[见小节2.5]
-            mJobs = JobStore.initAndGet(this);
-        }
-
-        public void onStart() {
-            publishBinderService(Context.JOB_SCHEDULER_SERVICE, mJobSchedulerStub);
-        }
+        //创建主线程的looper[见小节2.3]
+        mHandler = new JobHandler(context.getMainLooper());
+        //创建binder服务端[见小节2.4]
+        mJobSchedulerStub = new JobSchedulerStub();
+        //[见小节2.5]
+        mJobs = JobStore.initAndGet(this);
     }
+
+    public void onStart() {
+        publishBinderService(Context.JOB_SCHEDULER_SERVICE, mJobSchedulerStub);
+    }
+}
+```
 
 创建了5个不同的StateController，分别添加到mControllers。
 
@@ -617,45 +619,47 @@ JobStatus对象记录着任务的jobId, ComponentName, uid以及标签和失败�
 ### 3.9 maybeQueueReadyJobsForExecutionLockedH
 [-> JobSchedulerService.java  ::JobHandler]
 
-    private void maybeQueueReadyJobsForExecutionLockedH() {
-        int chargingCount = 0;
-        int idleCount =  0;
-        int backoffCount = 0;
-        int connectivityCount = 0;
-        List<JobStatus> runnableJobs = new ArrayList<JobStatus>();
-        ArraySet<JobStatus> jobs = mJobs.getJobs();
-        for (int i=0; i<jobs.size(); i++) {
-            JobStatus job = jobs.valueAt(i);
-            if (isReadyToBeExecutedLocked(job)) {
-                if (job.getNumFailures() > 0) {
-                    backoffCount++;
-                }
-                if (job.hasIdleConstraint()) {
-                    idleCount++;
-                }
-                if (job.hasConnectivityConstraint() || job.hasUnmeteredConstraint()) {
-                    connectivityCount++;
-                }
-                if (job.hasChargingConstraint()) {
-                    chargingCount++;
-                }
-                //将所有job加入runnableJobs队列
-                runnableJobs.add(job);
-            } else if (isReadyToBeCancelledLocked(job)) {
-                stopJobOnServiceContextLocked(job);
+```Java
+private void maybeQueueReadyJobsForExecutionLockedH() {
+    int chargingCount = 0;
+    int idleCount =  0;
+    int backoffCount = 0;
+    int connectivityCount = 0;
+    List<JobStatus> runnableJobs = new ArrayList<JobStatus>();
+    ArraySet<JobStatus> jobs = mJobs.getJobs();
+    for (int i=0; i<jobs.size(); i++) {
+        JobStatus job = jobs.valueAt(i);
+        if (isReadyToBeExecutedLocked(job)) {
+            if (job.getNumFailures() > 0) {
+                backoffCount++;
             }
-        }
-        if (backoffCount > 0 ||
-                idleCount >= MIN_IDLE_COUNT ||
-                connectivityCount >= MIN_CONNECTIVITY_COUNT ||
-                chargingCount >= MIN_CHARGING_COUNT ||
-                runnableJobs.size() >= MIN_READY_JOBS_COUNT) {
-            for (int i=0; i<runnableJobs.size(); i++) {
-                //加入到mPendingJobs队列
-                mPendingJobs.add(runnableJobs.get(i));
+            if (job.hasIdleConstraint()) {
+                idleCount++;
             }
+            if (job.hasConnectivityConstraint() || job.hasUnmeteredConstraint()) {
+                connectivityCount++;
+            }
+            if (job.hasChargingConstraint()) {
+                chargingCount++;
+            }
+            //将所有job加入runnableJobs队列
+            runnableJobs.add(job);
+        } else if (isReadyToBeCancelledLocked(job)) {
+            stopJobOnServiceContextLocked(job);
         }
     }
+    if (backoffCount > 0 ||
+            idleCount >= MIN_IDLE_COUNT ||
+            connectivityCount >= MIN_CONNECTIVITY_COUNT ||
+            chargingCount >= MIN_CHARGING_COUNT ||
+            runnableJobs.size() >= MIN_READY_JOBS_COUNT) {
+        for (int i=0; i<runnableJobs.size(); i++) {
+            //加入到mPendingJobs队列
+            mPendingJobs.add(runnableJobs.get(i));
+        }
+    }
+}
+```
 
 该功能:
 
@@ -778,20 +782,22 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
 
 #### 3.11.3 JSC.handleServiceBoundH
 
-    private void handleServiceBoundH() {
-        if (mVerb != VERB_BINDING) {
-            closeAndCleanupJobH(false /* reschedule */);
-            return;
-        }
-        if (mCancelled.get()) {
-            closeAndCleanupJobH(true /* reschedule */);
-            return;
-        }
-        mVerb = VERB_STARTING;
-        scheduleOpTimeOut();
-        //此处经过binder调用【见小节3.11.4】
-        service.startJob(mParams);
+```Java
+private void handleServiceBoundH() {
+    if (mVerb != VERB_BINDING) {
+        closeAndCleanupJobH(false /* reschedule */);
+        return;
     }
+    if (mCancelled.get()) {
+        closeAndCleanupJobH(true /* reschedule */);
+        return;
+    }
+    mVerb = VERB_STARTING;
+    scheduleOpTimeOut();
+    //此处经过binder调用【见小节3.11.4】
+    service.startJob(mParams);
+}
+```
 
 此处的service是由【小节3.11.1】所赋值，是指app端IJobService的代理类。经过binder call
 回到app进程。
@@ -1021,28 +1027,30 @@ this.service是指获取远程IJobService【小节3.2】的代理端，mCallback
 #### 4.6.2 JSC.handleCancelH
 [-> JobServiceContext.java]
 
-    private void handleCancelH() {
-        if (mRunningJob == null) {
-            return;
-        }
-        switch (mVerb) {
-            case VERB_BINDING:
-            case VERB_STARTING:
-                mCancelled.set(true);
-                break;
-            case VERB_EXECUTING:
-                if (hasMessages(MSG_CALLBACK)) {
-                    //当client已调用jobFinished，则忽略本次取消操作
-                    return;
-                }
-                sendStopMessageH(); //【见小节4.6.3】
-                break;
-            case VERB_STOPPING:
-                break;
-            default:
-                break;
-        }
+```Java
+private void handleCancelH() {
+    if (mRunningJob == null) {
+        return;
     }
+    switch (mVerb) {
+        case VERB_BINDING:
+        case VERB_STARTING:
+            mCancelled.set(true);
+            break;
+        case VERB_EXECUTING:
+            if (hasMessages(MSG_CALLBACK)) {
+                //当client已调用jobFinished，则忽略本次取消操作
+                return;
+            }
+            sendStopMessageH(); //【见小节4.6.3】
+            break;
+        case VERB_STOPPING:
+            break;
+        default:
+            break;
+    }
+}
+```
 
 #### 4.6.3 JSC.sendStopMessageH
 

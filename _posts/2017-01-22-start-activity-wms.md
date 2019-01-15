@@ -626,30 +626,34 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
 ### 2.6 WMI.addView
 [-> WindowManagerImpl.java]
 
+```Java
     public void addView(@NonNull View view, @NonNull ViewGroup.LayoutParams params) {
         applyDefaultToken(params);
         //【见小节2.7】
         mGlobal.addView(view, params, mDisplay, mParentWindow);
     }
+```
 
 ### 2.7 WMG.addView
 [-> WindowManagerGlobal.java]
 
-    public void addView(View view, ViewGroup.LayoutParams params,
-            Display display, Window parentWindow) {
-        ...
-        final WindowManager.LayoutParams wparams = (WindowManager.LayoutParams) params;
-        //创建ViewRootImpl[见小节2.8]
-        ViewRootImpl root = new ViewRootImpl(view.getContext(), display);
-        view.setLayoutParams(wparams);
-        mViews.add(view);
-        mRoots.add(root);
-        mParams.add(wparams);
-        
-        //[见小节2.9]
-        root.setView(view, wparams, panelParentView);
-        ...
-    }
+```Java
+public void addView(View view, ViewGroup.LayoutParams params,
+        Display display, Window parentWindow) {
+    ...
+    final WindowManager.LayoutParams wparams = (WindowManager.LayoutParams) params;
+    //创建ViewRootImpl[见小节2.8]
+    ViewRootImpl root = new ViewRootImpl(view.getContext(), display);
+    view.setLayoutParams(wparams);
+    mViews.add(view);
+    mRoots.add(root);
+    mParams.add(wparams);
+    
+    //[见小节2.9]
+    root.setView(view, wparams, panelParentView);
+    ...
+}
+```
 
 ### 2.8 ViewRootImpl
 [-> ViewRootImpl.java]
@@ -757,34 +761,36 @@ Window.mWindowManager指向WindowManagerImpl对象，这两个对象相互保存
 ### 2.11 WMS.addWindow
 [-> WindowManagerService.java]
 
-    public int addWindow(Session session, IWindow client, int seq,
-               WindowManager.LayoutParams attrs, int viewVisibility, int displayId,
-               Rect outContentInsets, Rect outStableInsets, Rect outOutsets,
-               InputChannel outInputChannel) {
-        ...
-        WindowToken token = mTokenMap.get(attrs.token);
-        //创建WindowState【见小节2.11.1】
-        WindowState win = new WindowState(this, session, client, token,
-                    attachedWindow, appOp[0], seq, attrs, viewVisibility, displayContent);
-        ...
-        //调整WindowManager的LayoutParams参数
-        mPolicy.adjustWindowParamsLw(win.mAttrs);
-        res = mPolicy.prepareAddWindowLw(win, attrs);
-        addWindowToListInOrderLocked(win, true);
-        // 设置input
-        mInputManager.registerInputChannel(win.mInputChannel, win.mInputWindowHandle);
-        //【见小节2.11.2】
-        win.attach();
-        mWindowMap.put(client.asBinder(), win);
-        
-        if (win.canReceiveKeys()) {
-            //当该窗口能接收按键事件，则更新聚焦窗口【见小节2.12】
-            focusChanged = updateFocusedWindowLocked(UPDATE_FOCUS_WILL_ASSIGN_LAYERS,
-                    false /*updateInputWindows*/);
-        }
-        assignLayersLocked(displayContent.getWindowList());
-        ...
+```Java
+public int addWindow(Session session, IWindow client, int seq,
+           WindowManager.LayoutParams attrs, int viewVisibility, int displayId,
+           Rect outContentInsets, Rect outStableInsets, Rect outOutsets,
+           InputChannel outInputChannel) {
+    ...
+    WindowToken token = mTokenMap.get(attrs.token);
+    //创建WindowState【见小节2.11.1】
+    WindowState win = new WindowState(this, session, client, token,
+                attachedWindow, appOp[0], seq, attrs, viewVisibility, displayContent);
+    ...
+    //调整WindowManager的LayoutParams参数
+    mPolicy.adjustWindowParamsLw(win.mAttrs);
+    res = mPolicy.prepareAddWindowLw(win, attrs);
+    addWindowToListInOrderLocked(win, true);
+    // 设置input
+    mInputManager.registerInputChannel(win.mInputChannel, win.mInputWindowHandle);
+    //【见小节2.11.2】
+    win.attach();
+    mWindowMap.put(client.asBinder(), win);
+    
+    if (win.canReceiveKeys()) {
+        //当该窗口能接收按键事件，则更新聚焦窗口【见小节2.12】
+        focusChanged = updateFocusedWindowLocked(UPDATE_FOCUS_WILL_ASSIGN_LAYERS,
+                false /*updateInputWindows*/);
     }
+    assignLayersLocked(displayContent.getWindowList());
+    ...
+}
+```
 
 #### 2.11.1 WindowState
 [-> WindowState.java]

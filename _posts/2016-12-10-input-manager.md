@@ -114,16 +114,18 @@ InputDispatcher，InputReader，InputReaderThread，InputDispatcherThread。
 ### 2.1 InputManagerService
 [-> InputManagerService.java]
 
-    public InputManagerService(Context context) {
-         this.mContext = context;
-         // 运行在线程"android.display"
-         this.mHandler = new InputManagerHandler(DisplayThread.get().getLooper());
-         ...
+```Java
+public InputManagerService(Context context) {
+   this.mContext = context;
+   // 运行在线程"android.display"
+   this.mHandler = new InputManagerHandler(DisplayThread.get().getLooper());
+   ...
 
-         //初始化native对象【见小节2.2】
-         mPtr = nativeInit(this, mContext, mHandler.getLooper().getQueue());
-         LocalServices.addService(InputManagerInternal.class, new LocalService());
-     }
+   //初始化native对象【见小节2.2】
+   mPtr = nativeInit(this, mContext, mHandler.getLooper().getQueue());
+   LocalServices.addService(InputManagerInternal.class, new LocalService());
+}
+```
 
 #### 2.2 nativeInit
 [-> com_android_server_input_InputManagerService.cpp]
@@ -509,22 +511,24 @@ Input事件流程：Linux Kernel -> IMS(InputReader -> InputDispatcher) -> WMS -
 
 #### 4.3.1 InputChannel
 
-    class InputChannel : public RefBase {
-        // 创建一对input channels
-        static status_t openInputChannelPair(const String8& name,
-                sp<InputChannel>& outServerChannel, sp<InputChannel>& outClientChannel);
+```C
+class InputChannel : public RefBase {
+    // 创建一对input channels
+    static status_t openInputChannelPair(const String8& name,
+            sp<InputChannel>& outServerChannel, sp<InputChannel>& outClientChannel);
 
-        status_t sendMessage(const InputMessage* msg); //发送消息
+    status_t sendMessage(const InputMessage* msg); //发送消息
 
-        status_t receiveMessage(InputMessage* msg); //接收消息
+    status_t receiveMessage(InputMessage* msg); //接收消息
 
-        //获取InputChannel的fd的拷贝
-        sp<InputChannel> dup() const;
+    //获取InputChannel的fd的拷贝
+    sp<InputChannel> dup() const;
 
-    private:
-        String8 mName;
-        int mFd;
-    };
+private:
+    String8 mName;
+    int mFd;
+};
+```
 
 sendMessage的返回值:
 
@@ -588,50 +592,54 @@ receiveMessage的返回值:
 
 #### 4.3.3 InputPublisher
 
-    class InputPublisher {
-    public:
-        //获取输入通道
-        inline sp<InputChannel> getChannel() { return mChannel; }
+```C
+class InputPublisher {
+public:
+    //获取输入通道
+    inline sp<InputChannel> getChannel() { return mChannel; }
 
-        status_t publishKeyEvent(...); //将key event发送到input channel
+    status_t publishKeyEvent(...); //将key event发送到input channel
 
-        status_t publishMotionEvent(...); //将motion event发送到input channel
+    status_t publishMotionEvent(...); //将motion event发送到input channel
 
-        //接收来自InputConsumer发送的完成信号
-        status_t receiveFinishedSignal(uint32_t* outSeq, bool* outHandled);
+    //接收来自InputConsumer发送的完成信号
+    status_t receiveFinishedSignal(uint32_t* outSeq, bool* outHandled);
 
-    private:
-        sp<InputChannel> mChannel;
-    };
+private:
+    sp<InputChannel> mChannel;
+};
+```
 
 #### 4.3.4 InputConsumer
 
-    class InputConsumer {
-    public:
-        inline sp<InputChannel> getChannel() { return mChannel; }
+```C
+class InputConsumer {
+public:
+    inline sp<InputChannel> getChannel() { return mChannel; }
 
-        status_t consume(...); //消费input channel的事件
+    status_t consume(...); //消费input channel的事件
 
-        //向InputPublisher发送完成信号
-        status_t sendFinishedSignal(uint32_t seq, bool handled);
+    //向InputPublisher发送完成信号
+    status_t sendFinishedSignal(uint32_t seq, bool handled);
 
-        bool hasDeferredEvent() const;
-        bool hasPendingBatch() const;
-    private:
-        sp<InputChannel> mChannel;
-        InputMessage mMsg; //当前input消息
-        bool mMsgDeferred;
+    bool hasDeferredEvent() const;
+    bool hasPendingBatch() const;
+private:
+    sp<InputChannel> mChannel;
+    InputMessage mMsg; //当前input消息
+    bool mMsgDeferred;
 
-        Vector<Batch> mBatches; //input批量消息
-        Vector<TouchState> mTouchStates;
-        Vector<SeqChain> mSeqChains;
+    Vector<Batch> mBatches; //input批量消息
+    Vector<TouchState> mTouchStates;
+    Vector<SeqChain> mSeqChains;
 
-        status_t consumeBatch(...);
-        status_t consumeSamples(...);
+    status_t consumeBatch(...);
+    status_t consumeSamples(...);
 
-        static void initializeKeyEvent(KeyEvent* event, const InputMessage* msg);
-        static void initializeMotionEvent(MotionEvent* event, const InputMessage* msg);
-    }
+    static void initializeKeyEvent(KeyEvent* event, const InputMessage* msg);
+    static void initializeMotionEvent(MotionEvent* event, const InputMessage* msg);
+}
+```
 
 ### 4.4 input.h
 

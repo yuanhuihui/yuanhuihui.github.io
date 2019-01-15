@@ -342,102 +342,104 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
     
 此处mPolicy为PhoneWindowManager
 
-### 2.4  PWM.addStartingWindow
+### 2.4  addStartingWindow
 [-> PhoneWindowManager.java]
 
-    public View addStartingWindow(IBinder appToken, String packageName, int theme,
-            CompatibilityInfo compatInfo, CharSequence nonLocalizedLabel, int labelRes,
-            int icon, int logo, int windowFlags) {
-        if (!SHOW_STARTING_ANIMATIONS) {
-            return null;
-        }
-        if (packageName == null) {
-            return null;
-        }
-
-        WindowManager wm = null;
-        View view = null;
-
-        try {
-            Context context = mContext;
-            if (theme != context.getThemeResId() || labelRes != 0) {
-                context = context.createPackageContext(packageName, 0);
-                context.setTheme(theme);
-            }
-
-            PhoneWindow win = new PhoneWindow(context);
-            win.setIsStartingWindow(true);
-            final TypedArray ta = win.getWindowStyle();
-            if (ta.getBoolean(
-                        com.android.internal.R.styleable.Window_windowDisablePreview, false)
-                || ta.getBoolean(
-                        com.android.internal.R.styleable.Window_windowShowWallpaper,false)) {
-                return null;
-            }
-
-            Resources r = context.getResources();
-            win.setTitle(r.getText(labelRes, nonLocalizedLabel));
-            //设置窗口类型为启动窗口类型
-            win.setType(WindowManager.LayoutParams.TYPE_APPLICATION_STARTING);
-
-            synchronized (mWindowManagerFuncs.getWindowManagerLock()) {
-                if (mKeyguardHidden) {
-                    windowFlags |= FLAG_SHOW_WHEN_LOCKED;
-                }
-            }
-
-            //设置不可触摸和聚焦
-            win.setFlags(
-                windowFlags|
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE|
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
-                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
-                windowFlags|
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE|
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
-                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
-
-            win.setDefaultIcon(icon);
-            win.setDefaultLogo(logo);
-
-            win.setLayout(WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.MATCH_PARENT);
-
-            final WindowManager.LayoutParams params = win.getAttributes();
-            params.token = appToken;
-            params.packageName = packageName;
-            params.windowAnimations = win.getWindowStyle().getResourceId(
-                    com.android.internal.R.styleable.Window_windowAnimationStyle, 0);
-            params.privateFlags |=
-                    WindowManager.LayoutParams.PRIVATE_FLAG_FAKE_HARDWARE_ACCELERATED;
-            params.privateFlags |= WindowManager.LayoutParams.PRIVATE_FLAG_SHOW_FOR_ALL_USERS;
-
-            if (!compatInfo.supportsScreen()) {
-                params.privateFlags |= WindowManager.LayoutParams.PRIVATE_FLAG_COMPATIBLE_WINDOW;
-            }
-
-            params.setTitle("Starting " + packageName);
-            //获取WindowManager对象 [见小节2.4.1]
-            wm = (WindowManager)context.getSystemService(Context.WINDOW_SERVICE);
-            view = win.getDecorView();
-
-            if (win.isFloating()) {
-                return null; //浮动窗口，则不允许作为启动窗口
-            }
-            //【见小节2.5】
-            wm.addView(view, params);
-            // 当窗口成功添加到WMS，则返回该对象
-            return view.getParent() != null ? view : null;
-        }  catch (RuntimeException e) {
-            ...
-        } finally {
-            if (view != null && view.getParent() == null) {
-                wm.removeViewImmediate(view);
-            }
-        }
-
+```Java
+public View addStartingWindow(IBinder appToken, String packageName, int theme,
+        CompatibilityInfo compatInfo, CharSequence nonLocalizedLabel, int labelRes,
+        int icon, int logo, int windowFlags) {
+    if (!SHOW_STARTING_ANIMATIONS) {
         return null;
     }
+    if (packageName == null) {
+        return null;
+    }
+
+    WindowManager wm = null;
+    View view = null;
+
+    try {
+        Context context = mContext;
+        if (theme != context.getThemeResId() || labelRes != 0) {
+            context = context.createPackageContext(packageName, 0);
+            context.setTheme(theme);
+        }
+
+        PhoneWindow win = new PhoneWindow(context);
+        win.setIsStartingWindow(true);
+        final TypedArray ta = win.getWindowStyle();
+        if (ta.getBoolean(
+                    com.android.internal.R.styleable.Window_windowDisablePreview, false)
+            || ta.getBoolean(
+                    com.android.internal.R.styleable.Window_windowShowWallpaper,false)) {
+            return null;
+        }
+
+        Resources r = context.getResources();
+        win.setTitle(r.getText(labelRes, nonLocalizedLabel));
+        //设置窗口类型为启动窗口类型
+        win.setType(WindowManager.LayoutParams.TYPE_APPLICATION_STARTING);
+
+        synchronized (mWindowManagerFuncs.getWindowManagerLock()) {
+            if (mKeyguardHidden) {
+                windowFlags |= FLAG_SHOW_WHEN_LOCKED;
+            }
+        }
+
+        //设置不可触摸和聚焦
+        win.setFlags(
+            windowFlags|
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE|
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
+            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
+            windowFlags|
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE|
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
+            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+
+        win.setDefaultIcon(icon);
+        win.setDefaultLogo(logo);
+
+        win.setLayout(WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT);
+
+        final WindowManager.LayoutParams params = win.getAttributes();
+        params.token = appToken;
+        params.packageName = packageName;
+        params.windowAnimations = win.getWindowStyle().getResourceId(
+                com.android.internal.R.styleable.Window_windowAnimationStyle, 0);
+        params.privateFlags |=
+                WindowManager.LayoutParams.PRIVATE_FLAG_FAKE_HARDWARE_ACCELERATED;
+        params.privateFlags |= WindowManager.LayoutParams.PRIVATE_FLAG_SHOW_FOR_ALL_USERS;
+
+        if (!compatInfo.supportsScreen()) {
+            params.privateFlags |= WindowManager.LayoutParams.PRIVATE_FLAG_COMPATIBLE_WINDOW;
+        }
+
+        params.setTitle("Starting " + packageName);
+        //获取WindowManager对象 [见小节2.4.1]
+        wm = (WindowManager)context.getSystemService(Context.WINDOW_SERVICE);
+        view = win.getDecorView();
+
+        if (win.isFloating()) {
+            return null; //浮动窗口，则不允许作为启动窗口
+        }
+        //【见小节2.5】
+        wm.addView(view, params);
+        // 当窗口成功添加到WMS，则返回该对象
+        return view.getParent() != null ? view : null;
+    }  catch (RuntimeException e) {
+        ...
+    } finally {
+        if (view != null && view.getParent() == null) {
+            wm.removeViewImmediate(view);
+        }
+    }
+
+    return null;
+}
+```
 
 #### 2.4.1 getSystemService
 [-> ContextImpl.java]
@@ -515,10 +517,12 @@ Activity组件启动后，窗口并非马上显示，而是先显示starting win
 ### 2.5 WMI.addView
 [-> WindowManagerImpl.java]
 
-    public void addView(View view,  ViewGroup.LayoutParams params) {
-        applyDefaultToken(params);
-        mGlobal.addView(view, params, mDisplay, mParentWindow);
-    }
+```Java
+public void addView(View view,  ViewGroup.LayoutParams params) {
+    applyDefaultToken(params);
+    mGlobal.addView(view, params, mDisplay, mParentWindow);
+}
+```
 
 先不往下写了,后续再展开. 这个过程就是增加视图.
 

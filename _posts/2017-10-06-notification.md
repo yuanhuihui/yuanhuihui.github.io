@@ -67,20 +67,23 @@ NotificationListenerService继承于Service，该服务是为了给app提供获�
 
 #### 1.1.2 发送通知
 
-    NotificationManager mNotificationManager = 
-    (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
-    mNotificationManager.notify(notifyID, notification); 
-    
+```Java
+NotificationManager mNotificationManager = 
+(NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
+mNotificationManager.notify(notifyID, notification); 
+```
 
 创建通知过程，此处的PendingIntent是当通知被点击后的跳转动作，可以是启动Activity、Service，或者发送Broadcast。
 对于更新通知只需要发送notifyID相同的通知即可。
 
 #### 1.1.3 取消通知
 
-    NotificationManager mNotificationManager = 
-    (NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
-    mNotificationManager.cancel(notifyId); //取消指定ID的通知
-    mNotificationManager.cancelAll(); //取消所有通知
+```Java
+NotificationManager mNotificationManager = 
+(NotificationManager) context.getSystemService(NOTIFICATION_SERVICE);
+mNotificationManager.cancel(notifyId); //取消指定ID的通知
+mNotificationManager.cancelAll(); //取消所有通知
+```
 
 除了调用NotificationManager的cancel()或者cancelAll()，也可
 
