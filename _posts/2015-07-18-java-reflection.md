@@ -145,28 +145,20 @@ public static boolean setField(Object object, String fieldName, Object fieldValu
 1) 调用对象方法
 
 ```Java
-public static Object invokeMethod(Object object, String methodName, Object[] methodArgs) {
+public static Object invokeMethod(Object object, String methodName, Class[] argsType, Object... args) {
     Class clazz = object.getClass();
-    Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
-    return method.invoke(object, methodArgs);
+    Method method = clazz.getDeclaredMethod(methodName, argsType);
+    return method.invoke(object, args);
 }
 ```
     
 2) 调用类的静态方法
 
 ```Java
-public static Object invokeMethod(Class clazz, String methodName, Object[] methodArgs) {
-    Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
+public static Object invokeMethod(Class clazz, String methodName, Class[] argsType, Object... args) {
+    Method method = clazz.getDeclaredMethod(methodName, argsType);
     method.setAccessible(true);  
-    return method.invoke(null, methodArgs);
-}
-
-public static Class[] obj2class(Object[] args) {
-    Class[] argsClass = new Class[args.length];    
-    for (int i = 0, j = args.length; i < j; i++) {    
-        argsClass[i] = args[i].getClass();    
-    } 
-    return argsClass;
+    return method.invoke(null, args);
 }
 ```
 
@@ -193,11 +185,11 @@ public static Class[] obj2class(Object[] args) {
 除了格式了差异，关于内部类的属性和方法操作基本相似，下面以调用该静态类的静态方法为例
 
 ```Java
-public static Object invokeMethod(String methodName, Object[] methodArgs) {
+public static Object invokeMethod(String methodName, Class[] argsType, Object... args) {
     Class clazz = Class.forName(“com.reflect.Outer$StaticInner");
-    Method method = clazz.getDeclaredMethod(methodName, obj2class(methodArgs));
+    Method method = clazz.getDeclaredMethod(methodName, argsType);
     method.setAccessible(true);  
-    return method.invoke(null, methodArgs);
+    return method.invoke(null, args);
 }
 ```
     
