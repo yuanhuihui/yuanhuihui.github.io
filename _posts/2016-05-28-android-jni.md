@@ -49,7 +49,7 @@ Android系统在启动启动过程中，先启动Kernel创建init进程，紧接
         androidSetCreateThreadFunc((android_create_thread_fn) javaCreateThreadEtc);
 
         env->PushLocalFrame(200);
-        //进程NI方法的注册
+        //进程JNI方法的注册
         if (register_jni_procs(gRegJNI, NELEM(gRegJNI), env) < 0) {
             env->PopLocalFrame(NULL);
             return -1;
@@ -90,19 +90,23 @@ register_jni_procs(gRegJNI, NELEM(gRegJNI), env)这行代码的作用就是就�
 
 当分析Android消息机制源码，遇到`MessageQueue.java`中有多个native方法，比如：
 
-     private native void nativePollOnce(long ptr, int timeoutMillis);
-
+```Java
+package android.os;
+public final class MessageQueue {
+    private native void nativePollOnce(long ptr, int timeoutMillis);
+}
+```
 
 **步骤1：**
-`MessageQueue.java`的全限定名为android.os.MessageQueue.java，方法名：android.os.MessageQueue.nativePollOnce()，而相对应的native层方法名只是将点号替换为下划线，可得`android_os_MessageQueue_nativePollOnce()`。
-**Tips：** nativePollOnce ==> android_os_MessageQueue_nativePollOnce()
+`MessageQueue.java`的全限定名为android.os.MessageQueue.java，完整的方法名为android.os.MessageQueue.nativePollOnce()，与之相对应的native层方法名是将点号替换为下划线，即android_os_MessageQueue_nativePollOnce()。
+
 
 **步骤2：**
 有了native方法，那么接下来需要知道该native方法所在那个文件。前面已经介绍过Android系统启动时就已经注册了大量的JNI方法，见AndroidRuntime.cpp的`gRegJNI`数组。这些注册方法命令方式：
 
     register_[包名]_[类名]
 
-那么MessageQueue.java所定义的jni注册方法名应该是`register_android_os_MessageQueue`，的确存在于gRegJNI数组，说明这次JNI注册过程是有开机过程完成的。 该方法在`AndroidRuntime.cpp`申明为extern方法：
+那么MessageQueue.java所定义的jni注册方法名应该是`register_android_os_MessageQueue`，的确存在于gRegJNI数组，说明这次JNI注册过程是在开机过程完成。 该方法在`AndroidRuntime.cpp`申明为extern方法：
 
     extern int register_android_os_MessageQueue(JNIEnv* env);
 
@@ -111,7 +115,7 @@ register_jni_procs(gRegJNI, NELEM(gRegJNI), env)这行代码的作用就是就�
     [包名]_[类名].cpp
     [包名]_[类名].h
 
-**Tips：**  MessageQueue.java ==> android_os_MessageQueue.cpp
+**Tips：**  /android/os路径下的MessageQueue.java ==> android_os_MessageQueue.cpp
 
 打开`android_os_MessageQueue.cpp`文件，搜索android_os_MessageQueue_nativePollOnce方法，这便找到了目标方法：
 
@@ -125,11 +129,15 @@ register_jni_procs(gRegJNI, NELEM(gRegJNI), env)这行代码的作用就是就�
 
 #### 2.2.2 实例(二)
 
-对于native文件命名方式，有时并非`[包名]_[类名].cpp`，比如Binder.java
+对于native文件命名方式，有时并非`[包名]_[类名].cpp`，比如/android/os路径下的Binder.java
+所对应的native文件：android_util_Binder.cpp
 
-Binder.java所对应的native文件：android_util_Binder.cpp
-
+```Java
+package android.os;
+public class Binder implements IBinder {
     public static final native int getCallingPid();
+}
+```
 
 根据实例(一)方式，找到getCallingPid ==> android_os_Binder_getCallingPid()，并且在AndroidRuntime.cpp中的gRegJNI数组中找到`register_android_os_Binder`。
 
@@ -187,20 +195,24 @@ Binder.java所对应的native文件：android_util_Binder.cpp
 
 ### 2.3 小结
 
-JNI作为连接Java世界和C/C++世界的桥梁，很有必要掌握。看完本文，至少能掌握在分析Android源码过程中如何查找native方法。首先要明白native方法名和文件名的命名规律，其次要懂得该如何去搜索代码。 JNI方式注册无非是Android系统启动过程中Zygote注册以及通过System.loadLibrary方式注册，对于系统启动过程注册的，可以通过查询`AndroidRuntime.cpp`中的`gRegJNI`是否存在对应的register方法，如果不存在，则大多数情况下是通过LoadLibrary方式来注册。
+JNI作为连接Java世界和C/C++世界的桥梁，很有必要掌握。看完本文，至少能掌握在分析Android源码过程中如何查找native方法。首先要明白native方法名和文件名的命名规律，其次要懂得该如何去搜索代码。 
+
+JNI注册的两种时机：
+
+- Android系统启动过程中Zygote注册，可通过查询AndroidRuntime.cpp中的gRegJNI，看看是否存在对应的register方法；
+- 调用System.loadLibrary()方式注册。
 
 
 ## 三、 JNI原理分析
 
-再进一步来分析，Java层与native层方法是如何注册并映射的，继续以MediaPlayer为例。
-
-在文件MediaPlayer.java中调用`System.loadLibrary("media_jni")`把libmedia_jni.so动态库加载到内存。接下来，以loadLibrary为起点展开JNI注册流程的过程分析。
+再进一步来分析，Java层与Native层方法是如何注册并映射的，以MediaPlayer为例。
+文件MediaPlayer.java中调用System.loadLibrary("media_jni")，把libmedia_jni.so动态库加载到内存。接下来，以loadLibrary为起点展开JNI注册流程的过程分析。
 
 ### 3.1 loadLibrary
 [System.java]
 
     public static void loadLibrary(String libName) {
-        //接下来调用Runtime方法
+        //调用Runtime方法
         Runtime.getRuntime().loadLibrary(libName, VMStack.getCallingClassLoader());
     }
 
@@ -211,11 +223,7 @@ JNI作为连接Java世界和C/C++世界的桥梁，很有必要掌握。看完�
         if (loader != null) {
             //查找库所在路径
             String filename = loader.findLibrary(libraryName);
-            if (filename == null) {
-                throw new UnsatisfiedLinkError(loader + " couldn't find \"" +
-                                               System.mapLibraryName(libraryName) + "\"");
-            }
-            //加载库
+            //加载库，见小节【3.2】
             String error = doLoad(filename, loader);
             if (error != null) {
                 throw new UnsatisfiedLinkError(error);
@@ -231,7 +239,7 @@ JNI作为连接Java世界和C/C++世界的桥梁，很有必要掌握。看完�
             String candidate = directory + filename;
             candidates.add(candidate);
             if (IoUtils.canOpenReadOnly(candidate)) {
-                 //加载库
+                 //加载库，见小节【3.2】
                 String error = doLoad(candidate, loader);
                 if (error == null) {
                     return;//加载成功
@@ -245,7 +253,11 @@ JNI作为连接Java世界和C/C++世界的桥梁，很有必要掌握。看完�
         throw new UnsatisfiedLinkError("Library " + libraryName + " not found; tried " + candidates);
     }
 
-真正加载的工作是由`doLoad()`，该方法内部增加同步锁，保证并发时一致性。
+真正加载的工作是由doLoad()
+
+### 3.2 doLoad
+
+该方法内部增加同步锁，保证并发时一致性。
 
     private String doLoad(String name, ClassLoader loader) {
         ...
@@ -254,7 +266,7 @@ JNI作为连接Java世界和C/C++世界的桥梁，很有必要掌握。看完�
         }
     }
 
-nativeLoad()这是一个native方法，再进入ART虚拟机`java_lang_Runtime.cc`，再细讲就要深入剖析虚拟机内部，这里就不再往下深入了，后续博主有空再展开art虚拟机系列的文章，这里直接说结论：
+nativeLoad()这是一个native方法，再进入ART虚拟机的java_lang_Runtime.cc，再细讲就要深入剖析虚拟机内部，这里就不再往下深入了，这里直接说结论：
 
 - 调用`dlopen`函数，打开一个so文件并创建一个handle；
 - 调用`dlsym()`函数，查看相应so文件的`JNI_OnLoad()`函数指针，并执行相应函数。
@@ -370,7 +382,7 @@ functions是指向`JNINativeInterface`结构体指针，也就是将调用下面
 
 JNINativeMethod结构体中有一个字段为signature(签名)，再介绍signature格式之前需要掌握各种数据类型在Java层、Native层以及签名所采用的签名格式。
 
-### 4.1 数据类型
+### 4.1 数据签名
 
 #### 4.1.1 基本数据类型
 
@@ -413,8 +425,6 @@ JNINativeMethod结构体中有一个字段为signature(签名)，再介绍signat
 |Ljava.lang.Class;|Class|jclass
 |Ljava.lang.Throwable;|Throwable|jthrowable
 
-
-
 #### 4.1.4 Signature
 
 有了前面的铺垫，那么再来通过实例说说函数签名： `(输入参数...)返回值参数`，这里用到的便是前面介绍的Signature格式。
@@ -448,3 +458,10 @@ Java层出现异常，虚拟机会直接抛出异常，这是需要try..catch或
 - 介绍了如何查找JNI方法，让大家明白如何从Java层跳转到Native层；
 - 分析了JNI函数注册流程，进一步加深对JNI的理解；
 - 列举Java与native以及函数签名方式。
+
+
+**jni存在的常见目录：**
+
+- `/framework/base/core/jni/`
+- `/framework/base/services/core/jni/`
+- `/framework/base/media/jni/`
