@@ -17,25 +17,23 @@ tags:
 ```Java
 framework/base/core/java/andorid/os/MessageQueue.java
 framework/base/core/jni/android_os_MessageQueue.cpp
-framework/base/core/java/andorid/os/Looper.java （Java层）
+framework/base/core/java/andorid/os/Looper.java
 
-system/core/libutils/Looper.cpp （Native层）
+system/core/libutils/Looper.cpp
 system/core/include/utils/Looper.h
 system/core/libutils/RefBase.cpp
 
-framework/base/native/android/looper.cpp （ALoop对象）
+framework/base/native/android/looper.cpp
 framework/native/include/android/looper.h
 ```
 
 ## 一、概述
 
-在文章[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)中讲解了Java层的消息处理机制，其中`MessageQueue`类里面涉及到多个native方法，除了MessageQueue的native方法，native层本身也有一套完整的消息机制，用于处理native的消息。在整个消息机制中，而`MessageQueue`是连接Java层和Native层的纽带，换言之，Java层可以向`MessageQueue`消息队列中添加消息，Native层也可以向`MessageQueue`消息队列中添加消息。
-
-
-**Native层的关系图**
+在文章[Android消息机制1-Handler(Java层)](http://gityuan.com/2015/12/26/handler-message-framework/)中讲解了Java层的消息处理机制，其中`MessageQueue`类里面涉及到多个native方法，除了MessageQueue的native方法，native层本身也有一套完整的消息机制，用于处理native的消息，如下图Native层的消息机制。
 
 ![native](/images/handler/native.png)
 
+在整个消息机制中，而`MessageQueue`是连接Java层和Native层的纽带，换言之，Java层可以向MessageQueue消息队列中添加消息，Native层也可以向MessageQueue消息队列中添加消息，接下来来看看MessageQueue。
 
 ## 二、MessageQueue
 
@@ -70,32 +68,32 @@ framework/native/include/android/looper.h
 ==> android_os_MessageQueue.cpp
 
     static jlong android_os_MessageQueue_nativeInit(JNIEnv* env, jclass clazz) {
-        NativeMessageQueue* nativeMessageQueue = new NativeMessageQueue(); //初始化native消息队列 【3】
-        if (!nativeMessageQueue) {
-            jniThrowRuntimeException(env, "Unable to allocate native queue");
-            return 0;
-        }
-        nativeMessageQueue->incStrong(env);
+        //初始化native消息队列 【3】
+        NativeMessageQueue* nativeMessageQueue = new NativeMessageQueue(); 
+        nativeMessageQueue->incStrong(env); //增加引用计数
         return reinterpret_cast<jlong>(nativeMessageQueue);
     }
+
+此处reinterpret_cast是C++里的强制类型转换符
 
 **【3】new NativeMessageQueue()**
 
 ==> android_os_MessageQueue.cpp
 
-    NativeMessageQueue::NativeMessageQueue() : mPollEnv(NULL), mPollObj(NULL), mExceptionObj(NULL) {
+    NativeMessageQueue::NativeMessageQueue() 
+                : mPollEnv(NULL), mPollObj(NULL), mExceptionObj(NULL) {
+                
         mLooper = Looper::getForThread(); //获取TLS中的Looper对象
         if (mLooper == NULL) {
             mLooper = new Looper(false); //创建native层的Looper 【4】
-            Looper::setForThread(mLooper); //保存native层的Looper到TLS中
+            Looper::setForThread(mLooper); //保存native层的Looper到TLS
         }
     }
 
 - Looper::getForThread()，功能类比于Java层的Looper.myLooper();
 - Looper::setForThread(mLooper)，功能类比于Java层的ThreadLocal.set();
 
-
-MessageQueue是在Java层与Native层有着紧密的联系，但是此次Native层的Looper与Java层的Looper没有任何的关系，可以发现native基本等价于用C++重写了Java的Looper逻辑，故可以发现很多功能类似的地方。
+此处Native层的Looper与Java层的Looper没有任何的关系，只是在Native层重实现了一套类似功能的逻辑。
 
 **【4】new Looper()**
 
@@ -133,15 +131,12 @@ MessageQueue是在Java层与Native层有着紧密的联系，但是此次Native�
             request.initEventItem(&eventItem);
             //将request队列的事件，分别添加到epoll实例
             int epollResult = epoll_ctl(mEpollFd, EPOLL_CTL_ADD, request.fd, & eventItem);
-            if (epollResult < 0) {
-                ALOGE("Error adding epoll events for fd %d while rebuilding epoll set, errno=%d", request.fd, errno);
-            }
         }
     }
 
 关于epoll的原理以及为什么选择epoll的方式，可查看文章[select/poll/epoll对比分析](http://gityuan.com/2015/12/06/linux_epoll/)。
 
-另外，需要注意`Request`队列，也添加到epoll的监控范围内。
+Looper对象中的mWakeEventFd添加到epoll监控，以及mRequests也添加到epoll的监控范围内。
 
 
 ### 2.2 nativeDestroy()
@@ -538,11 +533,17 @@ sendMessage(),sendMessageDelayed() 都是调用sendMessageAtTime()来完成消�
 
 本节介绍MessageQueue的native()方法，经过层层调用：
 
-- nativeInit()方法，最终实现由epoll机制中的epoll_create()/epoll_ctl()完成；
-- nativeDestroy()方法，最终实现由RefBase::decStrong()完成；
-- nativePollOnce()方法，最终实现由Looper::pollOnce()完成；
-- nativeWake()方法，最终实现由Looper::wake()调用write方法，向管道写入字符；
-- nativeIsPolling()，nativeSetFileDescriptorEvents()这两个方法类似，此处就不一一列举。
+- nativeInit()方法：
+  - 创建了NativeMessageQueue对象，增加其引用计数，并将NativeMessageQueue指针mPtr保存在Java层的MessageQueue
+  - 创建了Native Looper对象
+  - 调用epoll的epoll_create()/epoll_ctl()来完成对mWakeEventFd和mRequests的可读事件监听
+- nativeDestroy()方法
+  - 调用RefBase::decStrong()来减少对象的引用计数
+  - 当引用计数为0时，则删除NativeMessageQueue对象
+- nativePollOnce()方法
+  - 调用Looper::pollOnce()来完成，空闲时停留在epoll_wait()方法，用于等待事件发生火灾超时
+- nativeWake()方法
+  - 调用Looper::wake()来完成，向管道mWakeEventfd写入字符；
 
 
 ## 三、Native结构体和类

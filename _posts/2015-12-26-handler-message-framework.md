@@ -156,13 +156,10 @@ Looper.prepare()在每个线程只允许执行一次，该方法会创建Looper�
 
     public static void loop() {
         final Looper me = myLooper();  //获取TLS存储的Looper对象 【见2.4】
-        if (me == null) {
-            throw new RuntimeException("No Looper; Looper.prepare() wasn't called on this thread.");
-        }
         final MessageQueue queue = me.mQueue;  //获取Looper对象中的消息队列
 
         Binder.clearCallingIdentity();
-        //确保在权限检查时基于本地进程，而不是基于最初调用进程。
+        //确保在权限检查时基于本地进程，而不是调用进程。
         final long ident = Binder.clearCallingIdentity();
 
         for (;;) { //进入loop的主循环方法
@@ -170,8 +167,9 @@ Looper.prepare()在每个线程只允许执行一次，该方法会创建Looper�
             if (msg == null) { //没有消息，则退出循环
                 return;
             }
-
-            Printer logging = me.mLogging;  //默认为null，可通过setMessageLogging()方法来指定输出，用于debug功能
+            
+            //默认为null，可通过setMessageLogging()方法来指定输出，用于debug功能
+            Printer logging = me.mLogging;  
             if (logging != null) {
                 logging.println(">>>>> Dispatching to " + msg.target + " " +
                         msg.callback + ": " + msg.what);
@@ -180,11 +178,9 @@ Looper.prepare()在每个线程只允许执行一次，该方法会创建Looper�
             if (logging != null) {
                 logging.println("<<<<< Finished to " + msg.target + " " + msg.callback);
             }
-
-            final long newIdent = Binder.clearCallingIdentity(); //确保分发过程中identity不会损坏
-            if (ident != newIdent) {
-                 //打印identity改变的log，在分发消息过程中是不希望身份被改变的。
-            }
+            
+            //恢复调用者信息
+            final long newIdent = Binder.clearCallingIdentity(); 
             msg.recycleUnchecked();  //将Message放入消息池 【见5.2】
         }
     }
@@ -428,12 +424,12 @@ Handler类在构造方法中，可指定Looper，Callback回调方法以及消�
     }
 
 
-#### 3.3.8 小节
+#### 小节
 
  `Handler.sendEmptyMessage()`等系列方法最终调用`MessageQueue.enqueueMessage(msg, uptimeMillis)`，将消息添加到消息队列中，其中uptimeMillis为系统当前的运行时间，不包括休眠时间。
 
 
-### 3.4 其他方法
+### 3.4 Handler其他方法
 
 #### 3.4.1 obtainMessage
 
@@ -740,7 +736,7 @@ postSyncBarrier只对同步消息产生影响，对于异步消息没有任何�
 
 ## 五、 Message
 
-### 5.1 创建消息
+### 5.1 消息对象
 
 每个消息用`Message`表示，`Message`主要包含以下内容：
 
@@ -842,3 +838,7 @@ recycle()，将Message加入到消息池的过程，都是把Message加到链表
 1. Message的回调方法：`message.callback.run()`，优先级最高；
 2. Handler的回调方法：`Handler.mCallback.handleMessage(msg)`，优先级仅次于1；
 3. Handler的默认方法：`Handler.handleMessage(msg)`，优先级最低。
+
+**消息缓存：**
+
+为了提供效率，提供了一个大小为50的Message缓存队列，减少对象不断创建与销毁的过程。

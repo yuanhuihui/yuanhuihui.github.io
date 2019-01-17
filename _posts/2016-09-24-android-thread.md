@@ -22,7 +22,7 @@ tags:
   
 ## 一.概述
 
-Android线程，一般地就是指Android虚拟机线程，而虚拟机线程由是通过系统调用而创建的Linux线程。纯粹的Linux线程与虚拟机线程的区别在于虚拟机线程具有运行Java代码的runtime. 除了虚拟机线程，还有Native线程，对于Native线程有分为是否具有访问Java代码的两类线程。接下来，本文分析介绍这3类线程的创建过程。
+Android平台上的Java线程，就是Android虚拟机线程，而虚拟机线程由是通过系统调用而创建的Linux线程。纯粹的Linux线程与虚拟机线程的区别在于虚拟机线程具有运行Java代码的Runtime. 除了虚拟机线程，还有Native线程，对于Native线程有分为是否具有访问Java代码的两类线程。接下来，本文分析介绍这3类线程的创建过程。
 
 ## 二. Java线程
 
@@ -105,7 +105,7 @@ pthread_create是pthread库中的函数，通过syscall再调用到clone来请�
 - 返回值：成功则返回0；出错则返回-1。
 - 功能：创建线程，并调用线程起始地址所指向的函数start_routine。
 
-关于pthread_create的分析，在后续Linux系列文章会再进一步深入分析。
+关于pthread_create的分析，见[Linux进程创建](http://gityuan.com/2017/08/05/linux-process-fork/)
 
 ## 三.  Native线程(C/C++)
 
