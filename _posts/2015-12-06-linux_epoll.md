@@ -16,13 +16,23 @@ tags:
 原型：
 
 ```C
-int select (int n, fd_set *readfds, 
+int select (int maxfd, fd_set *readfds, 
                    fd_set *writefds, 
                    fd_set *exceptfds, 
                    struct timeval *timeout);
 ```
 
-从select函数监控3类文件描述符：writefds、readfds、exceptfds。调用select函数后会阻塞，直到描述符fd准备就绪（有数据可读、可写、出现异常）或者超时，函数便返回。当select函数返回后，可通过遍历描述符集合，找到就绪的描述符。
+- maxfd：代表要监控的最大文件描述符fd+1
+- writefds：监控可写fd
+- readfds：监控可读fd
+- exceptfds：监控异常fd
+- timeout：超时时长
+  - NULL，代表没有设置超时，则会一直阻塞直到文件描述符上的事件触发
+  - 0，代表不等待，立即返回，用于检测文件描述符状态
+  - 正整数，代表当指定时间没有事件触发，则超时返回
+  
+select函数监控3类文件描述符，调用select函数后会阻塞，直到描述符fd准备就绪（有数据可读、可写、异常）或者超时，函数便返回。
+当select函数返回后，可通过遍历描述符集合，找到就绪的描述符。
 
 
 **select缺点**
