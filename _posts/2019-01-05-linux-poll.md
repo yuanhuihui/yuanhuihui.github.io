@@ -1,10 +1,11 @@
 ---
 layout: post
-title:  "深入解读Linux poll内核机制"
+title:  "深入解读poll/select内核机制"
 date:   2019-01-05 22:11:12
 catalog:  true
 tags:
     - android
+    - linux
 
 ---
 
@@ -750,3 +751,5 @@ poll
                 poll_schedule_timeout
             poll_freewait
 ```
+
+我们会发现，select和poll机制的原理非常相近，主要是一些数据结构的不同，最终到驱动层都会执行f_op->poll()，执行__pollwait()把自己挂入等待队列。 一旦有事件发生时便会唤醒等待队列上的进程。比如监控的是可写事件，则会在write()方法中调用wakeup方法唤醒相对应的等待队列上的进程。这一切都是基于底层文件系统作为基石来完成IO多路复用的事件监控功能。
