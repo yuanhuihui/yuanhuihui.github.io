@@ -11,7 +11,7 @@ tags:
 > 从源码角度来领略一下内核的轮询机制
 
 ```C
-fs/select.c
+kernel/fs/select.c
 kernel/include/linux/poll.h
 kernel/include/linux/fs.h
 ```
@@ -48,7 +48,7 @@ struct pollfd {
 };
 ```
 
-接下来从源码角度来解读这3种机制。
+接下来从源码角度来解读这两种机制。
 
 ## 二、select源码
 
