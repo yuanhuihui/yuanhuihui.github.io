@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "深入解读poll/select内核机制"
+title:  "源码解读poll/select内核机制"
 date:   2019-01-05 22:11:12
 catalog:  true
 tags:
@@ -9,19 +9,23 @@ tags:
 
 ---
 
-> 从源码角度来领略一下内核的轮询机制
+> 从源码角度来解读内核的轮询机制，了解是如何实现事件监控功能的
 
 ```C
 kernel/fs/select.c
 kernel/include/linux/poll.h
 kernel/include/linux/fs.h
+kernel/include/linux/sched.h
+kernel/include/linux/wait.h
+kernel/kernel/sched/wait.c
+kernel/kernel/sched/core.c
 ```
 
 ## 一、概述
 
 在前面的文章[select/poll/epoll对比分析](http://gityuan.com/2015/12/06/linux_epoll/)，从使用者的角度讲述了三者之间的关系。select/poll/epoll都是IO多路监控机制，通过监控文件描述符读写状态来通知相应程序执行操作的一个机制。再往深处问一个他们底层又是如何实现，可以做得监控文件状态的功能呢？本文先回顾select/poll机制的使用与源码，下一篇文章再来单独能实现高并发的epoll机制。
 
-#### 1.1 select函数
+### 1.1 select函数
 
 ```CPP
 int select (int n, fd_set *readfds, 
@@ -30,14 +34,14 @@ int select (int n, fd_set *readfds,
                 struct timeval *timeout);
                                      
 struct timeval {
-    long tv_sec;  //seconds
-    long tv_usec; //microseconds
+    long tv_sec;  //秒
+    long tv_usec; //毫秒
 }；
 ```
 
 select最终是通过底层驱动对应设备文件的poll函数来查询是否有可用资源(可读或者可写)，如果没有则睡眠。
 
-#### 1.2 poll函数
+### 1.2 poll函数
 
 ```CPP
 int poll (struct pollfd *fds, unsigned int nfds, int timeout);
@@ -49,13 +53,14 @@ struct pollfd {
 };
 ```
 
-接下来从源码角度来解读这两种机制。
+接下来，进入正题从源码角度来解读select和poll两种机制。
 
 ## 二、select源码
 
 select最终是通过底层驱动对应设备文件的poll函数来查询是否有可用资源(可读或者可写)，如果没有则睡眠。
 
 ### 2.1 fd_set
+在讲select机制之前，先来认知一下参数中的一个结构体fd_set，代码如下所示。
 
 ```CPP
 #include <sys/select.h>
@@ -71,7 +76,7 @@ typedef struct {
 void FD_SET(int fd, fd_set *fdset)   //将fd添加到fdset
 void FD_CLR(int fd, fd_set *fdset)   //从fdset中删除fd
 void FD_ISSET(int fd, fd_set *fdset) //判断fd是否已存在fdset
-void FD_ZERO(fd_set *fdset)          //初始化fdset全为0
+void FD_ZERO(fd_set *fdset)          //初始化fdset内容全为0
 ```
 
 fd_set是一个文件描述符fd的集合，由于每个进程可打开的文件描述符默认值为1024，fd_set可记录的fd个数上限也是为1024个。
@@ -128,7 +133,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
     max_fds = fdt->max_fds;
     rcu_read_unlock();
     if (n > max_fds)
-        n = max_fds; //select可监控个数必须小于等于进程可打开的文件描述上限
+        n = max_fds; //select可监控个数小于等于进程可打开的文件描述上限
 
     ////根据n来计算需要多少个字节, 展开为size=4*(n+32-1)/32
     size = FDS_BYTES(n); 
@@ -144,15 +149,18 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
     fds.res_out = bits + 4*size;
     fds.res_ex  = bits + 5*size;
 
+    //将用户空间的inp、outp、exp拷贝到内核空间fds的in、out、ex
     if ((ret = get_fd_set(n, inp, fds.in)) ||
             (ret = get_fd_set(n, outp, fds.out)) ||
             (ret = get_fd_set(n, exp, fds.ex)))
         goto out;
+        
+    //将fds的res_in、res_out、res_ex内容清零 [小节2.3.1]
     zero_fd_set(n, fds.res_in);
     zero_fd_set(n, fds.res_out);
     zero_fd_set(n, fds.res_ex);
 
-    ret = do_select(n, &fds, end_time); //【小节2.4】
+    ret = do_select(n, &fds, end_time); // 核心方法【小节2.4】
 
     if (ret < 0)
         goto out;
@@ -162,7 +170,7 @@ int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
             goto out;
         ret = 0;
     }
-    //执行完do_select后，将可读、可写、异常这3类事件结果调用copy_to_user拷贝到用户空间
+    //将fds的res_in、res_out、res_ex结果拷贝到用户空间inp、outp、exp
     if (set_fd_set(n, inp, fds.res_in) ||
             set_fd_set(n, outp, fds.res_out) ||
             set_fd_set(n, exp, fds.res_ex))
@@ -176,10 +184,94 @@ out_nofds:
 }
 ```
 
-select过程需要占用的空间有两种情况，size=4*(n+32-1)/32，其中n是监控文件fd的最大值+1：
+select方法的主要工作可分为3部分：
+
+- 将需要监控的用户空间的inp(可读)、outp(可写)、exp(异常)事件拷贝到内核空间fds的in、out、ex；
+- 执行do_select()方法，将in、out、ex监控到的事件结果写入到res_in、res_out、res_ex；
+- 将内核空间fds的res_in、res_out、res_ex事件结果信息拷贝回用户空间inp、outp、exp。
+
+select执行过程用到了数据结构fd_set_bits，里面有6个long数组，占用空间有两种情况：
 
 - 当size<=42时，则为256个long型数组
 - 当size>42时，则为6*size大小
+
+这里的size=4*(n+32-1)/32，其中n是监控文件fd的最大值+1。
+
+
+#### 2.3.1 fdset相关操作方法
+
+```C
+//记录可读、可写、异常 的输入和输出结果信息
+typedef struct {
+    unsigned long *in, *out, *ex;
+    unsigned long *res_in, *res_out, *res_ex;
+} fd_set_bits;
+
+// 将用户空间的ufdset拷贝到内核空间fdset
+static inline
+int get_fd_set(unsigned long nr, void __user *ufdset, unsigned long *fdset)
+{
+    nr = FDS_BYTES(nr);
+    if (ufdset)
+        return copy_from_user(fdset, ufdset, nr) ? -EFAULT : 0;
+
+    memset(fdset, 0, nr);
+    return 0;
+}
+
+// 将内核fdset拷贝到用户空间的ufdset
+static inline unsigned long __must_check
+set_fd_set(unsigned long nr, void __user *ufdset, unsigned long *fdset)
+{
+    if (ufdset)
+        return __copy_to_user(ufdset, fdset, FDS_BYTES(nr));
+    return 0;
+}
+
+//将fdset内容清零
+static inline
+void zero_fd_set(unsigned long nr, unsigned long *fdset)
+{
+    memset(fdset, 0, FDS_BYTES(nr));
+}
+```
+
+#### 2.3.2 struct poll_wqueues
+
+```C
+struct poll_wqueues {
+    poll_table pt;
+    struct poll_table_page *table;
+    struct task_struct *polling_task;   //正在轮询的进程
+    int triggered;
+    int error;
+    int inline_index;
+    //记录poll信息的数组
+    struct poll_table_entry inline_entries[N_INLINE_POLL_ENTRIES];
+};
+```
+
+#### 2.3.3 struct poll_table
+
+```C
+typedef struct poll_table_struct {
+    poll_queue_proc _qproc;
+    unsigned long _key;
+} poll_table;
+```
+
+#### 2.3.4 struct poll_table_entry
+
+```C
+struct poll_table_entry {
+    struct file *filp;
+    unsigned long key;
+    wait_queue_t wait;
+    wait_queue_head_t *wait_address;
+};
+```
+
+接下来，重点看看核心方法do_select源码：
 
 ### 2.4 do_select
 
@@ -187,19 +279,14 @@ select过程需要占用的空间有两种情况，size=4*(n+32-1)/32，其中n�
 int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
 {
     ktime_t expire, *to = NULL;
-    struct poll_wqueues table;
-    poll_table *wait;
+    struct poll_wqueues table; //[小节2.3.2]
+    poll_table *wait;      //[小节2.3.3]
     int retval, i, timed_out = 0;
     u64 slack = 0;
-    unsigned int busy_flag = net_busy_loop_on() ? POLL_BUSY_LOOP : 0;
-    unsigned long busy_end = 0;
 
     rcu_read_lock();
     retval = max_select_fd(n, fds);
     rcu_read_unlock();
-
-    if (retval < 0)
-        return retval;
     n = retval;
 
     poll_initwait(&table); //初始化等待队列 【小节2.4.1】
@@ -322,6 +409,7 @@ do_select最核心的还是调用文件系统*f_op->poll函数，来检测I/O事
 - 当没有找到目标事件，如果已超时或者有待处理的信号，也会退出循环体，返回空给用户空间；
 - 当以上两种情况都不满足，则会让当前进程进入休眠状态，以等待fd或者超时定时器来唤醒自己，再走一遍循环。
 
+
 ```C
 struct poll_wqueues table;
 poll_initwait(&table);
@@ -347,34 +435,7 @@ void poll_initwait(struct poll_wqueues *pwq)
 }
 ```
 
-将结构体poll_wqueues->poll_table->poll_queue_proc赋值为__pollwait，下面依次来看看这里涉及到的几个结构体源码。
-
-```C
-struct poll_wqueues {
-    poll_table pt;
-    struct poll_table_page *table;
-    struct task_struct *polling_task;
-    int triggered;
-    int error;
-    int inline_index;
-    //记录poll信息的数组
-    struct poll_table_entry inline_entries[N_INLINE_POLL_ENTRIES];
-};
-
-typedef struct poll_table_struct {
-    poll_queue_proc _qproc;
-    unsigned long _key;
-} poll_table;
-
-struct poll_table_entry {
-    struct file *filp;
-    unsigned long key;
-    wait_queue_t wait;
-    wait_queue_head_t *wait_address;
-};
-```
-
-再来看看poll函数的初始化过程
+将结构体poll_wqueues->poll_table->poll_queue_proc赋值为__pollwait，再来看看poll函数的初始化过程
 
 ```C
 static inline void init_poll_funcptr(poll_table *pt, poll_queue_proc qproc)

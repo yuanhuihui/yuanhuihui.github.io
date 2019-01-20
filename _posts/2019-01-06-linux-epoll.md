@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "深入解读epoll内核机制"
+title:  "源码解读epoll内核机制"
 date:   2019-01-06 21:11:12
 catalog:  true
 tags:
