@@ -176,8 +176,8 @@ struct epitem {
 
 ```C
 struct epoll_event {
-	__u32 events;
-	__u64 data;
+    __u32 events;
+    __u64 data;
 } EPOLL_PACKED;
 ```
 
@@ -185,8 +185,8 @@ struct epoll_event {
 
 ```C
 struct epoll_filefd {
-	struct file *file;
-	int fd;
+    struct file *file;
+    int fd;
 } __packed;
 ```
 
@@ -194,8 +194,8 @@ struct epoll_filefd {
 
 ```C
 struct ep_pqueue {
-	poll_table pt;
-	struct epitem *epi;
+    poll_table pt;
+    struct epitem *epi;
 };
 ```
 
@@ -203,8 +203,8 @@ struct ep_pqueue {
 
 ```C
 typedef struct poll_table_struct {
-	poll_queue_proc _qproc;
-	unsigned long _key;
+    poll_queue_proc _qproc;
+    unsigned long _key;
 } poll_table;
 ```
 
@@ -298,7 +298,7 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
     unsigned long flags;
     long user_watches;
     struct epitem *epi;
-    struct ep_pqueue epq; //【小节2.4.5】
+    struct ep_pqueue epq; //[小节2.4.5]
 
     user_watches = atomic_long_read(&ep->user->epoll_watches);
     if (unlikely(user_watches >= max_user_watches))
@@ -311,7 +311,7 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
     INIT_LIST_HEAD(&epi->fllink);
     INIT_LIST_HEAD(&epi->pwqlist);
     epi->ep = ep;
-    ep_set_ffd(&epi->ffd, tfile, fd); //【小节2.4.4】
+    ep_set_ffd(&epi->ffd, tfile, fd); // 将tfile和fd都赋值给ffd，ffd结构体见[小节2.4.4]
     epi->event = *event;
     epi->nwait = 0;
     epi->next = EP_UNACTIVE_PTR;
@@ -322,10 +322,10 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
     }
 
     epq.epi = epi;
-    //设置轮询回调函数【小节3.2.2】
+    //设置轮询回调函数【小节3.2.1】
     init_poll_funcptr(&epq.pt, ep_ptable_queue_proc);
 
-    //执行poll方法【小节3.2.1】
+    //执行poll方法【小节3.2.2】
     revents = ep_item_poll(epi, &epq.pt);
 
     spin_lock(&tfile->f_lock);
@@ -357,47 +357,67 @@ static int ep_insert(struct eventpoll *ep, struct epoll_event *event,
 }
 ```
 
-设置epq.pt的轮询函数为ep_ptable_queue_proc，并执行f_op->poll方法。
+#### 3.2.1 init_poll_funcptr
 
+```C
+static inline void init_poll_funcptr(poll_table *pt, poll_queue_proc qproc)
+{
+    pt->_qproc = qproc;
+    pt->_key   = ~0UL; /* all events enabled */
+}
+```
 
-#### 3.2.1 ep_item_poll
+将ep_pqueue->pt的成员变量_qproc设置为ep_ptable_queue_proc函数
+
+#### 3.2.2 ep_item_poll
 
 ```C
 static inline unsigned int ep_item_poll(struct epitem *epi, poll_table *pt)
 {
     pt->_key = epi->event.events;
-    //调用文件系统的poll核心方法
+    //调用文件系统的poll核心方法 【3.2.3】
     return epi->ffd.file->f_op->poll(epi->ffd.file, pt) & epi->event.events;
 }
 ```
 
-poll()过程在上一篇文章[深入解读Linux poll内核机制](http://gityuan.com/2019/01/05/linux-poll/)的[小节2.4.2]已介绍。
-这里直接说结论，poll会执行poll_wait()，poll_wait()会调用epq.pt.qproc函数，源码如下所示。
+poll()过程在上一篇文章[源码解读poll/select内核机制](http://gityuan.com/2019/01/05/linux-poll/)的[小节2.4.2]已介绍。
+这里直接说结论，poll会执行poll_wait()，poll_wait()会调用epq.pt.qproc所对应的回调函数ep_ptable_queue_proc，源码如下所示。
 
-#### 3.2.2  ep_ptable_queue_proc
+#### 3.2.3  ep_ptable_queue_proc
 
 ```C
 static void ep_ptable_queue_proc(struct file *file, wait_queue_head_t *whead,
                  poll_table *pt)
 {
     struct epitem *epi = ep_item_from_epqueue(pt);
-    struct eppoll_entry *pwq;  //【小节2.4.7】
+    struct eppoll_entry *pwq;  //[小节2.4.7]
 
     if (epi->nwait >= 0 && (pwq = kmem_cache_alloc(pwq_cache, GFP_KERNEL))) {
-        //初始化回调方法，见【小节3.2.3】
+        //初始化回调方法
         init_waitqueue_func_entry(&pwq->wait, ep_poll_callback);
         pwq->whead = whead;
         pwq->base = epi;
         //将ep_poll_callback放入等待队列whead
         add_wait_queue(whead, &pwq->wait);
-        //将->llink 放入epi->pwqlist的尾部
+        //将llink 放入epi->pwqlist的尾部
         list_add_tail(&pwq->llink, &epi->pwqlist);
         epi->nwait++;
     } else {
         epi->nwait = -1; //标记错误发生
     }
 }
+
+static inline void
+init_waitqueue_func_entry(wait_queue_t *q, wait_queue_func_t func)
+{
+    q->flags    = 0;
+    q->private    = NULL;
+    q->func        = func;
+}
 ```
+
+设置pwq->wait的成员变量func唤醒回调函数为ep_poll_callback；并将ep_poll_callback放入等待队列whead
+
 
 #### 3.2.3 ep_poll_callback
 
@@ -592,13 +612,12 @@ fetch_events:
 
     if (!ep_events_available(ep)) {
         //没有事件就绪则进入睡眠状态，当事件就绪后可通过ep_poll_callback()来唤醒
-        //将当前进程放入wait等待队列
+        //将当前进程放入wait等待队列 【小节4.2.1】
         init_waitqueue_entry(&wait, current); 
         //将当前进程加入eventpoll等待队列，等待文件就绪、超时或中断信号
         __add_wait_queue_exclusive(&ep->wq, &wait); 
 
         for (;;) {
-            //当ep_poll_callback发送一个唤醒则不再睡眠，故此次设置进程状态为TASK_INTERRUPTIBLE
             set_current_state(TASK_INTERRUPTIBLE);
             if (ep_events_available(ep) || timed_out) //就绪队列不为空 或者超时，则跳出循环
                 break;
@@ -615,7 +634,7 @@ fetch_events:
 
             spin_lock_irqsave(&ep->lock, flags);
         }
-        __remove_wait_queue(&ep->wq, &wait); //从wait队列移除
+        __remove_wait_queue(&ep->wq, &wait); //从队列中移除wait
         set_current_state(TASK_RUNNING);
     }
 check_events:
@@ -633,6 +652,29 @@ check_events:
 
 ep_send_events将就绪事件封装成ep_send_events_data，传入用户空间。
 
+#### 4.2.1 init_waitqueue_entry
+
+```C
+static inline void init_waitqueue_entry(wait_queue_t *q, struct task_struct *p)
+{
+	q->flags	= 0;
+	q->private	= p;
+	q->func		= default_wake_function;  //设置唤醒函数
+}
+```
+
 ## 五、 总结
 
-流程图与总结待续
+1. epoll_create()：创建并初始化eventpoll结构体ep，并将ep放入file->private，并返回fd
+2. epoll_ctl()：以插入epi为例(进入ep_insert)
+    - init_poll_funcptr()：将ep_pqueue->pt的成员变量_qproc设置为ep_ptable_queue_proc函数，用于poll_wait()的回调函数；
+    - ep_item_poll()：执行上面设置的回调函数ep_ptable_queue_proc
+    - ep_ptable_queue_proc()：设置pwq->wait的成员变量func唤醒回调函数为ep_poll_callback，这是用于就绪事件触发时，唤醒该进程所用的回调函数；再将ep_poll_callback放入等待队列头whead
+3. epoll_wait()：主要工作是执行ep_poll()方法
+    - wait->func的唤醒函数为default_wake_function()，并将等待队列项加入ep->wq
+    - freezable_schedule_hrtimeout_range()：出让CPU，进入睡眠状态
+    
+之后，当其他进程就绪事件发生时便会唤醒相应等待队列上的进程。比如监控的是可写事件，则会在write()方法中调用wake_up方法唤醒相对应的等待队列上的进程，当唤醒后执行前面设置的唤醒回调函数ep_poll_callback函数。
+
+4. ep_poll_callback()：将被目标fd的就绪事件到来时，将fd对应的epitem实例添加到就绪队列
+5. 回到epoll_wait()，从队列中移除wait，再将传输就绪事件到用户空间

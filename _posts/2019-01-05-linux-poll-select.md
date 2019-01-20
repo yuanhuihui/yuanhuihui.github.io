@@ -240,13 +240,13 @@ void zero_fd_set(unsigned long nr, unsigned long *fdset)
 
 ```C
 struct poll_wqueues {
-    poll_table pt;
-    struct poll_table_page *table;
+    poll_table pt;                      //[小节2.3.3]
+    struct poll_table_page *table;      //[小节2.3.4]
     struct task_struct *polling_task;   //正在轮询的进程
     int triggered;
     int error;
     int inline_index;
-    //记录poll信息的数组
+    //记录poll信息的数组 [小节2.3.5]
     struct poll_table_entry inline_entries[N_INLINE_POLL_ENTRIES];
 };
 ```
@@ -260,16 +260,28 @@ typedef struct poll_table_struct {
 } poll_table;
 ```
 
-#### 2.3.4 struct poll_table_entry
+#### 2.3.4 struct poll_table_page
+
+```C
+struct poll_table_page {
+    struct poll_table_page * next;
+    struct poll_table_entry * entry;
+    struct poll_table_entry entries[0];
+};
+```
+
+#### 2.3.5 struct poll_table_entry
 
 ```C
 struct poll_table_entry {
     struct file *filp;
     unsigned long key;
-    wait_queue_t wait;
-    wait_queue_head_t *wait_address;
+    wait_queue_t wait;  //wait等待队列项
+    wait_queue_head_t *wait_address; //wait的等待队列头
 };
 ```
+
+
 
 接下来，重点看看核心方法do_select源码：
 
@@ -392,13 +404,13 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
             expire = timespec_to_ktime(*end_time);
             to = &expire;
         }
-        //设置当前进程状态为TASK_INTERRUPTIBLE，进入睡眠直到超时，见【小节2.4.3】
+        //设置当前进程状态为TASK_INTERRUPTIBLE，进入睡眠直到超时，见【小节2.4.4】
         if (!poll_schedule_timeout(&table, TASK_INTERRUPTIBLE,
                          to, slack))
             timed_out = 1;
     }
 
-    poll_freewait(&table); //释放poll等待队列【小节2.4.4】
+    poll_freewait(&table); //释放poll等待队列【小节2.4.6】
     return retval;
 }
 ```
@@ -410,24 +422,13 @@ do_select最核心的还是调用文件系统*f_op->poll函数，来检测I/O事
 - 当以上两种情况都不满足，则会让当前进程进入休眠状态，以等待fd或者超时定时器来唤醒自己，再走一遍循环。
 
 
-```C
-struct poll_wqueues table;
-poll_initwait(&table);
-wait = &table.pt;
-
-(*f_op->poll)(f.file, wait); 
-
-poll_freewait(&table)
-```
-
 #### 2.4.1 poll_initwait
-
 
 ```C
 void poll_initwait(struct poll_wqueues *pwq)
 {
     init_poll_funcptr(&pwq->pt, __pollwait); //初始化poll函数指针
-    pwq->polling_task = current;
+    pwq->polling_task = current;  //将当前进程记录在pwq结构体
     pwq->triggered = 0;
     pwq->error = 0;
     pwq->table = NULL;
@@ -435,7 +436,7 @@ void poll_initwait(struct poll_wqueues *pwq)
 }
 ```
 
-将结构体poll_wqueues->poll_table->poll_queue_proc赋值为__pollwait，再来看看poll函数的初始化过程
+将结构体poll_wqueues->poll_table->poll_queue_proc赋值为__pollwait，__pollwait会在[2.4.2]的poll过程调用。
 
 ```C
 static inline void init_poll_funcptr(poll_table *pt, poll_queue_proc qproc)
@@ -447,41 +448,6 @@ static inline void init_poll_funcptr(poll_table *pt, poll_queue_proc qproc)
 typedef void (*poll_queue_proc)(struct file *, 
                 wait_queue_head_t *, struct poll_table_struct *);
                 
-static void __pollwait(struct file *filp, wait_queue_head_t *wait_address,
-                poll_table *p)
-{
-    //根据poll_wqueues的成员pt指针 找到所在的poll_wqueues结构指针
-    struct poll_wqueues *pwq = container_of(p, struct poll_wqueues, pt);
-    struct poll_table_entry *entry = poll_get_entry(pwq);
-    if (!entry)
-        return;
-    entry->filp = get_file(filp);
-    entry->wait_address = wait_address;
-    entry->key = p->_key;
-    // 设置该poll表条目的wait操作函数为pollwake
-    init_waitqueue_func_entry(&entry->wait, pollwake);
-    entry->wait.private = pwq;
-    // 将该wait加入到等待链表
-    add_wait_queue(wait_address, &entry->wait);
-}
-```
-
-理解__pollwait()方法对于真正掌握Linux的sleep/wakeup机制非常有效，poll_wait()和poll_freewait()使得这一切正常运转。
-poll_wait()是在<linux / poll.h>中定义的内联函数，因为所有select/poll函数都必须调用它来向poll table添加一个条目。
-
-再来看看pollwake函数
-
-```C
-static int __pollwake(wait_queue_t *wait, unsigned mode, int sync, void *key)
-{
-    struct poll_wqueues *pwq = wait->private;
-    DECLARE_WAITQUEUE(dummy_wait, pwq->polling_task);
-
-    smp_wmb();
-    pwq->triggered = 1;
-    //唤醒目标进程
-    return default_wake_function(&dummy_wait, mode, sync, key);
-}
 ```
 
 #### 2.4.2 file_operations->poll
@@ -495,6 +461,7 @@ struct file_operations {
     loff_t (*llseek) (struct file *, loff_t, int);
     ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
     ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
+    //轮询方法 【小节2.4.2】
     unsigned int (*poll) (struct file *, struct poll_table_struct *);
     long (*unlocked_ioctl) (struct file *, unsigned int, unsigned long);
     int (*mmap) (struct file *, struct vm_area_struct *);
@@ -505,13 +472,37 @@ struct file_operations {
 
 回到前面的核心函数调用(*f_op->poll)(f.file, wait)，就是等于调用文件系统的poll方法，不同驱动设备实现方法略有不同，但都会执行poll_wait()，该方法真正执行的便是前面的回调函数__pollwait，把自己挂入等待队列。
 
+#### 2.4.3 __pollwait
 ```C
-unsigned int (*poll) (struct file *, struct poll_table_struct *);
+static void __pollwait(struct file *filp, wait_queue_head_t *wait_address,
+                poll_table *p)
+{
+    //根据poll_wqueues的成员pt指针p找到所在的poll_wqueues结构指针
+    struct poll_wqueues *pwq = container_of(p, struct poll_wqueues, pt);
+    struct poll_table_entry *entry = poll_get_entry(pwq);
+    if (!entry)
+        return;
+    entry->filp = get_file(filp);
+    entry->wait_address = wait_address;
+    entry->key = p->_key;
+    //设置entry->wait.func = pollwake 【小节2.4.5】
+    init_waitqueue_func_entry(&entry->wait, pollwake); 
+    entry->wait.private = pwq;       // 设置private内容为pwq
+    add_wait_queue(wait_address, &entry->wait); // 将该pollwake加入到等待链表头
+}
+
+static inline void
+init_waitqueue_func_entry(wait_queue_t *q, wait_queue_func_t func)
+{
+    q->flags      = 0;
+    q->private    = NULL;
+    q->func       = func;  //设置唤醒回调函数
+}
 ```
 
-当有事件发生时便会唤醒等待队列上的进程。比如监控的是可写事件，则会在write()方法中调用wakeup方法唤醒相对应的等待队列上的进程。
+要理解__pollwait()方法，需要先掌握[Linux等待队列](http://gityuan.com/2018/12/02/linux-wait-queue/)的sleep/wakeup机制。此处调用add_wait_queue()，将entry->wait加入到等待队列头wait_address中，另外此处wait->func唤醒回调函数为pollwake函数。
 
-#### 2.4.3 poll_schedule_timeout
+#### 2.4.4 poll_schedule_timeout
 
 ```C
 int poll_schedule_timeout(struct poll_wqueues *pwq, int state,
@@ -523,14 +514,46 @@ int poll_schedule_timeout(struct poll_wqueues *pwq, int state,
     if (!pwq->triggered) //设置超时
         rc = schedule_hrtimeout_range(expires, slack, HRTIMER_MODE_ABS);
     __set_current_state(TASK_RUNNING);
-
     smp_store_mb(pwq->triggered, 0);
-
     return rc;
 }
 ```
 
-#### 2.4.4 poll_freewait
+此时进程已处于睡眠状态， 当其他进程就绪事件发生时便会唤醒相应等待队列上的进程。比如监控的是可写事件，则会在write()方法中调用wakeup方法唤醒相对应的等待队列上的进程，接下来看看select.c中的pollwake函数。
+
+#### 2.4.5 pollwake
+
+```C
+static int pollwake(wait_queue_t *wait, unsigned mode, int sync, void *key)
+{
+    struct poll_table_entry *entry;
+
+    entry = container_of(wait, struct poll_table_entry, wait);
+    if (key && !((unsigned long)key & entry->key))
+        return 0;
+    return __pollwake(wait, mode, sync, key);
+}
+
+static int __pollwake(wait_queue_t *wait, unsigned mode, int sync, void *key)
+{
+    struct poll_wqueues *pwq = wait->private;
+    DECLARE_WAITQUEUE(dummy_wait, pwq->polling_task); //创建dummy_wait等待队列项
+    smp_wmb();
+    pwq->triggered = 1;
+    //唤醒目标进程
+    return default_wake_function(&dummy_wait, mode, sync, key);
+}
+```
+
+当该进程执行完后面的操作会进入睡眠状态，当处于睡眠状态时就绪事件触发，则会回调__pollwake()唤醒方法，执行如下流程：
+
+- 先从wait的private中获取相应的pwq；
+- 再将pwq的task_struct结构体polling_task赋值给新创建的等待队列项dummy_wait->private
+- 最后再调用default_wake_function来唤醒处于睡眠状态的进程，该方法见文章[源码解读Linux等待队列](http://gityuan.com/2018/12/02/linux-wait-queue/)中的【小节3.2.1】
+
+执行完pollwake()方法后，之前处于睡眠等待状态的进程便唤醒执行do_select的循环后，这一轮会跳出循环，然后执行poll_freewait来移除该等待队列。
+
+#### 2.4.6 poll_freewait
 
 ```C
 void poll_freewait(struct poll_wqueues *pwq)
@@ -561,6 +584,24 @@ static void free_poll_entry(struct poll_table_entry *entry)
     fput(entry->filp);
 }
 ```
+
+### 2.5 select小结
+
+do_select()是整个select的核心过程，主要工作流程如下：
+
+1. poll_initwait()：设置poll_wqueues->poll_table的成员变量poll_queue_proc为__pollwait函数；同时记录当前进程task_struct记在pwq结构体的polling_task。
+2. f_op->poll()：会调用poll_wait()，进而执行上一步设置的方法__pollwait();
+3. __pollwait()：设置wait->func唤醒回调函数为pollwake函数，并将poll_table_entry->wait加入等待队列
+4.poll_schedule_timeout()：该进程进入带有超时的睡眠状态。
+
+之后，当其他进程就绪事件发生时便会唤醒相应等待队列上的进程。比如监控的是可写事件，则会在write()方法中调用wake_up方法唤醒相对应的等待队列上的进程，当唤醒后执行前面设置的唤醒回调函数pollwake函数。
+
+5. pollwake()：先从wait->private的polling_task获取处于等待睡眠状态的目标进程，调用default_wake_function()来唤醒该进程；
+6. poll_freewait()：当进程唤醒后，将就绪事件结果保存在fds的res_in、res_out、res_ex，然后把该等待队列从该队列头中移除。
+7. 回到core_sys_select()，将就绪事件结果拷贝到用户空间。
+
+以上有个缺陷就是每次会轮询所有的fd的f_op->poll()。
+
 
 ## 三、poll源码
 
@@ -645,7 +686,7 @@ int do_sys_poll(struct pollfd __user *ufds, unsigned int nfds,
 
     poll_initwait(&table); //同上【小节2.4.1】
     fdcount = do_poll(nfds, head, &table, end_time); //见【小节3.3】
-    poll_freewait(&table); //同上【小节2.4.4】
+    poll_freewait(&table); //同上【小节2.4.6】
 
     for (walk = head; walk; walk = walk->next) {
         struct pollfd *fds = walk->entries;
@@ -738,7 +779,7 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
             expire = timespec_to_ktime(*end_time);
             to = &expire;
         }
-        //【同上2.4.3】
+        //【同上2.4.4】
         if (!poll_schedule_timeout(wait, TASK_INTERRUPTIBLE, to, slack))
             timed_out = 1;
     }
