@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "源码解读Linux等待队列机制"
+title:  "源码解读Linux等待队列"
 date:   2018-12-02 17:11:12
 catalog:  true
 tags:
