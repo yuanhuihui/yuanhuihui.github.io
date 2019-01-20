@@ -453,7 +453,7 @@ static int ep_poll_callback(wait_queue_t *wait, unsigned mode, int sync, void *k
 
     // 如果活跃，唤醒eventpoll等待队列和 ->poll()等待队列
     if (waitqueue_active(&ep->wq))
-        wake_up_locked(&ep->wq);
+        wake_up_locked(&ep->wq);  //当队列不为空，则唤醒进程
     if (waitqueue_active(&ep->poll_wait))
         pwake++;
 
@@ -463,10 +463,16 @@ out_unlock:
         ep_poll_safewake(&ep->poll_wait);
 
     if ((unsigned long)key & POLLFREE) {
-        list_del_init(&wait->task_list);
+        list_del_init(&wait->task_list); //删除相应的wait
         smp_store_release(&ep_pwq_from_wait(wait)->whead, NULL);
     }
     return 1;
+}
+
+//判断等待队列是否为空
+static inline int waitqueue_active(wait_queue_head_t *q)
+{
+	return !list_empty(&q->task_list);
 }
 ```
 
@@ -610,9 +616,9 @@ static int ep_poll(struct eventpoll *ep, struct epoll_event __user *events,
 fetch_events:
     spin_lock_irqsave(&ep->lock, flags);
 
-    if (!ep_events_available(ep)) {
+    if (!ep_events_available(ep)) {  //【小节4.2.1】
         //没有事件就绪则进入睡眠状态，当事件就绪后可通过ep_poll_callback()来唤醒
-        //将当前进程放入wait等待队列 【小节4.2.1】
+        //将当前进程放入wait等待队列 【小节4.2.2】
         init_waitqueue_entry(&wait, current); 
         //将当前进程加入eventpoll等待队列，等待文件就绪、超时或中断信号
         __add_wait_queue_exclusive(&ep->wq, &wait); 
@@ -652,7 +658,16 @@ check_events:
 
 ep_send_events将就绪事件封装成ep_send_events_data，传入用户空间。
 
-#### 4.2.1 init_waitqueue_entry
+#### 4.2.1 ep_events_available
+
+```C
+static inline int ep_events_available(struct eventpoll *ep)
+{
+	return !list_empty(&ep->rdllist) || ep->ovflist != EP_UNACTIVE_PTR;
+}
+```
+
+#### 4.2.2 init_waitqueue_entry
 
 ```C
 static inline void init_waitqueue_entry(wait_queue_t *q, struct task_struct *p)
@@ -676,5 +691,7 @@ static inline void init_waitqueue_entry(wait_queue_t *q, struct task_struct *p)
     
 之后，当其他进程就绪事件发生时便会唤醒相应等待队列上的进程。比如监控的是可写事件，则会在write()方法中调用wake_up方法唤醒相对应的等待队列上的进程，当唤醒后执行前面设置的唤醒回调函数ep_poll_callback函数。
 
-4. ep_poll_callback()：将被目标fd的就绪事件到来时，将fd对应的epitem实例添加到就绪队列
-5. 回到epoll_wait()，从队列中移除wait，再将传输就绪事件到用户空间
+4. ep_poll_callback()：目标fd的就绪事件到来时，将epi->rdllink加入ep->rdllist的队列，导致rdlist不空，从而进程被唤醒，epoll_wait得以继续执行。
+5. 回到epoll_wait()，从队列中移除wait，再将传输就绪事件到用户空间。
+
+epoll比select更高效的一点是：epoll监控的每一个文件fd就绪事件触发，导致相应fd上的回调函数ep_poll_callback()被调用
