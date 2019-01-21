@@ -9,16 +9,14 @@ url: "http://gityuan.com"              # your host, for absolute URL
 baseurl: ""                             # for example, '/blog' if your blog hosted on 'host/blog'
 
 
-
 # SNS settings
 RSS: true
 weibo_username:     gityuan
 zhihu_username:     gityuan
-google_userId:   101388994961262711072
+linkedin_username:  gityuan
+#google_userId:   101388994961262711072
 #github_username:    yuanhuihui
 #twitter_username:  gityuan
-#facebook_username:  gityuan
-# linkedin_username:  firstname-lastname-idxxxx
 
 
 
@@ -26,7 +24,7 @@ google_userId:   101388994961262711072
 # from 2016, 'pygments' is unsupported on GitHub Pages. Use 'rouge' for highlighting instead.
 highlighter: rouge
 permalink: /:year/:month/:day/:title/
-paginate: 10
+paginate: 8
 paginate_path: "page:num"
 
 exclude: ["less","node_modules","Gruntfile.js","package.json","README.md","README.zh.md"]
@@ -55,27 +53,16 @@ duoshuo_username: gityuan
 duoshuo_share: false                     # set to false if you want to use Comment without Sharing
 
 
-
-
-# Analytics settings
-# Baidu Analytics
-# ba_track_id: 4cc1f2d8f3067386cc5cdb626a202900
-# Google Analytics
-# ga_track_id: 'UA-49627206-1'            # Format: UA-xxxxxx-xx
-# ga_domain: gityuan.com
-
-
-
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
-sidebar-about-description: "Android达摩院"
+#sidebar-about-description: "Android达摩院"
 sidebar-avatar: /images/about-me/damoyuan.jpg
 
 
 
 # Featured Tags
 featured-tags: true                     # whether or not using Feature-Tags
-featured-condition-size: 2              # A tag will be featured if the size of it is more than this condition value
+featured-condition-size: 0              # A tag will be featured if the size of it is more than this condition value
 
 
 # hotpages
@@ -102,4 +89,4 @@ hotpages: [
 
 #money-alipay: /images/about-me/alipay.jpg
 #money-weixin: /images/about-me/weixin.jpg
-money-description: 如果博客对您所有帮助，欢迎打赏支持，或者分享给更多朋友。您的支持与认可，将使我更加坚持不懈地创作，谢谢您！
+money-description: 如果博客对您有所帮助，请打赏支持或者分享给更多朋友，您的支持与认可将鼓励我坚持不懈的创作，谢谢您！
