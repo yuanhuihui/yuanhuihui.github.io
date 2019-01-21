@@ -18,7 +18,7 @@ tags:
 
 Android内核是基于Linux系统, 而Linux现存多种进程间IPC方式:管道, 消息队列, 共享内存, 套接字, 信号量, 信号. 为什么Android非要用Binder来进行进程间通信呢.
 从我个人的理解角度, 曾尝试着在知乎回答同样一个问题 [为什么Android要采用Binder作为IPC机制？](https://www.zhihu.com/question/39440766/answer/89210950).
-这是我第一次认认真真地在知乎上回答问题, 收到很多网友的点赞与回复, 让我很受鼓舞, 也决心分享更多优先地文章回报读者和粉丝, 为Android圈贡献自己的微薄之力. (当然,如果你愿意点击文章最后[打赏支持](http://gityuan.com/images/about-me/gityuan_pay.jpg)我,我会更高兴.^_^)
+这是Gityuan第一次认认真真地在知乎上回答问题, 收到很多网友的点赞与回复, 让我很受鼓舞, 也决心分享更多优先地文章回报读者和粉丝, 为Android圈贡献自己的微薄之力。
 
 在说到Binder架构之前, 先简单说说大家熟悉的TCP/IP的五层通信体系结构:
 

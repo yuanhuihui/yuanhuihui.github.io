@@ -90,7 +90,19 @@
                 </p>
                 <!-- 流量统计 -->
 								<div style="display:none">
-									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+                                    <!--
+									<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1000098804'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s22.cnzz.com/z_stat.php%3Fid%3D1000098804%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>-->
+                                    
+                                    <!-- Baidu Tongji -->
+                                    <script>
+                                    var _hmt = _hmt || [];
+                                    (function() {
+                                      var hm = document.createElement("script");
+                                      hm.src = "https://hm.baidu.com/hm.js?3b1c71bfd9641a47009f87240c135d75";
+                                      var s = document.getElementsByTagName("script")[0]; 
+                                      s.parentNode.insertBefore(hm, s);
+                                    })();
+                                    </script>
 								</div>
             </div>
         </div>
@@ -160,26 +172,6 @@
     ga('send', 'pageview');
 </script>
 {% endif %}
-
-
-<!-- Baidu Tongji -->
-{% if site.ba_track_id %}
-<script>
-    // dynamic User by Hux
-    var _baId = '{{ site.ba_track_id }}';
-
-    // Originial
-    var _hmt = _hmt || [];
-    (function() {
-      var hm = document.createElement("script");
-      hm.src = "//hm.baidu.com/hm.js?" + _baId;
-      var s = document.getElementsByTagName("script")[0];
-      s.parentNode.insertBefore(hm, s);
-    })();
-</script>
-{% endif %}
-
-
 
 <!-- Side Catalog -->
 {% if page.catalog %}

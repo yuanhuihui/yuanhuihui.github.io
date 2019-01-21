@@ -100,6 +100,6 @@ hotpages: [
 
 #money settings
 
-money-alipay: /images/about-me/alipay.jpg
-money-weixin: /images/about-me/weixin.jpg
-money-description: 如果觉得我的文章对您所有帮助，请随意打赏，或者分享转发给更多朋友。您的支持与认可，将使我更加坚持不懈地创作，谢谢您！
+#money-alipay: /images/about-me/alipay.jpg
+#money-weixin: /images/about-me/weixin.jpg
+money-description: 如果博客对您所有帮助，欢迎打赏支持，或者分享给更多朋友。您的支持与认可，将使我更加坚持不懈地创作，谢谢您！
