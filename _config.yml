@@ -1,7 +1,7 @@
 # Site settings
 title: Gityuan
 SEOTitle: Gityuan博客 | 袁辉辉的Android博客
-header-img: img/nav-home.jpg
+#header-img: img/nav-home.jpg
 email: gityuan@gmail.com
 description: "Android,Gityuan,Android博客,Android源码,袁辉辉"
 keyword: "Android,Gityuan,Android博客,Android源码,袁辉辉"

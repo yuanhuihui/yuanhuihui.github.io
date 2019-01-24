@@ -2,7 +2,6 @@
 layout: page
 title: archive
 permalink: /baby/
-header-img: "img/nav-resource.jpg"
 ---
 
 > 宝妈：今天迎来了我人生的第一个父亲节，给宝宝准备的一些知识，希望我家宝宝能健健康康长大。

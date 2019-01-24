@@ -3,7 +3,7 @@ layout: page
 title: Friends
 permalink: /friends/
 description: "活跃于Android技术社区,致力于推动技术前进的有为青年"
-header-img: "img/nav-resource.jpg"
+header-img: "img/nav-about.jpg"
 ---
 
 

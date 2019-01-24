@@ -3,7 +3,6 @@ layout: page
 title: Job
 permalink: /job/
 description: "职位内推"
-header-img: "img/nav-resource.jpg"
 ---
 
 
