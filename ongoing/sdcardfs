@@ -85,7 +85,7 @@ EROFS: Linux 只读文件系统, 全称Extendable Read-Only File System，
 
 目前正处于早期开发阶段，相比于其他现存的只读文件系统，特点是改进了压缩模式，在节省存储空间的同时，关注性能和速度。EROFS 目前仍在持续开发中，磁盘上的布局格式未最终确定，目前暂未确定该技术将于何时出现在 Android 手机上。
 
-华为工程师高翔 近日在 Linux kernel 的邮件列表中，
+ 近日在 Linux kernel 的邮件列表中，
 
 https://www.oschina.net/news/96714/huawei-erofs-linux-file-system
 https://www.zhihu.com/question/279555653
@@ -95,14 +95,5 @@ https://www.zhihu.com/question/279555653
 Google的文件系统  Squashfs： 只读的压缩文件系统，
 
 
-AnandTech： 测评了AnandTech
-
-
-2012实验室
-
-NPU
-
-
-最好的相机+领先的ai技术+gpu turbo+更好的硬件升级
 
 总结：  文件系统， 图像/GPU， 芯片结合， AI
