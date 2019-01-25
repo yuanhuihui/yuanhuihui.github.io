@@ -2,6 +2,7 @@ http://gityuan.com/android/index.html
 http://gityuan.com/about/index.html
 http://gityuan.com/archive/index.html
 http://gityuan.com/tags/index.html
+http://gityuan.com/2019/01/13/arraymap/
 http://gityuan.com/2019/01/06/linux-epoll/index.html
 http://gityuan.com/2019/01/05/linux-poll-select/index.html
 http://gityuan.com/2018/12/02/linux-wait-queue/index.html
