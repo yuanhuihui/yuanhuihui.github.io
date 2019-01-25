@@ -357,7 +357,7 @@ dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理]
 整个过程中进程Trace的输出是最为核心的环节，Java和Native进程采用不同的策略，如下：
 
 |进程类型|trace命令|文章|描述|
-|Java|kill -3 [pid]|[ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)|不适用于Native进程|
+|Java|kill -3 [pid]|[解读Java进程的Trace文件](http://gityuan.com/2016/11/26/art-trace/)|不适用于Native进程|
 |Native|debuggerd -b [pid]|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)|也适用于Java进程
 
 说明：`kill -3`命令需要虚拟机的支持，所以无法输出Native进程traces.而`debuggerd -b [pid]`也可用于Java进程，但信息量远没有kill -3多。

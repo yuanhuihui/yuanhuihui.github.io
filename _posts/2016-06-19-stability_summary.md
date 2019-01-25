@@ -40,7 +40,7 @@ Android系统稳定性对于用户体验至关重要. 对于稳定性问题从�
 Java和Native进程采用不同的策略，如下：
 
 |进程类型|trace命令|文章|描述|
-|Java|kill -3 [pid]|[ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)|不适用于Native进程|
+|Java|kill -3 [pid]|[解读Java进程的Trace文件](http://gityuan.com/2016/11/26/art-trace/)|不适用于Native进程|
 |Native|debuggerd -b [pid]|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)|也适用于Java进程
 
 ### 1.2 Crash

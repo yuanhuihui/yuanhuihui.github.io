@@ -197,7 +197,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |1|[理解Android ANR的触发原理](http://gityuan.com/2016/07/02/android-anr/)|触发ANR的场景以及机理|
 |2|[Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)|input触发ANR的原理|
 |3|[理解Android ANR的信息收集过程](http://gityuan.com/2016/12/02/app-not-response/)|AMS.appNotResponding过程分析,收集traces|
-|4|[ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)|kill -3 信息收集过程|
+|4|[解读Java进程的Trace文件](http://gityuan.com/2016/11/26/art-trace/)|kill -3 信息收集过程|
 |5|[Native进程之Trace原理](http://gityuan.com/2016/11/27/native-traces/)|debuggerd -b 信息收集过程|
 |6|[WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)|WatchDog触发机制|
 |7|[理解Java   Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)|AMS.handleApplicationCrash过程分析|
@@ -299,7 +299,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 - Linux驱动篇
     - 敬请期待
 - dalvik/art
-    - [ART虚拟机之Trace原理](http://gityuan.com/2016/11/26/art-trace/)
+    - [解读Java进程的Trace文件](http://gityuan.com/2016/11/26/art-trace/)
 
 #### 4.8 工具篇
 再来说说Android相关的一些常用命令和工具以及调试手段.
