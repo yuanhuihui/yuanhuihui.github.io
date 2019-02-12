@@ -11,59 +11,70 @@ tags:
 
 > 基于Android 6.0的源码剖析， 分析Android启动过程进程号为1的init进程的工作内容
 
-    /system/core/init/
+    system/core/init/
       - init.cpp
       - init_parser.cpp
       - signal_handler.cpp
 
 ## 一、概述
 
-init是Linux系统中用户空间的第一个进程，进程号为1。Kernel启动后，在用户空间，启动init进程，并调用init中的main()方法执行init进程的职责。对于init进程的功能分为4部分：
+init进程是Linux系统中用户空间的第一个进程，进程号固定为1。Kernel启动后，在用户空间启动init进程，并调用init中的main()方法执行init进程的职责。对于init进程的功能分为4部分：
 
-- 分析和运行所有的init.rc文件;
-- 生成设备驱动节点; （通过rc文件创建）
-- 处理子进程的终止(signal方式);
-- 提供属性服务。
+- 解析并运行所有的init.rc相关文件
+- 根据rc文件，生成相应的设备驱动节点
+- 处理子进程的终止(signal方式)
+- 提供属性服务的功能
 
 接下来从main()方法说起。
 
-### 1.1 main
+#### 1.1 main
 [-> init.cpp]
 
 ```CPP
+static int epoll_fd = -1;
+
 int main(int argc, char** argv) {
     ...
-    umask(0); //设置文件属性0777
+    //设置文件属性0777
+    umask(0); 
+    //初始化内核log，位于节点/dev/kmsg【见小节1.2】
+    klog_init();
+    //设置输出的log级别
+    klog_set_level(KLOG_NOTICE_LEVEL);
     
-    klog_init();  //初始化kernel log，位于设备节点/dev/kmsg【见小节1.2】
-    klog_set_level(KLOG_NOTICE_LEVEL); //设置输出的log级别
-    // 输出init启动阶段的log
-    NOTICE("init%s started!\n", is_first_stage ? "" : " second stage");
-    
-    property_init(); //创建一块共享的内存空间，用于属性服务
-    signal_handler_init();  //初始化子进程退出的信号处理过程【见小节2.1】
+    //创建一块共享的内存空间，用于属性服务【见小节5.1】
+    property_init(); 
+    //初始化epoll功能
+    epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+    //初始化子进程退出的信号处理函数，并调用epoll_ctl设置signal fd可读的回调函数【见小节2.1】
+    signal_handler_init();  
 
-    property_load_boot_defaults(); //加载default.prop文件
-    start_property_service();   //启动属性服务器(通过socket通信)【见小节5.1】
-    init_parse_config_file("/init.rc"); //解析init.rc文件
+    //加载default.prop文件
+    property_load_boot_defaults(); 
+    //启动属性服务器，此处会调用epoll_ctl设置property fd可读的回调函数【见小节5.2】
+    start_property_service();   
+    //解析init.rc文件
+    init_parse_config_file("/init.rc"); 
 
-    //执行rc文件中触发器为 on early-init的语句
+    //执行rc文件中触发器为on early-init的语句
     action_for_each_trigger("early-init", action_add_queue_tail);
     //等冷插拔设备初始化完成
     queue_builtin_action(wait_for_coldboot_done_action, "wait_for_coldboot_done");
     queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
-    //设备组合键的初始化操作
+    //设备组合键的初始化操作，此处会调用epoll_ctl设置keychord fd可读的回调函数
     queue_builtin_action(keychord_init_action, "keychord_init");
+    
     // 屏幕上显示Android静态Logo 【见小节1.3】
     queue_builtin_action(console_init_action, "console_init");
     
-    //执行rc文件中触发器为 on init的语句
+    //执行rc文件中触发器为on init的语句
     action_for_each_trigger("init", action_add_queue_tail);
     queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
     
     char bootmode[PROP_VALUE_MAX];
     //当处于充电模式，则charger加入执行队列；否则late-init加入队列。
-    if (property_get("ro.bootmode", bootmode) > 0 && strcmp(bootmode, "charger") == 0) {
+    if (property_get("ro.bootmode", bootmode) > 0 && strcmp(bootmode, "charger") == 0) 
+    {
        action_for_each_trigger("charger", action_add_queue_tail);
     } else {
        action_for_each_trigger("late-init", action_add_queue_tail);
@@ -74,7 +85,8 @@ int main(int argc, char** argv) {
     while (true) {
         if (!waiting_for_exec) {
             execute_one_command();
-            restart_processes(); //【见小节1.4】
+             //根据需要重启服务【见小节1.4】
+            restart_processes();
         }
         int timeout = -1;
         if (process_needs_restart) {
@@ -87,7 +99,7 @@ int main(int argc, char** argv) {
         }
 
         epoll_event ev;
-        //循环 等待事件发生
+        //循环等待事件发生
         int nr = TEMP_FAILURE_RETRY(epoll_wait(epoll_fd, &ev, 1, timeout));
         if (nr == -1) {
             ERROR("epoll_wait failed: %s\n", strerror(errno));
@@ -99,7 +111,9 @@ int main(int argc, char** argv) {
 }
 ```
 
-### 1.2 log系统
+init进程执行完成后进入循环等待epoll_wait的状态。
+
+#### 1.2 log系统
 
 此时android的log系统还没有启动，采用kernel的log系统，打开的设备节点/dev/kmsg，
 那么可通过`cat /dev/kmsg`来获取内核log。
@@ -114,7 +128,7 @@ int main(int argc, char** argv) {
     #define KLOG_DEBUG_LEVEL   7
     #define KLOG_DEFAULT_LEVEL  3 //默认为3
 
-### 1.3 console_init_action
+#### 1.3 console_init_action
 [-> init.cpp]
 
     static int console_init_action(int nargs, char **args)
@@ -156,7 +170,7 @@ int main(int argc, char** argv) {
 
 这便是开机显示的底部带ANDROID字样的画面。
 
-### 1.4 restart_processes
+#### 1.4 restart_processes
 [-> init.cpp]
 
     static void restart_processes()
@@ -186,6 +200,8 @@ int main(int argc, char** argv) {
 
 之后再调用service_start来启动服务。
 
+接下来，解读init的main方法中的4大块核心知识点：信号处理、rc文件语法、启动服务以及属性服务。
+
 ## 二、信号处理
 
 在小节[1.1]的init.cpp的main()方法中通过signal_handler_init()来初始化信号处理过程。
@@ -197,7 +213,7 @@ int main(int argc, char** argv) {
 - 注册epoll句柄；
 - 处理子进程的终止；
 
-### 2.1 signal_handler_init
+#### 2.1 signal_handler_init
 [-> signal_handler.cpp]
 
     void signal_handler_init() {
@@ -215,8 +231,11 @@ int main(int argc, char** argv) {
         //SA_NOCLDSTOP使init进程只有在其子进程终止时才会受到SIGCHLD信号
         act.sa_flags = SA_NOCLDSTOP;
         sigaction(SIGCHLD, &act, 0);
-        reap_any_outstanding_children(); 【见小节2.2】
-        register_epoll_handler(signal_read_fd, handle_signal);  //【见小节2.3】
+        
+        //进入waitpid来处理子进程是否退出的情况【见小节2.2】
+        reap_any_outstanding_children(); 
+        //调用epoll_ctl方法来注册epoll的回调函数【见小节2.3】
+        register_epoll_handler(signal_read_fd, handle_signal); 
     }
 
 每个进程在处理其他进程发送的signal信号时都需要先注册，当进程的运行状态改变或终止时会产生某种signal信号，init进程是所有用户空间进程的父进程，当其子进程终止时产生SIGCHLD信号，init进程调用信号安装函数sigaction()，传递参数给sigaction结构体，便完成信号处理的过程。
@@ -234,12 +253,12 @@ int main(int argc, char** argv) {
     //读取数据
     static void handle_signal() {
         char buf[32];
-        //读取signal_read_fd数据，放入buf
+        //读取signal_read_fd中的数据，并放入buf
         read(signal_read_fd, buf, sizeof(buf));
-        reap_any_outstanding_children(); 【见流程3-1】
+        reap_any_outstanding_children(); 【见小节2.2】
     }
 
-### 2.2 reap_any_outstanding_children
+#### 2.2 reap_any_outstanding_children
 [-> signal_handler.cpp]
 
     static void reap_any_outstanding_children() {
@@ -253,10 +272,10 @@ int main(int argc, char** argv) {
         if (pid == 0) {
             return false;
         } else if (pid == -1) {
-            ERROR("waitpid failed: %s\n", strerror(errno));
             return false;
         }
-        service* svc = service_find_by_pid(pid); //根据pid查找到相应的service
+        //根据pid查找到相应的service
+        service* svc = service_find_by_pid(pid); 
         std::string name;
 
         if (!svc) {
@@ -325,12 +344,12 @@ int main(int argc, char** argv) {
 
 另外：通过`getprop | grep init.svc` 可查看所有的service运行状态。状态总共分为：running, stopped, restarting
 
-### 2.3 register_epoll_handler
+#### 2.3 register_epoll_handler
 [-> signal_handler.cpp]
 
     void register_epoll_handler(int fd, void (*fn)()) {
         epoll_event ev;
-        ev.events = EPOLLIN; //可读
+        ev.events = EPOLLIN;
         ev.data.ptr = reinterpret_cast<void*>(fn);
         //将fd的可读事件加入到epoll_fd的监听队列中
         if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
@@ -338,13 +357,15 @@ int main(int argc, char** argv) {
         }
     }
 
+当fd可读，则会触发调用(*fn)函数。
+
 ## 三、rc文件语法
 
 rc文件语法是以行尾单位，以空格间隔的语法，以#开始代表注释行。rc文件主要包含Action、Service、Command、Options，其中对于Action和Service的名称都是唯一的，对于重复的命名视为无效。
 
-### 3.1 Action
+#### 3.1 Action
 
-Action： 通过trigger，即以 on开头的语句，决定何时执行相应的service。
+Action： 通过触发器trigger，即以on开头的语句来决定执行相应的service的时机，具体有如下时机：
 
 - on early-init; 在初始化早期阶段触发；
 - on init; 在初始化阶段触发；
@@ -352,12 +373,12 @@ Action： 通过trigger，即以 on开头的语句，决定何时执行相应的
 - on boot/charger： 当系统启动/充电时触发，还包含其他情况，此处不一一列举；
 - on property:\<key\>=\<value\>: 当属性值满足条件时触发；
 
-### 3.2 Service
-服务Service，以 service开头，由init进程启动，一般运行于另外一个init的子进程，所以启动service前需要判断对应的可执行文件是否存在。init生成的子进程，定义在rc文件，其中每一个service，在启动时会通过fork方式生成子进程。
+#### 3.2 Service
+服务Service，以 service开头，由init进程启动，一般运行在init的一个子进程，所以启动service前需要判断对应的可执行文件是否存在。init生成的子进程，定义在rc文件，其中每一个service在启动时会通过fork方式生成子进程。
 
-例如： `service servicemanager /system/bin/servicemanager`代表的是服务名为servicemanager，服务的路径，也就是服务执行操作时运行/system/bin/servicemanager。
+例如： `service servicemanager /system/bin/servicemanager`代表的是服务名为servicemanager，服务执行的路径为/system/bin/servicemanager。
 
-### 3.3 Command
+#### 3.3 Command
 下面列举常用的命令
 
 - class_start \<service_class_name\>： 启动属于同一个class的所有服务；
@@ -371,8 +392,8 @@ Action： 通过trigger，即以 on开头的语句，决定何时执行相应的
 - exprot \<name\> \<name\>：设定环境变量；
 - loglevel \<level\>：设置log级别
 
-### 3.4 Options
-Options是Services的可选项，与service配合使用
+#### 3.4 Options
+Options是Service的可选项，与service配合使用
 
 - disabled: 不随class自动启动，只有根据service名才启动；
 - oneshot: service退出后不再重启；
@@ -386,37 +407,35 @@ Options是Services的可选项，与service配合使用
 
 ## 四、启动服务
 
-### 4.1 启动顺序
+#### 4.1 启动顺序
 
     on early-init
     on init
-    on late-init //挂载文件系统，启动核心服务
-        trigger post-fs
+    on late-init
+        trigger post-fs      
         trigger load_system_props_action 
-        trigger post-fs-data //挂载data
+        trigger post-fs-data  
         trigger load_persist_props_action
         trigger firmware_mounts_complete
-        trigger boot
+        trigger boot   
         
-    on post-fs
+    on post-fs      //挂载文件系统
         start logd
         mount rootfs rootfs / ro remount
         mount rootfs rootfs / shared rec 
         mount none /mnt/runtime/default /storage slave bind rec
         ...
          
-    on post-fs-data
+    on post-fs-data  //挂载data
         start logd
-        start vold //启动vold
+        start vold   //启动vold
         ...
         
-    on boot
+    on boot      //启动核心服务
         ...
         class_start core //启动core class
         
-由on early-init -> init -> late-init -> boot。
-
-先启动core class, 至于main class的启动是由vold.decrypt的以下4个值的设置所决定的，
+触发器的执行顺序为on early-init -> init -> late-init，从上面的代码可知，在late-init触发器中会触发文件系统挂载以及on boot。再on boot过程会触发启动core class。至于main class的启动是由vold.decrypt的以下4个值的设置所决定的，
 该过程位于system/vold/cryptfs.c文件。
 
     on nonencrypted
@@ -438,7 +457,7 @@ Options是Services的可选项，与service配合使用
         class_reset main
 
       
-### 4.2 服务启动(Zygote)
+#### 4.2 服务启动(Zygote)
 在init.zygote.rc文件中，zygote服务定义如下：
 
     service zygote /system/bin/app_process -Xzygote /system/bin --zygote --start-system-server
@@ -449,7 +468,11 @@ Options是Services的可选项，与service配合使用
         onrestart restart media
         onrestart restart netd
 
-通过`init_parser.cpp`完成整个service解析工作，此处就不详细展开讲解析过程，该过程主要是创建一个名"zygote"的service结构体，一个socketinfo结构体(用于socket通信)，以及一个包含4个onrestart的action结构体。
+通过`init_parser.cpp`完成整个service解析工作，此处就不详细展开讲解析过程，该过程主要工作是：
+
+- 创建一个名叫"zygote"的service结构体；
+- 创建一个用于socket通信的socketinfo结构体；
+- 创建一个包含4个onrestart的action结构体。
 
 Zygote服务会随着main class的启动而启动，退出后会由init重启zygote，即使多次重启也不会进入recovery模式。zygote所对应的可执行文件是/system/bin/app_process，通过调用`pid =fork()`创建子进程，通过`execve(svc->args[0], (char**)svc->args, (char**) ENV)`，进入App_main.cpp的main()函数。故zygote是通过fork和execv共同创建的。
 
@@ -459,7 +482,7 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
 
 而关于Zygote重启在前面的信号处理过程中讲过，是处理SIGCHLD信号，init进程重启zygote进程，更多关于Zygote内容见[Zygote篇](http://gityuan.com/2016/02/13/android-zygote/)。
 
-### 4.3 服务重启
+#### 4.3 服务重启
 
 ![init_oneshot](/images/boot/init/init_oneshot.jpg)
 
@@ -508,7 +531,7 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
 
 当某个进程A，通过property_set()修改属性值后，init进程会检查访问权限，当权限满足要求后，则更改相应的属性值，属性值一旦改变则会触发相应的触发器（即rc文件中的on开头的语句)，在Android Shared Memmory（共享内存区域）中有一个_system_property_area_区域，里面记录着所有的属性值。对于进程A通过property_get（）方法，获取的也是该共享内存区域的属性值。
 
-### 5.1 初始化
+#### 5.1 property_init
 [-> property_service.cpp]
 
     void property_init() {
@@ -517,18 +540,19 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
             return;
         }
         property_area_initialized = true;
+        //创建共享内存
         if (__system_property_area_init()) {
             return;
         }
         pa_workspace.size = 0;
         pa_workspace.fd = open(PROP_FILENAME, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
-        if (pa_workspace.fd == -1) {
-            ERROR("Failed to open %s: %s\n", PROP_FILENAME, strerror(errno));
-            return;
-        }
     }
 
-在properyty_init函数中，先调用init_property_area函数，创建一块用于存储属性的共享内存，而共享内存是可以跨进程的。
+该方法核心功能在执行__system_property_area_init()方法，创建用于跨进程的共享内存。主要工作如下：
+
+- 执行open()，打开名为”/dev/__properties__“的共享内存文件，并设置大小为128KB；
+- 执行mmap()，将该内存映射到init进程；
+- 将该内存的首地址保存在全局变量__system_property_area__，后续的增加或者修改属性都基于该变量来计算位置。
 
 
 **关于加载的prop文件**
@@ -541,11 +565,45 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
 4. /data/local.prop；
 5. /data/property路径下的persist属性
 
-### 5.2 属性类别
+#### 5.2 start_property_service
+[-> property_service.cpp]
+
+```Java
+void start_property_service() {
+    property_set("ro.property_service.version", "2");
+
+    property_set_fd = CreateSocket(PROP_SERVICE_NAME, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
+                                   false, 0666, 0, 0, nullptr, sehandle);
+    listen(property_set_fd, 8);
+    //设置property文件描述符可读的回调函数【见小节2.3】
+    register_epoll_handler(property_set_fd, handle_property_set_fd);
+}
+```
+
+创建并监听名叫“property_service”的socket，再利用epoll_ctl设置property文件描述符触发可读时的回调函数为handle_property_set_fd。
+
+
+#### 5.3 属性类别
 
 1. 属性名以`ctl.`开头，则表示是控制消息，控制消息用来执行一些命令。例如：
     - setprop ctl.start bootanim 查看开机动画；
     - setprop ctl.stop bootanim 关闭开机动画；
-    - setprop ctl.start pre-recovery 进入recovery模式。
-2. 属性名以`ro.`开头，则表示是只读的，不能设置，所以直接返回。
-3. 属性名以`persist.`开头，则需要把这些值写到对应文件中去。
+    - setprop ctl.start pre-recovey 进入recovery模式；
+2. 属性名以`ro.`开头，则表示是只读的，不能设置，所以直接返回；
+3. 属性名以`persist.`开头，则需要把这些值写到对应文件；需要注意的是，persist用于持久化保存某些属性值，当同时也带来了额外的IO操作。
+
+## 六、总结
+
+init进程(pid=0)是Linux系统中用户空间的第一个进程，主要工作如下：
+
+- 创建一块共享的内存空间，用于属性服务器;
+- 解析各个rc文件，并启动相应属性服务进程;
+- 初始化epoll，依次设置signal、property、keychord这3个fd可读时相对应的回调函数;
+- 进入无限循环状态，执行如下流程：
+    - 检查action_queue列表是否为空，若不为空则执行相应的action;
+    - 检查是否需要重启的进程，若有则将其重新启动;
+    - 进入epoll_wait等待状态，直到系统属性变化事件(property_set改变属性值)，或者收到子进程的信号SIGCHLD，再或者keychord
+    键盘输入事件，则会退出等待状态，执行相应的回调函数。
+    
+可见init进程在开机之后的核心工作就是响应property变化事件和回收僵尸进程。当某个进程调用property_set来改变一个系统属性值时，系统会通过socket向init进程发送一个property变化的事件通知，那么property fd会变成可读，init进程采用epoll机制监听该fd则会
+触发回调handle_property_set_fd()方法。回收僵尸进程，在Linux内核中，如父进程不等待子进程的结束直接退出，会导致子进程在结束后变成僵尸进程，占用系统资源。为此，init进程专门安装了SIGCHLD信号接收器，当某些子进程退出时发现其父进程已经退出，则会向init进程发送SIGCHLD信号，init进程调用回调方法handle_signal()来回收僵尸子进程。
