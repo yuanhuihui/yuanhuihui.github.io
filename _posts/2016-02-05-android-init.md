@@ -580,17 +580,139 @@ void start_property_service() {
 }
 ```
 
-创建并监听名叫“property_service”的socket，再利用epoll_ctl设置property文件描述符触发可读时的回调函数为handle_property_set_fd。
+创建并监听名叫“property_service”的socket，再利用epoll_ctl设置property文件描述符触发可读时的回调函数为handle_property_set_fd，接下来看看该函数的实现。
 
+#### 5.3 handle_property_set_fd
 
-#### 5.3 属性类别
+```Java
+static void handle_property_set_fd() {
+    static constexpr uint32_t kDefaultSocketTimeout = 2000; /* ms */
 
-1. 属性名以`ctl.`开头，则表示是控制消息，控制消息用来执行一些命令。例如：
+    int s = accept4(property_set_fd, nullptr, nullptr, SOCK_CLOEXEC);
+
+    struct ucred cr;
+    socklen_t cr_size = sizeof(cr);
+    getsockopt(s, SOL_SOCKET, SO_PEERCRED, &cr, &cr_size) < 0)；
+
+    SocketConnection socket(s, cr);
+    uint32_t timeout_ms = kDefaultSocketTimeout; //设置2秒超时
+
+    uint32_t cmd = 0;
+    if (!socket.RecvUint32(&cmd, &timeout_ms)) {
+        socket.SendUint32(PROP_ERROR_READ_CMD);
+        return;
+    }
+
+    switch (cmd) {
+    case PROP_MSG_SETPROP: {
+        char prop_name[PROP_NAME_MAX];
+        char prop_value[PROP_VALUE_MAX];
+
+        if (!socket.RecvChars(prop_name, PROP_NAME_MAX, &timeout_ms) ||
+            !socket.RecvChars(prop_value, PROP_VALUE_MAX, &timeout_ms)) {
+          return;
+        }
+
+        prop_name[PROP_NAME_MAX-1] = 0;
+        prop_value[PROP_VALUE_MAX-1] = 0;
+        //设置property【见小节5.4】
+        handle_property_set(socket, prop_value, prop_value, true);
+        break;
+      }
+
+    case PROP_MSG_SETPROP2: {
+        std::string name;
+        std::string value;
+        if (!socket.RecvString(&name, &timeout_ms) ||
+            !socket.RecvString(&value, &timeout_ms)) {
+          socket.SendUint32(PROP_ERROR_READ_DATA);
+          return;
+        }
+        //设置property【见小节5.4】
+        handle_property_set(socket, name, value, false);
+        break;
+      }
+
+    default:
+        socket.SendUint32(PROP_ERROR_INVALID_CMD);
+        break;
+    }
+}
+```
+
+这里针对socket接收事件设置2秒超时，也就是说property的设置过程有可能耗时。
+
+#### 5.4 handle_property_set
+
+```Java
+static void handle_property_set(SocketConnection& socket,
+                                const std::string& name,
+                                const std::string& value,
+                                bool legacy_protocol) {
+  const char* cmd_name = legacy_protocol ? "PROP_MSG_SETPROP" : "PROP_MSG_SETPROP2";
+  if (!is_legal_property_name(name)) { //检查属性名是否合规
+    socket.SendUint32(PROP_ERROR_INVALID_NAME);
+    return;
+  }
+
+  struct ucred cr = socket.cred();
+  char* source_ctx = nullptr;
+  getpeercon(socket.socket(), &source_ctx);
+
+  if (android::base::StartsWith(name, "ctl.")) {
+    if (check_control_mac_perms(value.c_str(), source_ctx, &cr)) {
+      //处理以ctl.开头的属性
+      handle_control_message(name.c_str() + 4, value.c_str());
+    }
+    ...
+  } else {
+    if (check_perms(name, source_ctx, &cr)) {
+      //设置属性名和属性值
+      uint32_t result = property_set(name, value);
+    }
+    ...
+  }
+  freecon(source_ctx);
+}
+```
+
+这里会检测属性名是否合规，具体检查规范如下：
+
+```Java
+bool is_legal_property_name(const std::string& name) {
+    size_t namelen = name.size();
+
+    if (namelen < 1) return false;
+    if (name[0] == '.') return false;
+    if (name[namelen - 1] == '.') return false;
+
+    /* Only allow alphanumeric, plus '.', '-', '@', ':', or '_' */
+    /* Don't allow ".." to appear in a property name */
+    for (size_t i = 0; i < namelen; i++) {
+        if (name[i] == '.') {
+            // i=0 is guaranteed to never have a dot. See above.
+            if (name[i-1] == '.') return false;
+            continue;
+        }
+        if (name[i] == '_' || name[i] == '-' || name[i] == '@' || name[i] == ':') continue;
+        if (name[i] >= 'a' && name[i] <= 'z') continue;
+        if (name[i] >= 'A' && name[i] <= 'Z') continue;
+        if (name[i] >= '0' && name[i] <= '9') continue;
+        return false;
+    }
+
+    return true;
+}
+```
+
+另外，针对不同属性执行逻辑有所不同，主要区分如下：
+
+- 属性名以`ctl.`开头，则表示是控制消息，控制消息用来执行一些命令。例如：
     - setprop ctl.start bootanim 查看开机动画；
     - setprop ctl.stop bootanim 关闭开机动画；
     - setprop ctl.start pre-recovey 进入recovery模式；
-2. 属性名以`ro.`开头，则表示是只读的，不能设置，所以直接返回；
-3. 属性名以`persist.`开头，则需要把这些值写到对应文件；需要注意的是，persist用于持久化保存某些属性值，当同时也带来了额外的IO操作。
+- 属性名以`ro.`开头，则表示是只读的，不能设置，所以直接返回；
+- 属性名以`persist.`开头，则需要把这些值写到对应文件；需要注意的是，persist用于持久化保存某些属性值，当同时也带来了额外的IO操作。
 
 ## 六、总结
 
