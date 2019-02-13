@@ -553,13 +553,13 @@ App进程调用startService去启动服务，其中`mRemote`指向AMS服务的Bi
 - 当收到BR_DEAD_REPLY,则抛出err=DEAD_OBJECT:
   - 则抛出异常为`DeadObjectException`
 - 当收到BR_FAILED_REPLY, 则抛出err=FAILED_TRANSACTION：
-  - 当parcelSize > 200M, 则抛出`TransactionTooLargeException`，异常内容为"data parcel size %d bytes";
-  - 当parcelSize <= 200M, 则抛出`DeadObjectException`，异常内容为"Transaction failed on small parcel; remote process probably died";
+  - 当parcelSize > 200K, 则抛出`TransactionTooLargeException`，异常内容为"data parcel size %d bytes";
+  - 当parcelSize <= 200K, 则抛出`DeadObjectException`，异常内容为"Transaction failed on small parcel; remote process probably died";
 
 说明：
 
 FAILED_TRANSACTION,这是所有exception中可能出现频率最高的,即便抛出TransactionTooLargeException,并不意味着就是transaction数据太大, 有可能是transaction异常,或者FD关闭, 这个应该需要进一步细化详细的异常情况.
-当parcelSize <= 200M时抛出FAILED_TRANSACTION异常, Google根据大量实践经验得出往往都是在binder transaction正在途中时, 远程进程正好死亡而导致的.
+当parcelSize <= 200K时抛出FAILED_TRANSACTION异常, Google根据大量实践经验得出往往都是在binder transaction正在途中时, 远程进程正好死亡而导致的.
   
 ##### 5.1 signalExceptionForError
 

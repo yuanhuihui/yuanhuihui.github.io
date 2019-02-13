@@ -705,7 +705,49 @@ bool is_legal_property_name(const std::string& name) {
 }
 ```
 
-另外，针对不同属性执行逻辑有所不同，主要区分如下：
+```Java
+uint32_t property_set(const std::string& name, const std::string& value) {
+    return PropertySetImpl(name, value);
+}
+
+static uint32_t PropertySetImpl(const std::string& name, const std::string& value) {
+    size_t valuelen = value.size();
+
+    if (!is_legal_property_name(name)) {
+        return PROP_ERROR_INVALID_NAME;
+    }
+
+    if (valuelen >= PROP_VALUE_MAX) { //属性名不可过长
+        return PROP_ERROR_INVALID_VALUE;
+    }
+
+    prop_info* pi = (prop_info*) __system_property_find(name.c_str());
+    if (pi != nullptr) {
+        // 以ro.开头的属性不可更改
+        if (android::base::StartsWith(name, "ro.") 
+            && strcmp(name.c_str(),"ro.build.software.version")) {
+            return PROP_ERROR_READ_ONLY_PROPERTY;
+        }
+        //更新属性
+        __system_property_update(pi, value.c_str(), valuelen);
+    } else {
+        //添加属性
+        int rc = __system_property_add(name.c_str(), name.size(), value.c_str(), valuelen);
+    }
+
+    //以persist.开头的属性需要持久化
+    if (persistent_properties_loaded && android::base::StartsWith(name, "persist.")) {
+        write_persistent_property(name.c_str(), value.c_str());
+    }
+    //属性值改变的通知过程
+    property_changed(name, value);
+    return PROP_SUCCESS;
+}
+
+```
+
+
+不同属性执行逻辑有所不同，主要区分如下：
 
 - 属性名以`ctl.`开头，则表示是控制消息，控制消息用来执行一些命令。例如：
     - setprop ctl.start bootanim 查看开机动画；

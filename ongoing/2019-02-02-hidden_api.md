@@ -1,3 +1,33 @@
+---
+layout: post
+title:  "理解internal API的限制原理"
+date:   2019-02-2 22:11:12
+catalog:  true
+tags:
+    - android
+
+---
+
+本文基于原生Android 9.0源码来解读hidden API的限制
+
+## 一、引言
+
+每一次Android大版本的升级，往往会有大量的APP出现兼容性问题，导致这个情况的主要原因是由于APP的热修复SDKs以及依赖Android internal API。
+
+Google希望未来Android大版本升级，APP都能正常运行，为了实现这个目标，Google从Android P开始限制对内部API的使用，内部APIs是指标记@hide的类、方法以及字段，APP对内部API的调用只能通过反射或JNI间接调用的方法来调用。目前限制不是很完善，存在一些漏洞，可能有些APP会利用漏洞继续使用，但这是不推荐的方式，标记@hide的类、方法以及字段在跨版本之间的兼容性将会无法保障，如果继续使用，那么后续出现兼容性问题将不再另行通知。
+
+![hidden-api-exp](images/hidden-api/hidden-api-exp.png)
+
+因此，建议APP减少使用非SDK接口以提升稳定性。
+
+
+## 二、内部API限制
+
+
+
+
+## 名单
+
 前四个Preview 3:
 
 1. 创建黑名单、深灰：hiddenapi-dark-greylist.txt，hiddenapi-blacklist.txt
