@@ -323,7 +323,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |2|[深度解读ArrayMap优势与缺陷](http://gityuan.com/2019/01/13/arraymap/)|ArrayMap|
 |3|[数组越界导致系统重启的案例](http://gityuan.com/2018/02/10/reboot-locked-method/)|数组越界|
 |4|[一行Log引发多线程并发问题的案例](http://gityuan.com/2018/02/03/log-fc/)|多线程并发|
-|5|[深度剖析APP保活案例](http://gityuan.com/2018/02/17/process-keep-forever/)|保活|
+|5|[深度剖析APP保活案例](http://gityuan.com/2018/02/24/process-keep-forever/)|保活|
 
 
 ### 五、结束语
