@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android调试技巧(一)"
+title:  "Android打印Trace堆栈"
 date:   2017-07-09 22:19:53
 catalog:    true
 tags:

@@ -466,6 +466,6 @@ void MemberSignature::WarnAboutAccess(AccessMethod access_method,
 
 Android 7.0针对Native lib引入了namespace来限制平台lib对外的可见性，普通APP在Android N上不能直接调用系统私有库，Android系统允许调用的公用库定义在[public.libraries.android.txt](https://android.googlesource.com/platform/system/core/+/refs/heads/master/rootdir/etc/public.libraries.android.txt)。 这个feature只针对target SDK为24及以上的APP。
 
-Android 7.0限制对C/C++代码的NDK，Android 9.0限制对Java的SDK。这一以来APP想要使用利用API来搞黑科技的难度就大大增加。
+Android 7.0限制对C/C++代码的NDK，Android 9.0限制对Java的SDK。这一以来APP想利用内部API搞黑科技的难度以及不稳定性都会有所增加。
 
 最后说一点，目前网络有一些开发者发表了关于非SDK接口限制的绕过技术，但基本没有APP是通过这些漏洞方式来突破隐藏API的访问，说明大家有所顾忌，这对生态来说是好事。另外关于绕过技术对于Google和手机厂商都已注意到，要简单封杀容易但可能会带来调试与复杂度的提升，所以Google正在积极寻找平衡接口限制与运行时易于调试之间的平衡，相信很快Google会有更完善的解决方案。
