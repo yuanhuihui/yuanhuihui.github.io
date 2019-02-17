@@ -314,6 +314,8 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |7|[调试系列1：bugreport源码篇](http://gityuan.com/2016/06/10/bugreport/)|bugreport|
 |8|[调试系列2：bugreport实战篇](http://gityuan.com/2016/06/11/bugreport-2/)|bugreport|
 |9|[dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)|dumpsys|
+|10|[介绍gdb调试工具](http://gityuan.com/2017/09/09/gdb/)|gdb|
+|11|[介绍addr2line调试命令](http://gityuan.com/2017/09/02/addr2line/)|addr2line|
 
 #### 4.9 实战篇
 下面列举处理过的部分较为典型的案例，供大家参考
@@ -330,7 +332,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 ### 五、结束语
 
 **计划：** 后续持续新增和完善整个大纲，不限于进程、内存、IO、系统服务框架，整体架构以及各种系统分析实战等文章。
-博客会持续更新，各个击破，本文最近更新时间点: `2019.01.20`.
+博客会持续更新，本文最近更新时间点: `2019.01.26`.
 
 ---
 
