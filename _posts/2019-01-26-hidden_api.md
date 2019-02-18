@@ -34,7 +34,7 @@ Android 7.0对Native的NDK的调用限制是手铐，而Android 9.0对Java层SDK
 ## 二、内部API限制
 
 Android P限制APP对内部API的调用，而内部API只能通过反射或JNI间接调用，那么限制机制必然是在反射和JNI方法调用链中插入判断逻辑。
-接下来从getDeclaredMethod()说起。
+在下面小节2.4.2会讲述到所有的限制场景，这里以反射获取方法的getDeclaredMethod()为例来展开说明，其他反射或JNI调用也是类似的逻辑。
 
 ### 2.1 getDeclaredMethod
 

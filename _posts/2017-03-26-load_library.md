@@ -49,7 +49,7 @@ tags:
 
     void loadLibrary(String libraryName, ClassLoader loader) {
         if (loader != null) {
-            //[见小节2.4]
+            //[见小节2.4.1]
             String filename = loader.findLibrary(libraryName);
             if (filename == null) {
                 throw new UnsatisfiedLinkError(...);
@@ -131,7 +131,7 @@ BaseDexClassLoader对象, 并且没有覆写该方法, 故调用其父类所对�
         public BaseDexClassLoader(String dexPath, File optimizedDirectory,
                 String libraryPath, ClassLoader parent) {
             super(parent);
-            //dexPath一般是指apk所在路径
+            //dexPath一般是指apk所在路径【小节2.4.2】
             this.pathList = new DexPathList(this, dexPath, libraryPath, optimizedDirectory);
         }
 
