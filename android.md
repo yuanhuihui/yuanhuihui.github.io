@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  " Android系统开篇"
+title:  " Android系统架构开篇"
 permalink: /android/
 date:   2016-04-01 11:49:40
 catalog:  true
@@ -127,14 +127,14 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 
 Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中采用Socket通信方式的主要：
 
-- zygote：用于孵化进程，系统进程system_server孵化进程时便通过socket向zygote进程发起请求；
+- zygote：用于孵化进程，system_server创建进程是通过socket向zygote进程发起请求；
 - installd：用于安装App的守护进程，上层PackageManagerService很多实现最终都是交给它来完成；
 - lmkd：lowmemorykiller的守护进程，Java层的LowMemoryKiller最终都是由lmkd来完成；
 - adbd：这个也不用说，用于服务adb；
 - logcatd:这个不用说，用于服务logcat；
 - vold：即volume Daemon，是存储类的守护进程，用于负责如USB、Sdcard等存储设备的事件处理。
 
-等等还有很多，这里不一一列举，Socket方式更多的用于Android framework层与native层之间的通信。Socket通信方式相对于binder非常简单，所以一直没有写相关文章，为了成一个体系，下次再补上。
+等等还有很多，这里不一一列举，Socket方式更多的用于Android framework层与native层之间的通信。Socket通信方式相对于binder比较简单，这里省略。
 
 #### 3.3 Handler
 
@@ -156,15 +156,13 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 ###  四、核心提纲
 
-2016年新的一年刚开始，首先祝大家、也祝自己在新的一年诸事顺心，事业蒸蒸日上。在过去的一年，对于Android从底层一路到上层有不少自己的理解和沉淀，但总体较零散，未成体系。借着今天（元旦假日的最后一天），给自己的新的一年提前做一个计划，把知识进行归档整理与再学习，从而加深对Android架构的理解。通过前面对系统启动的介绍，相信大家对Android系统有了一个整体观，接下来需要抓核心、理思路，争取各个击破。
+博主对于Android从系统底层一路到上层有自己的理解和沉淀，通过前面对系统启动的介绍，相信大家对Android系统有了一个整体观，接下来需要抓核心、理思路，争取各个击破。后续持续新增和完善整个大纲，不限于进程、内存、IO、系统服务框架，整体架构以及各种系统分析实战等文章。
 
-**计划：**不少文章还没来得及进一步加工，大篇章的源码，有读者跟我反馈看着发困，先别急，文章还会不断更新和升级。前期计划先将系统所有核心技术点的边整理边写博客；
-后期工作有时间再根据大家的反馈以及自己的校验，再不断修正和完善所有文章，争取给文章，再进一步精简非核心代码，增加可视化图表以及文字的结论性分析。
-
-**博客定位：** 基于`Android 6.0的源码`，专注于分享Android系统原理、架构分析的原创文章。   
+当然本站有一些文章没来得及进一步加工，有时间根据大家的反馈，不断修正和完善所有文章，争取给文章，再进一步精简非核心代码，增加可视化图表以及文字的结论性分析。基于**Android 6.0的源码**，专注于分享Android系统原理、架构分析的原创文章。  
+ 
 **建议阅读群体**： 适合于正从事或者有兴趣研究Android系统的工程师或者爱好者，也适合Android app高级工程师； 对于尚未入门或者刚入门的app程序员阅读可能会困难些，可能不是很适合。
 
-看到Android整个系统架构是如此庞大的, 该问如何学习Android系统, 以下是我自己琢磨的Android的学习和研究论,仅供参考:[如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/).
+看到Android整个系统架构是如此庞大的, 该问如何学习Android系统, 以下是我自己琢磨的Android的学习和研究论，仅供参考:[如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/).
 
 #### 4.1 系统启动系列
 
@@ -182,7 +180,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |6|[app进程](http://gityuan.com/2016/03/26/app-process-create/)|通过Process.start启动App进程, ActivityThread.main|
 
 
-再来看看守护进程(进程名一般以d为后缀，比如logd), 先介绍以下部分,后缀再增加.
+再来看看守护进程(也就是进程名一般以d为后缀，比如logd，此处d是指daemon的简称), 下面介绍部分守护进程：
 
   - [debuggerd](http://gityuan.com/2016/06/15/android-debuggerd/)
   - [installd](http://gityuan.com/2016/11/13/android-installd)
@@ -191,7 +189,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 
 #### 4.2 系统稳定性系列
 
-Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Android系统稳定性简述](http://gityuan.com/2016/06/19/stability_summary/) :
+ [Android系统稳定性](http://gityuan.com/2016/06/19/stability_summary/)主要是异常崩溃(crash)和执行超时(timeout),:
 
 |序号|文章名|概述|
 |1|[理解Android ANR的触发原理](http://gityuan.com/2016/07/02/android-anr/)|触发ANR的场景以及机理|
@@ -204,7 +202,7 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |8|[理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)|debuggerd守护进程|
 
 #### 4.3 Android进程系列
-进程对于系统非常重要，系统运转，各种服务、组件的载体都依托于进程，对进程理解越深刻，越能掌握系统整体架构。那么先来看看进程相关：
+进程对于系统非常重要，系统运转、各种服务、组件的载体都依托于进程，对进程理解越深刻，越能掌握系统整体架构。能真正掌握系统的运转机理，深刻理解进程是非常重要的，下面列举进程相关的文章：
 
 |序号|文章名|概述|
 |1|[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/)|Process.start过程分析|
@@ -328,15 +326,10 @@ Android系稳定性主要是异常崩溃(crash)和执行超时(timeout), [Androi
 |5|[跑monkey压力测试过程的冻屏案例](http://gityuan.com/2018/02/17/monkey-deadlock/)|monkey冻屏|
 |6|[深度剖析APP保活案例](http://gityuan.com/2018/02/24/process-keep-forever/)|保活|
 
-
 ### 五、结束语
 
-**计划：** 后续持续新增和完善整个大纲，不限于进程、内存、IO、系统服务框架，整体架构以及各种系统分析实战等文章。
-博客会持续更新，本文最近更新时间点: `2019.01.26`.
+Android系统之博大精深，只有真正阅读并理解系统核心架构的设计，才能做到心中无剑胜有剑，才能做到知其然知其所以然。当修炼到此，相信你对系统会有更高一个层次的理解，有种如沐春风般地舒坦，当你再去看那些API，你看到的将不再是一行代码、一个接口的调用，而是背后成千上万行代码的动态执行流，而是各种信息的传递与交互工作。
 
 ---
 
-**说明：**博主水平和精力有限，没有大量的时间反复校验文章，目前是初稿，后续会不断整理和完善每一篇文章。
-另外，如果发现文章逻辑、文字或表述存在问题，还望海涵，欢迎留言指正、或邮件gityuan@gmail.com，或微博反馈，谢谢！
-
----
+博主能力和精力有限，如有错误，望海涵，请[联系我](http://gityuan.com/about/)，感谢大家的支持！
