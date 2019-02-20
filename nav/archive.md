@@ -9,7 +9,7 @@ permalink: /archive/
 <hr>
 <div class="post-preview">
     <font color="blue">[January 31, 2016]  </font> 
-     <a target="_blank" href="http://gityuan.com/android/"><font color="#EE0000">[置顶]</font>Android系统开篇</a> 
+     <a target="_blank" href="http://gityuan.com/android/"><font color="#EE0000">[置顶]</font>Android系统架构开篇</a> 
 </div>
 <hr>
 {% for post in site.posts %}

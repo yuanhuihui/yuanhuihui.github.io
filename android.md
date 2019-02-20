@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  " Android系统架构开篇"
+title:  "Android系统架构开篇"
 permalink: /android/
 date:   2016-04-01 11:49:40
 catalog:  true
@@ -16,7 +16,7 @@ tags:
 
 ### 一、引言
 
-Android系统非常庞大、错综复杂，其底层是采用Linux作为基底，上层采用包含虚拟机的Java层以及Native层，通过系统调用(Syscall)连通系统的内核空间与用户空间。用户空间主要采用C++和Java代码，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而融为一体。
+本文是学习Android系统的开篇，从系统整体架构角度来概要地讲解Android系统的核心技术点。Android系统非常庞大、错综复杂，其底层是采用Linux作为基底，上层采用包含虚拟机的Java层以及Native层，通过系统调用(Syscall)连通系统的内核空间与用户空间。用户空间主要采用C++和Java代码，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而融为一体。
 
 Google官方提供了一张经典的四层架构图，从下往上依次分为Linux内核、系统库和Android运行时环境、框架层以及应用层这4层架构，其中每一层都包含大量的子模块或子系统。这只是如垒砖般地分层，并没有表达Android整个系统的内部架构、运行机理，以及各个模块之间是如何衔接与配合工作的。**为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，以进程的视角来诠释Android M系统全貌**，全方位的深度剖析各个模块功能，争取各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
 
@@ -162,7 +162,11 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
  
 **建议阅读群体**： 适合于正从事或者有兴趣研究Android系统的工程师或者爱好者，也适合Android app高级工程师； 对于尚未入门或者刚入门的app程序员阅读可能会困难些，可能不是很适合。
 
-看到Android整个系统架构是如此庞大的, 该问如何学习Android系统, 以下是我自己琢磨的Android的学习和研究论，仅供参考:[如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/).
+看到Android整个系统架构是如此庞大的, 该问如何学习Android系统, 以下是我自己的Android的学习和研究论，仅供参考:[如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)。
+
+从整理上来列举一下Android系统的核心知识点概览：
+
+![Android_os](/images/android-arch/android_os.png)
 
 #### 4.1 系统启动系列
 
@@ -328,7 +332,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 
 ### 五、结束语
 
-Android系统之博大精深，只有真正阅读并理解系统核心架构的设计，才能做到心中无剑胜有剑，才能做到知其然知其所以然。当修炼到此，相信你对系统会有更高一个层次的理解，有种如沐春风般地舒坦，当你再去看那些API，你看到的将不再是一行代码、一个接口的调用，而是背后成千上万行代码的动态执行流，而是各种信息的传递与交互工作。
+Android系统之博大精深，包括Linux内核、Native、虚拟机、Framework，通过系统调用连通内核与用户空间，通过JNI打通用户空间的Java层和Native层，，通过Binder、Socket、Handler等打通跨进程、跨线程的信息交换。只有真正阅读并理解系统核心架构的设计，才能做到心中无剑胜有剑，才能做到知其然知其所以然。当修炼到此，相信你对系统会有更高一个层次的理解，有种如沐春风般地舒坦，当再去看那些API，看到的将不再是一行代码、一个接口的调用，而是背后成千上万行代码的动态执行流，而是各种信息的传递与交互工作。
 
 ---
 

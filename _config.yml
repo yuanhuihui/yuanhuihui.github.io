@@ -68,7 +68,7 @@ featured-condition-size: 0              # A tag will be featured if the size of 
 # hotpages
 hotpages: [
     {
-        title: "Android系统开篇    ",
+        title: "Android系统架构开篇    ",
         href:  "http://gityuan.com/android"
     }, {
         title: "彻底理解Android Binder通信架构",
