@@ -36,25 +36,31 @@ Google提供的5层架构图很经典，但为了更进一步透视Android系统
 **图解：**
 Android系统启动过程由上图从下往上的一个过程：`Loader` -> `Kernel` -> `Native` -> `Framework` -> `App`，接来下简要说说每个过程：
 
-#### 2.1 Loader层
+关于Loader层：
 
 - Boot ROM: 当手机处于关机状态时，长按Power键开机，引导芯片开始从固化在`ROM`里的预设出代码开始执行，然后加载引导程序到`RAM`；
 - Boot Loader：这是启动Android系统之前的引导程序，主要是检查RAM，初始化硬件参数等功能。
 
-#### 2.2 Kernel层
+#### 2.1 Linux内核层
 
-Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
+Android平台的基础是Linux内核，比如ART虚拟机就是依靠底层Linux内核来执行功能。Linux内核的安全机制为Android提供相应的保障，也允许设备制造商为内核开发硬件驱动程序。
 
 - 启动Kernel的swapper进程(pid=0)：该进程又称为idle进程, 系统初始化过程Kernel由无到有开创的第一个进程, 用于初始化进程管理、内存管理，加载Display,Camera Driver，Binder Driver等相关工作；
 - 启动kthreadd进程（pid=2）：是Linux系统的内核进程，会创建内核工作线程kworkder，软中断线程ksoftirqd，thermal等内核守护进程。`kthreadd进程是所有内核进程的鼻祖`。
 
-#### 2.3 Native层
+#### 2.2 硬件抽象层 (HAL) 
+硬件抽象层 (HAL) 提供标准接口，HAL包含多个库模块，其中每个模块都为特定类型的硬件组件实现一组接口，比如WIFI/蓝牙模块，当框架API请求访问设备硬件时，Android系统将为该硬件加载相应的库模块。
 
-这里的Native层主要包括init孵化来的用户空间的守护进程、HAL层以及开机动画等。启动init进程(pid=1),是Linux系统的用户进程，`init进程是所有用户进程的鼻祖`。
+#### 2.3 Android Runtime & 系统库
+
+每个应用都在其自己的进程中运行，都有有自己的虚拟机实例。ART通过执行DEX文件可再设备运行多个虚拟机，DEX文件是一种专为Android设计的字节码格式文件，经过优化，使用内存很少。ART主要功能包括：预先(AOT)和即时(JIT)编译，优化的垃圾回收(GC)，以及调试相关的支持。
+
+这里的Native系统库主要包括init孵化来的用户空间的守护进程、HAL层以及开机动画等。启动init进程(pid=1),是Linux系统的用户进程，`init进程是所有用户进程的鼻祖`。
 
 - init进程会孵化出ueventd、logd、healthd、installd、adbd、lmkd等用户守护进程；
 - init进程还启动`servicemanager`(binder服务管家)、`bootanim`(开机动画)等重要服务
 - init进程孵化出Zygote进程，Zygote进程是Android系统的第一个Java进程(即虚拟机进程)，`Zygote是所有Java进程的父进程`，Zygote进程本身是由init进程孵化而来的。
+
 
 #### 2.4 Framework层
 
@@ -65,6 +71,7 @@ Kernel层是指Android内核层，到这里才刚刚开始进入Android系统。
   - preloadResouces。
 - System Server进程，是由Zygote进程fork而来，`System Server是Zygote孵化的第一个进程`，System Server负责启动和管理整个Java framework，包含ActivityManager，PowerManager等服务。
 - Media Server进程，是由init进程fork而来，负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service，等服务。
+
 
 #### 2.5 App层
 
