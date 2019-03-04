@@ -18,12 +18,13 @@ tags:
 
 本文是学习Android系统的开篇，从系统整体架构角度来概要地讲解Android系统的核心技术点。Android系统非常庞大、错综复杂，其底层是采用Linux作为基底，上层采用包含虚拟机的Java层以及Native层，通过系统调用(Syscall)连通系统的内核空间与用户空间。用户空间主要采用C++和Java代码，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而融为一体。
 
-Google官方提供了一张经典的四层架构图，从下往上依次分为Linux内核、系统库和Android运行时环境、框架层以及应用层这4层架构，其中每一层都包含大量的子模块或子系统。这只是如垒砖般地分层，并没有表达Android整个系统的内部架构、运行机理，以及各个模块之间是如何衔接与配合工作的。**为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，以进程的视角来诠释Android M系统全貌**，全方位的深度剖析各个模块功能，争取各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
+![android-arch1](/images/boot/android-stack.png)
 
-![android-arch1](/images/boot/android-arch1.png)
+上图是Google官方提供的经典的五层架构图，从下往上依次分为Linux内核、HAL、系统Native库和Android运行时环境、Java框架层以及应用层这5层架构，其中每一层都包含大量的子模块或子系统。这是采用静态分层方式的架构划分，可能从整体上了解Android架构所涉及的知识层面以及全貌。总所周知，程序代码是死的，系统运转是活的，各种代码活跃在不同的进程(线程)进行着各种错终复杂的信息交互，从这个角度来说此图并没能体现Android整个系统的内部架构、运行机理，以及各个模块之间是如何衔接与配合工作的。**为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，以进程的视角来诠释Android M系统全貌**，全方位的深度剖析各个模块功能，争取各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
+
 
 ### 二、Android架构
-Google提供的4层架构图很经典，但为了更进一步透视Android系统架构，本文更多的是以进程的视角，以分层的架构来诠释Android系统的全貌，阐述Android内部的环环相扣的内在联系。
+Google提供的5层架构图很经典，但为了更进一步透视Android系统架构，本文更多的是以进程的视角，以分层的架构来诠释Android系统的全貌，阐述Android内部的环环相扣的内在联系。
 
 **系统启动架构图**
 
@@ -308,6 +309,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 
 |序号|文章名|类别|
 |1|[理解Android编译命令](http://gityuan.com/2016/03/19/android-build/)|build|
+|2|[理解Android.bp](http://gityuan.com/2018/06/02/android-bp/)|build|
 |2|[性能工具Systrace](http://gityuan.com/2016/01/17/systrace/)|systrace|
 |3|[Android内存分析命令](http://gityuan.com/2016/01/02/memory-analysis-command/)|Memory|
 |4|[ps进程命令](http://gityuan.com/2015/10/11/ps-command/)|Process|
