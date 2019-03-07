@@ -16,14 +16,17 @@ tags:
 
 ### 一、引言
 
-本文是学习Android系统的开篇，从系统整体架构角度来概要地讲解Android系统的核心技术点。Android系统非常庞大、错综复杂，其底层是采用Linux作为基底，上层采用包含虚拟机的Java层以及Native层，通过系统调用(Syscall)连通系统的内核空间与用户空间。用户空间主要采用C++和Java代码，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而融为一体。
+本文作为Android系统架构的入门篇，从系统整体架构角度概要讲解Android系统的核心技术点，带领大家初探Android系统全貌以及内部运作机制。虽然Android系统非常庞大且错综复杂，需要具备全面的技术栈，但整体架构设计清晰。Android底层内核空间以Linux Kernel作为基石，上层用户空间由Native系统库、虚拟机运行环境、框架层组成，通过系统调用(Syscall)连通系统的内核空间与用户空间。对于用户空间主要采用C++和Java代码编写，通过JNI技术打通用户空间的Java层和Native层(C++/C)，从而连通整个系统。
+
+为了能让大家整体上大致了解Android系统涉及的知识层面，先来看一张Google官方提供的经典分层架构图，从下往上依次分为Linux内核、HAL、系统Native库和Android运行时环境、Java框架层以及应用层这5层架构，其中每一层都包含大量的子模块或子系统。
 
 ![android-arch1](/images/boot/android-stack.png)
 
-上图是Google官方提供的经典的五层架构图，从下往上依次分为Linux内核、HAL、系统Native库和Android运行时环境、Java框架层以及应用层这5层架构，其中每一层都包含大量的子模块或子系统。这是采用静态分层方式的架构划分，可能从整体上了解Android架构所涉及的知识层面以及全貌。总所周知，程序代码是死的，系统运转是活的，各种代码活跃在不同的进程(线程)进行着各种错终复杂的信息交互，从这个角度来说此图并没能体现Android整个系统的内部架构、运行机理，以及各个模块之间是如何衔接与配合工作的。**为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，以进程的视角来诠释Android M系统全貌**，全方位的深度剖析各个模块功能，争取各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
+上图采用静态分层方式的架构划分，总所周知，程序代码是死的，系统运转是活的，各模块代码运行在不同的进程(线程)中，相互之间进行着各种错终复杂的信息传递与交互流，从这个角度来说此图并没能体现Android整个系统的内部架构、运行机理，以及各个模块之间是如何衔接与配合工作的。**为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，以进程的视角来诠释Android M系统全貌**，全方位的深度剖析各个模块功能，争取各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
 
 
 ### 二、Android架构
+
 Google提供的5层架构图很经典，但为了更进一步透视Android系统架构，本文更多的是以进程的视角，以分层的架构来诠释Android系统的全貌，阐述Android内部的环环相扣的内在联系。
 
 **系统启动架构图**
@@ -34,7 +37,7 @@ Google提供的5层架构图很经典，但为了更进一步透视Android系统
 
 
 **图解：**
-Android系统启动过程由上图从下往上的一个过程：`Loader` -> `Kernel` -> `Native` -> `Framework` -> `App`，接来下简要说说每个过程：
+Android系统启动过程由上图从下往上的一个过程是由Boot Loader引导开机，然后依次进入 -> `Kernel` -> `Native` -> `Framework` -> `App`，接来下简要说说每个过程：
 
 关于Loader层：
 
@@ -65,12 +68,12 @@ Android平台的基础是Linux内核，比如ART虚拟机就是依靠底层Linux
 #### 2.4 Framework层
 
 - Zygote进程，是由init进程通过解析init.rc文件后fork生成的，Zygote进程主要包含：
-  - 加载ZygoteInit类，注册Zygote Socket服务端套接字；
-  - 加载虚拟机；
-  - preloadClasses；
-  - preloadResouces。
-- System Server进程，是由Zygote进程fork而来，`System Server是Zygote孵化的第一个进程`，System Server负责启动和管理整个Java framework，包含ActivityManager，PowerManager等服务。
-- Media Server进程，是由init进程fork而来，负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service，等服务。
+  - 加载ZygoteInit类，注册Zygote Socket服务端套接字
+  - 加载虚拟机
+  - 提前加载类preloadClasses
+  - 提前加载资源preloadResouces
+- System Server进程，是由Zygote进程fork而来，`System Server是Zygote孵化的第一个进程`，System Server负责启动和管理整个Java framework，包含ActivityManager，WindowManager，PackageManager，PowerManager等服务。
+- Media Server进程，是由init进程fork而来，负责启动和管理整个C++ framework，包含AudioFlinger，Camera Service等服务。
 
 
 #### 2.5 App层
@@ -101,9 +104,9 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 
 ![ServiceManager](/images/binder/prepare/IPC-Binder.jpg)
 
-- 想进一步了解Binder，可查看[Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)，Binder系列花费了13篇文章的篇幅，从源码角度出发来，讲述Driver、Native、Framework、App四个层面的整个完整流程。根据有些读者反馈这个系列还是不好理解，这个binder涉及的层次跨度比较大,知识量比较广, 建议大家先知道binder是用于进程间通信,有个大致概念就可以.先去学习系统基本知识,等后面有一定功力再进一步深入研究Binder.
+- 想进一步了解Binder，可查看[Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)，Binder系列花费了13篇文章的篇幅，从源码角度出发来，讲述Driver、Native、Framework、App四个层面的整个完整流程。根据有些读者反馈这个系列还是不好理解，这个binder涉及的层次跨度比较大，知识量比较广，建议大家先知道binder是用于进程间通信，有个大致概念就可以先去学习系统基本知识，等后面有一定功力再进一步深入研究Binder机制。
 
-**原理篇**
+**Binder原理篇**
 
 |序号|文章名|概述|
 |---|---|---|
@@ -119,13 +122,13 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 |9|[Binder IPC的权限控制](http://gityuan.com/2016/03/05/binder-clearCallingIdentity/)|clearCallingIdentity/restoreCallingIdentity|
 |10|[Binder死亡通知机制之linkToDeath](http://gityuan.com/2016/10/03/binder_linktodeath/)|Binder死亡通知机制|
 
-**驱动篇:**
+**Binder驱动篇:**
 
 |---|---|---|
 |1|[Binder系列1—Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)|驱动open/mmap/ioctl，以及binder结构体|
 |2|[Binder系列2—Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)|Binder通信协议，内存机制|
 
-**使用篇:**
+**Binder使用篇:**
 
 |---|---|---|
 |1|[Binder系列8—如何使用Binder](http://gityuan.com/2015/11/22/binder-use/)|Native层、Framwrok层自定义Binder服务|
@@ -152,7 +155,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 ![handler_communication](/images/handler/handler_thread_commun.jpg)
 
-由于工作线程与主线程共享地址空间，即Handler实例对象`mHandler`位于线程间共享的内存堆上，工作线程与主线程都能直接使用该对象，只需要注意多线程的同步问题。工作线程通过`mHandler`向其成员变量`MessageQueue`中添加新Message，主线程一直处于loop()方法内，当收到新的Message时按照一定规则分发给相应的`handleMessage`()方法来处理。所以说，而Handler消息机制用于同进程的线程间通信的核心是线程间共享内存空间，而不同进程拥有不同的地址空间，也就不能用handler来实现进程间通信。
+由于工作线程与主线程共享地址空间，即Handler实例对象mHandler位于线程间共享的内存堆上，工作线程与主线程都能直接使用该对象，只需要注意多线程的同步问题。工作线程通过mHandler向其成员变量MessageQueue中添加新Message，主线程一直处于loop()方法内，当收到新的Message时按照一定规则分发给相应的handleMessage()方法来处理。所以说，而Handler消息机制用于同进程的线程间通信的核心是线程间共享内存空间，而不同进程拥有不同的地址空间，也就不能用handler来实现进程间通信。
 
 上图只是Handler消息机制的一种处理流程，是不是只能工作线程向UI主线程发消息呢，其实不然，可以是UI线程向工作线程发送消息，也可以是多个工作线程之间通过handler发送消息。更多关于Handler消息机制文章：
 
@@ -168,9 +171,9 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 当然本站有一些文章没来得及进一步加工，有时间根据大家的反馈，不断修正和完善所有文章，争取给文章，再进一步精简非核心代码，增加可视化图表以及文字的结论性分析。基于**Android 6.0的源码**，专注于分享Android系统原理、架构分析的原创文章。  
  
-**建议阅读群体**： 适合于正从事或者有兴趣研究Android系统的工程师或者爱好者，也适合Android app高级工程师； 对于尚未入门或者刚入门的app程序员阅读可能会困难些，可能不是很适合。
+**建议阅读群体**： 适合于正从事或者有兴趣研究Android系统的工程师或者技术爱好者，也适合Android App高级工程师；对于尚未入门或者刚入门的App工程师阅读可能会有点困难，建议先阅读更基础的资料，再来阅读本站博客。
 
-看到Android整个系统架构是如此庞大的, 该问如何学习Android系统, 以下是我自己的Android的学习和研究论，仅供参考:[如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)。
+看到Android整个系统架构是如此庞大的, 该问如何学习Android系统, 以下是我自己的Android的学习和研究论，仅供参考[如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)。
 
 从整理上来列举一下Android系统的核心知识点概览：
 
@@ -214,7 +217,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |8|[理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)|debuggerd守护进程|
 
 #### 4.3 Android进程系列
-进程对于系统非常重要，系统运转、各种服务、组件的载体都依托于进程，对进程理解越深刻，越能掌握系统整体架构。能真正掌握系统的运转机理，深刻理解进程是非常重要的，下面列举进程相关的文章：
+进程/线程是操作系统的魂，各种服务、组件、子系统都是依附于具体的进程实体。深入理解进程机制对于掌握Android系统整体架构和运转机制是非常有必要的，是系统工程师的基本功，下面列举进程相关的文章：
 
 |序号|文章名|概述|
 |1|[理解Android进程创建流程](http://gityuan.com/2016/03/26/app-process-create/)|Process.start过程分析|
@@ -255,7 +258,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |19|[AMS总结(一)](http://gityuan.com/2017/06/25/ams_summary_1/)|AMS|
 
 #### 4.5 图形系统系列
-图形也是整个系统非常复杂且重要的一个系列，涉及WindowManager,SurfaceFlinger.
+图形也是整个系统非常复杂且重要的一个系列，涉及WindowManager,SurfaceFlinger服务。
 
 |序号|文章名|类别|
 |1|[WindowManager启动篇](http://gityuan.com/2017/01/08/windowmanger/)|Window|
@@ -267,9 +270,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |7|[Choreographer原理](http://gityuan.com/2017/02/25/choreographer/)|Choreographer|
 
 #### 4.6 系统服务篇
-再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，计划针对部分核心服务来重点分析：
-
-系统服务的注册过程, 见[Android系统服务的注册方式](http://gityuan.com/2016/10/01/system_service_common/)
+再则就是在整个架构中有大量的服务，都是基于[Binder](http://gityuan.com/2015/10/31/binder-prepare/)来交互的，[Android系统服务的注册过程](http://gityuan.com/2016/10/01/system_service_common/)也是在此之上的构建的。计划针对部分核心服务来重点分析：
 
 - AMS服务
   - [AMS启动过程（一）](http://gityuan.com/2016/02/21/activity-manager-service/)
@@ -295,7 +296,8 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
   - [DropBoxManager启动篇](http://gityuan.com/2016/06/12/DropBoxManagerService/)
 - UserManagerService
   - [多用户管理UserManager](http://gityuan.com/2016/11/20/user_manager/)
-- 更多服务介绍, 敬请期待...
+- 更多系统服务
+  - 敬请期待
 
 #### 4.7 内存&&存储篇
 
@@ -341,7 +343,9 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 
 ### 五、结束语
 
-Android系统之博大精深，包括Linux内核、Native、虚拟机、Framework，通过系统调用连通内核与用户空间，通过JNI打通用户空间的Java层和Native层，，通过Binder、Socket、Handler等打通跨进程、跨线程的信息交换。只有真正阅读并理解系统核心架构的设计，才能做到心中无剑胜有剑，才能做到知其然知其所以然。当修炼到此，相信你对系统会有更高一个层次的理解，有种如沐春风般地舒坦，当再去看那些API，看到的将不再是一行代码、一个接口的调用，而是背后成千上万行代码的动态执行流，而是各种信息的传递与交互工作。
+Android系统之博大精深，包括Linux内核、Native、虚拟机、Framework，通过系统调用连通内核与用户空间，通过JNI打通用户空间的Java层和Native层，通过Binder、Socket、Handler等打通跨进程、跨线程的信息交换。只有真正阅读并理解系统核心架构的设计，解决问题和设计方案才能做到心中无剑胜有剑，才能做到知其然知其所以然。当修炼到此，恭喜你对系统有了更高一个层次的理解，由于太极剑法，忘记了所有招式，也就练成了太极剑法。
+
+再回过头去看看那些API，看到的将不再是一行代码、一个接口的调用，而是背后成千上万个小蝌蚪的动态执行流，而是各种信息的传递与交互工作。记得《侠客行》里面的龙木二岛主终其一生也无法参透太玄经，石破天却能练成，究其根本在于龙木二岛主以静态视角去解读太玄经，而石破天把墙壁的图案想象成无数游动的蝌蚪，最终成就绝世神功。一言以蔽之，程序代码是死的，系统运转是活的，要以动态视角去理解系统架构。
 
 ---
 
