@@ -200,7 +200,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
   - [debuggerd](http://gityuan.com/2016/06/15/android-debuggerd/)
   - [installd](http://gityuan.com/2016/11/13/android-installd)
   - [lmkd](http://gityuan.com/2016/09/17/android-lowmemorykiller/)
-
+  - [logd](http://gityuan.com/2018/01/27/android-log/)
 
 #### 4.2 系统稳定性系列
 
@@ -327,8 +327,9 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |7|[调试系列1：bugreport源码篇](http://gityuan.com/2016/06/10/bugreport/)|bugreport|
 |8|[调试系列2：bugreport实战篇](http://gityuan.com/2016/06/11/bugreport-2/)|bugreport|
 |9|[dumpsys命令用法](http://gityuan.com/2016/05/14/dumpsys-command/)|dumpsys|
-|10|[介绍gdb调试工具](http://gityuan.com/2017/09/09/gdb/)|gdb|
-|11|[介绍addr2line调试命令](http://gityuan.com/2017/09/02/addr2line/)|addr2line|
+|10|[Android logd日志原理](http://gityuan.com/2018/01/27/android-log/)|logd|
+|11|[介绍gdb调试工具](http://gityuan.com/2017/09/09/gdb/)|gdb|
+|12|[介绍addr2line调试命令](http://gityuan.com/2017/09/02/addr2line/)|addr2line|
 
 #### 4.9 实战篇
 下面列举处理过的部分较为典型的案例，供大家参考
