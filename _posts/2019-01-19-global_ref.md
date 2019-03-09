@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "分析Global Reference Overflow问题"
+title:  "global reference限制策略"
 date:   2019-01-19 23:21:12
 catalog:  true
 tags:
@@ -9,7 +9,7 @@ tags:
 
 ---
 
-> 基于Android 9.0源码来讲一讲global reference overflow问题
+> 基于Android 9.0源码来讲一讲global reference问题
 
 ```CPP
 art/runtime/jni_internal.cc
@@ -24,7 +24,9 @@ libnativehelper/include/nativehelper/jni.h
 
 ## 一、概述
 
-在讲global reference overflow之前，先来看看虚拟机的一些基本知识。每一个进程都必须有一个JavaVM，且只有一个，是Java虚拟机在JNI层的代表, JNI 全局只有一个；每一个线程都有一个JNIEnv，JNIEnv一个线程相关的结构体, 代表Java 在本线程的运行环境。每个虚拟机Runtime实例由调用Runtime::Create来创建，该过程包含创建JavaVMExt, Heap, Thread, ClassLinker等，调用Runtime::Start完成最后的初始化工作。再来看一张类图了解JavaVM、JNIEnv以及Runtime的核心成员和方法。
+global reference使用不当，就会引发lobal reference overflow异常问题，为了解决这个问题，从Android 9.0开始新增了限制策略。
+
+先来看看虚拟机的一些基本知识。每一个进程都必须有一个JavaVM，且只有一个，是Java虚拟机在JNI层的代表, JNI 全局只有一个；每一个线程都有一个JNIEnv，JNIEnv一个线程相关的结构体, 代表Java 在本线程的运行环境。每个虚拟机Runtime实例由调用Runtime::Create来创建，该过程包含创建JavaVMExt, Heap, Thread, ClassLinker等，调用Runtime::Start完成最后的初始化工作。再来看一张类图了解JavaVM、JNIEnv以及Runtime的核心成员和方法。
 
 ![jnienv_javavm](/images/art/jnienv_javavm.jpg)
 

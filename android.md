@@ -215,6 +215,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |6|[WatchDog工作原理](http://gityuan.com/2016/06/21/watchdog/)|WatchDog触发机制|
 |7|[理解Java   Crash处理流程](http://gityuan.com/2016/06/24/app-crash/)|AMS.handleApplicationCrash过程分析|
 |8|[理解Native Crash处理流程](http://gityuan.com/2016/06/25/android-native-crash/)|debuggerd守护进程|
+|9|[global reference限制策略](http://gityuan.com/2019/01/19/global_ref/)|global reference|
 
 #### 4.3 Android进程系列
 进程/线程是操作系统的魂，各种服务、组件、子系统都是依附于具体的进程实体。深入理解进程机制对于掌握Android系统整体架构和运转机制是非常有必要的，是系统工程师的基本功，下面列举进程相关的文章：
