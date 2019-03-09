@@ -28,7 +28,7 @@ header-img: "img/nav-about.jpg"
 - codeKK.com：[源码分析Android应用开发相关的开源框架](http://a.codekk.com/)
 - codota.com：[收集各种API优秀示例Java代码并提供搜索功能](http://www.codota.com/)
 
-#### 博客与周刊
+#### 网站周刊
 
 - Android官方网站；[最权威的Google官方资料，首选资料](http://developer.android.com/intl/zh-cn/index.html)
 - Android官方博客：[发布着官方资讯和技术博客](http://android-developers.blogspot.com/)
