@@ -6,7 +6,7 @@ description: "技术交流区"
 ---
 
 <span id="/talk/" class="leancloud-visitors" data-flag-title="Talk">
-    <em class="post-meta-item-text">2019.03.09 新开通留言板，阅读量: </em>
+    <em class="post-meta-item-text">2019.03.09 新开通留言板  </em>
     <i class="leancloud-visitors-count">1024</i>
 </span>
 
