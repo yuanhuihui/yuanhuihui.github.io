@@ -26,6 +26,7 @@ description: "技术交流区"
     });
 </script>
 
-<span id="</about>" class="leancloud-visitors" data-flag-title="Your Article Title">
+<span id="/talk" class="leancloud-visitors" data-flag-title="Talk">
+    <em class="post-meta-item-text">留言区访问量 </em>
     <i class="leancloud-visitors-count">1024</i>
 </span>
