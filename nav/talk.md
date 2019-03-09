@@ -5,7 +5,10 @@ permalink: /talk/
 description: "技术交流区"
 ---
 
-2019.03.09 开通留言板，欢迎大家畅所欲言
+<span id="/talk/" class="leancloud-visitors" data-flag-title="Talk">
+    <em class="post-meta-item-text">2019.03.09 新开通留言板，阅读量: </em>
+    <i class="leancloud-visitors-count">1024</i>
+</span>
 
 <script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
 <script src='//unpkg.com/valine/dist/Valine.min.js'></script>
@@ -24,8 +27,3 @@ description: "技术交流区"
         meta: ['nick','mail']
     });
 </script>
-
-<span id="/talk/" class="leancloud-visitors" data-flag-title="Talk">
-    <em class="post-meta-item-text">留言板阅读量: </em>
-    <i class="leancloud-visitors-count">1024</i>
-</span>
