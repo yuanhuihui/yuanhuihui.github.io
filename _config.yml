@@ -3,7 +3,7 @@ title: Gityuan
 SEOTitle: Gityuan博客 | 袁辉辉的Android博客
 #header-img: img/nav-home.jpg
 email: gityuan@gmail.com
-description: "Android,Gityuan,Android博客,Android源码,袁辉辉"
+description: "Android架构,Gityuan,Android博客,Android源码,袁辉辉"
 keyword: "Android,Gityuan,Android博客,Android源码,袁辉辉"
 url: "http://gityuan.com"              # your host, for absolute URL
 baseurl: ""                             # for example, '/blog' if your blog hosted on 'host/blog'
@@ -46,6 +46,8 @@ kramdown:
 
 # Disqus settings
 #disqus_username: _your_disqus_short_name_
+# valine comment settings
+valine_comment.enable: true
 
 # Duoshuo settings
 duoshuo_username: gityuan
