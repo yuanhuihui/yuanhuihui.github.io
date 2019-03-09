@@ -93,7 +93,7 @@ BinderProxy调用linkToDeath()方法是一个native方法, 通过jni进入如下
         IBinder* target = (IBinder*)env->GetLongField(obj, gBinderProxyOffsets.mObject);
         ...
 
-        //只有Binder代理对象才会进入该对象
+        //只有Binder代理对象才会进入该分支
         if (!target->localBinder()) {
             DeathRecipientList* list = (DeathRecipientList*)
                     env->GetLongField(obj, gBinderProxyOffsets.mOrgue);
