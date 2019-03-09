@@ -351,4 +351,4 @@ Android系统之博大精深，包括Linux内核、Native、虚拟机、Framewor
 
 ---
 
-博主能力和精力有限，如有表述不正确，望海涵，请[联系我](http://gityuan.com/about/)，感谢大家的支持！
+博主能力和精力有限，如有理解不到位，可在[留言区](http://gityuan.com/talk/)交流，或者[联系我](http://gityuan.com/about/)，感谢大家的支持！
