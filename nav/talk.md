@@ -37,6 +37,7 @@ description: "技术交流区"
         highlight: true,
         notify: false,
         visitor: true,
+        avatarForce: true,
         meta: ['nick','mail']
     });
 </script>
