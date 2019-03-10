@@ -19,6 +19,8 @@ description: "技术交流区"
 - 可以是谈一谈工作中遇到的困惑
 - ...
 
+（自从多说、网易云跟帖这些3方评论系统相继关闭，我的博客就一直没有评论区，应大家要求还是搞了另一个）
+
 ---
 
 <script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
