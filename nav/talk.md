@@ -6,9 +6,18 @@ description: "技术交流区"
 ---
 
 <span id="/talk/" class="leancloud-visitors" data-flag-title="Talk">
-    <em class="post-meta-item-text">2019.03.09 新开通留言板  </em>
+    <em class="post-meta-item-text">2019.03.09 新开通留言板</em>
     <i class="leancloud-visitors-count"></i>
 </span>
+
+**欢迎大家畅所欲言：**
+
+- 可以是您发现文章有错别字、语句不通
+- 可以是您对博客中某篇文章有不同见解
+- 可以是您对博客有更好的建设性意见
+- 可以是您的经验与感悟的分享
+- 可以是谈一谈工作中遇到的困惑
+- ...
 
 ---
 
