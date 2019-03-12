@@ -1625,12 +1625,12 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
             }
 
         }
-        //当进程不存在则创建进程 [见流程2.14.1]
+        //当进程不存在则创建进程【见流程2.15】
         mService.startProcessLocked(r.processName, r.info.applicationInfo, true, 0,
                 "activity", r.intent.getComponent(), false, false, true);
     }
 
-#### 2.15 AMS.startProcessLocked
+### 2.15 AMS.startProcessLocked
 
 在文章[理解Android进程启动之全过程](http://gityuan.com/2016/10/09/app-process-create-2/)中，详细介绍了AMS.startProcessLocked()整个过程，创建完新进程后会在新进程中调用`AMP.attachApplication
 `，该方法经过binder ipc后调用到`AMS.attachApplicationLocked`。
@@ -1653,7 +1653,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
 
 在执行完bindApplication()之后进入ASS.attachApplicationLocked()
 
-#### 2.16 ASS.attachApplicationLocked
+### 2.16 ASS.attachApplicationLocked
 
     boolean attachApplicationLocked(ProcessRecord app) throws RemoteException {
         final String processName = app.processName;
