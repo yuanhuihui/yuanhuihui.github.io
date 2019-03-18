@@ -89,7 +89,7 @@ Force-stop是系统提供的杀进程最为彻底的方式，详见文章[Androi
 
 一上断点就发现了意外的一幕：
 
-![tim_1](/s/app-keep-forever/tim_1.png)
+![tim_1](/images/app-keep-forever/tim_1.png)
 
 `问题2：`startService()的callingPid怎么可能等于0？
 
@@ -137,7 +137,7 @@ binder_thread_read(...) {
 
 下面告诉大家如何看一个Binder调用是否同步， 如下图最后一个参数代表的是FLAG_ONEWAY值，等于0则代表的是同步， 等于1则代表的是异步。
 
-![tim1_2](/s/app-keep-forever/tim1_2.png)
+![tim1_2](/images/app-keep-forever/tim1_2.png)
 
 以上代码是framework的框架代码，startService最终都会调用到这里来，所以callingPid必然是不可能出现为0的情况，让我们看不透到底哪个进程把com.tencent.tim:Daemon拉起的。
 
