@@ -339,8 +339,8 @@ static void ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags)
 
 **休眠与唤醒流程：**
 
-1. 进程A调用wait_event(wq, condition)就是向等待队列头中添加等待队列wait_queue_t，该wait_queue_t中的private记录了当前进程以及func记录唤醒回调函数，然后调用schedule()进入休眠状态。
-2. 进程B调用wake_up(wq)会遍历整个等待列表wq中的每一项wait_queue_t，依次每一项的调用唤醒函数try_to_wake_up()。这个过程会将private记录的进程加入rq运行队列，并设置进程状态为TASK_RUNNING。
+1. 进程A调用wait_event(wq, condition)就是向等待队列头中添加等待队列项wait_queue_t，该该等待队列项中的成员变量private记录当前进程，其成员变量func记录唤醒回调函数，然后调用schedule()使当前进程进入休眠状态。
+2. 进程B调用wake_up(wq)会遍历整个等待列表wq中的每一项wait_queue_t，依次调用每一项的唤醒函数try_to_wake_up()。这个过程会将private记录的进程加入rq运行队列，并设置进程状态为TASK_RUNNING。
 3. 进程A被唤醒后只执行如下检测：
     - 检查condition是否为true，满足条件则跳出循环，再把wait_queue_t从wq队列中移除；
     - 检测该进程task的成员thread_info->flags是否被设置TIF_SIGPENDING，被设置则说明有待处理的信号，则跳出循环，再把wait_queue_t从wq队列中移除；
