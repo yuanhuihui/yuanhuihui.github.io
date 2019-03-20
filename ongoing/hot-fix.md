@@ -11,8 +11,6 @@ BAT的框架
 安全方面， selinux
 
 
-大前端，React-Native，Flutter， kotlin
-
 AndFix
 Dexposed
 Sophix
