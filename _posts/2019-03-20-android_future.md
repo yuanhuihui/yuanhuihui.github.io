@@ -12,6 +12,7 @@ tags:
 众所周知，Android是谷歌开发的一款基于Linux的开源操作系统，每年迭代一次大版本升级。
 小米、华为、OPPO、VIVO、三星等各大厂商对Android原生系统进行二次开发衍生出具有各家特色的系统（比如MIUI），为手机、电视、平板电脑、手表等数十亿设备提供平台支持，使得Android作为全球最受欢迎的移动操作系统。Android诞生至今已有10余年，这一路走来Android遇到哪些问题？大版本升级朝着什么方向演进？Android的未来如何？
 
+![Android达摩院](/images/about-me/damoyuan_logo.png)
 
 ### 1. 发展历程
 
