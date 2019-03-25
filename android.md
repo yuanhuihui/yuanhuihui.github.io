@@ -20,9 +20,9 @@ tags:
 
 为了能让大家整体上大致了解Android系统涉及的知识层面，先来看一张Google官方提供的经典分层架构图，从下往上依次分为Linux内核、HAL、系统Native库和Android运行时环境、Java框架层以及应用层这5层架构，其中每一层都包含大量的子模块或子系统。
 
-![android-arch1](/images/boot/android-stack.png)
+![android-stack](/images/android-arch/android-stack.png)
 
-上图采用静态分层方式的架构划分，总所周知，程序代码是死的，系统运转是活的，各模块代码运行在不同的进程(线程)中，相互之间进行着各种错终复杂的信息传递与交互流，从这个角度来说此图并没能体现Android整个系统的内部架构、运行机理，以及各个模块之间是如何衔接与配合工作的。**为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，以进程的视角来诠释Android M系统全貌**，全方位的深度剖析各个模块功能，争取各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
+上图采用静态分层方式的架构划分，众所周知，程序代码是死的，系统运转是活的，各模块代码运行在不同的进程(线程)中，相互之间进行着各种错终复杂的信息传递与交互流，从这个角度来说此图并没能体现Android整个系统的内部架构、运行机理，以及各个模块之间是如何衔接与配合工作的。**为了更深入地掌握Android整个架构思想以及各个模块在Android系统所处的地位与价值，计划以Android系统启动过程为主线，以进程的视角来诠释Android M系统全貌**，全方位的深度剖析各个模块功能，争取各个击破。这样才能犹如庖丁解牛，解决、分析问题则能游刃有余。
 
 
 ### 二、Android架构
@@ -31,9 +31,9 @@ Google提供的5层架构图很经典，但为了更进一步透视Android系统
 
 **系统启动架构图**
 
-点击查看[大图](http://gityuan.com/images/android-process/android-boot.jpg)
+点击查看[大图](http://gityuan.com/images/android-arch/android-boot.jpg)
 
-![process_status](/images/android-process/android-boot.jpg)
+![process_status](/images/android-arch/android-boot.jpg)
 
 
 **图解：**
@@ -45,8 +45,7 @@ Android系统启动过程由上图从下往上的一个过程是由Boot Loader�
 - Boot Loader：这是启动Android系统之前的引导程序，主要是检查RAM，初始化硬件参数等功能。
 
 #### 2.1 Linux内核层
-
-Android平台的基础是Linux内核，比如ART虚拟机就是依靠底层Linux内核来执行功能。Linux内核的安全机制为Android提供相应的保障，也允许设备制造商为内核开发硬件驱动程序。
+Android平台的基础是Linux内核，比如ART虚拟机最终调用底层Linux内核来执行功能。Linux内核的安全机制为Android提供相应的保障，也允许设备制造商为内核开发硬件驱动程序。
 
 - 启动Kernel的swapper进程(pid=0)：该进程又称为idle进程, 系统初始化过程Kernel由无到有开创的第一个进程, 用于初始化进程管理、内存管理，加载Display,Camera Driver，Binder Driver等相关工作；
 - 启动kthreadd进程（pid=2）：是Linux系统的内核进程，会创建内核工作线程kworkder，软中断线程ksoftirqd，thermal等内核守护进程。`kthreadd进程是所有内核进程的鼻祖`。
@@ -56,7 +55,7 @@ Android平台的基础是Linux内核，比如ART虚拟机就是依靠底层Linux
 
 #### 2.3 Android Runtime & 系统库
 
-每个应用都在其自己的进程中运行，都有有自己的虚拟机实例。ART通过执行DEX文件可再设备运行多个虚拟机，DEX文件是一种专为Android设计的字节码格式文件，经过优化，使用内存很少。ART主要功能包括：预先(AOT)和即时(JIT)编译，优化的垃圾回收(GC)，以及调试相关的支持。
+每个应用都在其自己的进程中运行，都有自己的虚拟机实例。ART通过执行DEX文件可在设备运行多个虚拟机，DEX文件是一种专为Android设计的字节码格式文件，经过优化，使用内存很少。ART主要功能包括：预先(AOT)和即时(JIT)编译，优化的垃圾回收(GC)，以及调试相关的支持。
 
 这里的Native系统库主要包括init孵化来的用户空间的守护进程、HAL层以及开机动画等。启动init进程(pid=1),是Linux系统的用户进程，`init进程是所有用户进程的鼻祖`。
 
@@ -102,9 +101,9 @@ Binder作为Android系统提供的一种IPC机制，无论从系统开发还是�
 
 Binder通信采用c/s架构，从组件视角来说，包含Client、Server、ServiceManager以及binder驱动，其中ServiceManager用于管理系统中的各种服务。
 
-![ServiceManager](/images/binder/prepare/IPC-Binder.jpg)
+![ServiceManager](/images/android-arch/IPC-Binder.jpg)
 
-- 想进一步了解Binder，可查看[Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)，Binder系列花费了13篇文章的篇幅，从源码角度出发来，讲述Driver、Native、Framework、App四个层面的整个完整流程。根据有些读者反馈这个系列还是不好理解，这个binder涉及的层次跨度比较大，知识量比较广，建议大家先知道binder是用于进程间通信，有个大致概念就可以先去学习系统基本知识，等后面有一定功力再进一步深入研究Binder机制。
+- 想进一步了解Binder，可查看[Binder系列—开篇](http://gityuan.com/2015/10/31/binder-prepare/)，Binder系列花费了13篇文章的篇幅，从源码角度出发来讲述Driver、Native、Framework、App四个层面的整个完整流程。根据有些读者反馈这个系列还是不好理解，这个binder涉及的层次跨度比较大，知识量比较广，建议大家先知道binder是用于进程间通信，有个大致概念就可以先去学习系统基本知识，等后面有一定功力再进一步深入研究Binder机制。
 
 **Binder原理篇**
 
@@ -136,7 +135,7 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 
 #### 3.2 Socket
 
-Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中采用Socket通信方式的主要：
+Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中采用Socket通信方式的主要有：
 
 - zygote：用于孵化进程，system_server创建进程是通过socket向zygote进程发起请求；
 - installd：用于安装App的守护进程，上层PackageManagerService很多实现最终都是交给它来完成；
@@ -153,9 +152,9 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 有人可能会疑惑，为何Binder/Socket用于进程间通信，能否用于线程间通信呢？答案是肯定，对于两个具有独立地址空间的进程通信都可以，当然也能用于共享内存空间的两个线程间通信，这就好比杀鸡用牛刀。接着可能还有人会疑惑，那handler消息机制能否用于进程间通信？答案是不能，Handler只能用于共享内存地址空间的两个线程间通信，即同进程的两个线程间通信。很多时候，Handler是工作线程向UI主线程发送消息，即App应用中只有主线程能更新UI，其他工作线程往往是完成相应工作后，通过Handler告知主线程需要做出相应地UI更新操作，Handler分发相应的消息给UI主线程去完成，如下图：
 
-![handler_communication](/images/handler/handler_thread_commun.jpg)
+![handler_communication](/images/android-arch/handler_thread_commun.jpg)
 
-由于工作线程与主线程共享地址空间，即Handler实例对象mHandler位于线程间共享的内存堆上，工作线程与主线程都能直接使用该对象，只需要注意多线程的同步问题。工作线程通过mHandler向其成员变量MessageQueue中添加新Message，主线程一直处于loop()方法内，当收到新的Message时按照一定规则分发给相应的handleMessage()方法来处理。所以说，而Handler消息机制用于同进程的线程间通信的核心是线程间共享内存空间，而不同进程拥有不同的地址空间，也就不能用handler来实现进程间通信。
+由于工作线程与主线程共享地址空间，即Handler实例对象mHandler位于线程间共享的内存堆上，工作线程与主线程都能直接使用该对象，只需要注意多线程的同步问题。工作线程通过mHandler向其成员变量MessageQueue中添加新Message，主线程一直处于loop()方法内，当收到新的Message时按照一定规则分发给相应的handleMessage()方法来处理。所以说，Handler消息机制用于同进程的线程间通信，其核心是线程间共享内存空间，而不同进程拥有不同的地址空间，也就不能用handler来实现进程间通信。
 
 上图只是Handler消息机制的一种处理流程，是不是只能工作线程向UI主线程发消息呢，其实不然，可以是UI线程向工作线程发送消息，也可以是多个工作线程之间通过handler发送消息。更多关于Handler消息机制文章：
 
@@ -167,7 +166,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 ###  四、核心提纲
 
-博主对于Android从系统底层一路到上层有自己的理解和沉淀，通过前面对系统启动的介绍，相信大家对Android系统有了一个整体观，接下来需要抓核心、理思路，争取各个击破。后续持续新增和完善整个大纲，不限于进程、内存、IO、系统服务框架，整体架构以及各种系统分析实战等文章。
+博主对于Android从系统底层一路到上层都有自己的理解和沉淀，通过前面对系统启动的介绍，相信大家对Android系统有了一个整体观。接下来需抓核心、理思路，争取各个击破。后续将持续更新和完善整个大纲，不限于进程、内存、IO、系统服务架构以及分析实战等文章。
 
 当然本站有一些文章没来得及进一步加工，有时间根据大家的反馈，不断修正和完善所有文章，争取给文章，再进一步精简非核心代码，增加可视化图表以及文字的结论性分析。基于**Android 6.0的源码**，专注于分享Android系统原理、架构分析的原创文章。  
  
@@ -181,7 +180,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 
 #### 4.1 系统启动系列
 
-![android-booting](/images/process/android-booting.jpg)
+![android-booting](/images/android-arch/android-booting.jpg)
 
 [Android系统启动-概述](http://gityuan.com/2016/02/01/android-booting/):
 Android系统中极其重要进程：init, zygote, system_server, servicemanager 进程:

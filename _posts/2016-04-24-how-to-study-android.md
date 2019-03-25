@@ -121,9 +121,9 @@ Android基本书籍，只需一两本即可，没有必要看太多基础书籍�
 
 如下以Android系统启动为主线，展开一系列的文章[Android开篇](http://gityuan.com/android/)中的流程图，在公司内部分享时我曾多次以下图为流程，来阐述Android架构，如下图：
 
-点击查看[大图](http://gityuan.com/images/android-process/android-boot.jpg)
+点击查看[大图](http://gityuan.com/images/android-arch/android-boot.jpg)
 
-![process_status](/images/android-process/android-boot.jpg)
+![process_status](/images/android-arch/android-boot.jpg)
 
 **Android系统源码**
 

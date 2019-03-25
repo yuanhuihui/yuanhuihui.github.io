@@ -18,7 +18,7 @@ Android系统底层基于Linux Kernel, 当Kernel启动过程会创建init进程,
 init进程会启动servicemanager(binder服务管家), Zygote进程(Java进程的鼻祖). Zygote进程会创建
 system_server进程以及各种app进程，下图是这几个系统重量级进程之间的层级关系。
 
-![android-booting](/images/process/android-booting.jpg)
+![android-booting](/images/android-arch/android-booting.jpg)
 
 
 ## 二. init
