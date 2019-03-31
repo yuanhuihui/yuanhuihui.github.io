@@ -10,11 +10,13 @@
 
 ### ANR触发机制
 
-
 http://gityuan.com/2016/07/02/android-anr/
 http://gityuan.com/2017/01/01/input-anr/
 
+【几个组件的流程图的anr流程】
+
 ### ANR实例
+provider
 shareperferences
 
 ### ANR信息收集
@@ -24,3 +26,11 @@ http://gityuan.com/2016/12/02/app-not-response/
 
 binder, message, lock, io
 调试方法
+
+
+- sharePreference
+- query provider
+- activity, service, broadcast生命周期
+- 锁的竞争
+- 耗时的binder需要注意
+- 网络，IO， 耗时
