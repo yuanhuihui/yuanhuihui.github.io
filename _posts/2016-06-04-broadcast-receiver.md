@@ -759,6 +759,7 @@ BroadcastReceiver还有其他flag，位于Intent.java常量:
     //处理并行广播
     int NR = registeredReceivers != null ? registeredReceivers.size() : 0;
     if (!ordered && NR > 0) {
+        //根据intent的flag来判断前台队列或者后台队列[见小节2.5.3]
         final BroadcastQueue queue = broadcastQueueForIntent(intent);
         //创建BroadcastRecord对象
         BroadcastRecord r = new BroadcastRecord(queue, intent, callerApp,
@@ -851,6 +852,7 @@ while (ir < NR) {
 
     if ((receivers != null && receivers.size() > 0)
             || resultTo != null) {
+        //根据intent的flag来判断前台队列或者后台队列[见小节2.5.3]
         BroadcastQueue queue = broadcastQueueForIntent(intent);
         //创建BroadcastRecord
         BroadcastRecord r = new BroadcastRecord(queue, intent, callerApp,
@@ -877,7 +879,7 @@ while (ir < NR) {
 
 ### 3.5 小结
 
-发送广播过程:
+**发送广播过程:**
 
 1. 默认不发送给已停止（Intent.FLAG_EXCLUDE_STOPPED_PACKAGES）的应用包；
 2. 处理各种PACKAGE,TIMEZONE等相关的系统广播；
@@ -885,7 +887,7 @@ while (ir < NR) {
 4. 当广播的Intent没有设置FLAG_RECEIVER_REGISTERED_ONLY，则允许静态广播接收者来处理该广播；
 创建BroadcastRecord对象,并将该对象加入到相应的广播队列, 然后调用BroadcastQueue的`scheduleBroadcastsLocked`()方法来完成的不同广播处理:
 
-处理方式：
+**处理方式：**
 
 1. Sticky广播: 广播注册过程处理AMS.registerReceiver，开始处理粘性广播，见小节[2.5];
   - 创建BroadcastRecord对象；
@@ -902,7 +904,7 @@ while (ir < NR) {
   - 并添加到mOrderedBroadcasts队列；
   - 然后执行queue.scheduleBroadcastsLocked；
 
-可见不管哪种广播方式，接下来都会执行scheduleBroadcastsLocked方法来处理广播；
+可见不管哪种广播方式，都是通过broadcastQueueForIntent()来根据intent的flag来判断前台队列或者后台队列，然后再调用对应广播队列的scheduleBroadcastsLocked方法来处理广播；
 
 ## 四、 处理广播
 

@@ -266,7 +266,7 @@ processNextBroadcast来处理广播.其流程为先处理并行广播,再处理�
             r.receiverTime = SystemClock.uptimeMillis();
             if (!mPendingBroadcastTimeoutMessage) {
                 long timeoutTime = r.receiverTime + mTimeoutPeriod;
-                //埋炸弹【见小节3.1.3】
+                //埋炸弹【见小节3.1.2】
                 setBroadcastTimeoutLocked(timeoutTime);
             }
             ...
@@ -556,7 +556,8 @@ ContentProvider 超时为CONTENT_PROVIDER_PUBLISH_TIMEOUT = 10s. 这个跟前面
 
 
     private final void processContentProviderPublishTimedOutLocked(ProcessRecord app) {
-        cleanupAppInLaunchingProvidersLocked(app, true); //[见4.3.3]
+        //[见4.3.3]
+        cleanupAppInLaunchingProvidersLocked(app, true); 
         //[见小节4.3.4]
         removeProcessLocked(app, false, true, "timeout publishing content providers");
     }

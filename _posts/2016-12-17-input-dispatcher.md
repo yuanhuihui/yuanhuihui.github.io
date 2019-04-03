@@ -294,7 +294,7 @@ tags:
         }
         addMonitoringTargetsLocked(inputTargets);
 
-        //只有injectionResult是成功，才有机会执行分发事件【见小节2.5】
+        //只有injectionResult是成功，才有机会执行分发事件【见小节2.4】
         dispatchEventLocked(currentTime, entry, inputTargets);
         return true;
     }

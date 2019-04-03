@@ -365,7 +365,7 @@ dump_backtrace()来输出backtrace，更多内容见[Native进程之Trace原理]
 
 重要节点：
 
-- 进程名：cat /proc/<pid>/cmdline
-- 线程名：cat /proc/<tid>/comm
+- 进程名：cat /proc/[pid]/cmdline
+- 线程名：cat /proc/[tid]/comm
 - Kernel栈：cat /proc/[tid]/stack
-- Native栈： 解析 /proc/%d/maps
+- Native栈： 解析 /proc/[pid]/maps
