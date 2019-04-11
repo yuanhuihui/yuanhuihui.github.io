@@ -86,7 +86,7 @@ tags:
 ### 2.1 dispatchOnceInnerLocked
 
     void InputDispatcher::dispatchOnceInnerLocked(nsecs_t* nextWakeupTime) {
-        nsecs_t currentTime = now(); //当前时间
+        nsecs_t currentTime = now(); //当前时间，也是后面ANR计时的起点
 
         if (!mDispatchEnabled) { //默认值为false
             resetKeyRepeatLocked(); //重置操作
@@ -369,7 +369,7 @@ tags:
 - 无窗口，无应用：Dropping event because there is no focused window or focused application.(这并不导致ANR的情况，因为没有机会调用handleTargetsNotReadyLocked)
 - 无窗口, 有应用：Waiting because no window has focus but there is a focused application that may eventually add a window when it finishes starting up.
 
-另外，还有更多多的失败场景见checkWindowReadyForMoreInputLocked的过程，如下：
+另外，还有更多的失败场景见checkWindowReadyForMoreInputLocked的过程，如下：
 
 #### 2.3.1 checkWindowReadyForMoreInputLocked
 
@@ -456,7 +456,8 @@ tags:
                 }
 
                 mInputTargetWaitCause = INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY;
-                mInputTargetWaitStartTime = currentTime; //当前时间
+                //这里的currentTime是指执行dispatchOnceInnerLocked方法体的起点
+                mInputTargetWaitStartTime = currentTime; 
                 mInputTargetWaitTimeoutTime = currentTime + timeout;
                 mInputTargetWaitTimeoutExpired = false;
                 mInputTargetWaitApplicationHandle.clear();
@@ -474,7 +475,7 @@ tags:
             return INPUT_EVENT_INJECTION_TIMED_OUT; //等待超时已过期,则直接返回
         }
 
-        //当超时5s则进入ANR流程
+        //当超时5s，则进入ANR流程
         if (currentTime >= mInputTargetWaitTimeoutTime) {
             onANRLocked(currentTime, applicationHandle, windowHandle,
                     entry->eventTime, mInputTargetWaitStartTime, reason);
@@ -489,12 +490,13 @@ tags:
         }
     }
 
-此处mInputTargetWaitTimeoutTime是由当前时间戳+5s, 并设置mInputTargetWaitCause等于INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY.
-也就是说ANR时间段是指input等待理由处于INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY(应用没有准备就绪)的时间长达5s的场景.而前面resetANRTimeoutsLocked()
-过程是唯一用于重置等待理由的地方.
+ANR超时时间点为mInputTargetWaitTimeoutTime，该值等于`currentTime + 5s`, 这里的currentTime是指执行dispatchOnceInnerLocked方法体的起点。此处设置mInputTargetWaitCause等于INPUT_TARGET_WAIT_CAUSE_APPLICATION_NOT_READY(应用没有准备就绪)，而前面resetANRTimeoutsLocked()过程是唯一用于重置等待理由的地方。
 
-那么, ANR时间区间是指当前这次的事件dispatch过程中执行findFocusedWindowTargetsLocked()方法到下一次执行resetANRTimeoutsLocked()的时间区间.
+可见，ANR时间区间是从dispatchOnceInnerLocked方法体的起点，直到下次执行handleTargetsNotReadyLocked()方法的这段应用未准备就绪的时间段，该时间段是否超过5s来决定是否触发ANR。
 
+当前这次的事件dispatch过程中执行findFocusedWindowTargetsLocked()方法到下一次执行resetANRTimeoutsLocked()的时间区间。
+
+handleTargetsNotReadyLocked()的判断过程：
 
 - 当applicationHandle和windowHandle同时为空, 且system准备就绪的情况下
     - 设置等待理由 INPUT_TARGET_WAIT_CAUSE_SYSTEM_NOT_READY;

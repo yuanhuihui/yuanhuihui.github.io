@@ -256,7 +256,7 @@ processNextBroadcast来处理广播.其流程为先处理并行广播,再处理�
                             r.resultData, r.resultExtras, false, false, r.userId);
                         r.resultTo = null;
                     }
-                    //拆炸弹【见小节3.2.1】
+                    //拆炸弹【见小节3.2.2】
                     cancelBroadcastTimeoutLocked();
                 }
             } while (r == null);
@@ -295,9 +295,36 @@ processNextBroadcast来处理广播.其流程为先处理并行广播,再处理�
 
 ### 3.2 拆炸弹
 
-在processNextBroadcast()过程, 执行完performReceiveLocked,便会拆除炸弹.
+broadcast跟service超时机制大抵相同，但有一个非常隐蔽的技能点，那就是通过静态注册的广播超时会受SharedPreferences(简称SP)的影响。
 
-#### 3.2.1 cancelBroadcastTimeoutLocked
+#### 3.2.1 sendFinished
+
+关于广播是否考虑SP的情况取决于如下代码：
+
+```Java
+public final void finish() {
+    if (mType == TYPE_COMPONENT) {
+        final IActivityManager mgr = ActivityManager.getService();
+        if (QueuedWork.hasPendingWork()) {
+            //当SP有未同步到磁盘的工作，则需等待其完成，才告知系统已完成该广播
+            QueuedWork.queue(new Runnable() {
+                public void run() {
+                    sendFinished(mgr);
+                }
+            }, false);
+        } else {
+            sendFinished(mgr);
+        }
+    } else if (mOrderedHint && mType != TYPE_UNREGISTERED) {
+        final IActivityManager mgr = ActivityManager.getService();
+        sendFinished(mgr);
+    }
+}
+```
+
+可见，只有XML静态注册的广播超时检测过程会考虑是否有SP尚未完成，动态广播并不受其影响。
+
+#### 3.2.2 cancelBroadcastTimeoutLocked
 
     final void cancelBroadcastTimeoutLocked() {
         if (mPendingBroadcastTimeoutMessage) {
@@ -658,3 +685,5 @@ BroadcastReceiver超时检测机制：
 - 对于Service, Broadcast, Input发生ANR之后,最终都会调用AMS.appNotResponding;
 - 对于provider,在其进程启动时publish过程可能会出现ANR, 则会直接杀进程以及清理相应信息,而不会弹出ANR的对话框.
 appNotRespondingViaProvider()过程会走appNotResponding(), 这个就不介绍了，很少使用，由用户自定义超时时间.
+
+关于input的ANR触发过程，见[Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)
