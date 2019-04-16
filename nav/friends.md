@@ -1,41 +1,66 @@
 ---
 layout: page
-title: Friends
+title: Info
 permalink: /friends/
-description: "活跃于Android技术社区,致力于推动技术前进的有为青年"
+description: "Android官方源码、学习资料、技术博客"
 header-img: "img/nav-about.jpg"
 ---
 
+> 跟大家分享一些常用的Android相关的网址资料
 
-#### Friends
+### 一、Android系统
 
-他们既是Android牛人，也是活跃在社区、乐于分享、推动技术进步的有为青年。
+**1.1 Android系统源码**
 
+|网站|备注|
 |---|---|
-|![trinea](/images/friends/trinea.png)         | [trinea，专注于Android开源分享](http://www.trinea.cn/) |
-|![androidyue](/images/friends/androidyue.jpg)|[小黑屋，分享Android应用开发技术](http://droidyue.com/)|
-|![androiddevtools](/images/friends/androiddevtools.jpg) |[脉脉不嘚語，收集Android开发相关资料大全](https://www.androiddevtools.cn)|
-|![codekk](/images/friends/codekk.jpg)         |[codekk，专注于Android开源分享、源码分析](http://www.codekk.com)|
-|![stormzhang](/images/friends/stormzhang.png) |[stormzhang，分享Android经验](http://stormzhang.com)|
-|老罗的Android之旅|[罗升阳的Android系统源码分析](http://blog.csdn.net/luoshengyang/article/details/8923485)|
-|Innost的CSDN专栏|[邓凡平的Android系统源码分析](http://blog.csdn.net/innost?viewmode=contents)|
+|[https://android.googlesource.com](https://android.googlesource.com/platform/)|Google官方提供的Android系统源码（需翻墙）|
+|[http://androidxref.com](http://androidxref.com/)|用于阅读Android系统源码，基于OpenGrok|
+|[http://aosp.opersys.com](http://aosp.opersys.com/)|用于阅读Android系统源码，基于OpenGrok|
+|[https://git.kernel.org](https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tree)|用于阅读Linux Kernel源码|
 
-#### Android源码库
+**1.2 Android源码分析**
 
-- androidxref：[androidxref.com，用于在线阅读Android系统源码](http://androidxref.com/)
-- Android-arsenal.com：[vbauer整理的Github开源库，国外整理最全面的库](http://android-arsenal.com/)
-- Android-open-project：[Trinea整理的Github开源库，国内整理最全面的库](https://github.com/Trinea/android-open-project)
-- codeKK.com：[源码分析Android应用开发相关的开源框架](http://a.codekk.com/)
-- codota.com：[收集各种API优秀示例Java代码并提供搜索功能](http://www.codota.com/)
+|网站|备注|
+|---|---|
+|[罗升阳的CSDN博客](http://blog.csdn.net/luoshengyang/article/details/8923485)|Android 2.3为主的源码分析|
+|[邓凡平的CSDN博客](http://blog.csdn.net/innost?viewmode=contents)|Android 4.x为主的源码分析|
+|[袁辉辉(Gityuan)的个人博客](http://gityuan.com/archive/)|Android 6.0及以上的源码分析|
 
-#### 网站周刊
+**1.3 Google官方网站**
 
-- Android官方网站；[最权威的Google官方资料，首选资料](http://developer.android.com/intl/zh-cn/index.html)
-- Android官方博客：[发布着官方资讯和技术博客](http://android-developers.blogspot.com/)
-- Android官方视频：[Google发布于Youtube的官方Android性能优化的视频](https://www.youtube.com/playlist?list=PLOU2XLYxmsIKEOXh5TwZEv89aofHzNCiu)
-- Android Weekly：[由一群国外Android开发者维护](http://androidweekly.net/)
-- Android开发技术周报：[由脉脉不嘚語维护](http://www.androidweekly.cn/)
-- Android博客周刊：[由Jomeslu维护](http://androidblog.cn/)
+|网站|备注|
+|---|---|
+|[developer.android.com](http://developer.android.com/intl/zh-cn/index.html)|Android开发官网|
+|[Android Docs](http://developer.android.com/guide)|Android开发者指南|
+|[source.android.com](https://source.android.com/)|Android源码相关内容|
+|[android-developers.googleblog.com](https://android-developers.googleblog.com/)|Google提供的官方博客|
+|[Android Performance Patterns](https://www.youtube.com/playlist?list=PLOU2XLYxmsIKEOXh5TwZEv89aofHzNCiu)|Google发布于Youtube的Android**性能优化**的视频系列|
+
+关于性能优视频系列无法翻墙看Youtube，可在优酷上相应视频 [Android性能模式 第四季](http://v.youku.com/v_show/id_XMTUyMTM0MzgyNA==.html?f=26946827)，也可看hukai整理的[Android性能优化典范](http://hukai.me/android-performance-patterns/)。
 
 
----
+### 二、Android应用
+
+他们是活跃于Android技术社区,致力于推动技术前进的有为青年。
+
+**2.1 技术博客**
+ 
+|---|---|
+|[androiddevtools.cn](https://www.androiddevtools.cn)|脉脉不嘚語，收集Android开发相关资料大全|
+|[droidyue.com](http://droidyue.com/)|小黑屋，分享Android应用开发技术|
+|[codekk.com](http://www.codekk.com)| [trinea](http://www.trinea.cn/)，专注于Android应用的开源框架源码分析，|
+|[Trinea github](https://github.com/Trinea/android-open-project)|Trinea整理的Github开源库，是国内整理最全面的库|
+|[android-arsenal.com](http://android-arsenal.com/)|vbauer整理的Github开源库，是国外整理最全面的库|
+|[codota.com](http://www.codota.com/)|收集各种API优秀示例Java代码|
+
+**2.2 技术周刊**
+
+|网址|备注|
+|---|---|
+|[androidweekly.net](http://androidweekly.net/)|一群国外Android开发者维护的Android Weekly|
+|[androidweekly.cn](http://www.androidweekly.cn/)|脉脉不嘚語维护的Android开发技术周报|
+|[androidblog.cn](http://androidblog.cn/)|Jomeslu维护的Android博客周刊|
+
+
+最后，可以看看博主写的《[如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)》。

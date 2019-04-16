@@ -51,7 +51,7 @@ Java是Android的语言基础，建议初学者一定要先学习Java基本知�
 
 有了一定的Java基础（不需要精通Java），就可以开始入门Android。建议初学Android者，一定要先搭建自己的开发环境，先准备jdk和Android Studio环境，现在就不要再用Eclipse了，对于Android开发者来说过时。在看书的过程一边看知识点一边写着示例程序，一来加深印象，二来提高动手能力。
 
-- 《疯狂Android讲义》：作者李刚，这是我看过的第一个Android书籍，目前有第三版了，我当时看的是第二版基于Android 4.2，书中有大量的实例，记得当时每看完一个实例就跟着敲了一遍，大概花了一周时间把这本书看完并把大部分的实例代码都亲手敲了一遍。
+- 《疯狂Android讲义》：作者李刚，这是我看过的第一个Android书籍，目前有第三版了，我当时看的是第二版基于Android 4.2，书中有大量的实例，记得当时每看完一个实例就跟着敲了一遍，大概花了一周时间把这本书看完并把大部分的实例代码都亲手敲了一遍。这里需要说明这本书对于理解Android系统帮忙并不太大，只是当初次接触Android时恰巧看到这本书，并非其他书不好，对于应用入门级的书其实大同小异。
 - 《第一行代码》：作者郭霖，网上有不少人都推荐这本书作为Android入门书，但我当时没有看过。这是图灵系列图书，前段时间图灵的编辑看到我的博客gityuan.com，联系到我问是否有兴趣出书，便提到郭霖的《第一行代码》是他们出版社推出的，然后就给我免费邮寄了一本(多谢赠书之谊)。我大概扫了一扫这本书，内容的确比较基础，作者文笔不错，书中还穿插了不少打怪涨经验升级的片段，比较风趣，初学者可以看看。
 
 Android基本书籍，只需一两本即可，没有必要看太多基础书籍，不同能力就该有不同层级的追求，这里就不再介绍其他基础书籍。 另外，Android开发过程中总是需要各种开发环境、工具的下载，再这里推荐一个不错的网站 [AndroidDevTools.cn](http://www.androiddevtools.cn/)，收集整理了 Android开发、设计等相关的各种工具大集合，非常全面，而且速度也不错哦，最重要的不用翻墙就可下载到最新的工具。
@@ -72,7 +72,7 @@ Android基本书籍，只需一两本即可，没有必要看太多基础书籍�
 - [Android Performance Patterns](https://www.youtube.com/playlist?list=PLOU2XLYxmsIKEOXh5TwZEv89aofHzNCiu)：2015年Google陆续在Youtube上发布的Android性能优化的视频，目前已更新第4季。
     - 国内Google组织在优酷上发布了相应的中文视频 [(中文)Android 性能模式 第四季](http://v.youku.com/v_show/id_XMTUyMTM0MzgyNA==.html?f=26946827)；
     - 对官方视频进行翻译并整理：[Android性能优化典范中文版文档](http://hukai.me)；
-- [android-developers.blogspot.com](http://android-developers.blogspot.com/)：Android官方博客，有一些比较不错的feature，博客会第一时间呈现。
+- [android-developers.googleblog.com](https://android-developers.googleblog.com)：Android官方博客，有一些比较不错的feature，博客会第一时间呈现。
 
 ### 2.3 开源资源
 
@@ -83,7 +83,7 @@ Android基本书籍，只需一两本即可，没有必要看太多基础书籍�
 - [codeKK 开源项目源码分析](http://a.codekk.com/)：从源码的角度，分析Android较流行的优秀开源框架；
 - [codota.com](http://www.codota.com/)：这是一个代码搜索引擎，收集的是各种API的优秀示例Java代码。
 
-当然还有很多优秀的博客和网站值得推荐，这里就不一一介绍。
+此处本文提及的[网址与博客](http://gityuan.com/friends/)，当然还有很多优秀的博客和网站值得推荐，这里就不一一介绍。
 
 ## 三、Android高级篇
 
@@ -143,7 +143,7 @@ Android基本书籍，只需一两本即可，没有必要看太多基础书籍�
 
 牛顿曾说过：**“如果我看得更远一点的话，是因为我站在巨人的肩膀上”**，这句话很具有实用价值，看完前面的介绍，你千万不要一上来就一头扎进源码的世界，小心你会进入二次元世界，处于混沌状态，最后崩溃乃至放弃求知之路，一定要合理利用现有的优秀资源。
 
-**Android 系统源码分析**：邓凡平和罗升阳都是我的好朋友，对于Android方面有着很多共通之处，下面推荐给大家。
+**Android 系统源码分析**：邓凡平和罗升阳都是我的好朋友，对于Android方面的理解有着很多共通之处，下面推荐给大家。
 
 - [Innost的专栏](http://blog.csdn.net/innost?viewmode=contents)
     - 邓凡平前辈所写博客，条例有序，覆盖了Android系统大部分内容；
