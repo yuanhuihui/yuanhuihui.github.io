@@ -24,8 +24,8 @@ View,ViewGroup,Activity都能处理Touch事件, 它们之间处理的先后顺�
 |方法|View|ViewGroup|Activity|
 |---|---|---|---|
 |dispatchTouchEvent|√|√|√|
-|onTouchEvent|×|√|×|
-|onInterceptTouchEvent|√|√|√|
+|onInterceptTouchEvent|×|√|×|
+|onTouchEvent|√|√|√|
 
 以上3个方法功能如下：
 
@@ -78,9 +78,9 @@ View,ViewGroup,Activity都能处理Touch事件, 它们之间处理的先后顺�
         return onTouchEvent(ev); // [见小节2.2.1]
     }
 
-    
+
 如果重写Activity的dispatchTouchEvent()方法，则会在分发事件前可处理触摸事件的相关逻辑. 另外此处getWindow()返回的是Activity的mWindow成员变量，该变量赋值过程是在Activity.attach()方法, 可知其类型为PhoneWindow.
- 
+
 #### 2.2.1 Activity.onTouchEvent
 [-> Activity.java]
 
@@ -95,7 +95,7 @@ public boolean onTouchEvent(MotionEvent event) {
     return false;
 }
 ```
-    
+
 ### 2.3 superDispatchTouchEvent
 [-> PhoneWindow.java]
 
@@ -324,7 +324,7 @@ public boolean onFilterTouchEventForSecurity(MotionEvent event) {
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         return false;
     }
-    
+
 - 当返回true，表示该事件被当前视图拦截；
 - 当返回false，继续执行事件分发。
 
@@ -356,7 +356,7 @@ public boolean onFilterTouchEventForSecurity(MotionEvent event) {
         }
         return mPreSortedChildren;
     }
-    
+
 获取一个视图组的先序列表，通过虚拟的Z轴来排序。
 
     public float getZ() {
@@ -460,7 +460,7 @@ public boolean onFilterTouchEventForSecurity(MotionEvent event) {
 ```Java
 public boolean dispatchTouchEvent(MotionEvent event) {
     ...
-    
+
     final int actionMasked = event.getActionMasked();
     if (actionMasked == MotionEvent.ACTION_DOWN) {
         //在Down事件之前，如果存在滚动操作则停止。不存在则不进行操作

@@ -10,9 +10,9 @@ tags:
 
 ---
 
-> **版权声明：**本站所有博文内容均为原创，转载请务必注明作者与原文链接，且不得篡改原文内容。
+> **版权声明：** 本站所有博文内容均为原创，转载请务必注明作者与原文链接，且不得篡改原文内容。
 
-为便于日常查阅本博客，可通过**[Gityuan博客导航](http://gityuan.com/archive/)**方便检索文章
+为便于日常查阅本博客，可通过 **[Gityuan博客导航](http://gityuan.com/archive/)** 方便检索文章
 
 ### 一、引言
 
@@ -50,7 +50,7 @@ Android平台的基础是Linux内核，比如ART虚拟机最终调用底层Linux
 - 启动Kernel的swapper进程(pid=0)：该进程又称为idle进程, 系统初始化过程Kernel由无到有开创的第一个进程, 用于初始化进程管理、内存管理，加载Display,Camera Driver，Binder Driver等相关工作；
 - 启动kthreadd进程（pid=2）：是Linux系统的内核进程，会创建内核工作线程kworkder，软中断线程ksoftirqd，thermal等内核守护进程。`kthreadd进程是所有内核进程的鼻祖`。
 
-#### 2.2 硬件抽象层 (HAL) 
+#### 2.2 硬件抽象层 (HAL)
 硬件抽象层 (HAL) 提供标准接口，HAL包含多个库模块，其中每个模块都为特定类型的硬件组件实现一组接口，比如WIFI/蓝牙模块，当框架API请求访问设备硬件时，Android系统将为该硬件加载相应的库模块。
 
 #### 2.3 Android Runtime & 系统库
@@ -169,7 +169,7 @@ Socket通信方式也是C/S架构，比Binder简单很多。在Android系统中�
 博主对于Android从系统底层一路到上层都有自己的理解和沉淀，通过前面对系统启动的介绍，相信大家对Android系统有了一个整体观。接下来需抓核心、理思路，争取各个击破。后续将持续更新和完善整个大纲，不限于进程、内存、IO、系统服务架构以及分析实战等文章。
 
 当然本站有一些文章没来得及进一步加工，有时间根据大家的反馈，不断修正和完善所有文章，争取给文章，再进一步精简非核心代码，增加可视化图表以及文字的结论性分析。基于**Android 6.0的源码**，专注于分享Android系统原理、架构分析的原创文章。  
- 
+
 **建议阅读群体**： 适合于正从事或者有兴趣研究Android系统的工程师或者技术爱好者，也适合Android App高级工程师；对于尚未入门或者刚入门的App工程师阅读可能会有点困难，建议先阅读更基础的资料，再来阅读本站博客。
 
 看到Android整个系统架构是如此庞大的, 该问如何学习Android系统, 以下是我自己的Android的学习和研究论，仅供参考[如何自学Android](http://gityuan.com/2016/04/24/how-to-study-android/)。
@@ -235,6 +235,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |10|[进程优先级](http://gityuan.com/2015/10/01/process-priority/)|进程nice,thread priority以及scheduler|
 |11|[Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)|updateOomAdjLocked过程|
 |12|[Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)|整理系统的所有进程/线程|
+|13|[解读Android进程优先级ADJ算法]|(http://gityuan.com/2018/05/19/android-process-adj/)|
 
 #### 4.4 四大组件系列
 对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，接下分别展开介绍：

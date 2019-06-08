@@ -36,25 +36,25 @@ static int epoll_fd = -1;
 int main(int argc, char** argv) {
     ...
     //设置文件属性0777
-    umask(0); 
+    umask(0);
     //初始化内核log，位于节点/dev/kmsg【见小节1.2】
     klog_init();
     //设置输出的log级别
     klog_set_level(KLOG_NOTICE_LEVEL);
-    
+
     //创建一块共享的内存空间，用于属性服务【见小节5.1】
-    property_init(); 
+    property_init();
     //初始化epoll功能
     epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     //初始化子进程退出的信号处理函数，并调用epoll_ctl设置signal fd可读的回调函数【见小节2.1】
     signal_handler_init();  
 
     //加载default.prop文件
-    property_load_boot_defaults(); 
+    property_load_boot_defaults();
     //启动属性服务器，此处会调用epoll_ctl设置property fd可读的回调函数【见小节5.2】
     start_property_service();   
     //解析init.rc文件
-    init_parse_config_file("/init.rc"); 
+    init_parse_config_file("/init.rc");
 
     //执行rc文件中触发器为on early-init的语句
     action_for_each_trigger("early-init", action_add_queue_tail);
@@ -63,17 +63,17 @@ int main(int argc, char** argv) {
     queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
     //设备组合键的初始化操作，此处会调用epoll_ctl设置keychord fd可读的回调函数
     queue_builtin_action(keychord_init_action, "keychord_init");
-    
+
     // 屏幕上显示Android静态Logo 【见小节1.3】
     queue_builtin_action(console_init_action, "console_init");
-    
+
     //执行rc文件中触发器为on init的语句
     action_for_each_trigger("init", action_add_queue_tail);
     queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
-    
+
     char bootmode[PROP_VALUE_MAX];
     //当处于充电模式，则charger加入执行队列；否则late-init加入队列。
-    if (property_get("ro.bootmode", bootmode) > 0 && strcmp(bootmode, "charger") == 0) 
+    if (property_get("ro.bootmode", bootmode) > 0 && strcmp(bootmode, "charger") == 0)
     {
        action_for_each_trigger("charger", action_add_queue_tail);
     } else {
@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     }
     //触发器为属性是否设置
     queue_builtin_action(queue_property_triggers_action, "queue_property_triggers");
-     
+
     while (true) {
         if (!waiting_for_exec) {
             execute_one_command();
@@ -188,7 +188,7 @@ init进程执行完成后进入循环等待epoll_wait的状态。
 
         if (next_start_time <= gettime()) {
             svc->flags &= (~SVC_RESTARTING);
-            service_start(svc, NULL); 
+            service_start(svc, NULL);
             return;
         }
 
@@ -231,11 +231,11 @@ init进程执行完成后进入循环等待epoll_wait的状态。
         //SA_NOCLDSTOP使init进程只有在其子进程终止时才会受到SIGCHLD信号
         act.sa_flags = SA_NOCLDSTOP;
         sigaction(SIGCHLD, &act, 0);
-        
+
         //进入waitpid来处理子进程是否退出的情况【见小节2.2】
-        reap_any_outstanding_children(); 
+        reap_any_outstanding_children();
         //调用epoll_ctl方法来注册epoll的回调函数【见小节2.3】
-        register_epoll_handler(signal_read_fd, handle_signal); 
+        register_epoll_handler(signal_read_fd, handle_signal);
     }
 
 每个进程在处理其他进程发送的signal信号时都需要先注册，当进程的运行状态改变或终止时会产生某种signal信号，init进程是所有用户空间进程的父进程，当其子进程终止时产生SIGCHLD信号，init进程调用信号安装函数sigaction()，传递参数给sigaction结构体，便完成信号处理的过程。
@@ -249,7 +249,7 @@ init进程执行完成后进入循环等待epoll_wait的状态。
             ERROR("write(signal_write_fd) failed: %s\n", strerror(errno));
         }
     }
-    
+
     //读取数据
     static void handle_signal() {
         char buf[32];
@@ -275,7 +275,7 @@ init进程执行完成后进入循环等待epoll_wait的状态。
             return false;
         }
         //根据pid查找到相应的service
-        service* svc = service_find_by_pid(pid); 
+        service* svc = service_find_by_pid(pid);
         std::string name;
 
         if (!svc) {
@@ -413,35 +413,35 @@ Options是Service的可选项，与service配合使用
     on init
     on late-init
         trigger post-fs      
-        trigger load_system_props_action 
+        trigger load_system_props_action
         trigger post-fs-data  
         trigger load_persist_props_action
         trigger firmware_mounts_complete
         trigger boot   
-        
+
     on post-fs      //挂载文件系统
         start logd
         mount rootfs rootfs / ro remount
-        mount rootfs rootfs / shared rec 
+        mount rootfs rootfs / shared rec
         mount none /mnt/runtime/default /storage slave bind rec
         ...
-         
+
     on post-fs-data  //挂载data
         start logd
         start vold   //启动vold
         ...
-        
+
     on boot      //启动核心服务
         ...
         class_start core //启动core class
-        
+
 触发器的执行顺序为on early-init -> init -> late-init，从上面的代码可知，在late-init触发器中会触发文件系统挂载以及on boot。再on boot过程会触发启动core class。至于main class的启动是由vold.decrypt的以下4个值的设置所决定的，
 该过程位于system/vold/cryptfs.c文件。
 
     on nonencrypted
         class_start main
         class_start late_start
-        
+
     on property:vold.decrypt=trigger_restart_min_framework
         class_start main
 
@@ -451,12 +451,12 @@ Options是Service的可选项，与service配合使用
 
     on property:vold.decrypt=trigger_reset_main
         class_reset main
-            
+
     on property:vold.decrypt=trigger_shutdown_framework
         class_reset late_start
         class_reset main
 
-      
+
 #### 4.2 服务启动(Zygote)
 在init.zygote.rc文件中，zygote服务定义如下：
 
@@ -517,7 +517,7 @@ Zygote服务会随着main class的启动而启动，退出后会由init重启zyg
         user system
         group graphics drmrpc
         onrestart restart zygote
-    
+
 由上可知：
 
 - zygote：触发media、netd以及子进程(包括system_server进程)重启；
@@ -724,7 +724,7 @@ static uint32_t PropertySetImpl(const std::string& name, const std::string& valu
     prop_info* pi = (prop_info*) __system_property_find(name.c_str());
     if (pi != nullptr) {
         // 以ro.开头的属性不可更改
-        if (android::base::StartsWith(name, "ro.") 
+        if (android::base::StartsWith(name, "ro.")
             && strcmp(name.c_str(),"ro.build.software.version")) {
             return PROP_ERROR_READ_ONLY_PROPERTY;
         }
@@ -758,7 +758,7 @@ static uint32_t PropertySetImpl(const std::string& name, const std::string& valu
 
 ## 六、总结
 
-init进程(pid=0)是Linux系统中用户空间的第一个进程，主要工作如下：
+init进程(pid=1)是Linux系统中用户空间的第一个进程，主要工作如下：
 
 - 创建一块共享的内存空间，用于属性服务器;
 - 解析各个rc文件，并启动相应属性服务进程;
@@ -768,6 +768,6 @@ init进程(pid=0)是Linux系统中用户空间的第一个进程，主要工作�
     - 检查是否需要重启的进程，若有则将其重新启动;
     - 进入epoll_wait等待状态，直到系统属性变化事件(property_set改变属性值)，或者收到子进程的信号SIGCHLD，再或者keychord
     键盘输入事件，则会退出等待状态，执行相应的回调函数。
-    
+
 可见init进程在开机之后的核心工作就是响应property变化事件和回收僵尸进程。当某个进程调用property_set来改变一个系统属性值时，系统会通过socket向init进程发送一个property变化的事件通知，那么property fd会变成可读，init进程采用epoll机制监听该fd则会
 触发回调handle_property_set_fd()方法。回收僵尸进程，在Linux内核中，如父进程不等待子进程的结束直接退出，会导致子进程在结束后变成僵尸进程，占用系统资源。为此，init进程专门安装了SIGCHLD信号接收器，当某些子进程退出时发现其父进程已经退出，则会向init进程发送SIGCHLD信号，init进程调用回调方法handle_signal()来回收僵尸子进程。

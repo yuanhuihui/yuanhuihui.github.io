@@ -23,14 +23,14 @@ tags:
 /frameworks/base/core/jni/
   - com_android_internal_os_Zygote.cpp
   - AndroidRuntime.cpp
-  
+
 /frameworks/base/cmds/app_process/App_main.cpp
 ```
 
 ### 启动流程
 
 SystemServer的在Android体系中所处的地位，SystemServer由Zygote fork生成的，进程名为`system_server`，该进程承载着framework的核心服务。
-[Android系统启动-zygote篇](http://gityuan.com/22016/02/13/android-zygote/)中讲到Zygote启动过程中会调用startSystemServer()，可知`startSystemServer()`函数是system_server启动流程的起点，
+[Android系统启动-zygote篇](http://gityuan.com/2016/02/13/android-zygote/)中讲到Zygote启动过程中会调用startSystemServer()，可知`startSystemServer()`函数是system_server启动流程的起点，
 启动流程图如下：
 
 ![system_server_boot_process](/images/boot/systemServer/system_server.jpg)

@@ -96,7 +96,7 @@ provider的超时是在provider进程首次启动的时候才会检测，当prov
 
 更多细节详见理解ContentProvider原理，http://gityuan.com/2016/07/30/content-provider
 
-#### inpu超时机制
+#### input超时机制
 
 input的超时检测机制跟service、broadcast、provider截然不同，为了更好的理解input过程先来介绍两个重要线程的相关工作：
 
@@ -211,7 +211,7 @@ final void appNotResponding(...) {
             return;
         }
         ...
-        
+
         //弹出ANR选择的对话框
         Message msg = Message.obtain();
         msg.what = ActivityManagerService.SHOW_NOT_RESPONDING_UI_MSG;

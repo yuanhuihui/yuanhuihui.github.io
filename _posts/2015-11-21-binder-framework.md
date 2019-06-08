@@ -16,11 +16,11 @@ framework/base/core/java/android/os/
   - IInterface.java
   - IServiceManager.java
   - ServiceManager.java
-  - ServiceManagerNative.java(包含内部类ServiceManagerProxy)
+  - ServiceManagerNative.java(内含ServiceManagerProxy类)
 
 framework/base/core/java/android/os/
   - IBinder.java
-  - Binder.java(包含内部类BinderProxy)
+  - Binder.java(内含BinderProxy类)
   - Parcel.java
 
 framework/base/core/java/com/android/internal/os/
@@ -278,7 +278,7 @@ framework Binder架构图：查看[大图](http://gityuan.com/images/binder/java
     public static void addService(String name, IBinder service, boolean allowIsolated) {
         try {
             //先获取SMP对象，则执行注册服务操作【见小节3.2/3.4】
-            getIServiceManager().addService(name, service, allowIsolated); 
+            getIServiceManager().addService(name, service, allowIsolated);
         } catch (RemoteException e) {
             Log.e(TAG, "error in addService", e);
         }
@@ -362,7 +362,7 @@ BinderInternal.java中有一个native方法getContextObject()，JNI调用执行�
         return object;
     }
 
-    
+
 根据BpBinder(C++)生成BinderProxy(Java)对象. 主要工作是创建BinderProxy对象,并把BpBinder对象地址保存到BinderProxy.mObject成员变量.
 到此，可知ServiceManagerNative.asInterface(BinderInternal.getContextObject()) 等价于
 
@@ -523,7 +523,7 @@ data.writeStrongBinder(service)最终等价于`parcel->writeStrongBinder(new Jav
                 BpBinder *proxy = binder->remoteBinder();
                 const int32_t handle = proxy ? proxy->handle() : 0;
                 obj.type = BINDER_TYPE_HANDLE; //远程Binder
-                obj.binder = 0; 
+                obj.binder = 0;
                 obj.handle = handle;
                 obj.cookie = 0;
             } else {
@@ -556,7 +556,7 @@ data.writeStrongBinder(service)最终等价于`parcel->writeStrongBinder(new Jav
     {
         return NULL;
     }
-    
+
 #### 3.6.2 finish_flatten_binder
 
     inline static status_t finish_flatten_binder(
@@ -564,7 +564,7 @@ data.writeStrongBinder(service)最终等价于`parcel->writeStrongBinder(new Jav
     {
         return out->writeObject(flat, false);
     }
-    
+
 再回到小节3.4的addService过程，则接下来进入transact。
 
 ### 3.7 BinderProxy.transact
@@ -589,7 +589,7 @@ data.writeStrongBinder(service)最终等价于`parcel->writeStrongBinder(new Jav
         Parcel* data = parcelForJavaObject(env, dataObj);
         Parcel* reply = parcelForJavaObject(env, replyObj);
         ...
-        
+
         //gBinderProxyOffsets.mObject中保存的是new BpBinder(0)对象
         IBinder* target = (IBinder*)
             env->GetLongField(obj, gBinderProxyOffsets.mObject);
@@ -652,9 +652,9 @@ public static IBinder getService(String name) {
             data.writeInterfaceToken(IServiceManager.descriptor);
             data.writeString(name);
             //mRemote为BinderProxy 【见4.3】
-            mRemote.transact(GET_SERVICE_TRANSACTION, data, reply, 0); 
+            mRemote.transact(GET_SERVICE_TRANSACTION, data, reply, 0);
             //从reply里面解析出获取的IBinder对象【见4.8】
-            IBinder binder = reply.readStrongBinder(); 
+            IBinder binder = reply.readStrongBinder();
             reply.recycle();
             data.recycle();
             return binder;
@@ -749,7 +749,7 @@ public static IBinder getService(String name) {
         int32_t cmd;
         int32_t err;
         while (1) {
-            if ((err=talkWithDriver()) < NO_ERROR) break; 
+            if ((err=talkWithDriver()) < NO_ERROR) break;
             ...
             cmd = mIn.readInt32();
             switch (cmd) {
@@ -804,7 +804,7 @@ public static IBinder getService(String name) {
         if (status) {
             ...
         } else {=
-        
+
             data.txn.flags = 0;
             data.txn.data_size = reply->data - reply->data0;
             data.txn.offsets_size = ((char*) reply->offs) - ((char*) reply->offs0);
@@ -817,7 +817,7 @@ public static IBinder getService(String name) {
 
 binder_write将BC_FREE_BUFFER和BC_REPLY命令协议发送给驱动，进入驱动。binder_ioctl ->
 binder_ioctl_write_read -> binder_thread_write，由于是BC_REPLY命令协议，则进入binder_transaction，
-该方法会向请求服务的线程Todo队列插入事务。 
+该方法会向请求服务的线程Todo队列插入事务。
 
 接下来，请求服务的进程在执行talkWithDriver的过程执行到binder_thread_read()，处理Todo队列的事务。
 

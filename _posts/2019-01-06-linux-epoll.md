@@ -26,7 +26,7 @@ kernel/include/uapi/linux/eventpoll.h
 - select轮询效率随着监控个数的增加而性能变差
 - select从内核空间返回到用户空间的是整个文件描述符数组，应用程序还需要额外再遍历整个数组才知道哪些文件描述符触发了相应事件。
 
-本文要介绍epoll机制，有不少人可能都知道相比select/poll之下，epoll有着明显优势，这些优势的底层实现原理又是什么呢？
+本文要介绍epoll机制，有不少人可能都知道相比[select/poll之下，epoll有着明显优势](http://gityuan.com/2015/12/06/linux_epoll/)，这些优势的底层实现原理又是什么呢？
 
 
 #### epoll函数
@@ -37,8 +37,8 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)；
 int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout);
 
 struct epoll_event {
-    __uint32_t events; 
-    epoll_data_t data; 
+    __uint32_t events;
+    epoll_data_t data;
 };
 ```
 
@@ -76,7 +76,7 @@ SYSCALL_DEFINE1(epoll_create1, int, flags)
     //创建file实例，以及匿名inode节点和dentry等数据结构
     file = anon_inode_getfile("[eventpoll]", &eventpoll_fops, ep,
                  O_RDWR | (flags & O_CLOEXEC));
-    
+
     ep->file = file;
     fd_install(fd, file);  //建立fd和file的关联关系
     return fd;
@@ -137,9 +137,9 @@ struct eventpoll {
 
     struct list_head rdllist; //所有准备就绪的文件描述符列表
     struct rb_root rbr; //用于储存已监控fd的红黑树根节点
-    
+
     // 当正在向用户空间传递事件，则就绪事件会临时放到该队列，否则直接放到rdllist
-    struct epitem *ovflist; 
+    struct epitem *ovflist;
     struct wakeup_source *ws; // 当ep_scan_ready_list运行时使用wakeup_source
     struct user_struct *user; //创建eventpoll描述符的用户
 
@@ -488,7 +488,7 @@ static int ep_remove(struct eventpoll *ep, struct epitem *epi)
 {
     unsigned long flags;
     struct file *file = epi->ffd.file;
-    
+
     ep_unregister_pollwait(ep, epi);
 
     /* Remove the current item from the list of epoll hooks */
@@ -619,9 +619,9 @@ fetch_events:
     if (!ep_events_available(ep)) {  //【小节4.2.1】
         //没有事件就绪则进入睡眠状态，当事件就绪后可通过ep_poll_callback()来唤醒
         //将当前进程放入wait等待队列 【小节4.2.2】
-        init_waitqueue_entry(&wait, current); 
+        init_waitqueue_entry(&wait, current);
         //将当前进程加入eventpoll等待队列，等待文件就绪、超时或中断信号
-        __add_wait_queue_exclusive(&ep->wq, &wait); 
+        __add_wait_queue_exclusive(&ep->wq, &wait);
 
         for (;;) {
             set_current_state(TASK_INTERRUPTIBLE);
@@ -688,7 +688,7 @@ static inline void init_waitqueue_entry(wait_queue_t *q, struct task_struct *p)
 3. epoll_wait()：主要工作是执行ep_poll()方法
     - wait->func的唤醒函数为default_wake_function()，并将等待队列项加入ep->wq
     - freezable_schedule_hrtimeout_range()：出让CPU，进入睡眠状态
-    
+
 之后，当其他进程就绪事件发生时便会唤醒相应等待队列上的进程。比如监控的是可写事件，则会在write()方法中调用wake_up方法唤醒相对应的等待队列上的进程，当唤醒后执行前面设置的唤醒回调函数ep_poll_callback函数。
 
 4. ep_poll_callback()：目标fd的就绪事件到来时，将epi->rdllink加入ep->rdllist的队列，导致rdlist不空，从而进程被唤醒，epoll_wait得以继续执行。

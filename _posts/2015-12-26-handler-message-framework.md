@@ -68,7 +68,7 @@ Android有大量的消息驱动方式来进行交互，比如Android的四剑客
 
 ### 2.1 prepare()
 
-对于无参的情况，默认调用`prepare(true)`，表示的是这个Looper运行退出，而对于false的情况则表示当前Looper不运行退出。
+对于无参的情况，默认调用`prepare(true)`，表示的是这个Looper允许退出，而对于false的情况则表示当前Looper不允许退出。
 
 ```Java
 private static void prepare(boolean quitAllowed) {
@@ -167,7 +167,7 @@ Looper.prepare()在每个线程只允许执行一次，该方法会创建Looper�
             if (msg == null) { //没有消息，则退出循环
                 return;
             }
-            
+
             //默认为null，可通过setMessageLogging()方法来指定输出，用于debug功能
             Printer logging = me.mLogging;  
             if (logging != null) {
@@ -178,9 +178,9 @@ Looper.prepare()在每个线程只允许执行一次，该方法会创建Looper�
             if (logging != null) {
                 logging.println("<<<<< Finished to " + msg.target + " " + msg.callback);
             }
-            
+
             //恢复调用者信息
-            final long newIdent = Binder.clearCallingIdentity(); 
+            final long newIdent = Binder.clearCallingIdentity();
             msg.recycleUnchecked();  //将Message放入消息池 【见5.2】
         }
     }
@@ -494,8 +494,9 @@ MessageQueue是消息机制的Java层和C++层的连接纽带，大部分核心�
                 final long now = SystemClock.uptimeMillis();
                 Message prevMsg = null;
                 Message msg = mMessages;
+                //当消息的Handler为空时，则查询异步消息
                 if (msg != null && msg.target == null) {
-                    //当消息Handler为空时，查询MessageQueue中的下一条异步消息msg，则退出循环。
+                    //当查询到异步消息，则立刻退出循环
                     do {
                         prevMsg = msg;
                         msg = msg.next;

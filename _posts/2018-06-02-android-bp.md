@@ -24,7 +24,7 @@ tags:
 
 ![android_build](/images/android_bp/android_build.jpg);
 
-通过Kati将Android.mk转换成ninja格式的文件，通过Buleprint+ Soong将Android.bp转换成ninja格式的文件，通过androidmk将将Android.mk转换成Android.bp，但针对没有分支、循环等流程控制的Android.mk才有效。
+通过Kati将Android.mk转换成ninja格式的文件，通过Blueprint+ Soong将Android.bp转换成ninja格式的文件，通过androidmk将将Android.mk转换成Android.bp，但针对没有分支、循环等流程控制的Android.mk才有效。
 
 这里涉及到Ninja, kati, Soong, bp概念，接下来分别简单介绍一下。
 

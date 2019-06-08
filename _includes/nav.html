@@ -19,9 +19,10 @@
                     <li><a href="{{ site.baseurl }}/">首页</a></li>
                     <li><a href="{{ site.baseurl }}/archive">目录</a></li>
                     <!--<li><a href="{{ site.baseurl }}/tags">标签</a></li>-->
-                    <li><a href="{{ site.baseurl }}/talk">留言区</a></li>
                     <li><a href="{{ site.baseurl }}/about">关于</a></li>
-                    <li><a href="{{ site.baseurl }}/friends">友链</a></li>
+                    <!--<li><a href="{{ site.baseurl }}/job">内推区</a></li>-->
+                    <li><a href="{{ site.baseurl }}/talk">留言区</a></li>
+                    <li><a href="{{ site.baseurl }}/friends">资料</a></li>
                 </ul>
             </div>
         </div>
@@ -67,11 +68,11 @@
     /**
      * Since Fastclick is used to delegate 'touchstart' globally
      * to hack 300ms delay in iOS by performing a fake 'click',
-     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * Using 'e.stopPropagation' to stop 'touchstart' event from
      * $toggle/$collapse will break global delegation.
-     * 
+     *
      * Instead, we use a 'e.target' filter to prevent handler
-     * added to document close HuxNav.  
+     * added to document close HuxNav.
      *
      * Also, we use 'click' instead of 'touchstart' as compromise
      */
