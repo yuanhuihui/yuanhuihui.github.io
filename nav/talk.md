@@ -23,7 +23,7 @@ description: "技术交流区"
 
 - 自从2017年的多说、网易云跟帖这些3方评论系统相继关闭，我的博客就一直没有评论区，应大家要求刚搭建一个
 - 留言过程希望大家文明用语，感谢配合
-
+- 博主自身工作比较繁忙，所以会一段时间后统一回复一次，最新回复时间点：2019.6.8。
 ---
 
 <script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
@@ -33,7 +33,7 @@ description: "技术交流区"
     new Valine({
         el: '#vcomments',
         app_id: 'fe97Ym6pMFX5GRY6LQXRO3Uy-gzGzoHsz',  
-        app_key: 'sdul8c32zhTdpMUTbMzs4o87', 
+        app_key: 'sdul8c32zhTdpMUTbMzs4o87',
         avatar: 'robohash',
         placeholder:'欢迎留言交流',
         pageSize: 10,
