@@ -28,17 +28,17 @@ tags:
 |查找文件 (Navigate File)          |`Shift + Ctrl + N`| Shift + Cmd + O|
 |搜索任意内容                       |`双击 Shift`       | 双击 Shift|
 |跳转至某一行 (Navigate Line)       |`Ctrl + G`        | Cmd + L|
-|跳转至源码 (Jump to Source)        |`F4`              |`F4`
-|[全局]查找 (Find)                 |`[Shift +] Ctrl + F` |[Shift +] Cmd + F
-|[全局]替换 (Replace)              |`[Shift +] Ctrl + R` |[Shift +] Cmd + F
-|高亮选中单词 (highlight)           |`SHIFT + Ctrl + F7|SHIFT + Cmd + F7|
-|前进 (Forward)                    |`Ctrl + →`|Cmd + [|
-|后退 (Back)                       |`Ctrl + ←`|Cmd + ]|
+|跳转至源码 (Jump to Source)        |`F4`              |`F4`|
+|[全局]查找 (Find)                 |`[Shift +] Ctrl + F` |`[Shift +] Cmd + F`|
+|[全局]替换 (Replace)              |`[Shift +] Ctrl + R` |`[Shift +] Cmd + F`|
+|高亮选中单词 (highlight)           |`SHIFT + Ctrl + F7| SHIFT + Cmd + F7|
+|前进 (Forward)                    |Ctrl + →|Cmd + [|
+|后退 (Back)                       |Ctrl + ←|Cmd + ]|
 |上(下)一个方法 |Alt + ↑   |
 |跳至括号开头[结尾]|Ctrl + [ |
 |展开(收缩)|Ctrl + +|
 |全部展开(收缩)|Ctrl + Shift + +|
-|移动光标至行首(尾)|Home / End|
+|移动光标至行首(尾)|Home|
 |查看方法参数信息|Ctrl + P|
 |查询上下文信息|Alt + Q|
 |光标处查找 |  Ctrl + F7 |
