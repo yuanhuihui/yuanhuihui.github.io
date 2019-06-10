@@ -10,7 +10,7 @@ tags:
 
 **说明：**
 
-- 本文中的快捷键是针对Linux环境，且Keymaps为default情况下的映射关系。不同系统对应不同快捷键是记忆负担，为此作者把MAC电脑的快捷键调整为这套Linux快捷键，设置是在Keymap项中设置。
+- 本文中的快捷键是针对Linux环境，且Keymaps为default情况下的映射关系。
 - 标红或加粗的快捷键是博主多年阅读Android系统源码过程中高频率使用的一些快捷键
 - 关联快捷键，是指具有关联关系的快捷键，把相关联的键放到一组，是为了便于记忆，比如展开和收缩，当前查找与全局查找。
 
@@ -31,7 +31,7 @@ tags:
 |跳转至源码 (Jump to Source)        |`F4`              |`F4`|
 |[全局]查找 (Find)                 |`[Shift +] Ctrl + F` |`[Shift +] Cmd + F`|
 |[全局]替换 (Replace)              |`[Shift +] Ctrl + R` |`[Shift +] Cmd + F`|
-|高亮选中单词 (highlight)           |`SHIFT + Ctrl + F7| SHIFT + Cmd + F7|
+|高亮选中单词 (highlight)           |SHIFT + Ctrl + F7| SHIFT + Cmd + F7|
 |前进 (Forward)                    |Ctrl + →|Cmd + [|
 |后退 (Back)                       |Ctrl + ←|Cmd + ]|
 |上(下)一个方法 |Alt + ↑   |
