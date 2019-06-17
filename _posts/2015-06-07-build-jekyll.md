@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Windows下搭建本地Jekyll"
+title:  "搭建Jekyll本地写作环境"
 date:   2015-06-07 23:10:28
 catalog:  true
 tags:
@@ -13,8 +13,19 @@ tags:
 
 ## 一、安装Ruby
 
-Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby环境。
+Jekyll是用ruby语言编写的，所以我们首先要在装好ruby环境，下面分别讲一下Ma和Window环境。
 
+### Mac环境
+
+1. 安装Homebrew：Mac必备命令，类似ubuntu的apt-get命令，安装命令如下：
+
+        ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)"
+
+2. 安装ruby：mac自带, 没有则使用brew安装
+
+        brew install ruby
+
+### Window环境
 1.  下载[RubyInstaller](http://rubyinstaller.org/downloads/)
 
         选择合适版本，注意操作系统是否64位版本。
@@ -37,7 +48,7 @@ Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby�
 
 ##  二、安装Jekyll
 
-对于Window则打开CMD窗口，对于Linux或者MAC则打开终端窗口：
+对于Linux或者MAC则打开终端窗口，对于Window则打开CMD窗口。
 
 ### 1. 更换源
 
@@ -57,12 +68,15 @@ Jekyll是用ruby语言编写的，所以我们首先要在windows上装好ruby�
 
         gem install jekyll
 
-开始安装，因为是联网安装，所以可能时间比较常，耐心等待。至此Jekyll 安装全部完成。
+开始安装，因为是联网安装，所以可能时间比较常，耐心等待，至此Jekyll 安装全部完成。
+
+另外，该命令执行过程出现You don't have write permissions for the /Library/Ruby/Gems/2.3.0 directory.
+则可以考虑重新安装Ruby或者是执行在gem install命令前加sudo来提权执行。
 
 ### 3. 安装paginate
     gem install jekyll-paginate
 
-并_config.yml 中加入一句 gems: [jekyll-paginate]
+并在_config.yml 中加入一句 gems: [jekyll-paginate]
 
 ---
 
