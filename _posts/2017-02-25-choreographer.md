@@ -6,14 +6,14 @@ catalog:    true
 tags:
     - android
     - graphic
-    
+
 ---
 
     Choreographer.java
     DisplayEventReceiver.java
     frameworks/base/core/jni/android_view_DisplayEventReceiver.cpp
     frameworks/native/libs/gui/DisplayEventReceiver.cpp
-    
+
 ## 一. 概述
 
 前面两篇文章介绍了SurfaceFlinger原理，讲述了SurfaceFlinger的启动过程，绘制过程，以及Vsync处理过程。
@@ -30,14 +30,14 @@ tags:
         mChoreographer = Choreographer.getInstance();
         ...
     }
-    
+
 ### 2.1 getInstance
 [-> Choreographer.java]
 
     public static Choreographer getInstance() {
         return sThreadInstance.get(); //单例模式
     }
-    
+
     private static final ThreadLocal<Choreographer> sThreadInstance =
         new ThreadLocal<Choreographer>() {
 
@@ -73,7 +73,7 @@ tags:
 - mLastFrameTimeNanos：是指上一次帧绘制时间点；
 - mFrameIntervalNanos：帧间时长，一般等于16.7ms.
 
-### 2.3 FrameHandler
+### 2.3 创建FrameHandler
 [-> Choreographer.java  ::FrameHandler]
 
     private final class FrameHandler extends Handler {
@@ -134,7 +134,7 @@ tags:
         ...
 
         //获取DisplayEventReceiver对象的引用
-        receiver->incStrong(gDisplayEventReceiverClassInfo.clazz); 
+        receiver->incStrong(gDisplayEventReceiverClassInfo.clazz);
         return reinterpret_cast<jlong>(receiver.get());
     }
 
@@ -163,7 +163,7 @@ DisplayEventReceiver对象的全局引用。
         int rc = mMessageQueue->getLooper()->addFd(mReceiver.getFd(), 0, Looper::EVENT_INPUT,
                 this, NULL);
         ...
-        
+
         return OK;
     }
 
@@ -232,7 +232,7 @@ handleEvent。
 
         mMessageQueue->raiseAndClearException(env, "dispatchVsync");
     }
-    
+
 此处调用到Java层的DisplayEventReceiver对象的dispatchVsync()方法，接下来进入Java层。
 
 ### 2.6 dispatchVsync
@@ -263,7 +263,7 @@ FrameDisplayEventReceiver对象，接下来进入该对象。
                 return;
             }
             ...
-            
+
             mTimestampNanos = timestampNanos;
             mFrame = frame;
             //该消息的callback为当前对象FrameDisplayEventReceiver
@@ -297,7 +297,6 @@ FrameDisplayEventReceiver对象，接下来进入该对象。
             startNanos = System.nanoTime();
             final long jitterNanos = startNanos - frameTimeNanos;
             if (jitterNanos >= mFrameIntervalNanos) {
-                
                 final long skippedFrames = jitterNanos / mFrameIntervalNanos;
                 //当掉帧个数超过30，则输出相应log
                 if (skippedFrames >= SKIPPED_FRAME_WARNING_LIMIT) {
@@ -324,7 +323,9 @@ FrameDisplayEventReceiver对象，接下来进入该对象。
             mFrameInfo.markInputHandlingStart();
             doCallbacks(Choreographer.CALLBACK_INPUT, frameTimeNanos);
 
+            //标记动画开始时间
             mFrameInfo.markAnimationsStart();
+            //执行回调方法【见小节2.9】
             doCallbacks(Choreographer.CALLBACK_ANIMATION, frameTimeNanos);
 
             mFrameInfo.markPerformTraversalsStart();
@@ -336,22 +337,22 @@ FrameDisplayEventReceiver对象，接下来进入该对象。
         }
     }
 
-1. 每调用一次scheduleFrameLocked()，则mFrameScheduled为true，能执行一次
-doFrame()操作。
-2. 最终有4个回调方法，依次为如下：
+1. 每调用一次scheduleFrameLocked()，则mFrameScheduled=true，能执行一次
+doFrame()操作，执行完doFrame()并设置mFrameScheduled=false；
+2. 最终有4个回调类别，如下所示：
   - INPUT：输入事件
   - ANIMATION：动画
-  - TRAVERSAL：窗口刷新
-  - COMMIT
+  - TRAVERSAL：窗口刷新，执行measure、layout、draw
+  - COMMIT：遍历完成的提交操作，用来修正动画启动时间
 
-#### 2.8.1 doCallbacks
+### 2.9 doCallbacks
 [-> Choreographer.java]
 
     void doCallbacks(int callbackType, long frameTimeNanos) {
         CallbackRecord callbacks;
         synchronized (mLock) {
             final long now = System.nanoTime();
-            // 从队列查找相应类型的CallbackRecord对象【见小节2.8.2】
+            // 从队列查找相应类型的CallbackRecord对象【见小节2.9.1】
             callbacks = mCallbackQueues[callbackType].extractDueCallbacksLocked(
                     now / TimeUtils.NANOS_PER_MS);
             if (callbacks == null) {
@@ -372,14 +373,25 @@ doFrame()操作。
         }
         try {
             for (CallbackRecord c = callbacks; c != null; c = c.next) {
-                c.run(frameTimeNanos); //【见小节2.9】
+                c.run(frameTimeNanos); //【见小节2.10】
             }
         } finally {
-            ... //回收callbacks，加入mCallbackPool对象池
+          synchronized (mLock) {
+              mCallbacksRunning = false;
+              //回收callbacks，加入对象池mCallbackPool
+              do {
+                  final CallbackRecord next = callbacks.next;
+                  recycleCallbackLocked(callbacks);
+                  callbacks = next;
+              } while (callbacks != null);
+          }
+          Trace.traceEnd(Trace.TRACE_TAG_VIEW);
         }
     }
 
-#### 2.8.2 extractDueCallbacksLocked
+也就是说callback一旦执行完成，则会被回收。
+
+#### 2.9.1 extractDueCallbacksLocked
 [-> Choreographer.java ::CallbackQueue]
 
     private final class CallbackQueue {
@@ -387,7 +399,7 @@ doFrame()操作。
             CallbackRecord callbacks = mHead;
             //当队列头部的callbacks对象为空，或者执行时间还没到达，则直接返回
             if (callbacks == null || callbacks.dueTime > now) {
-                return null; 
+                return null;
             }
 
             CallbackRecord last = callbacks;
@@ -405,7 +417,7 @@ doFrame()操作。
         }
     }
 
-### 2.9 CallbackRecord.run
+### 2.10 CallbackRecord.run
 [-> Choreographer.java ::CallbackRecord]
 
     private static final class CallbackRecord {
@@ -450,7 +462,7 @@ doFrame()操作。
 [-> WindowManagerService.java]
 
     void scheduleAnimationLocked() {
-         if (!mAnimationScheduled) { 
+         if (!mAnimationScheduled) {
              mAnimationScheduled = true;
              //【见小节3.2】
              mChoreographer.postFrameCallback(mAnimator.mAnimationFrameCallback);
@@ -534,7 +546,7 @@ mAnimationFrameCallback的数据类型为Choreographer.FrameCallback。
 [-> Choreographer.java  ::FrameHandler]
 
     private final class FrameHandler extends Handler {
-    
+
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case MSG_DO_FRAME:
@@ -549,7 +561,7 @@ mAnimationFrameCallback的数据类型为Choreographer.FrameCallback。
             }
         }
     }
-    
+
 ### 3.5 doScheduleCallback
 [-> Choreographer.java]
 
@@ -573,7 +585,7 @@ mAnimationFrameCallback的数据类型为Choreographer.FrameCallback。
             if (USE_VSYNC) {
                 if (isRunningOnLooperThreadLocked()) {
                     //当运行在Looper线程，则立刻调度vsync
-                    scheduleVsyncLocked(); 
+                    scheduleVsyncLocked();
                 } else {
                     //否则，发送消息到UI线程
                     Message msg = mHandler.obtainMessage(MSG_DO_SCHEDULE_VSYNC);
@@ -601,7 +613,7 @@ mAnimationFrameCallback的数据类型为Choreographer.FrameCallback。
     private void scheduleVsyncLocked() {
         mDisplayEventReceiver.scheduleVsync(); //【见小节3.8】
     }
-    
+
 mDisplayEventReceiver对象是在【小节2.2】Choreographer的实例化过程所创建的。
 
 ### 3.8 scheduleVsync
@@ -624,7 +636,7 @@ mDisplayEventReceiver对象是在【小节2.2】Choreographer的实例化过程�
         status_t status = receiver->scheduleVsync();
         ...
     }
-    
+
 ### 3.10 scheduleVsync
 [-> android_view_DisplayEventReceiver.cpp]
 
@@ -654,125 +666,11 @@ mDisplayEventReceiver对象是在【小节2.2】Choreographer的实例化过程�
         return NO_INIT;
     }
 
-这里就先不继续往下写了，该方法的作用请求下一次Vsync信息处理。
-当Vsync信号到来，由于mFrameScheduled=true,则继续【小节2.9】CallbackRecord.run()方法。
+该方法的作用请求下一次Vsync信息处理，当Vsync信号到来，由于mFrameScheduled=true,则继续【小节2.10】CallbackRecord.run()方法。
 
-## 四. 动画处理
+## 四、总结
 
-根据[小节3.1.2]mAnimationFrameCallback.FrameCallback方法，进而调用animateLocked().
-
-### 4.1 animateLocked
-[-> WindowAnimator.java]
-
-    private void animateLocked(long frameTimeNs) {
-        if (!mInitialized) {
-            return;
-        }
-
-        mCurrentTime = frameTimeNs / TimeUtils.NANOS_PER_MS;
-        mBulkUpdateParams = SET_ORIENTATION_CHANGE_COMPLETE;
-        boolean wasAnimating = mAnimating;
-        mAnimating = false;
-        mAppWindowAnimating = false;
-
-        SurfaceControl.openTransaction(); //打开transacion
-        SurfaceControl.setAnimationTransaction();
-        try {
-            final int numDisplays = mDisplayContentsAnimators.size();
-            for (int i = 0; i < numDisplays; i++) {
-                final int displayId = mDisplayContentsAnimators.keyAt(i);
-                updateAppWindowsLocked(displayId);
-                DisplayContentsAnimator displayAnimator = mDisplayContentsAnimators.valueAt(i);
-
-                final ScreenRotationAnimation screenRotationAnimation =
-                        displayAnimator.mScreenRotationAnimation;
-                if (screenRotationAnimation != null && screenRotationAnimation.isAnimating()) {
-                    if (screenRotationAnimation.stepAnimationLocked(mCurrentTime)) {
-                        mAnimating = true;
-                    } else {
-                        mBulkUpdateParams |= SET_UPDATE_ROTATION;
-                        screenRotationAnimation.kill();
-                        displayAnimator.mScreenRotationAnimation = null;
-
-                        if (mService.mAccessibilityController != null
-                                && displayId == Display.DEFAULT_DISPLAY) {
-                            mService.mAccessibilityController.onRotationChangedLocked(
-                                    mService.getDefaultDisplayContentLocked(), mService.mRotation);
-                        }
-                    }
-                }
-
-                //更新所有应用的动画，包括正在退出的应用
-                updateWindowsLocked(displayId);
-                updateWallpaperLocked(displayId);
-
-                final WindowList windows = mService.getWindowListLocked(displayId);
-                final int N = windows.size();
-                for (int j = 0; j < N; j++) {
-                    //输出动画
-                    windows.get(j).mWinAnimator.prepareSurfaceLocked(true);
-                }
-            }
-
-            for (int i = 0; i < numDisplays; i++) {
-                final int displayId = mDisplayContentsAnimators.keyAt(i);
-
-                testTokenMayBeDrawnLocked(displayId);
-
-                final ScreenRotationAnimation screenRotationAnimation =
-                        mDisplayContentsAnimators.valueAt(i).mScreenRotationAnimation;
-                if (screenRotationAnimation != null) {
-                    screenRotationAnimation.updateSurfacesInTransaction();
-                }
-
-                mAnimating |= mService.getDisplayContentLocked(displayId).animateDimLayers();
-
-                if (mService.mAccessibilityController != null
-                        && displayId == Display.DEFAULT_DISPLAY) {
-                    mService.mAccessibilityController.drawMagnifiedRegionBorderIfNeededLocked();
-                }
-            }
-
-            if (mAnimating) {
-                mService.scheduleAnimationLocked();
-            }
-
-            mService.setFocusedStackLayer();
-
-            if (mService.mWatermark != null) {
-                mService.mWatermark.drawIfNeeded();
-            }
-        } catch (RuntimeException e) {
-            Slog.wtf(TAG, "Unhandled exception in Window Manager", e);
-        } finally {
-            SurfaceControl.closeTransaction(); //关闭transacion
-        }
-
-        boolean hasPendingLayoutChanges = false;
-        final int numDisplays = mService.mDisplayContents.size();
-        for (int displayNdx = 0; displayNdx < numDisplays; ++displayNdx) {
-            final DisplayContent displayContent = mService.mDisplayContents.valueAt(displayNdx);
-            final int pendingChanges = getPendingLayoutChanges(displayContent.getDisplayId());
-            if ((pendingChanges & WindowManagerPolicy.FINISH_LAYOUT_REDO_WALLPAPER) != 0) {
-                mBulkUpdateParams |= SET_WALLPAPER_ACTION_PENDING;
-            }
-            if (pendingChanges != 0) {
-                hasPendingLayoutChanges = true;
-            }
-        }
-
-        boolean doRequest = false;
-        if (mBulkUpdateParams != 0) {
-            doRequest = mService.copyAnimToLayoutParamsLocked();
-        }
-
-        if (hasPendingLayoutChanges || doRequest) {
-            mService.requestTraversalLocked();
-        }
-
-        if (!mAnimating && wasAnimating) {
-            mService.requestTraversalLocked();
-        }
-    }
-
-未完待续。。。
+- 尽量避免在执行动画渲染的前后在主线程放入耗时操作，否则会造成卡顿感，影响用户体验；
+- 可通过Choreographer.getInstance().postFrameCallback()来监听帧率情况；
+- 每调用一次scheduleFrameLocked()，则mFrameScheduled=true，可进入doFrame()方法体内部，执行完doFrame()并设置mFrameScheduled=false；
+- doCallbacks回调方法有4个类别：INPUT（输入事件），ANIMATION（动画），TRAVERSAL（窗口刷新），COMMIT（完成后的提交操作）。
