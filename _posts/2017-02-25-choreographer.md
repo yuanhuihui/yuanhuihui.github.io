@@ -337,6 +337,8 @@ FrameDisplayEventReceiver对象，接下来进入该对象。
         }
     }
 
+此处frameTimeNanos是底层VSYNC信号到达的时间戳。
+
 1. 每调用一次scheduleFrameLocked()，则mFrameScheduled=true，能执行一次
 doFrame()操作，执行完doFrame()并设置mFrameScheduled=false；
 2. 最终有4个回调类别，如下所示：
