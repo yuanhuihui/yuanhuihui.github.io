@@ -51,8 +51,8 @@ Flutter相比RN性能更好，由于Flutter自己实现了一套UI框架，丢�
 
 为了揭秘Flutter高性能，本文从源码角度来看看Flutter的渲染绘制机制，跟渲染直接相关的两个线程是UI线程和GPU线程：
 
-- UI线程，运行着UI Task Runner，是Flutter Engine用于执行Dart root isolate代码；
-- GPU线程，运行着GPU Task Runner，是用于执行硬件GPU的相关调用代码；
+- UI线程：运行着UI Task Runner，是Flutter Engine用于执行Dart root isolate代码；
+- GPU线程：该线程依然是在CPU上执行，运行着GPU Task Runner，处理dart代码，将其转换成为GPU命令并方法送到GPU。
 
 通过VSYNC信号来使UI线程和GPU线程有条不紊的周期性的渲染界面，接下来，先来看看看VSYNC的产生过程、Flutter引擎和框架分别在UI线程的绘制工作。
 
@@ -102,7 +102,13 @@ void Engine::ScheduleFrame(bool regenerate_layer_tree) {
 }
 ```
 
-当无参数调用该方法时，regenerate_layer_tree为默认值为true。animator_的赋值过程是在Engine对象初始化过程完成，而Engine初始化过程在Shell创建过程，此处animator_便是Animator对象。
+该方法说明：
+
+- animator_的赋值过程是在Engine对象初始化过程完成，而Engine初始化过程在Shell创建过程，此处animator_便是Animator对象；
+- ScheduleFrame的参数regenerate_layer_tree决定是否需要重新生成layer tree，还是直接复用上一次的layer tree；
+- 绝大多数情况下，调用RequestFrame()时将regenerate_layer_tree_设置为true或者用默认值true，执行完Animator::BeginFrame()则设置该变量为false；
+  - 当无参数调用该方法时，regenerate_layer_tree为默认值为true。
+  - 特别的例子就是Shell::OnPlatformViewMarkTextureFrameAvailable()过程，设置参数为false，那么计划绘制一帧的时候就不需要重绘layer tree；
 
 ### 2.2 Animator::RequestFrame
 [-> flutter/shell/common/animator.cc]
@@ -137,8 +143,10 @@ void Animator::RequestFrame(bool regenerate_layer_tree) {
 
 过程说明：
 
-- 一般情况下调用RequestFrame()时将regenerate_layer_tree_设置为true，执行完Animator::BeginFrame()则设置该变量为false。当Vsync信号到来时会根据regenerate_layer_tree_来决定是否需要重新生成layer树。
+- 通过Animator的Start()或者BeginFrame调用到的RequestFrame方法，则肯定需要重新生成layer tree；通过Engine的ScheduleFrame方法是否重建layer tree看小节2.1；
 - 此处通过post把Animator::AwaitVSync任务放入到UI Task Runner来执行。
+
+
 
 ### 2.3 Animator::AwaitVSync
 [-> flutter/shell/common/animator.cc]
@@ -152,6 +160,7 @@ void Animator::AwaitVSync() {
         if (self) {
           //是否能重复使用上一次的layer树，取决于是否需要regenerate_layer_tree_
           if (self->CanReuseLastLayerTree()) {
+            //直接复用layer tree，跳过ui线程生成layer tree过程，直接把任务post到gpu线程做栅格化操作
             self->DrawLastLayerTree();
           } else {
             self->BeginFrame(frame_start_time, frame_target_time);
@@ -163,8 +172,10 @@ void Animator::AwaitVSync() {
 }
 ```
 
+waiter_的赋值是在Animator初始化过程，取值为VsyncWaiterAndroid对象。
+
 当调用了RequestFrame()，默认参数regenerate_layer_tree_为true，意味着需要重新生成layer树，故不能重复使用上一次的layer树。
-waiter_的赋值是在Animator初始化过程，取值为VsyncWaiterAndroid对象，该对象继承于VsyncWaiter。
+
 
 ### 2.4 VsyncWaiter::AsyncWaitForVsync
 [-> flutter/shell/common/vsync_waiter.cc]
@@ -534,7 +545,10 @@ void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
 }
 ```
 
-此处frame_start_time是计划开始绘制时间点，frame_target_time是从frame_start_time+一帧时间(16.7ms)作为本次绘制的deadline，参数赋值过程[见小节2.6]。
+此处参数说明：
+
+- frame_start_time：计划开始绘制时间点，来源于doFrame()方法中的参数；
+- frame_target_time：从frame_start_time加上一帧时间(16.7ms)的时间，作为本次绘制的deadline。
 
 ### 3.5 MessageLoopImpl::RunExpiredTasks
 [-> flutter/fml/message_loop_impl.cc]
@@ -1257,21 +1271,55 @@ static void _repaintCompositedChild(
 void compositeFrame() {
   Timeline.startSync('Compositing', arguments: timelineWhitelistArguments);
   try {
+    //创建SceneBuilder [见小节4.10.1]
     final ui.SceneBuilder builder = ui.SceneBuilder();
+    //创建Scene [见小节4.10.2]
     final ui.Scene scene = layer.buildScene(builder);
     if (automaticSystemUiAdjustment)
       _updateSystemChrome();
-    ui.window.render(scene); // [4.10.1]
+    ui.window.render(scene); // [见小节4.10.3]
     scene.dispose();
   } finally {
     Timeline.finishSync();
   }
 }
 ```
+该方法主要工作：
 
-render()位于window.dart类，是一个native方法，
+- 分别创建Flutter框架(dart)和引擎层(C++)的两个SceneBuilder；
+- 分别创建Flutter框架(dart)和引擎层(C++)的两个Scene；
+- 执行render()将layer树发送给GPU线程；
 
-#### 4.10.1 Window::Render
+#### 4.10.1 SceneBuilder初始化
+[-> lib/ui/compositing.dart]
+
+```Java
+class SceneBuilder extends NativeFieldWrapperClass2 {
+  @pragma('vm:entry-point')
+  SceneBuilder() { _constructor(); }
+  void _constructor() native 'SceneBuilder_constructor';
+  ...
+}
+```
+
+SceneBuilder_constructor这是native方法，最终调用到引擎中的lib/ui/compositing/scene_builder.h中的SceneBuilder::create()方法，
+创建C++的SceneBuilder对象。
+
+#### 4.10.2 OffsetLayer.buildScene
+[-> lib/src/rendering/layer.dart]
+
+```Java
+ui.Scene buildScene(ui.SceneBuilder builder) {
+  updateSubtreeNeedsAddToScene();  //遍历layer树，将需要子树加入到scene
+  addToScene(builder); //将layer添加到SceneBuilder
+  return builder.build(); //调用C++层的build来构建Scene对象。
+}
+```
+
+遍历layer树，将需要更新的全部都加入到SceneBuilder。再调用build()，同样也是native方法，执行SceneBuilder::build()来构建Scene对象。
+
+
+#### 4.10.3 Window::Render
 [-> flutter/lib/ui/window/window.cc]
 
 ```Java
@@ -1282,20 +1330,23 @@ void Render(Dart_NativeArguments args) {
     Dart_ThrowException(exception);
     return;
   }
-  UIDartState::Current()->window()->client()->Render(scene);  // [4.10.2]
+  UIDartState::Current()->window()->client()->Render(scene);  // [4.10.4]
 }
 ```
 
-#### 4.10.2 RuntimeController::Render
+ui.window.render()位于window.dart文件，这是一个native方法，会调用到window.cc的Render()方法。
+
+#### 4.10.4 RuntimeController::Render
 [-> flutter/runtime/runtime_controller.cc]
 
 ```Java
 void RuntimeController::Render(Scene* scene) {
-  client_.Render(scene->takeLayerTree());  // [4.10.3]
+  //从scene中取出layer树 [见小节4.10.5]
+  client_.Render(scene->takeLayerTree());
 }
 ```
 
-#### 4.10.3 Engine::Render
+#### 4.10.5 Engine::Render
 [-> flutter/shell/common/engine.cc]
 
 ```Java
@@ -1309,11 +1360,11 @@ void Engine::Render(std::unique_ptr<flow::LayerTree> layer_tree) {
     return;
 
   layer_tree->set_frame_size(frame_size);
-  animator_->Render(std::move(layer_tree));  // [4.10.4]
+  animator_->Render(std::move(layer_tree));  // [4.10.6]
 }
 ```
 
-#### 4.10.4 Animator::Render
+#### 4.10.6 Animator::Render
 [-> flutter/shell/common/animator.cc]
 
 ```Java
@@ -1332,11 +1383,11 @@ void Animator::Render(std::unique_ptr<flow::LayerTree> layer_tree) {
   //提交待处理的continuation，本次PipelineProduce完成
   producer_continuation_.Complete(std::move(layer_tree));
 
-  delegate_.OnAnimatorDraw(layer_tree_pipeline_); //[见小节4.10.5]
+  delegate_.OnAnimatorDraw(layer_tree_pipeline_); //[见小节4.10.7]
 }
 ```
 
-#### 4.10.5 Shell::OnAnimatorDraw
+#### 4.10.7 Shell::OnAnimatorDraw
 [-> flutter/shell/common/shell.cc]
 
 ```Java
@@ -1355,7 +1406,7 @@ void Shell::OnAnimatorDraw(
 }
 ```
 
-这个方法主要是向GPU线程提交绘制任务
+这个方法主要是向GPU线程提交绘制任务。
 
 
 ### 4.11 PipelineOwner.flushSemantics
@@ -1503,8 +1554,9 @@ void Shell::OnEngineUpdateSemantics(
 
 ## 五、总结
 
-当需要渲染则会调用到Engine的ScheduleFrame()来注册VSYNC信号回调；一旦触发回调doFrame()执行完成后，便会立刻移除该回调方法；如果需要再次绘制则需要重新调用到
-ScheduleFrame()方法。
+当需要渲染则会调用到Engine的ScheduleFrame()来注册VSYNC信号回调，一旦触发回调doFrame()执行完成后，便会立刻移除该回调方法。当需要再次绘制则需要重新调用到
+ScheduleFrame()方法，该S方法的唯一重要参数regenerate_layer_tree决定在帧绘制过程是否需要重新生成layer tree，还是直接复用上一次的layer tree。
+
 
 UI线程的绘制过程，最核心的是执行WidgetsBinding的drawFrame()方法，然后会创建layer tree；而后交由GPU Task Runner将layer tree提供的信息转化为平台可执行的GPU指令。
 而对于drawFrame绘制过程主要包括以下过程：
