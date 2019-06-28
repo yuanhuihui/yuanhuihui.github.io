@@ -1,0 +1,684 @@
+---
+layout: post
+title:  "Flutter渲染机制—GPU线程"
+date:   2019-06-16 23:15:40
+catalog:  true
+tags:
+    - flutter
+
+---
+
+> 基于Flutter 1.5的源码剖析， 分析flutter渲染机制，相关源码目录见文末附录
+
+## 一、概述
+
+看Flutter的渲染绘制过程的核心过程包括在ui线程和gpu线程，上一篇文章[Flutter渲染机制—UI线程](http://gityuan.com/2019/06/15/flutter_ui_draw/)已经详细介绍了UI线程的工作原理，
+本文则介绍GPU线程的工作原理，这里需要注意的是，gpu线程是指运行着GPU Task Runner的名叫gpu的线程，其实依然是是在CPU上执行，用于将ui线程传递过来的layer tree转换为GPU命令并方法送到GPU。
+
+#### 1.1 GPU线程调用链
+
+**1) [GPU线程处理流程图](/img/flutter_gpu/GPUDraw.jpg)**
+
+![GPUDraw](/img/flutter_gpu/GPUDraw.jpg)
+
+Flutter渲染机制在UI线程执行到compositeFrame()过程经过多层调用，将栅格化的任务Post到GPU线程来执行。GPU线程一旦空闲则会执行Rasterizer的draw()操作。图中LayerTree::Paint()过程是一个比较重要的操作，会嵌套调用不同layer的Paint过程，比如TransformLayer，PhysicalShapeLayer，ClipRectLayer，PictureLayer等，都执行完成会执行flush()将数据发送给GPU。
+
+
+## 二、GPU线程渲染过程
+
+### 2.1 MessageLoopImpl::RunExpiredTasks
+[-> flutter/fml/message_loop_impl.cc]
+
+```Java
+void MessageLoopImpl::RunExpiredTasks() {
+  TRACE_EVENT0("fml", "MessageLoop::RunExpiredTasks");
+  std::vector<fml::closure> invocations;
+
+  {
+    std::lock_guard<std::mutex> lock(delayed_tasks_mutex_);
+    //当没有待处理的task则直接返回
+    if (delayed_tasks_.empty()) {
+      return;
+    }
+
+    auto now = fml::TimePoint::Now();
+    while (!delayed_tasks_.empty()) {
+      const auto& top = delayed_tasks_.top();
+      if (top.target_time > now) {
+        break;
+      }
+      invocations.emplace_back(std::move(top.task));
+      delayed_tasks_.pop();
+    }
+
+    WakeUp(delayed_tasks_.empty() ? fml::TimePoint::Max()
+                                  : delayed_tasks_.top().target_time);
+  }
+
+  for (const auto& invocation : invocations) {
+    invocation();  // [见小节3.6]
+    for (const auto& observer : task_observers_) {
+      observer.second();
+    }
+  }
+}
+```
+
+gpu线程是不断循环处理消息的过程。
+
+#### 2.1.1 Shell::OnAnimatorDraw
+[-> flutter/shell/common/shell.cc]
+
+```Java
+void Shell::OnAnimatorDraw(
+    fml::RefPtr<flutter::Pipeline<flow::LayerTree>> pipeline) {
+
+  //向GPU线程提交绘制任务
+  task_runners_.GetGPUTaskRunner()->PostTask(
+      [rasterizer = rasterizer_->GetWeakPtr(),
+       pipeline = std::move(pipeline)]() {
+        if (rasterizer) {
+          rasterizer->Draw(pipeline); //[见小节2.1.1]
+        }
+      });
+}
+```
+
+书接上文[Flutter渲染机制—UI线程](http://gityuan.com/2019/06/15/flutter_ui_draw/)的[小节4.10.5]的Shell::OnAnimatorDraw()方法，向gpu线程post任务，交由gpu线程来处理。
+
+
+### 2.2 Rasterizer::Draw
+[-> flutter/shell/common/rasterizer.cc]
+
+```Java
+void Rasterizer::Draw(
+    fml::RefPtr<flutter::Pipeline<flow::LayerTree>> pipeline) {
+  TRACE_EVENT0("flutter", "GPURasterizer::Draw");
+
+  flutter::Pipeline<flow::LayerTree>::Consumer consumer =
+      std::bind(&Rasterizer::DoDraw, this, std::placeholders::_1);
+
+  //消费pipeline的任务 [见小节2.3]
+  switch (pipeline->Consume(consumer)) {
+    case flutter::PipelineConsumeResult::MoreAvailable: {
+      task_runners_.GetGPUTaskRunner()->PostTask(
+          [weak_this = weak_factory_.GetWeakPtr(), pipeline]() {
+            if (weak_this) {
+              weak_this->Draw(pipeline);
+            }
+          });
+      break;
+    }
+    default:
+      break;
+  }
+}
+```
+
+执行完Consume()后返回值为PipelineConsumeResult::MoreAvailable，则说明还有任务需要处理，则再次执行不同LayerTree的Draw()过程。
+
+### 2.3 Pipeline::Consume
+[-> flutter/synchronization/pipeline.h]
+
+```Java
+PipelineConsumeResult Consume(Consumer consumer) {
+  if (consumer == nullptr) {
+    return PipelineConsumeResult::NoneAvailable;
+  }
+
+  if (!available_.TryWait()) {
+    return PipelineConsumeResult::NoneAvailable;
+  }
+
+  ResourcePtr resource;
+  size_t trace_id = 0;
+  size_t items_count = 0;
+
+  {
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+    //从队列中取出头部的资源
+    std::tie(resource, trace_id) = std::move(queue_.front());
+    queue_.pop();
+    items_count = queue_.size();
+  }
+
+  {
+    TRACE_EVENT0("flutter", "PipelineConsume");
+    consumer(std::move(resource));  //消费管道中的一项资源[见小节2.4]
+  }
+
+  empty_.Signal();
+  TRACE_FLOW_END("flutter", "PipelineItem", trace_id);
+  return items_count > 0 ? PipelineConsumeResult::MoreAvailable
+                         : PipelineConsumeResult::Done;
+}
+```
+
+根据小节2.1，可知这里的consumer绑定的是Rasterizer::DoDraw()，接下里看看这个方法。
+
+### 2.4 Rasterizer::DoDraw
+[-> flutter/shell/common/rasterizer.cc]
+
+```Java
+void Rasterizer::DoDraw(std::unique_ptr<flow::LayerTree> layer_tree) {
+  if (!layer_tree || !surface_) {
+    return;
+  }
+  //[见小节2.5]
+  if (DrawToSurface(*layer_tree)) {
+    //将layer tree记录到last_layer_tree_
+    last_layer_tree_ = std::move(layer_tree);
+  }
+}
+```
+
+### 2.5 Rasterizer::DrawToSurface
+[-> flutter/shell/common/rasterizer.cc]
+
+```Java
+
+bool Rasterizer::DrawToSurface(flow::LayerTree& layer_tree) {
+  //此处的surface_为GPUSurfaceGL，得到的是SurfaceFrame [见小节2.6]
+  auto frame = surface_->AcquireFrame(layer_tree.frame_size());
+
+  if (frame == nullptr) {
+    return false;
+  }
+
+  //将ui线程生成layer tree所花费时间，记录到合成器上下文的engine_time里
+  compositor_context_->engine_time().SetLapTime(layer_tree.construction_time());
+  //获取SkCanvas指针
+  auto* canvas = frame->SkiaCanvas();
+
+  auto* external_view_embedder = surface_->GetExternalViewEmbedder();
+
+  if (external_view_embedder != nullptr) {
+    external_view_embedder->BeginFrame(layer_tree.frame_size());
+  }
+  //返回的是ScopedFrame，[见小节2.7]
+  auto compositor_frame = compositor_context_->AcquireFrame(
+      surface_->GetContext(), canvas, external_view_embedder,
+      surface_->GetRootTransformation(), true);
+
+  if (canvas) {
+    canvas->clear(SK_ColorTRANSPARENT);
+  }
+
+  // [见小节2.8]
+  if (compositor_frame && compositor_frame->Raster(layer_tree, false)) {
+     //[见小节2.9]
+    frame->Submit();
+    if (external_view_embedder != nullptr) {
+      external_view_embedder->SubmitFrame(surface_->GetContext());
+    }
+    FireNextFrameCallbackIfPresent();
+
+    if (surface_->GetContext())
+      surface_->GetContext()->performDeferredCleanup(kSkiaCleanupExpiration);
+
+    return true;
+  }
+
+  return false;
+}
+```
+
+layer_tree.construction_time()方法可以知道ui线程生成layer tree所花费时间，用于计算fps。
+
+### 2.6 AcquireFrame
+
+要知道surface_到底是怎么来的，先来看看AndroidSurface::Create()过程。
+
+#### 2.6.1 PlatformView::NotifyCreated
+[-> flutter/shell/common/platform_view.h]
+
+```Java
+void PlatformView::NotifyCreated() {
+    delegate_.OnPlatformViewCreated(CreateRenderingSurface()); //[见小节2.6.2]
+}
+```
+OnPlatformViewCreated()过程会通过rasterizer->Setup(std::move(surface))来初始化surface_变量，而surface_便是由CreateRenderingSurface()方法赋值初始化的，如下所示。
+
+#### 2.6.2 PlatformViewAndroid::CreateRenderingSurface
+[-> flutter/shell/platform/android/platform_view_android.cc]
+
+```Java
+std::unique_ptr<Surface> PlatformViewAndroid::CreateRenderingSurface() {
+  if (!android_surface_) {
+    return nullptr;
+  }
+  //[见小节2.6.3/ 2.6.4]
+  return android_surface_->CreateGPUSurface();
+}
+```
+
+这里有两点需要关注一下：
+
+- android_surface_变量：通过AndroidSurface::Create完成赋值初始化，返回的数据类型为AndroidSurfaceGL，见小节2.6.3；
+- CreateGPUSurface()：该方法返回的数据类型为GPUSurfaceGL，见小节2.6.4；
+
+#### 2.6.3 AndroidSurface::Create
+[-> flutter/shell/platform/android/android_surface.cc]
+
+```Java
+std::unique_ptr<AndroidSurface> AndroidSurface::Create(
+    bool use_software_rendering) {
+  if (use_software_rendering) {
+    auto software_surface = std::make_unique<AndroidSurfaceSoftware>();
+    return software_surface->IsValid() ? std::move(software_surface) : nullptr;
+  }
+#if SHELL_ENABLE_VULKAN
+  auto vulkan_surface = std::make_unique<AndroidSurfaceVulkan；>();
+  return vulkan_surface->IsValid() ? std::move(vulkan_surface) : nullptr;
+#else  
+  auto gl_surface = std::make_unique<AndroidSurfaceGL>();
+  return gl_surface->IsOffscreenContextValid() ? std::move(gl_surface)
+                                               : nullptr;
+#endif  
+}
+```
+
+这里涉及到3种不同的AndroidSurface：
+
+- 使用软件模拟的VSYNC方式，则采用AndroidSurfaceSoftware;
+- 硬件VSYNC方式，且开启VULKAN，则采用AndroidSurfaceVulkan;
+- 硬件VSYNC方式，且未开启VULKAN，则采用AndroidSurfaceGL;
+
+目前android_surface_默认数据类型为AndroidSurfaceGL。
+
+![ClassSurface](/img/flutter_gpu/ClassSurface.jpg)
+
+#### 2.6.4 AndroidSurfaceGL::CreateGPUSurface
+[-> flutter/shell/platform/android/android_surface_gl.cc]
+
+```Java
+std::unique_ptr<Surface> AndroidSurfaceGL::CreateGPUSurface() {
+  auto surface = std::make_unique<GPUSurfaceGL>(this);
+  return surface->IsValid() ? std::move(surface) : nullptr;
+}
+```
+
+可见surface_的类型为GPUSurfaceGL。再来看看看AcquireFrame()过程。
+
+#### 2.6.4 GPUSurfaceGL::AcquireFrame
+[-> flutter/shell/gpu/gpu_surface_gl.cc]
+
+```Java
+std::unique_ptr<SurfaceFrame> GPUSurfaceGL::AcquireFrame(const SkISize& size) {
+  ...
+  //此处delegate_是AndroidSurfaceGL，将其onscreen_context_设置为current
+  if (!delegate_->GLContextMakeCurrent()) {
+    return nullptr;
+  }
+
+  const auto root_surface_transformation = GetRootTransformation();
+
+  sk_sp<SkSurface> surface =
+      AcquireRenderSurface(size, root_surface_transformation);
+
+  if (surface == nullptr) {
+    return nullptr;
+  }
+
+  surface->getCanvas()->setMatrix(root_surface_transformation);
+
+  SurfaceFrame::SubmitCallback submit_callback =
+      [weak = weak_factory_.GetWeakPtr()](const SurfaceFrame& surface_frame,
+                                          SkCanvas* canvas) {
+        return weak ? weak->PresentSurface(canvas) : false;
+      };
+
+  //创建SurfaceFrame指针
+  return std::make_unique<SurfaceFrame>(surface, submit_callback);
+}
+```
+
+该过程会创建SurfaceFrame并设置SubmitCallback方法()。
+
+### 2.7 CompositorContext::AcquireFrame
+[-> flutter/flow/compositor_context.cc]
+
+```Java
+std::unique_ptr<CompositorContext::ScopedFrame> CompositorContext::AcquireFrame(
+    GrContext* gr_context,
+    SkCanvas* canvas,
+    ExternalViewEmbedder* view_embedder,
+    const SkMatrix& root_surface_transformation,
+    bool instrumentation_enabled) {
+  //创建ScopedFrame指针
+  return std::make_unique<ScopedFrame>(*this, gr_context, canvas, view_embedder,
+                                       root_surface_transformation,
+                                       instrumentation_enabled);
+}
+```
+
+
+### 2.8 ScopedFrame::Raster
+[-> flutter/flow/compositor_context.cc]
+
+```Java
+bool CompositorContext::ScopedFrame::Raster(flow::LayerTree& layer_tree,
+                                            bool ignore_raster_cache) {
+  layer_tree.Preroll(*this, ignore_raster_cache);
+  layer_tree.Paint(*this, ignore_raster_cache);
+  return true;
+}
+```
+
+### 2.9 LayerTree::Preroll
+[-> flutter/flow/layers/layer_tree.cc]
+
+```Java
+void LayerTree::Preroll(CompositorContext::ScopedFrame& frame,
+                        bool ignore_raster_cache) {
+  TRACE_EVENT0("flutter", "LayerTree::Preroll");
+  SkColorSpace* color_space =
+      frame.canvas() ? frame.canvas()->imageInfo().colorSpace() : nullptr;
+  frame.context().raster_cache().SetCheckboardCacheImages(
+      checkerboard_raster_cache_images_);
+  PrerollContext context = {
+      ignore_raster_cache ? nullptr : &frame.context().raster_cache(),
+      frame.gr_context(),
+      frame.view_embedder(),
+      color_space,
+      kGiantRect,
+      frame.context().frame_time(),
+      frame.context().engine_time(),
+      frame.context().texture_registry(),
+      checkerboard_offscreen_layers_};
+
+  root_layer_->Preroll(&context, frame.root_surface_transformation());
+}
+```
+
+### 2.10 LayerTree::Paint
+[-> flutter/flow/layers/layer_tree.cc]
+
+```Java
+void LayerTree::Paint(CompositorContext::ScopedFrame& frame,
+                      bool ignore_raster_cache) const {
+  TRACE_EVENT0("flutter", "LayerTree::Paint");
+  SkISize canvas_size = frame.canvas()->getBaseLayerSize();
+  SkNWayCanvas internal_nodes_canvas(canvas_size.width(), canvas_size.height());
+  internal_nodes_canvas.addCanvas(frame.canvas());
+  if (frame.view_embedder() != nullptr) {
+    auto overlay_canvases = frame.view_embedder()->GetCurrentCanvases();
+    for (size_t i = 0; i < overlay_canvases.size(); i++) {
+      internal_nodes_canvas.addCanvas(overlay_canvases[i]);
+    }
+  }
+
+  Layer::PaintContext context = {
+      (SkCanvas*)&internal_nodes_canvas,
+      frame.canvas(),
+      frame.gr_context(),
+      frame.view_embedder(),
+      frame.context().frame_time(),
+      frame.context().engine_time(),
+      frame.context().texture_registry(),
+      ignore_raster_cache ? nullptr : &frame.context().raster_cache(),
+      checkerboard_offscreen_layers_};
+
+  if (root_layer_->needs_painting())
+    root_layer_->Paint(context);
+}
+```
+
+#### 2.10.1 TransformLayer::Paint
+[-> flutter/flow/layers/transform_layer.cc]
+
+```Java
+void TransformLayer::Paint(PaintContext& context) const {
+  TRACE_EVENT0("flutter", "TransformLayer::Paint");
+  FML_DCHECK(needs_painting());
+
+  SkAutoCanvasRestore save(context.internal_nodes_canvas, true);
+  context.internal_nodes_canvas->concat(transform_);
+  PaintChildren(context);
+}
+```
+
+#### 2.10.2 PhysicalShapeLayer::Paint
+[-> flutter/flow/layers/physical_shape_layer.cc]
+
+```Java
+void PhysicalShapeLayer::Paint(PaintContext& context) const {
+  TRACE_EVENT0("flutter", "PhysicalShapeLayer::Paint");
+  FML_DCHECK(needs_painting());
+
+  if (elevation_ != 0) {
+    DrawShadow(context.leaf_nodes_canvas, path_, shadow_color_, elevation_,
+               SkColorGetA(color_) != 0xff, device_pixel_ratio_);
+  }
+
+  SkPaint paint;
+  paint.setColor(color_);
+  if (clip_behavior_ != Clip::antiAliasWithSaveLayer) {
+    context.leaf_nodes_canvas->drawPath(path_, paint);
+  }
+
+  int saveCount = context.internal_nodes_canvas->save();
+  switch (clip_behavior_) {
+    case Clip::hardEdge:
+      context.internal_nodes_canvas->clipPath(path_, false);
+      break;
+    case Clip::antiAlias:
+      context.internal_nodes_canvas->clipPath(path_, true);
+      break;
+    case Clip::antiAliasWithSaveLayer:
+      context.internal_nodes_canvas->clipPath(path_, true);
+      context.internal_nodes_canvas->saveLayer(paint_bounds(), nullptr);
+      break;
+    case Clip::none:
+      break;
+  }
+
+  if (clip_behavior_ == Clip::antiAliasWithSaveLayer) {
+    context.leaf_nodes_canvas->drawPaint(paint);
+  }
+
+  PaintChildren(context);
+
+  context.internal_nodes_canvas->restoreToCount(saveCount);
+}
+```
+
+#### 2.10.3 ClipRectLayer::Paint
+[-> flutter/flow/layers/clip_rect_layer.cc]
+
+```Java
+void ClipRectLayer::Paint(PaintContext& context) const {
+  TRACE_EVENT0("flutter", "ClipRectLayer::Paint");
+  FML_DCHECK(needs_painting());
+
+  SkAutoCanvasRestore save(context.internal_nodes_canvas, true);
+  context.internal_nodes_canvas->clipRect(paint_bounds(),
+                                          clip_behavior_ != Clip::hardEdge);
+  if (clip_behavior_ == Clip::antiAliasWithSaveLayer) {
+    context.internal_nodes_canvas->saveLayer(paint_bounds(), nullptr);
+  }
+  PaintChildren(context);
+  if (clip_behavior_ == Clip::antiAliasWithSaveLayer) {
+    context.internal_nodes_canvas->restore();
+  }
+}
+```
+
+#### 2.10.4 PictureLayer::Paint
+[-> flutter/flow/layers/picture_layer.cc]
+
+```Java
+void PictureLayer::Paint(PaintContext& context) const {
+  TRACE_EVENT0("flutter", "PictureLayer::Paint");
+  FML_DCHECK(picture_.get());
+  FML_DCHECK(needs_painting());
+
+  SkAutoCanvasRestore save(context.leaf_nodes_canvas, true);
+  context.leaf_nodes_canvas->translate(offset_.x(), offset_.y());
+#ifndef SUPPORT_FRACTIONAL_TRANSLATION
+  context.leaf_nodes_canvas->setMatrix(RasterCache::GetIntegralTransCTM(
+      context.leaf_nodes_canvas->getTotalMatrix()));
+#endif
+
+  if (context.raster_cache) {
+    const SkMatrix& ctm = context.leaf_nodes_canvas->getTotalMatrix();
+    RasterCacheResult result = context.raster_cache->Get(*picture(), ctm);
+    if (result.is_valid()) {
+      result.draw(*context.leaf_nodes_canvas);
+      return;
+    }
+  }
+  context.leaf_nodes_canvas->drawPicture(picture());
+}
+```
+
+### 2.11 SurfaceFrame::Submit
+[-> flutter/shell/common/surface.cc]
+
+```Java
+bool SurfaceFrame::Submit() {
+  if (submitted_) {
+    return false;
+  }
+  submitted_ = PerformSubmit(); //[见小节2.11.1]
+  return submitted_;
+}
+```
+
+再回到小节2.5，执行完Raster()后需要执行Submit()提交。
+
+#### 2.11.1 SurfaceFrame::PerformSubmit
+[-> flutter/shell/common/surface.cc]
+
+```Java
+bool SurfaceFrame::PerformSubmit() {
+  if (submit_callback_ == nullptr) {
+    return false;
+  }
+  //[见小节2.11.2]
+  if (submit_callback_(*this, SkiaCanvas())) {
+    return true;
+  }
+
+  return false;
+}
+```
+
+此处的submit_callback_是由[小节2.6.4]中赋值的，对应的方法是PresentSurface()
+
+#### 2.11.2 GPUSurfaceGL::PresentSurface
+[-> flutter/shell/gpu/gpu_surface_gl.cc]
+
+```Java
+bool GPUSurfaceGL::PresentSurface(SkCanvas* canvas) {
+  if (delegate_ == nullptr || canvas == nullptr || context_ == nullptr) {
+    return false;
+  }
+
+  if (offscreen_surface_ != nullptr) {
+    TRACE_EVENT0("flutter", "CopyTextureOnscreen");
+    SkPaint paint;
+    SkCanvas* onscreen_canvas = onscreen_surface_->getCanvas();
+    onscreen_canvas->clear(SK_ColorTRANSPARENT);
+    onscreen_canvas->drawImage(offscreen_surface_->makeImageSnapshot(), 0, 0,
+                               &paint);
+  }
+
+  {
+    TRACE_EVENT0("flutter", "SkCanvas::Flush");
+    //获取SkSurface的fCachedCanvas，再调用其flush()，[见小节2.12]
+    onscreen_surface_->getCanvas()->flush();
+  }
+
+  if (!delegate_->GLContextPresent()) { //[见小节2.13]
+    return false;
+  }
+
+  if (delegate_->GLContextFBOResetAfterPresent()) {
+    auto current_size =
+        SkISize::Make(onscreen_surface_->width(), onscreen_surface_->height());
+
+    auto new_onscreen_surface =
+        WrapOnscreenSurface(context_.get(),            // GL context
+                            current_size,              // root surface size
+                            delegate_->GLContextFBO()  // window FBO ID
+        );
+
+    if (!new_onscreen_surface) {
+      return false;
+    }
+    onscreen_surface_ = std::move(new_onscreen_surface);
+  }
+  return true;
+}
+```
+
+此处delegate_为AndroidSurfaceGL类型。
+
+### 2.12 SkCanvas::flush
+[-> third_party/skia/src/core/SkCanvas.cpp]
+
+```Java
+void SkCanvas::flush() {
+    this->onFlush();
+}
+```
+
+#### 2.12.1 SkCanvas::onFlush
+[-> third_party/skia/src/core/SkCanvas.cpp]
+
+```Java
+void SkCanvas::onFlush() {
+    SkBaseDevice* device = this->getDevice();
+    if (device) {
+        device->flush();
+    }
+}
+```
+
+### 2.13 AndroidSurfaceGL::GLContextPresent
+[-> flutter/shell/platform/android/android_context_gl.cc]
+
+```Java
+bool AndroidSurfaceGL::GLContextPresent() {
+  return onscreen_context_->SwapBuffers();
+}
+```
+
+#### 2.13.1 AndroidContextGL::SwapBuffers
+[-> flutter/shell/platform/android/android_context_gl.cc]
+
+```Java
+bool AndroidContextGL::SwapBuffers() {
+  TRACE_EVENT0("flutter", "AndroidContextGL::SwapBuffers");
+  return eglSwapBuffers(environment_->Display(), surface_);
+}
+```
+
+## 三、总结
+
+gpu线程的主要工作是将layer tree进行光栅化再发送给GPU，其中最为核心方法ScopedFrame::Raster()，其主要工作如下所示：
+
+- LayerTree::Preroll: 绘制前的一些准备工作
+- LayerTree::Paint: 此处会嵌套调用各个不同的layer的绘制方法
+- SkCanvas::Flush: 将数据flush到GPU，需要注意的是saveLayer的耗时；
+- AndroidContextGL::SwapBuffers: 缓存交换操作
+
+这几个过程是Timeline中ui线程的标签项，[如图所示](/img/flutter_ui/timeline_gpu_draw.png)：
+
+![timeline_gpu_draw](/img/flutter_ui/timeline_gpu_draw.png)
+
+UI线程是”PipelineProduce“，相对应的GPU线程则是”PipelineConsume“，贯穿整个Rasterizer::DoDraw()过程。
+
+
+## 附录 没改
+本文涉及到相关源码文件
+
+```Java
+flutter/flow/layers/layer_tree.cc
+flutter/flow/layers/transform_layer.cc
+flutter/flow/layers/physical_shape_layer.cc
+flutter/flow/layers/clip_rect_layer.cc
+flutter/flow/layers/picture_layer.cc
+flutter/shell/gpu/gpu_surface_gl.cc
+```
