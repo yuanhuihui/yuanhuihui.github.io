@@ -300,7 +300,7 @@ std::unique_ptr<Surface> AndroidSurfaceGL::CreateGPUSurface() {
 
 可见surface_的类型为GPUSurfaceGL。再来看看看AcquireFrame()过程。
 
-#### 2.6.4 GPUSurfaceGL::AcquireFrame
+#### 2.6.5 GPUSurfaceGL::AcquireFrame
 [-> flutter/shell/gpu/gpu_surface_gl.cc]
 
 ```Java
@@ -671,14 +671,33 @@ gpu线程的主要工作是将layer tree进行光栅化再发送给GPU，其中�
 UI线程是”PipelineProduce“，相对应的GPU线程则是”PipelineConsume“，贯穿整个Rasterizer::DoDraw()过程。
 
 
-## 附录 没改
+## 附录
 本文涉及到相关源码文件
 
 ```Java
-flutter/flow/layers/layer_tree.cc
-flutter/flow/layers/transform_layer.cc
-flutter/flow/layers/physical_shape_layer.cc
-flutter/flow/layers/clip_rect_layer.cc
-flutter/flow/layers/picture_layer.cc
+flutter/shell/common/
+    - shell.cc
+    - rasterizer.cc
+    - surface.cc
+    - platform_view.h
+
+flutter/shell/platform/android/
+    - platform_view_android.cc
+    - android_surface.cc
+    - android_surface_gl.cc
+    - android_context_gl.cc
+
+flutter/flow/layers/
+    - layer_tree.cc
+    - transform_layer.cc
+    - physical_shape_layer.cc
+    - clip_rect_layer.cc
+    - picture_layer.cc
+
+flutter/fml/message_loop_impl.cc
+flutter/synchronization/pipeline.h
+flutter/flow/compositor_context.cc
 flutter/shell/gpu/gpu_surface_gl.cc
+third_party/skia/src/core/SkCanvas.cpp
+
 ```
