@@ -8,41 +8,7 @@ tags:
 
 ---
 
-> 基于Flutter 1.5的源码剖析， 分析flutter渲染机制，相关源码：
-
-
-```Java
-//Engine
-flutter/shell/common/
-    - vsync_waiter.cc
-    - engine.cc
-    - animator.cc
-    - shell.cc
-    - rasterizer.cc
-
-flutter/shell/platform/android/
-    - vsync_waiter_android.cc
-    - platform_view_android_jni.cc
-    - library_loader.cc
-    - io/flutter/view/VsyncWaiter.java
-
-flutter/runtime/runtime_controller.cc
-flutter/synchronization/pipeline.h
-flutter/fml/message_loop_impl.cc
-flutter/lib/ui/window/window.cc
-flutter/lib/ui/window.dart
-flutter/lib/ui/hooks.dart
-
-//Framework
-lib/src/widgets/framework.dart
-lib/src/widgets/binding.dart
-lib/src/scheduler/binding.dart
-lib/src/semantics/semantics.dart
-lib/src/rendering/
-    - binding.dart
-    - object.dart
-    - view.dart
-```
+> 基于Flutter 1.5的源码剖析， 分析flutter渲染机制，相关源码目录见文末附录
 
 ## 一、概述
 
@@ -51,10 +17,12 @@ Flutter相比RN性能更好，由于Flutter自己实现了一套UI框架，丢�
 
 为了揭秘Flutter高性能，本文从源码角度来看看Flutter的渲染绘制机制，跟渲染直接相关的两个线程是UI线程和GPU线程：
 
-- UI线程：运行着UI Task Runner，是Flutter Engine用于执行Dart root isolate代码；
-- GPU线程：该线程依然是在CPU上执行，运行着GPU Task Runner，处理dart代码，将其转换成为GPU命令并方法送到GPU。
+- UI线程：运行着UI Task Runner，是Flutter Engine用于执行Dart root isolate代码，将其转换为layer tree视图结构；
+- GPU线程：该线程依然是在CPU上执行，运行着GPU Task Runner，处理layer tree，将其转换成为GPU命令并发送到GPU。
 
-通过VSYNC信号来使UI线程和GPU线程有条不紊的周期性的渲染界面，接下来，先来看看看VSYNC的产生过程、Flutter引擎和框架分别在UI线程的绘制工作。
+![flutter_draw](/img/flutter_ui/flutter_draw.png)
+
+通过VSYNC信号使UI线程和GPU线程有条不紊的周期性的渲染界面，本文介绍VSYNC的产生过程、UI线程在引擎和框架的绘制工作，下一篇文章会介绍GPU线程的绘制工作。
 
 #### 1.1 VSYNC注册过程
 
@@ -1577,3 +1545,41 @@ UI线程的绘制过程，最核心的是执行WidgetsBinding的drawFrame()方�
 
 - “Frame Request Pending”：从Animator::RequestFrame 到Animator::BeginFrame()结束；
 - ”PipelineProduce“： 从Animator::BeginFrame()到Animator::Render()结束程。
+
+
+## 附录
+
+本文涉及到相关源码文件
+
+```Java
+//Engine
+flutter/shell/common/
+    - vsync_waiter.cc
+    - engine.cc
+    - animator.cc
+    - shell.cc
+    - rasterizer.cc
+
+flutter/shell/platform/android/
+    - vsync_waiter_android.cc
+    - platform_view_android_jni.cc
+    - library_loader.cc
+    - io/flutter/view/VsyncWaiter.java
+
+flutter/runtime/runtime_controller.cc
+flutter/synchronization/pipeline.h
+flutter/fml/message_loop_impl.cc
+flutter/lib/ui/window/window.cc
+flutter/lib/ui/window.dart
+flutter/lib/ui/hooks.dart
+
+//Framework
+lib/src/widgets/framework.dart
+lib/src/widgets/binding.dart
+lib/src/scheduler/binding.dart
+lib/src/semantics/semantics.dart
+lib/src/rendering/
+    - binding.dart
+    - object.dart
+    - view.dart
+```
