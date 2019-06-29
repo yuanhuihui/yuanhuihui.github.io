@@ -391,6 +391,45 @@ void LayerTree::Preroll(CompositorContext::ScopedFrame& frame,
 }
 ```
 
+从root_layer_记录图层树的根节点，根据根节点的具体ContainerLayer子类类型来执行相应类的Preroll方法()， 这里以ContainerLayer为例子来说明。
+
+#### 2.9.1 ContainerLayer::Preroll
+[-> flutter/flow/layers/container_layer.cc]
+
+```Java
+void ContainerLayer::Preroll(PrerollContext* context, const SkMatrix& matrix) {
+  TRACE_EVENT0("flutter", "ContainerLayer::Preroll");
+
+  SkRect child_paint_bounds = SkRect::MakeEmpty();
+  //[见小节2.9.2]
+  PrerollChildren(context, matrix, &child_paint_bounds);
+  //设置绘制范围
+  set_paint_bounds(child_paint_bounds);
+}
+```
+
+该方法主要功能是遍历所有子图层，执行具体图层的Preroll()方法，并设置绘制范围。
+
+#### 2.9.2 ContainerLayer::PrerollChildren
+[-> flutter/flow/layers/container_layer.cc]
+
+```Java
+void ContainerLayer::PrerollChildren(PrerollContext* context,
+                                     const SkMatrix& child_matrix,
+                                     SkRect* child_paint_bounds) {
+  for (auto& layer : layers_) {
+    PrerollContext child_context = *context;
+    //遍历所有的图层，依次执行preroll
+    layer->Preroll(&child_context, child_matrix);
+    //根据需要设置是否需要合成
+    if (layer->needs_system_composite()) {
+      set_needs_system_composite(true);
+    }
+    child_paint_bounds->join(layer->paint_bounds());
+  }
+}
+```
+
 ### 2.10 LayerTree::Paint
 [-> flutter/flow/layers/layer_tree.cc]
 
@@ -418,11 +457,26 @@ void LayerTree::Paint(CompositorContext::ScopedFrame& frame,
       frame.context().texture_registry(),
       ignore_raster_cache ? nullptr : &frame.context().raster_cache(),
       checkerboard_offscreen_layers_};
-
+  //当paint_bounds_不为空则需要绘制
   if (root_layer_->needs_painting())
     root_layer_->Paint(context);
 }
 ```
+
+paint_bounds_是在Preroll过程调用set_paint_bounds方法来赋值的，当paint_bounds_不为空则需要绘制。
+
+对于Paint绘制过程，调用哪个方法取决于图层树结构中相应的layer类型，具体如下类图
+
+#### 类图
+
+[Layer类关系图](/img/flutter_gpu/ClassLayer.jpg)
+
+![ClassLayer](/img/flutter_gpu/ClassLayer.jpg)
+
+LayerTree的root_layer来源于SceneBuilder过程初始化，第一个调用PushLayer()的layer便成为root_layer_，后面的调用会形成一个树状结构。
+
+
+每个执行Paint()过程会再调用PaintChildren来遍历layers_的子图层，下面列举图上几个类的Paint绘制方法。
 
 #### 2.10.1 TransformLayer::Paint
 [-> flutter/flow/layers/transform_layer.cc]
@@ -689,6 +743,7 @@ flutter/shell/platform/android/
 
 flutter/flow/layers/
     - layer_tree.cc
+    - container_layer.cc
     - transform_layer.cc
     - physical_shape_layer.cc
     - clip_rect_layer.cc
