@@ -24,6 +24,36 @@ tags:
 Flutter渲染机制在UI线程执行到compositeFrame()过程经过多层调用，将栅格化的任务Post到GPU线程来执行。GPU线程一旦空闲则会执行Rasterizer的draw()操作。图中LayerTree::Paint()过程是一个比较重要的操作，会嵌套调用不同layer的Paint过程，比如TransformLayer，PhysicalShapeLayer，ClipRectLayer，PictureLayer等，都执行完成会执行flush()将数据发送给GPU。
 
 
+#### 1.2 Surface类图
+![Surface类关系图](/img/flutter_gpu/ClassSurface.jpg)
+
+![ClassSurface](/img/flutter_gpu/ClassSurface.jpg)
+
+三种不同的AndroidSurface，见小节2.6.3：
+
+- 使用软件模拟的VSYNC方式，则采用AndroidSurfaceSoftware;
+- 硬件VSYNC方式，且开启VULKAN，则采用AndroidSurfaceVulkan;
+- 硬件VSYNC方式，且未开启VULKAN，则采用AndroidSurfaceGL;
+
+
+#### 1.3 Layer类图
+
+[Layer类关系图](/img/flutter_gpu/ClassLayer.jpg)
+
+![ClassLayer](/img/flutter_gpu/ClassLayer.jpg)
+
+LayerTree的root_layer来源于SceneBuilder过程初始化，第一个调用PushLayer()的layer便成为root_layer_，后面的调用会形成一个树状结构。从上图，可知ContainerLayer共有9个子类，由这些子类组合成为了一个layer tree，具体的组合方式取决于业务使用方，在LayerTree的Prepoll和Paint过程便会调用这些layer的方法，下面来看看这9个类：
+
+1. ClipRectLayer：圆角矩形裁剪层，可指定矩形和裁剪行为参数，其中裁剪行为有Clip.none，hardEdge，antiAlias，antiAliasWithSaveLayer四种行为；
+2. ClipRRectLayer：矩形裁剪层，可指定圆角矩形和裁剪行为参数，同上四种行为；
+3. ClipPathLayer：路径裁剪层，可指定路径和裁剪行为参数，同上四种行为；
+4. OpacityLayer：透明层，可指定透明度和偏移量参数，其中偏移量是指从画布坐标系原点到调用者坐标系原点的偏移量；
+5. ShaderMaskLayer：着色层，可指定着色器、矩阵和混合模式参数；
+6. ColorFilterLayer：颜色过滤层，可指定颜色和混合模式参数；
+7. Transformayer：变换图层，可指定转换矩阵参数；
+8. BackdropFilterLayer：背景过滤层，可指定背景图参数；
+9. PhysicalShapeLayer：物理形状层，可指定颜色等八个参数。
+
 ## 二、GPU线程渲染过程
 
 ### 2.1 MessageLoopImpl::RunExpiredTasks
@@ -223,9 +253,15 @@ bool Rasterizer::DrawToSurface(flow::LayerTree& layer_tree) {
 }
 ```
 
-layer_tree.construction_time()方法可以知道ui线程生成layer tree所花费时间，用于计算fps。
+该方法主要功能：
 
-### 2.6 AcquireFrame
+- 执行AndroidSurface的AcquireFrame()来获取SurfaceFrame，此处AndroidSurface为GPUSurfaceGL子类；
+- layer_tree.construction_time()记录ui线程生成layer tree所花费时间，将其记录到compositor_context_的engine_time，用于计算fps；
+- 执行CompositorContext的AcquireFrame()来获取ScopedFrame；
+- 执行ScopedFrame的Raster()进行绘制操作；
+- 执行SurfaceFrame的Submit()来进行flush和SwapBuffers操作。
+
+### 2.6 AndroidSurface::AcquireFrame
 
 要知道surface_到底是怎么来的，先来看看AndroidSurface::Create()过程。
 
@@ -278,15 +314,7 @@ std::unique_ptr<AndroidSurface> AndroidSurface::Create(
 }
 ```
 
-这里涉及到3种不同的AndroidSurface：
-
-- 使用软件模拟的VSYNC方式，则采用AndroidSurfaceSoftware;
-- 硬件VSYNC方式，且开启VULKAN，则采用AndroidSurfaceVulkan;
-- 硬件VSYNC方式，且未开启VULKAN，则采用AndroidSurfaceGL;
-
-目前android_surface_默认数据类型为AndroidSurfaceGL。
-
-![ClassSurface](/img/flutter_gpu/ClassSurface.jpg)
+三种不同的[AndroidSurface](/img/flutter_gpu/ClassSurface.jpg)，目前android_surface_默认数据类型为AndroidSurfaceGL。
 
 #### 2.6.4 AndroidSurfaceGL::CreateGPUSurface
 [-> flutter/shell/platform/android/android_surface_gl.cc]
@@ -352,6 +380,7 @@ std::unique_ptr<CompositorContext::ScopedFrame> CompositorContext::AcquireFrame(
 }
 ```
 
+创建ScopedFrame，其成遍历context_记录着CompositorContext，而CompositorContext是在Rasterizer对象初始化的时候创建的。
 
 ### 2.8 ScopedFrame::Raster
 [-> flutter/flow/compositor_context.cc]
@@ -365,6 +394,8 @@ bool CompositorContext::ScopedFrame::Raster(flow::LayerTree& layer_tree,
 }
 ```
 
+从小节2.5可知ignore_raster_cache等于false，会采用raster缓存。
+
 ### 2.9 LayerTree::Preroll
 [-> flutter/flow/layers/layer_tree.cc]
 
@@ -377,6 +408,7 @@ void LayerTree::Preroll(CompositorContext::ScopedFrame& frame,
   frame.context().raster_cache().SetCheckboardCacheImages(
       checkerboard_raster_cache_images_);
   PrerollContext context = {
+      //此处采用raster缓存
       ignore_raster_cache ? nullptr : &frame.context().raster_cache(),
       frame.gr_context(),
       frame.view_embedder(),
@@ -386,12 +418,17 @@ void LayerTree::Preroll(CompositorContext::ScopedFrame& frame,
       frame.context().engine_time(),
       frame.context().texture_registry(),
       checkerboard_offscreen_layers_};
-
+  //执行相应layer子类的preroll方法
   root_layer_->Preroll(&context, frame.root_surface_transformation());
 }
 ```
 
-从root_layer_记录图层树的根节点，根据根节点的具体ContainerLayer子类类型来执行相应类的Preroll方法()， 这里以ContainerLayer为例子来说明。
+该方法主要功能：
+
+- frame是由小节2.7过程赋值，其类型为ScopedFrame；
+- 用于统计fps的frame_time和engine_time是来自于CompositorContext的成员；
+- 从root_layer_记录图层树的根节点，根据根节点的具体ContainerLayer子类类型来执行相应类的Preroll方法()， 这里以ContainerLayer为例子来说明。
+
 
 #### 2.9.1 ContainerLayer::Preroll
 [-> flutter/flow/layers/container_layer.cc]
@@ -465,18 +502,8 @@ void LayerTree::Paint(CompositorContext::ScopedFrame& frame,
 
 paint_bounds_是在Preroll过程调用set_paint_bounds方法来赋值的，当paint_bounds_不为空则需要绘制。
 
-对于Paint绘制过程，调用哪个方法取决于图层树结构中相应的layer类型，具体如下类图
-
-#### 类图
-
-[Layer类关系图](/img/flutter_gpu/ClassLayer.jpg)
-
-![ClassLayer](/img/flutter_gpu/ClassLayer.jpg)
-
-LayerTree的root_layer来源于SceneBuilder过程初始化，第一个调用PushLayer()的layer便成为root_layer_，后面的调用会形成一个树状结构。
-
-
-每个执行Paint()过程会再调用PaintChildren来遍历layers_的子图层，下面列举图上几个类的Paint绘制方法。
+对于Paint绘制过程，调用哪个方法取决于图层树结构中相应的layer类型，详见[Layer类图](/img/flutter_gpu/ClassLayer.jpg)
+。每个执行Paint()过程会再调用PaintChildren来遍历layers_的子图层，下面列举图上几个类的Paint绘制方法。
 
 #### 2.10.1 TransformLayer::Paint
 [-> flutter/flow/layers/transform_layer.cc]
@@ -583,6 +610,41 @@ void PictureLayer::Paint(PaintContext& context) const {
     }
   }
   context.leaf_nodes_canvas->drawPicture(picture());
+}
+```
+
+#### 2.10.5 OpacityLayer::Paint
+[-> flutter/flow/layers/opacity_layer.cc]
+
+```Java
+void OpacityLayer::Paint(PaintContext& context) const {
+  TRACE_EVENT0("flutter", "OpacityLayer::Paint");
+
+  SkPaint paint;
+  paint.setAlpha(alpha_);
+
+  SkAutoCanvasRestore save(context.internal_nodes_canvas, true);
+  context.internal_nodes_canvas->translate(offset_.fX, offset_.fY);
+
+  if (context.view_embedder == nullptr && layers().size() == 1 &&
+      context.raster_cache) {
+    const SkMatrix& ctm = context.leaf_nodes_canvas->getTotalMatrix();
+    RasterCacheResult child_cache =
+        context.raster_cache->Get(layers()[0].get(), ctm);
+    if (child_cache.is_valid()) {
+      child_cache.draw(*context.leaf_nodes_canvas, &paint);
+      return;
+    }
+  }
+
+  SkRect saveLayerBounds;
+  paint_bounds()
+      .makeOffset(-offset_.fX, -offset_.fY)
+      .roundOut(&saveLayerBounds);
+
+  Layer::AutoSaveLayer save_layer =
+      Layer::AutoSaveLayer::Create(context, saveLayerBounds, &paint);
+  PaintChildren(context);
 }
 ```
 
