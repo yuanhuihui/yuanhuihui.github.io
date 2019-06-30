@@ -371,6 +371,8 @@ private Choreographer(Looper looper) {
 }
 ```
 
+此处Choreographer的mLooper和mHandler都运行在FlutterVsyncThread线程。
+
 #### 2.7.2 postFrameCallback
 [-> Choreographer.java]
 
@@ -416,7 +418,8 @@ public void doFrame(long frameTimeNanos) {
 }
 ```
 
-注册了Vysnc信号后，一旦底层Vsync信号触发，经过层层调用回到FrameDisplayEventReceiver的过程，然后会有一个通过handler的方式post到线程”FlutterVsyncThread”来执行操作，然后再处理所有注册的doCallbacks方法，则会执行Choreographer.FrameCallback中的doFrame()方法。
+注册了Vysnc信号后，一旦底层Vsync信号触发，经过层层调用回到FrameDisplayEventReceiver的过程，然后会有一个通过handler的方式post到线程”FlutterVsyncThread”来执行操作，
+具体流程见[Choreographer原理](http://gityuan.com/2017/02/25/choreographer/)。紧接着再处理所有注册的doCallbacks方法，则会执行Choreographer.FrameCallback中的doFrame()方法。
 
 ### 3.2 OnNativeVsync
 [-> flutter/shell/platform/android/io/flutter/view/VsyncWaiter.java]
@@ -943,8 +946,8 @@ void drawFrame() {
   try {
     if (renderViewElement != null)
       buildOwner.buildScope(renderViewElement);   //[见小节4.6.1]
-    super.drawFrame();   //[见小节4.6.2]
-    buildOwner.finalizeTree();
+    super.drawFrame();   //[见小节4.6.4]
+    buildOwner.finalizeTree();  //[见小节4.12]
   } finally {
   }
 }
@@ -962,14 +965,15 @@ void buildScope(Element context, [VoidCallback callback]) {
     _scheduledFlushDirtyElements = true;
     if (callback != null) {
       _dirtyElementsNeedsResorting = false;
-      callback();
+      callback();  //执行回调方法
     }
-    _dirtyElements.sort(Element._sort);
+    _dirtyElements.sort(Element._sort); //排序
     _dirtyElementsNeedsResorting = false;
     int dirtyCount = _dirtyElements.length;
     int index = 0;
     while (index < dirtyCount) {
       try {
+        //具体Element子类执行重建操作 [见小节4.6.2]
         _dirtyElements[index].rebuild();
       } catch (e, stack) {
       }
@@ -995,7 +999,42 @@ void buildScope(Element context, [VoidCallback callback]) {
 }
 ```
 
-#### 4.6.2 RendererBinding.drawFrame
+#### 4.6.2 Element.rebuild
+[-> lib/src/widgets/framework.dart]
+
+```Java
+void rebuild() {
+  if (!_active || !_dirty)
+    return;
+  performRebuild();
+}
+```
+
+performRebuild具体执行方法，取决于相应的Element子类，这里以
+
+#### 4.6.3 ComponentElementperformRebuild
+[-> lib/src/widgets/framework.dart]
+
+```Java
+void performRebuild() {
+  Widget built;
+  try {
+    built = build();  //执行build方法
+  } catch (e, stack) {
+    built = ErrorWidget.builder(_debugReportException('building $this', e, stack));
+  } finally {
+    _dirty = false;
+  }
+  try {
+    _child = updateChild(_child, built, slot); //更新子元素
+  } catch (e, stack) {
+    built = ErrorWidget.builder(_debugReportException('building $this', e, stack));
+    _child = updateChild(null, built, slot);
+  }
+}
+```
+
+#### 4.6.4 RendererBinding.drawFrame
 [-> lib/src/rendering/binding.dart]
 
 ```Java
@@ -1010,7 +1049,7 @@ void drawFrame() {
 
 RendererBinding的initInstances()过程注册了一个Persistent的帧回调方法_handlePersistentFrameCallback()，故handleDrawFrame()过程会调用该方法。pipelineOwner管理渲染管道，提供了一个用于驱动渲染管道的接口，并存储了哪些渲染对象请求访问状态，要刷新管道，需要按顺序运行如下5个阶段：
 
-1. [flushLayout]：更新需要计算其布局的渲染对象，在此阶段计算每个渲染对象的大小和位置，渲染对象可能会弄脏其绘画或者合成状态；
+1. [flushLayout]：更新需要计算其布局的渲染对象，在此阶段计算每个渲染对象的大小和位置，渲染对象可能会弄脏其绘画或者合成状态，这个过程可能还会调用到build过程。
   - 耗时对应timeline的‘Layout’过程
 2. [flushCompositingBits]：更新具有脏合成位的任何渲染对象，在此阶段每个渲染对象都会了解其子项是否需要合成。在绘制阶段使用此信息选择如何实现裁剪等视觉效果。如果渲染对象有一个自己合成的子项，它需要使用布局信息来创建裁剪，以便将裁剪应用于已合成的子项
   - 耗时对应timeline的‘Compositing bits’过程
@@ -1056,7 +1095,7 @@ void flushLayout() {
 ```Java
 void _layoutWithoutResize() {
   try {
-    performLayout();  //执行布局操作
+    performLayout();  //执行布局操作[]
     markNeedsSemanticsUpdate();  //[见小节4.7.2]
   } catch (e, stack) {
     _debugReportException('performLayout', e, stack);
@@ -1072,6 +1111,15 @@ void _layoutWithoutResize() {
 - markNeedsSemanticsUpdate：标记需要更新语义；
 - markNeedsPaint：标记需要绘制；
 
+
+```Java
+SchedulerBinding.scheduleWarmUpFrame
+  RenderView.performLayout
+    RenderObject.layout
+      _RenderLayoutBuilder.performLayout
+        _LayoutBuilderElement._layout
+          BuildOwner.buildScope
+```
 
 #### 4.7.2 markNeedsSemanticsUpdate
 [-> lib/src/rendering/object.dart]
@@ -1518,6 +1566,54 @@ void Shell::OnEngineUpdateSemantics(
 
 这个方法主要是向平台线程提交Semantic任务。
 
+再回到小节4.6，可知接下来再执行finalizeTree()操作；
+
+### 4.12 BuildOwner.finalizeTree
+[-> lib/src/widgets/framework.dart]
+
+```Java
+void finalizeTree() {
+  Timeline.startSync('Finalize tree', arguments: timelineWhitelistArguments);
+  try {
+    lockState(() {
+      //遍历所有的Element，执行unmount()动作，且取消GlobalKeys的注册
+      _inactiveElements._unmountAll();
+    });
+  } catch (e, stack) {
+    _debugReportException('while finalizing the widget tree', e, stack);
+  } finally {
+    Timeline.finishSync();
+  }
+}
+
+```
+
+遍历所有的Element，执行相应具体Element子类的unmount()操作，下面以常见的StatefulElement为例来说明。
+
+#### 4.12.1 StatefulElement.unmount
+[-> lib/src/widgets/framework.dart]
+
+```Java
+void unmount() {
+  super.unmount(); //[见小节4.12.2]
+  _state.dispose(); //执行State的dispose()方法
+  _state._element = null;
+  _state = null;
+}
+```
+
+#### 4.12.2 Element.unmount
+[-> lib/src/widgets/framework.dart]
+
+```Java
+void unmount() {
+  if (widget.key is GlobalKey) {
+    final GlobalKey key = widget.key;
+    key._unregister(this);  //取消GlobalKey的注册
+  }
+}
+```
+
 ## 五、总结
 
 1）通过VSYNC信号使UI线程和GPU线程有条不紊的周期性的渲染界面，如下图所示：
@@ -1531,12 +1627,12 @@ void Shell::OnEngineUpdateSemantics(
 
 2）UI绘制最核心的方法是drawFrame()，包含以下几个过程：
 
-- Animate: 遍历_transientCallbacks，执行动画操作
-- Layout: 计算渲染对象的大小和位置
-  - Build: 对象的构造， 对应于buildScope()
-- Compositing bits: 更新具有脏合成位的任何渲染对象， 对应于flushCompositingBits()
-- Paint: 将绘制命令记录到Layer， 对应于flushPaint()
-- Compositing: 将Compositing bits发送给GPU， 对应于compositeFrame()
+- Animate: 遍历_transientCallbacks，执行动画操作；
+- Build: 对于dirty的元素会执行build构造，没有dirty元素则不会执行，对应于buildScope()
+- Layout: 计算渲染对象的大小和位置，对应于flushLayout()，这个过程可能会嵌套再调用build操作；
+- Compositing bits: 更新具有脏合成位的任何渲染对象， 对应于flushCompositingBits()；
+- Paint: 将绘制命令记录到Layer， 对应于flushPaint()；
+- Compositing: 将Compositing bits发送给GPU， 对应于compositeFrame()；
 - Semantics: 编译渲染对象的语义，并将语义发送给操作系统， 对应于flushSemantics()。
 
 3）以上几个过程在Timeline中ui线程中都有体现，[如下图所示](/img/flutter_ui/timeline_ui_draw.png)：

@@ -15,11 +15,11 @@ tags:
       - DispSync.cpp
       - MessageQueue.cpp
       - DisplayHardware/HWComposer.cpp
-      
+
     frameworks/native/libs/gui/
       - DisplayEventReceiver.cpp
       - BitTube.cpp
-    
+
 ## 一. 概述
 
 Android系统的图形处理相关的模块，就不得不提surfaceflinger，这是由init进程所启动的
@@ -165,7 +165,7 @@ flinger的数据类型为sp<SurfaceFlinger>强指针类型，当首次被强指�
         };
         ...
     }
-    
+
 ### 2.3 SF.init
 [-> SurfaceFlinger.cpp]
 
@@ -351,7 +351,7 @@ HWComposer代表着硬件显示设备，注册了VSYNC信号的回调。VSYNC信
         }
         ...
     }
-    
+
 创建IGraphicBufferProducer和IGraphicBufferConsumer，以及FramebufferSurface，DisplayDevice对象。另外，
 显示设备有3类：主设备，扩展设备，虚拟设备。其中前两个都是内置显示设备，故NUM_BUILTIN_DISPLAY_TYPES=2，
 
@@ -415,7 +415,7 @@ EventThread继承于Thread和VSyncSource::Callback两个类。
         DisplayEventReceiver::Event event;
         Vector< sp<EventThread::Connection> > signalConnections;
         // 等待事件【见小节2.7.3】
-        signalConnections = waitForEvent(&event); 
+        signalConnections = waitForEvent(&event);
 
         //分发事件给所有的监听者
         const size_t count = signalConnections.size();
@@ -558,7 +558,7 @@ EventThread线程，进入mCondition的wait()方法，等待唤醒。
             mFlinger(flinger),
             mVsyncEnabled(false) {
     }
-    
+
     bool EventControlThread::threadLoop() {
         Mutex::Autolock lock(mMutex);
         bool vsyncEnabled = mVsyncEnabled;
@@ -569,7 +569,7 @@ EventThread线程，进入mCondition的wait()方法，等待唤醒。
         while (true) {
             status_t err = mCond.wait(mMutex);
             ...
-            
+
             if (vsyncEnabled != mVsyncEnabled) {
                 mFlinger->eventControl(HWC_DISPLAY_PRIMARY,
                         SurfaceFlinger::EVENT_VSYNC, mVsyncEnabled);
@@ -579,7 +579,7 @@ EventThread线程，进入mCondition的wait()方法，等待唤醒。
 
         return false;
     }
-    
+
 EventControlThread也是继承于Thread。
 
 ### 2.10 startBootAnim
@@ -589,7 +589,7 @@ EventControlThread也是继承于Thread。
         property_set("service.bootanim.exit", "0");
         property_set("ctl.start", "bootanim");
     }
-    
+
 通过控制ctl.start属性，设置成bootanim值，则触发init进程来创建开机动画进程bootanim，
 到此，则开始显示开机过程的动画。 从小节[2.4 ~2.9]都是介绍SurfaceFlinger的init()过程，
 紧接着便执行其run()方法。
@@ -600,7 +600,7 @@ EventControlThread也是继承于Thread。
     void SurfaceFlinger::run() {
         do {
             //不断循环地等待事件【见小节2.12】
-            waitForEvent(); 
+            waitForEvent();
         } while (true);
     }
 
@@ -612,7 +612,7 @@ EventControlThread也是继承于Thread。
     }
 
 mEventQueue的数据类型为MessageQueue。
- 
+
 ### 2.13 MQ.waitMessage
 [-> MessageQueue.cpp]
 
@@ -697,7 +697,7 @@ HWComposer对象创建过程，会注册一些回调方法，当硬件产生VSYN
         beginResync();
         ...
     }
-    
+
 #### 3.4.2 DispSyncThread线程
 [-> DispSync.cpp]
 
@@ -795,7 +795,7 @@ HWComposer对象创建过程，会注册一些回调方法，当硬件产生VSYN
         //【见小节3.6】
         mThread->updateModel(mPeriod, mPhase);
     }
-    
+
 ### 3.6 DST.updateModel
 [-> DispSyncThread.cpp]
 
@@ -838,10 +838,10 @@ HWComposer对象创建过程，会注册一些回调方法，当硬件产生VSYN
          }
 
          return false;
-     } 
- 
+     }
+
 #### 3.7.1 fireCallbackInvocations
- 
+
     void fireCallbackInvocations(const Vector<CallbackInvocation>& callbacks) {
         for (size_t i = 0; i < callbacks.size(); i++) {
             //【见小节3.8】
@@ -898,9 +898,9 @@ mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread【见�
     {
         return BitTube::sendObjects(dataChannel, events, count);
     }
-  
+
 根据小节【2.8】可知监听BitTube，此处调用BitTube来sendObjects。一旦收到数据，则调用MQ.cb_eventReceiver()方法。
-  
+
 #### 3.11.1 MQ.cb_eventReceiver
 [-> MessageQueue.cpp]
 
@@ -957,7 +957,7 @@ mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread【见�
                 break;
         }
     }
-    
+
 对于REFRESH操作，则进入onMessageReceived().
 
 ### 3.14 SF.onMessageReceived
@@ -989,16 +989,17 @@ mCondition.broadcast能够唤醒处理waitForEvent()过程的EventThread【见�
 ### 3.15 SF.handleMessageRefresh
 [-> SurfaceFlinger.cpp]
 
-    void SurfaceFlinger::handleMessageRefresh() {
-        ATRACE_CALL();
-        preComposition();
-        rebuildLayerStacks();
-        setUpHWComposer();
-        doDebugFlashRegions();
-        doComposition();
-        postComposition();
-    }
-
+```CPP
+void SurfaceFlinger::handleMessageRefresh() {
+    ATRACE_CALL();
+    preComposition();
+    rebuildLayerStacks();
+    setUpHWComposer();
+    doDebugFlashRegions();
+    doComposition();
+    postComposition();
+}
+```
 下一篇文章，再来介绍图形输出过程。
 
 ## 四 总结
@@ -1020,4 +1021,4 @@ Vsync处理流程图：点击查看[大图](http://gityuan.com/images/surfaceFli
 唤醒EventThread线程；
 3. EventThread线程：执行到【小节3.11】DisplayEventReceiver::sendEvents()方法中调用BitTube::sendObjects()；
 由【小节2.8】可知当收到数据则调用MQ.cb_eventReceiver()，然后再经过handler消息机制，进入SurfaceFlinger主线程；
-4.SurfaceFlinger主线程：【小节3.13】进入到MesageQueue的handleMessage()，最终调用SurfaceFlinger的handleMessageRefresh()。
+4. SurfaceFlinger主线程：【小节3.13】进入到MesageQueue的handleMessage()，最终调用SurfaceFlinger的handleMessageRefresh()。
