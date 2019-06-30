@@ -46,13 +46,7 @@ flat_binder_object
 
 
 
-
-### 3.x
-open, mmap
-proc, buffer,
-
-
-
+binder传输数据过大，采用ParceledListSlice
 
 ## 四. 其他
 

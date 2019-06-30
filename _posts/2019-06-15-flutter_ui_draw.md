@@ -1509,7 +1509,7 @@ void sendSemanticsUpdate() {
 
 updateSemantics这是window.dart中的一个native方法，调用到如下方法。
 
-#### 4.11.3 updateSemantics
+#### 4.11.3 Window::updateSemantics
 [-> flutter/lib/ui/window/window.cc]
 
 ```Java

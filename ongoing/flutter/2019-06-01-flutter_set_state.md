@@ -1,24 +1,25 @@
 ---
 layout: post
-title:  "Flutter渲染机制探索"
-date:   2019-06-07 21:15:40
+title:  "Flutter的StatefulWidget更新机制"
+date:   2019-06-01 21:15:40
 catalog:  true
 tags:
     - flutter
 
 ---
 
-> 基于Flutter 1.5的源码剖析， 分析flutter渲染机制，相关源码：
+> 基于Flutter 1.5的源码剖析， 分析flutter的StatefulWidget的UI更新机制，相关源码：
 
     widgets/framework.dart
     widgets/binding.dart
     scheduler/binding.dart
+    lib/ui/window.dart
+    flutter/runtime/runtime_controller.cc
 
 ## 一、概述
 
-StatefulElement
-  ComponentElement
-    Element
+
+
 
 ## 二、Widget渲染流程
 当StatefulWidget的UI发生更新时，会调用setState()方法来实现UI的更新，接下来从该方法说起。
@@ -128,13 +129,16 @@ mixin SchedulerBinding on BindingBase, ServicesBinding {
 }
 ```
 
-schedulerPhase的初始值为SchedulerPhase.idle。SchedulerPhase是一个enum枚举类型，可取值为：
+schedulerPhase的初始值为SchedulerPhase.idle。SchedulerPhase是一个enum枚举类型，有以下5个可取值：
 
-- idle: 没有正在处理的帧，可能正在执行的是WidgetsBinding.scheduleTask，scheduleMicrotask，Timer，事件handlers，活着其他回调等
-- transientCallbacks: SchedulerBinding.handleBeginFrame过程， 处理动画状态更新
-- midFrameMicrotasks: 处理transientCallbacks阶段触发的微任务（Microtasks）
-- persistentCallbacks: WidgetsBinding.drawFrame和SchedulerBinding.handleDrawFrame过程，build/layout/paint流水线工作
-- postFrameCallbacks: 主要是情理和计划执行下一帧的工作
+|状态|含义|
+|---|---|
+|**idle**| 没有正在处理的帧，可能正在执行的是WidgetsBinding.scheduleTask，scheduleMicrotask，Timer，事件handlers，或者其他回调等|
+|**transientCallbacks**| SchedulerBinding.handleBeginFrame过程， 处理动画状态更新|
+|**midFrameMicrotasks**| 处理transientCallbacks阶段触发的微任务（Microtasks）|
+|**persistentCallbacks**| WidgetsBinding.drawFrame和SchedulerBinding.handleDrawFrame过程，build/layout/paint流水线工作|
+|**postFrameCallbacks**| 主要是清理和计划执行下一帧的工作|
+
 
 ### 2.6 scheduleFrame
 [-> scheduler/binding.dart:: SchedulerBinding]
@@ -144,12 +148,12 @@ void scheduleFrame() {
   //只有当APP处于用户可见状态才会准备调度下一帧方法
   if (_hasScheduledFrame || !_framesEnabled)
     return;
-  ui.window.scheduleFrame();  // native方法
+  ui.window.scheduleFrame();  // native方法 [见小节2.7]
   _hasScheduledFrame = true;
 }
 ```
 
-### 2.7 window.scheduleFrame
+### 2.7 scheduleFrame
 [-> lib/ui/window.dart:: Window]
 
 ```Java
@@ -158,18 +162,37 @@ void scheduleFrame() native 'Window_scheduleFrame';
 
 window是Flutter引擎中跟图形相关接口打交道的核心类，这里是一个native方法
 
-#### 2.7.1
+#### 2.7.1 ScheduleFrame(C++)
 [-> window.cc ]
 
 ```C++
 void ScheduleFrame(Dart_NativeArguments args) {
+  //  [见小节2.7.2]
   UIDartState::Current()->window()->client()->ScheduleFrame();
 }
 ```
 
 通过RegisterNatives()完成native方法的注册，“Window_scheduleFrame”所对应的native方法如上所示。
 
-### 2.8
+#### 2.7.2 RuntimeController::ScheduleFrame
+[flutter/runtime/runtime_controller.cc]
+
+```C++
+void RuntimeController::ScheduleFrame() {
+  client_.ScheduleFrame(); //  [见小节2.7.3]
+}
+```
+
+#### 2.7.3 Engine::ScheduleFrame
+flutter/shell/common/engine.cc
+
+```C++
+void Engine::ScheduleFrame(bool regenerate_layer_tree) {
+  animator_->RequestFrame(regenerate_layer_tree);
+}
+```
+
+### 2.8 Animator::RequestFrame()
 
 ```Java
 void _handleBeginFrame(Duration rawTimeStamp) {
@@ -188,6 +211,7 @@ void _handleDrawFrame() {
   handleDrawFrame();
 }
 ```
+Animator::RequestFrame()经过层层处理，最终会回调上述两个方法。下一篇文章再展开说明该过程。
 
 ### 2.9 handleBeginFrame
 
@@ -253,3 +277,5 @@ void handleDrawFrame() {
   }
 }
 ```
+
+## 三、小结

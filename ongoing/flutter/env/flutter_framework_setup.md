@@ -24,4 +24,18 @@ tags:
 - 确保adb可用，可通过which adb命令检测命令是否可用。
 - Fork一份Flutter Framework代码，https://github.com/flutter/flutter
 - 将flutter的bin添加到PATH
+- 设置环境变量：添加export PATH=`your_flutter_path`/bin:$PATH
+    - 默认bash，则是open ~/.bash_profile
+    - 对于zsh，则是open ~/.zshrc
 - 执行命令flutter update-packages，来获取Flutter所依赖的Dart Packages
+
+## 三、导入IDE
+
+- Android Studio的Plugins中搜索flutter，安装flutter插件后重启AS；
+- 通过AS的File -> Open加载已下载的flutter项目
+    - 这里需要注意，打开的目录是flutter/packages/flutter，否则可能代码间跳转会有些问题
+- 执行flutter doctor
+- 执行flutter pub upgrade
+- 执行flutter packages get
+
+这便完成了flutter framework的源码环境。
