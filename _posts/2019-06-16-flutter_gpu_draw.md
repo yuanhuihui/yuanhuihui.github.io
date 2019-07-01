@@ -8,7 +8,7 @@ tags:
 
 ---
 
-> 基于Flutter 1.5的源码剖析， 分析flutter渲染机制，相关源码目录见文末附录
+> 基于Flutter 1.5，从源码视角来深入剖析flutter渲染机制，相关源码目录见文末附录
 
 ## 一、概述
 
@@ -17,17 +17,17 @@ tags:
 
 #### 1.1 GPU线程调用链
 
-**1) [GPU线程处理流程图](/img/flutter_gpu/GPUDraw.jpg)**
+**1) [GPU线程处理流程图](http://gityuan.com/img/flutter_gpu/GPUDraw.jpg)**
 
-![GPUDraw](/img/flutter_gpu/GPUDraw.jpg)
+![GPUDraw](http://gityuan.com/img/flutter_gpu/GPUDraw.jpg)
 
 Flutter渲染机制在UI线程执行到compositeFrame()过程经过多层调用，将栅格化的任务Post到GPU线程来执行。GPU线程一旦空闲则会执行Rasterizer的draw()操作。图中LayerTree::Paint()过程是一个比较重要的操作，会嵌套调用不同layer的Paint过程，比如TransformLayer，PhysicalShapeLayer，ClipRectLayer，PictureLayer等，都执行完成会执行flush()将数据发送给GPU。
 
 
 #### 1.2 Surface类图
-![Surface类关系图](/img/flutter_gpu/ClassSurface.jpg)
+![Surface类关系图](http://gityuan.com/img/flutter_gpu/ClassSurface.jpg)
 
-![ClassSurface](/img/flutter_gpu/ClassSurface.jpg)
+![ClassSurface](http://gityuan.com/img/flutter_gpu/ClassSurface.jpg)
 
 三种不同的AndroidSurface，见小节2.6.3：
 
@@ -38,9 +38,9 @@ Flutter渲染机制在UI线程执行到compositeFrame()过程经过多层调用�
 
 #### 1.3 Layer类图
 
-[Layer类关系图](/img/flutter_gpu/ClassLayer.jpg)
+[Layer类关系图](http://gityuan.com/img/flutter_gpu/ClassLayer.jpg)
 
-![ClassLayer](/img/flutter_gpu/ClassLayer.jpg)
+![ClassLayer](http://gityuan.com/img/flutter_gpu/ClassLayer.jpg)
 
 LayerTree的root_layer来源于SceneBuilder过程初始化，第一个调用PushLayer()的layer便成为root_layer_，后面的调用会形成一个树状结构。从上图，可知ContainerLayer共有9个子类，由这些子类组合成为了一个layer tree，具体的组合方式取决于业务使用方，在LayerTree的Prepoll和Paint过程便会调用这些layer的方法，下面来看看这9个类：
 
@@ -314,7 +314,7 @@ std::unique_ptr<AndroidSurface> AndroidSurface::Create(
 }
 ```
 
-三种不同的[AndroidSurface](/img/flutter_gpu/ClassSurface.jpg)，目前android_surface_默认数据类型为AndroidSurfaceGL。
+三种不同的[AndroidSurface](http://gityuan.com/img/flutter_gpu/ClassSurface.jpg)，目前android_surface_默认数据类型为AndroidSurfaceGL。
 
 #### 2.6.4 AndroidSurfaceGL::CreateGPUSurface
 [-> flutter/shell/platform/android/android_surface_gl.cc]
@@ -502,7 +502,7 @@ void LayerTree::Paint(CompositorContext::ScopedFrame& frame,
 
 paint_bounds_是在Preroll过程调用set_paint_bounds方法来赋值的，当paint_bounds_不为空则需要绘制。
 
-对于Paint绘制过程，调用哪个方法取决于图层树结构中相应的layer类型，详见[Layer类图](/img/flutter_gpu/ClassLayer.jpg)
+对于Paint绘制过程，调用哪个方法取决于图层树结构中相应的layer类型，详见[Layer类图](http://gityuan.com/img/flutter_gpu/ClassLayer.jpg)
 。每个执行Paint()过程会再调用PaintChildren来遍历layers_的子图层，下面列举图上几个类的Paint绘制方法。
 
 #### 2.10.1 TransformLayer::Paint
@@ -780,9 +780,9 @@ gpu线程的主要工作是将layer tree进行光栅化再发送给GPU，其中�
 - SkCanvas::Flush: 将数据flush到GPU，需要注意的是saveLayer的耗时；
 - AndroidContextGL::SwapBuffers: 缓存交换操作
 
-这几个过程是Timeline中ui线程的标签项，[如图所示](/img/flutter_ui/timeline_gpu_draw.png)：
+这几个过程是Timeline中ui线程的标签项，[如图所示](http://gityuan.com/img/flutter_ui/timeline_gpu_draw.png)：
 
-![timeline_gpu_draw](/img/flutter_ui/timeline_gpu_draw.png)
+![timeline_gpu_draw](http://gityuan.com/img/flutter_ui/timeline_gpu_draw.png)
 
 UI线程是”PipelineProduce“，相对应的GPU线程则是”PipelineConsume“，贯穿整个Rasterizer::DoDraw()过程。
 

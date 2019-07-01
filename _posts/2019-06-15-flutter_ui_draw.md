@@ -8,7 +8,7 @@ tags:
 
 ---
 
-> 基于Flutter 1.5的源码剖析， 分析flutter渲染机制，相关源码目录见文末附录
+> 基于Flutter 1.5，从源码视角来深入剖析flutter渲染机制，相关源码目录见文末附录
 
 ## 一、概述
 
@@ -24,9 +24,9 @@ Flutter相比RN性能更好，由于Flutter自己实现了一套UI框架，丢�
 
 #### 1.1 VSYNC注册过程
 
-**1) [VSYNC注册流程图](/img/flutter_ui/Vsync.jpg)**
+**1) [VSYNC注册流程图](http://gityuan.com/img/flutter_ui/Vsync.jpg)**
 
-![Vysnc](/img/flutter_ui/Vsync.jpg)
+![Vysnc](http://gityuan.com/img/flutter_ui/Vsync.jpg)
 
 当调用到引擎Engine的ScheduleFrame()方法过程则会注册VSYNC信号回调，一旦Vsync信号达到，则会调用到doFrame()方法。
 对于调用ScheduleFrame()的场景有多种，比如surface创建的时候shell::SurfaceCreated()。
@@ -34,24 +34,24 @@ Flutter相比RN性能更好，由于Flutter自己实现了一套UI框架，丢�
 
 #### 1.2 UI线程调用链
 
-**1）[Engine层处理流程图](/img/flutter_ui/UIDraw_engine.jpg)**
+**1）[Engine层处理流程图](http://gityuan.com/img/flutter_ui/UIDraw_engine.jpg)**
 
-![UIDraw_engine](/img/flutter_ui/UIDraw_engine.jpg)
+![UIDraw_engine](http://gityuan.com/img/flutter_ui/UIDraw_engine.jpg)
 
 doFrame()经过多层调用后通过PostTask将任务异步post到UI TaskRunner线程来执行，最后调用到Window的BeginFrame()方法。
 
-**2）[Framework层处理流程图](/img/flutter_ui/UIDraw_fwk.jpg)**
+**2）[Framework层处理流程图](http://gityuan.com/img/flutter_ui/UIDraw_fwk.jpg)**
 
-![UIDraw_fwk](/img/flutter_ui/UIDraw_fwk.jpg)
+![UIDraw_fwk](http://gityuan.com/img/flutter_ui/UIDraw_fwk.jpg)
 
-window.cc中的一个BeginFrame()方法，会调用到window.dart中的onBeginFrame()和onDrawFrame()两个方法。
+其中window.cc中的一个BeginFrame()方法，会调用到window.dart中的onBeginFrame()和onDrawFrame()两个方法。
 
 
 #### 1.3 类图
 
-**[类关系图](/img/flutter_ui/ClassEngine.jpg)**
+**[类关系图](http://gityuan.com/img/flutter_ui/ClassEngine.jpg)**
 
-![ClassEngine](/img/flutter_ui/ClassEngine.jpg)
+![ClassEngine](http://gityuan.com/img/flutter_ui/ClassEngine.jpg)
 
 为了方便大家更轻松地理解源码，先看一副关于Shell、Engine、Animator等核心类的类关系图，接下来带着大家从源码角度来依次讲解Vsync注册以及UI线程的绘制处理流程。
 
@@ -707,6 +707,8 @@ Window::BeginFrame()过程主要工作：
 - 执行_beginFrame
 - 执行FlushMicrotasksNow
 - 执行_drawFrame
+
+可见，Microtask位于beginFrame和drawFrame之间，那么Microtask的耗时会影响ui绘制过程。
 
 DartInvokeField()通过dart虚拟机调用了window.onBeginFrame()和onDrawFrame方法，见hooks.dart文件中如下过程：
 
@@ -1618,7 +1620,7 @@ void unmount() {
 
 1）通过VSYNC信号使UI线程和GPU线程有条不紊的周期性的渲染界面，如下图所示：
 
-![flutter_draw](/img/flutter_ui/flutter_draw.png)
+![flutter_draw](http://gityuan.com/img/flutter_ui/flutter_draw.png)
 
 - 当需要渲染则会调用到Engine的ScheduleFrame()来注册VSYNC信号回调，一旦触发回调doFrame()执行完成后，便会移除回调方法，也就是说一次注册一次回调；
 - 当需要再次绘制则需要重新调用到ScheduleFrame()方法，该方法的唯一重要参数regenerate_layer_tree决定在帧绘制过程是否需要重新生成layer tree，还是直接复用上一次的layer tree；
@@ -1635,9 +1637,9 @@ void unmount() {
 - Compositing: 将Compositing bits发送给GPU， 对应于compositeFrame()；
 - Semantics: 编译渲染对象的语义，并将语义发送给操作系统， 对应于flushSemantics()。
 
-3）以上几个过程在Timeline中ui线程中都有体现，[如下图所示](/img/flutter_ui/timeline_ui_draw.png)：
+3）以上几个过程在Timeline中ui线程中都有体现，[如下图所示](http://gityuan.com/img/flutter_ui/timeline_ui_draw.png)：
 
-![draw_ui](/img/flutter_ui/timeline_ui_draw.png)
+![draw_ui](http://gityuan.com/img/flutter_ui/timeline_ui_draw.png)
 
 另外Timeline中还有两个比较常见的标签项
 
