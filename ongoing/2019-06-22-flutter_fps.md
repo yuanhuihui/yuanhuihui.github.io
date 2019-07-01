@@ -230,7 +230,7 @@ fml::TimeDelta Stopwatch::MaxDelta() const {
 
 接下来，再来研究一下ui线程和gpu线程中的laps_记录这些时间区间的起点和终点。
 
-## 三、原理分析
+## 三、计算原理
 
 frame_time和engine_time的时间记录都在DrawToSurface()方法里面，这是绘制过程必走的方法。
 
