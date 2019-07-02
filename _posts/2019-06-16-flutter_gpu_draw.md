@@ -156,6 +156,7 @@ PipelineConsumeResult Consume(Consumer consumer) {
     return PipelineConsumeResult::NoneAvailable;
   }
 
+  // 当ui线程生产了layer tree，则此处可消费
   if (!available_.TryWait()) {
     return PipelineConsumeResult::NoneAvailable;
   }

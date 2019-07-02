@@ -51,7 +51,9 @@ PipelineConsumeResult Consume(Consumer consumer) {
   return items_count > 0 ? PipelineConsumeResult::MoreAvailable
                          : PipelineConsumeResult::Done;
 }
+```
 
+```Java
 class ProducerContinuation {
 
   ~ProducerContinuation() {

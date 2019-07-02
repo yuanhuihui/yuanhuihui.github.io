@@ -13,8 +13,8 @@ tags:
 
 Flutter作为Google新推出的移动端跨平台框架，相比其他跨平台技术有着媲美原生的高性能优势。工欲善其事必先利其器，要掌握性能情况，先了解如何统计FPS，谷歌官方提供了性能fps监控的调试开关，将Widget的showPerformanceOverlay属性设置为true，即可可打开性能监控界面，那么具体是如何监控FPS，在开始正式阅读本文前最好大致了解Flutter的渲染机制：
 
-- [Flutter渲染机制—UI线程](http://gityuan.com/2019/06/15/flutter_ui_draw/)**
-- [Flutter渲染机制—GPU线程](http://gityuan.com/2019/06/16/flutter_gpu_draw/)**
+- [Flutter渲染机制—UI线程](http://gityuan.com/2019/06/15/flutter_ui_draw/)
+- [Flutter渲染机制—GPU线程](http://gityuan.com/2019/06/16/flutter_gpu_draw/)
 
 有了一定基础后，再来看看其实现原理。
 

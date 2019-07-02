@@ -91,6 +91,7 @@ void Animator::RequestFrame(bool regenerate_layer_tree) {
     return;
   }
 
+  //调用sem_trywait来保证不会同时有多个vsync请求
   if (!pending_frame_semaphore_.TryWait()) {
     return;
   }
@@ -109,6 +110,7 @@ void Animator::RequestFrame(bool regenerate_layer_tree) {
 
 过程说明：
 
+- pending_frame_semaphore_这是非负信号量，初始值为1，第一次调用TryWait减1，而后再次调用则会失败直接返回。当消费了这次vsync回调，也就是调用了Animator的BeginFrame()或者DrawLastLayerTree()方法后，可以再次执行vysnc的注册；
 - 通过Animator的Start()或者BeginFrame调用到的RequestFrame方法，则肯定需要重新生成layer tree；通过Engine的ScheduleFrame方法是否重建layer tree看小节2.1；
 - 此处通过post把Animator::AwaitVSync任务放入到UI Task Runner来执行。
 
@@ -571,7 +573,7 @@ void Animator::BeginFrame(fml::TimePoint frame_start_time,
   frame_scheduled_ = false;
   notify_idle_task_id_++;
   regenerate_layer_tree_ = false;
-  pending_frame_semaphore_.Signal();
+  pending_frame_semaphore_.Signal(); //信号量加1，可以再注册vsync信号
 
   if (!producer_continuation_) {
     //[小节3.6.1]
@@ -612,9 +614,12 @@ void Animator::BeginFrame(fml::TimePoint frame_start_time,
 }
 ```
 
-此处kNotifyIdleTaskWaitTime等于51ms，等于3帧的时间+1ms，之所以这样设计是由于在某些工作负载下（比如父视图调整大小，通过viewport metrics事件传达给子视图）实际上还没有schedule帧，尽管在下一个vsync会生成一帧(将在收到viewport事件后schedule)，因此推迟调用OnAnimatorNotifyIdle一点点，从而避免可能垃圾回收在不希望的时间触发。
+该方法主要功能说明：
 
-#### 3.6.1 Produce
+- layer_tree_pipeline_是在Animator对象初始化的过程中创建的LayerTreePipeline，其类型为Pipeline<LayerTree>
+- 此处kNotifyIdleTaskWaitTime等于51ms，等于3帧的时间+1ms，之所以这样设计是由于在某些工作负载下（比如父视图调整大小，通过viewport metrics事件传达给子视图）实际上还没有schedule帧，尽管在下一个vsync会生成一帧(将在收到viewport事件后schedule)，因此推迟调用OnAnimatorNotifyIdle一点点，从而避免可能垃圾回收在不希望的时间触发。
+
+#### 3.6.1 Pipeline::Produce
 [-> flutter/synchronization/pipeline.h]
 
 ```Java
@@ -627,11 +632,11 @@ ProducerContinuation Produce() {
   return ProducerContinuation{
       std::bind(&Pipeline::ProducerCommit, this, std::placeholders::_1,
                 std::placeholders::_2),  // continuation
-      GetNextPipelineTraceID()};         // trace id
+      GetNextPipelineTraceID()};  
 }
 ```
 
-#### 3.6.2 创建ProducerContinuation
+#### 3.6.2 ProducerContinuation初始化
 [-> flutter/synchronization/pipeline.h]
 
 ```Java
@@ -747,11 +752,13 @@ mixin SchedulerBinding on BindingBase, ServicesBinding {
 
 可见，引擎层中的Window::BeginFrame()调用的两个方法，进入到dart层则分别是_handleBeginFrame()和_handleDrawFrame()方法
 
-####  4.1.1 Window
+####  4.1.1 Window初始化
 [-> flutter/lib/ui/window.dart]
 
 ```Java
 class Window {
+    Window._()
+
     FrameCallback get onBeginFrame => _onBeginFrame;
     FrameCallback _onBeginFrame;
 
@@ -760,6 +767,8 @@ class Window {
     ...
 }
 ```
+
+Window初始化过程，可以知道onBeginFrame和onDrawFrame分别保存_onBeginFrame和_onDrawFrame方法。
 
 ### 4.2 \_handleBeginFrame
 [-> lib/src/scheduler/binding.dart:: SchedulerBinding]
@@ -800,6 +809,7 @@ void handleBeginFrame(Duration rawTimeStamp) {
     _transientCallbacks = <int, _FrameCallbackEntry>{};
     callbacks.forEach((int id, _FrameCallbackEntry callbackEntry) {
       if (!_removedIds.contains(id))
+        //执行动画的回调方法
         _invokeFrameCallback(callbackEntry.callback, _currentFrameTimeStamp, callbackEntry.debugStack);
     });
     _removedIds.clear();
@@ -809,8 +819,34 @@ void handleBeginFrame(Duration rawTimeStamp) {
 }
 ```
 
-该方法主要功能：遍历\_transientCallbacks，执行执行Animate操作，可通过scheduleFrameCallback()/cancelFrameCallbackWithId()来完成添加和删除成员。
+该方法主要功能是遍历\_transientCallbacks，执行相应的Animate操作，可通过scheduleFrameCallback()/cancelFrameCallbackWithId()来完成添加和删除成员，再来简单看看这两个方法。
 
+#### 4.3.1 scheduleFrameCallback
+[-> lib/src/scheduler/binding.dart:: SchedulerBinding]
+
+
+```Java
+int scheduleFrameCallback(FrameCallback callback, { bool rescheduling = false }) {
+  scheduleFrame();  //触发帧绘制的调度
+  _nextFrameCallbackId += 1;
+  _transientCallbacks[_nextFrameCallbackId] = _FrameCallbackEntry(callback, rescheduling: rescheduling);
+  return _nextFrameCallbackId;
+}
+```
+
+callback保存在_FrameCallbackEntry对象里面
+
+#### 4.3.2 cancelFrameCallbackWithId
+[-> lib/src/scheduler/binding.dart:: SchedulerBinding]
+
+
+```Java
+void cancelFrameCallbackWithId(int id) {
+  assert(id > 0);
+  _transientCallbacks.remove(id);
+  _removedIds.add(id);
+}
+```
 
 ### 4.4 \_handleDrawFrame
 [-> lib/src/scheduler/binding.dart:: SchedulerBinding]
@@ -1396,14 +1432,29 @@ void Animator::Render(std::unique_ptr<flow::LayerTree> layer_tree) {
                                       last_begin_frame_time_);
   }
 
-  //提交待处理的continuation，本次PipelineProduce完成
+  //提交待处理的continuation，本次PipelineProduce完成 //[见小节4.10.7]
   producer_continuation_.Complete(std::move(layer_tree));
 
-  delegate_.OnAnimatorDraw(layer_tree_pipeline_); //[见小节4.10.7]
+  delegate_.OnAnimatorDraw(layer_tree_pipeline_); //[见小节4.10.8]
 }
 ```
 
-#### 4.10.7 Shell::OnAnimatorDraw
+#### 4.10.7 ProducerContinuation.Complete
+[-> flutter/synchronization/pipeline.h]
+
+```Java
+class ProducerContinuation {
+  void Complete(ResourcePtr resource) {
+    if (continuation_) {
+      continuation_(std::move(resource), trace_id_);
+      continuation_ = nullptr;
+      TRACE_EVENT_ASYNC_END0("flutter", "PipelineProduce", trace_id_);
+      TRACE_FLOW_STEP("flutter", "PipelineItem", trace_id_);
+    }
+  }
+```
+
+#### 4.10.8 Shell::OnAnimatorDraw
 [-> flutter/shell/common/shell.cc]
 
 ```Java

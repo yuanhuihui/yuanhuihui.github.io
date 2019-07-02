@@ -63,3 +63,23 @@ GPU调试靠经验，有多少函数的调用？
 - flutter screenshot --type=skia --observatory-port=1234
 
 https://api.flutter.dev/flutter/dart-ui/Clip-class.html
+
+## 性能点
+
+07-02 05:36:28.477 29103 29132 I GY      : Choreographer doFrame 231599906797036, deta=0.684197 ms
+07-02 05:36:28.480 29103 29135 E flutter : [ERROR:flutter/shell/common/animator.cc(214)] GY: BeginFrame
+07-02 05:36:28.480 29103 29135 I flutter : GY onBeginFrame now=1562038588480
+07-02 05:36:28.480 29103 29135 I flutter : GY deltaTime=18, deltaCounter=1
+07-02 05:36:28.480 29103 29135 I flutter : GY ScrollUpdate delta = 0.00
+07-02 05:36:28.481 29103 29135 E flutter : [ERROR:flutter/shell/common/animator.cc(153)] GY: Animator::Render() ui took 4.77539ms by Google
+07-02 05:36:28.481 29103 29135 I flutter : GY onDrawFrame now=1562038588481, frameTime=1 ms
+
+doDraw才1ms，但vysnc信号过来已经3ms，中间在处理其他message?
+另外，gpu线程是不是也在处理其他message导致耗时？
+
+## 经验点
+
+- Frame Request Pending：从vsync注册，到开始消费。 这个长则是ui线程在处理其他task导致的；
+- PipelineProduce长，则是ui线程渲染耗时；
+- PipelineConsume长，则是gpu线程耗时;
+- PipelineProduce和PipelineConsume之间长，则是gp线程处理其他task导致的；
