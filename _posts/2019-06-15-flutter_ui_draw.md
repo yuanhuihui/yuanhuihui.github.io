@@ -693,7 +693,7 @@ void Window::BeginFrame(fml::TimePoint frameTime) {
 
   int64_t microseconds = (frameTime - fml::TimePoint()).ToMicroseconds();
 
-  // [见小节3.11]
+  // [见小节4.2]
   DartInvokeField(library_.value(), "_beginFrame",
                   {
                       Dart_NewInteger(microseconds),
@@ -702,7 +702,7 @@ void Window::BeginFrame(fml::TimePoint frameTime) {
   //执行MicroTask
   UIDartState::Current()->FlushMicrotasksNow();
 
-  // [见小节3.13]
+  // [见小节4.4]
   DartInvokeField(library_.value(), "_drawFrame", {});
 }
 ```
@@ -805,11 +805,11 @@ void handleBeginFrame(Duration rawTimeStamp) {
   try {
     Timeline.startSync('Animate', arguments: timelineWhitelistArguments);
     _schedulerPhase = SchedulerPhase.transientCallbacks;
+    //执行动画的回调方法
     final Map<int, _FrameCallbackEntry> callbacks = _transientCallbacks;
     _transientCallbacks = <int, _FrameCallbackEntry>{};
     callbacks.forEach((int id, _FrameCallbackEntry callbackEntry) {
       if (!_removedIds.contains(id))
-        //执行动画的回调方法
         _invokeFrameCallback(callbackEntry.callback, _currentFrameTimeStamp, callbackEntry.debugStack);
     });
     _removedIds.clear();
@@ -869,15 +869,14 @@ void handleDrawFrame() {
   assert(_schedulerPhase == SchedulerPhase.midFrameMicrotasks);
   Timeline.finishSync(); // 标识结束"Animate"阶段
   try {
-    // PERSISTENT FRAME回调
     _schedulerPhase = SchedulerPhase.persistentCallbacks;
+    //执行PERSISTENT FRAME回调
     for (FrameCallback callback in _persistentCallbacks)
-      _invokeFrameCallback(callback, _currentFrameTimeStamp); //[见小节3.14.1]
+      _invokeFrameCallback(callback, _currentFrameTimeStamp); //[见小节4.5.1]
 
-    // POST-FRAME回调
     _schedulerPhase = SchedulerPhase.postFrameCallbacks;
-    final List<FrameCallback> localPostFrameCallbacks =
-        List<FrameCallback>.from(_postFrameCallbacks);
+    // 执行POST-FRAME回调
+    final List<FrameCallback> localPostFrameCallbacks = List<FrameCallback>.from(_postFrameCallbacks);
     _postFrameCallbacks.clear();
     for (FrameCallback callback in localPostFrameCallbacks)
       _invokeFrameCallback(callback, _currentFrameTimeStamp);

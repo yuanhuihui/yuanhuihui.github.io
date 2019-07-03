@@ -43,7 +43,9 @@ Tween，有begin和end两个状态，以及随着时间匀速改变状态的lerp
 #### 1.4 动画原理
 
 
+animationController.forward()  //便启动的动画
 
+TickerProviderStateMixin解释一下
 
 ## 二、原理分析
 
@@ -257,20 +259,3 @@ mixin SingleTickerProviderStateMixin<T extends StatefulWidget> on State<T> imple
 ```
 
 ## 五、其他
-
-
-animationController.forward()  //便启动的动画
-
-
-PageView
-
-Tween
-AnimationWidget
-
-AnimationController
-CurvedAnimation
-
-TickerProviderStateMixin 这个干什么的
-TickerProvider
-
-https://juejin.im/post/5cdbbc01f265da037b6134d9

@@ -77,9 +77,16 @@ https://api.flutter.dev/flutter/dart-ui/Clip-class.html
 doDraw才1ms，但vysnc信号过来已经3ms，中间在处理其他message?
 另外，gpu线程是不是也在处理其他message导致耗时？
 
+
+https://medium.com/flutter/profiling-flutter-applications-using-the-timeline-a1a434964af3 绘制原理有优化的空间。
+
+
 ## 经验点
 
 - Frame Request Pending：从vsync注册，到开始消费。 这个长则是ui线程在处理其他task导致的；
 - PipelineProduce长，则是ui线程渲染耗时；
 - PipelineConsume长，则是gpu线程耗时;
 - PipelineProduce和PipelineConsume之间长，则是gp线程处理其他task导致的；
+
+
+## opengrok flutter

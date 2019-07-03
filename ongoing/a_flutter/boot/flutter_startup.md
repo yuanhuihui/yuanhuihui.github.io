@@ -299,7 +299,16 @@ void Window::RegisterNatives(tonic::DartLibraryNatives* natives) {
 }
 ```
 
+###
 
+```Java
+SchedulerBinding.scheduleWarmUpFrame
+  RenderView.performLayout
+    RenderObject.layout
+      _RenderLayoutBuilder.performLayout
+        _LayoutBuilderElement._layout
+          BuildOwner.buildScope
+```
 
 ### 文章
 https://blog.csdn.net/weixin_33755649/article/details/91430355  启动过程:
