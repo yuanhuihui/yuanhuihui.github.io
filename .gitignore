@@ -1,4 +1,5 @@
 _site
+_ongoing
 node_modules
 npm-debug.log
 .DS_Store
