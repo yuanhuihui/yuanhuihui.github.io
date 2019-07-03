@@ -1,3 +1,0 @@
-kernel/fs/ext4/ioctl.c    ext4_ioctl
-
-kernel/fs/ext4/mballoc.c   ext4_trim_fs
