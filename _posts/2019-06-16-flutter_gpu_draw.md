@@ -15,7 +15,7 @@ tags:
 看Flutter的渲染绘制过程的核心过程包括在ui线程和gpu线程，上一篇文章[Flutter渲染机制—UI线程](http://gityuan.com/2019/06/15/flutter_ui_draw/)已经详细介绍了UI线程的工作原理，
 本文则介绍GPU线程的工作原理，这里需要注意的是，gpu线程是指运行着GPU Task Runner的名叫gpu的线程，其实依然是是在CPU上执行，用于将ui线程传递过来的layer tree转换为GPU命令并方法送到GPU。
 
-#### 1.1 GPU线程调用链
+#### 1.1 GPU线程的绘制流程图
 
 **1) [GPU线程处理流程图](http://gityuan.com/img/flutter_gpu/GPUDraw.jpg)**
 
@@ -25,15 +25,16 @@ Flutter渲染机制在UI线程执行到compositeFrame()过程经过多层调用�
 
 
 #### 1.2 Surface类图
-![Surface类关系图](http://gityuan.com/img/flutter_gpu/ClassSurface.jpg)
+
+**[Surface类关系图](http://gityuan.com/img/flutter_gpu/ClassSurface.jpg)**
 
 ![ClassSurface](http://gityuan.com/img/flutter_gpu/ClassSurface.jpg)
 
-三种不同的AndroidSurface，见小节2.6.3：
+三种不同的AndroidSurface，见小节2.6.3，说明如下：
 
-- 使用软件模拟的VSYNC方式，则采用AndroidSurfaceSoftware;
-- 硬件VSYNC方式，且开启VULKAN，则采用AndroidSurfaceVulkan;
+- 硬件VSYNC方式，且开启VULKAN，则采用AndroidSurfaceVulkan，这是当前默认的方式；
 - 硬件VSYNC方式，且未开启VULKAN，则采用AndroidSurfaceGL;
+- 使用软件模拟的VSYNC方式，则采用AndroidSurfaceSoftware;
 
 
 #### 1.3 Layer类图

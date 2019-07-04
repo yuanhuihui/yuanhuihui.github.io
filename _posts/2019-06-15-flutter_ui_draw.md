@@ -22,17 +22,17 @@ Flutter相比RN性能更好，由于Flutter自己实现了一套UI框架，丢�
 
 通过VSYNC信号使UI线程和GPU线程有条不紊的周期性的渲染界面，本文介绍VSYNC的产生过程、UI线程在引擎和框架的绘制工作，下一篇文章会介绍GPU线程的绘制工作。
 
-#### 1.1 VSYNC注册过程
+#### 1.1 VSYNC注册流程图
 
 **1) [VSYNC注册流程图](http://gityuan.com/img/flutter_ui/Vsync.jpg)**
 
 ![Vysnc](http://gityuan.com/img/flutter_ui/Vsync.jpg)
 
 当调用到引擎Engine的ScheduleFrame()方法过程则会注册VSYNC信号回调，一旦Vsync信号达到，则会调用到doFrame()方法。
-对于调用ScheduleFrame()的场景有多种，比如surface创建的时候shell::SurfaceCreated()。
+对于调用ScheduleFrame()的场景有多种，比如动画的执行AnimationController.forward()，再比如比如surface创建的时候shell::SurfaceCreated()。
 
 
-#### 1.2 UI线程调用链
+#### 1.2 UI线程的绘制流程图
 
 **1）[Engine层处理流程图](http://gityuan.com/img/flutter_ui/UIDraw_engine.jpg)**
 
@@ -47,13 +47,23 @@ doFrame()经过多层调用后通过PostTask将任务异步post到UI TaskRunner�
 其中window.cc中的一个BeginFrame()方法，会调用到window.dart中的onBeginFrame()和onDrawFrame()两个方法。
 
 
-#### 1.3 类图
+#### 1.3 相关类图
 
 **[类关系图](http://gityuan.com/img/flutter_ui/ClassEngine.jpg)**
 
 ![ClassEngine](http://gityuan.com/img/flutter_ui/ClassEngine.jpg)
 
-为了方便大家更轻松地理解源码，先看一副关于Shell、Engine、Animator等核心类的类关系图，接下来带着大家从源码角度来依次讲解Vsync注册以及UI线程的绘制处理流程。
+为了让大家更容易理解源码，先看一张关于Shell、Engine、Animator等Flutter等Flutter引擎中核心类的类图。
+
+- Window类：是连接Flutter框架层(Dart)与引擎层(C++)的关键类，在框架层中window.dart文件里的一些方法在引擎层的window.cc文件有相对应的方法，比如scheduleFrame()方法。
+在window.cc里面通过Window::RegisterNatives()注册了一些框架层与引擎层的方法对应关系；
+- RuntimeController类：可通过其成员root_isolate_找到Window类；
+- Shell类：同时继承了PlatformView::Delegate，Animator::Delegate，Engine::Delegate，所以在Engine，Animator，PlatformView中的成员变量delegate_都是指Shell对象，
+从图中也能看出其中心地位，该类是由AndroidShellHolder过程中初始化创建的；另外Shell类还继承了ServiceProtocol::Handler，图中省略而已。
+- PlatformViewAndroid类：在Android平台上PlatformView的实例采用的便是PlatformViewAndroid类。
+- Dart层与C层之间可以相互调用，从Window一路能调用到Shell类，也能从Shell类一路调用回Window。
+
+接下来带着大家从源码角度来依次讲解Vsync注册以及UI线程的绘制处理流程。
 
 ## 二、 Vsync产生过程
 
@@ -71,7 +81,7 @@ void Engine::ScheduleFrame(bool regenerate_layer_tree) {
 该方法说明：
 
 - animator_的赋值过程是在Engine对象初始化过程完成，而Engine初始化过程在Shell创建过程，此处animator_便是Animator对象；
-- ScheduleFrame的参数regenerate_layer_tree决定是否需要重新生成layer tree，还是直接复用上一次的layer tree；
+- ScheduleFrame的参数regenerate_layer_tree决定是否需要重新生成layer tree，还是直接复用上一次生成的layer tree；
 - 绝大多数情况下，调用RequestFrame()时将regenerate_layer_tree_设置为true或者用默认值true，执行完Animator::BeginFrame()则设置该变量为false；
   - 当无参数调用该方法时，regenerate_layer_tree为默认值为true。
   - 特别的例子就是Shell::OnPlatformViewMarkTextureFrameAvailable()过程，设置参数为false，那么计划绘制一帧的时候就不需要重绘layer tree；
