@@ -22,7 +22,18 @@ Flutter相比RN性能更好，由于Flutter自己实现了一套UI框架，丢�
 
 通过VSYNC信号使UI线程和GPU线程有条不紊的周期性的渲染界面，本文介绍VSYNC的产生过程、UI线程在引擎和框架的绘制工作，下一篇文章会介绍GPU线程的绘制工作。
 
-#### 1.1 VSYNC注册流程图
+#### 1.1 渲染概览
+
+通过VSYNC信号使UI线程和GPU线程有条不紊的周期性的渲染界面，如下图所示：
+
+![flutter_draw](http://gityuan.com/img/flutter_ui/flutter_draw.png)
+
+- 当需要渲染则会调用到Engine的ScheduleFrame()来注册VSYNC信号回调，一旦触发回调doFrame()执行完成后，便会移除回调方法，也就是说一次注册一次回调；
+- 当需要再次绘制则需要重新调用到ScheduleFrame()方法，该方法的唯一重要参数regenerate_layer_tree决定在帧绘制过程是否需要重新生成layer tree，还是直接复用上一次的layer tree；
+- UI线程的绘制过程，最核心的是执行WidgetsBinding的drawFrame()方法，然后会创建layer tree视图树
+- 再交由GPU Task Runner将layer tree提供的信息转化为平台可执行的GPU指令。
+
+#### 1.2 VSYNC注册流程图
 
 **1) [VSYNC注册流程图](http://gityuan.com/img/flutter_ui/Vsync.jpg)**
 
@@ -31,8 +42,7 @@ Flutter相比RN性能更好，由于Flutter自己实现了一套UI框架，丢�
 当调用到引擎Engine的ScheduleFrame()方法过程则会注册VSYNC信号回调，一旦Vsync信号达到，则会调用到doFrame()方法。
 对于调用ScheduleFrame()的场景有多种，比如动画的执行AnimationController.forward()，再比如比如surface创建的时候shell::SurfaceCreated()。
 
-
-#### 1.2 UI线程的绘制流程图
+#### 1.3 UI线程的绘制流程图
 
 **1）[Engine层处理流程图](http://gityuan.com/img/flutter_ui/UIDraw_engine.jpg)**
 
@@ -46,8 +56,7 @@ doFrame()经过多层调用后通过PostTask将任务异步post到UI TaskRunner�
 
 其中window.cc中的一个BeginFrame()方法，会调用到window.dart中的onBeginFrame()和onDrawFrame()两个方法。
 
-
-#### 1.3 相关类图
+#### 1.4 相关类图
 
 **[类关系图](http://gityuan.com/img/flutter_ui/ClassEngine.jpg)**
 
@@ -59,7 +68,7 @@ doFrame()经过多层调用后通过PostTask将任务异步post到UI TaskRunner�
 在window.cc里面通过Window::RegisterNatives()注册了一些框架层与引擎层的方法对应关系；
 - RuntimeController类：可通过其成员root_isolate_找到Window类；
 - Shell类：同时继承了PlatformView::Delegate，Animator::Delegate，Engine::Delegate，所以在Engine，Animator，PlatformView中的成员变量delegate_都是指Shell对象，
-从图中也能看出其中心地位，该类是由AndroidShellHolder过程中初始化创建的；另外Shell类还继承了ServiceProtocol::Handler，图中省略而已。
+从图中也能看出其中心地位，代理多项业务，该类是由AndroidShellHolder过程中初始化创建的；另外Shell类还继承了ServiceProtocol::Handler，图中省略而已。
 - PlatformViewAndroid类：在Android平台上PlatformView的实例采用的便是PlatformViewAndroid类。
 - Dart层与C层之间可以相互调用，从Window一路能调用到Shell类，也能从Shell类一路调用回Window。
 
@@ -120,7 +129,7 @@ void Animator::RequestFrame(bool regenerate_layer_tree) {
 
 过程说明：
 
-- pending_frame_semaphore_这是非负信号量，初始值为1，第一次调用TryWait减1，而后再次调用则会失败直接返回。当消费了这次vsync回调，也就是调用了Animator的BeginFrame()或者DrawLastLayerTree()方法后，可以再次执行vysnc的注册；
+- pending_frame_semaphore_：非负信号量，初始值为1，第一次调用TryWait减1，而后再次调用则会失败直接返回。当消费了这次vsync回调，也就是调用了Animator的BeginFrame()或者DrawLastLayerTree()方法后，改信号量会加1[见小节3.6]，可以再次执行vysnc的注册；
 - 通过Animator的Start()或者BeginFrame调用到的RequestFrame方法，则肯定需要重新生成layer tree；通过Engine的ScheduleFrame方法是否重建layer tree看小节2.1；
 - 此处通过post把Animator::AwaitVSync任务放入到UI Task Runner来执行。
 
@@ -150,10 +159,7 @@ void Animator::AwaitVSync() {
 }
 ```
 
-waiter_的赋值是在Animator初始化过程，取值为VsyncWaiterAndroid对象。
-
-当调用了RequestFrame()，默认参数regenerate_layer_tree_为true，意味着需要重新生成layer树，故不能重复使用上一次的layer树。
-
+waiter_的赋值是在Animator初始化过程，取值为VsyncWaiterAndroid对象，当调用了RequestFrame()，默认参数regenerate_layer_tree_为true，意味着需要重新生成layer树，故不能重复使用上一次的layer树，接着来看一下AsyncWaitForVsync()方法的实现。
 
 ### 2.4 VsyncWaiter::AsyncWaitForVsync
 [-> flutter/shell/common/vsync_waiter.cc]
@@ -255,7 +261,6 @@ bool PlatformViewAndroid::Register(JNIEnv* env) {
   g_is_released_method =
       env->GetMethodID(g_surface_texture_class->obj(), "isReleased", "()Z");
 
-  // 解决5.x手机上的crash
   fml::jni::ClearException(env);
 
   g_attach_to_gl_context_method = env->GetMethodID(
@@ -497,12 +502,19 @@ void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
     return;
   }
 
-  task_runners_.GetUITaskRunner()->PostTask(
-      [callback, frame_start_time, frame_target_time]() {
-        TRACE_EVENT0("flutter", "VSYNC");
-         //[见小节3.4.1]
-        callback(frame_start_time, frame_target_time);
-      });
+  TRACE_EVENT0("flutter", "VsyncFireCallback");
+  task_runners_.GetUITaskRunner()->PostTaskForTime(
+    [callback, flow_identifier, frame_start_time, frame_target_time]() {
+      FML_TRACE_EVENT("flutter", kVsyncTraceName, "StartTime",
+                      frame_start_time, "TargetTime", frame_target_time);
+      fml::tracing::TraceEventAsyncComplete(
+          "flutter", "VsyncSchedulingOverhead", fml::TimePoint::Now(),
+          frame_start_time);
+      //[见小节3.4.1]
+      callback(frame_start_time, frame_target_time);
+      TRACE_FLOW_END("flutter", kVsyncFlowName, flow_identifier);
+    },
+    frame_start_time);
 }
 ```
 
@@ -579,6 +591,7 @@ void MessageLoopImpl::RunExpiredTasks() {
 void Animator::BeginFrame(fml::TimePoint frame_start_time,
                           fml::TimePoint frame_target_time) {
   TRACE_EVENT_ASYNC_END0("flutter", "Frame Request Pending", frame_number_++);
+  TRACE_EVENT0("flutter", "Animator::BeginFrame");
 
   frame_scheduled_ = false;
   notify_idle_task_id_++;
@@ -1057,9 +1070,9 @@ void rebuild() {
 }
 ```
 
-performRebuild具体执行方法，取决于相应的Element子类，这里以
+performRebuild具体执行方法，取决于相应的Element子类，这里以ComponentElement为例
 
-#### 4.6.3 ComponentElementperformRebuild
+#### 4.6.3 ComponentElement.performRebuild
 [-> lib/src/widgets/framework.dart]
 
 ```Java
@@ -1678,18 +1691,13 @@ void unmount() {
 
 ## 五、总结
 
-1）通过VSYNC信号使UI线程和GPU线程有条不紊的周期性的渲染界面，如下图所示：
+1）Vsync单注册模式：Animator中的信号量pending_frame_semaphore_用于控制不能连续频繁地调用Vsync请求，一次只能存在Vsync注册。
+pending_frame_semaphore_初始值为1，在Animator::RequestFrame()消费信号会减1，当而后再次调用则会失败直接返回；
+Animator的BeginFrame()或者DrawLastLayerTree()方法会执行信号加1操作。
 
-![flutter_draw](http://gityuan.com/img/flutter_ui/flutter_draw.png)
+3）UI绘制最核心的方法是drawFrame()，包含以下几个过程：
 
-- 当需要渲染则会调用到Engine的ScheduleFrame()来注册VSYNC信号回调，一旦触发回调doFrame()执行完成后，便会移除回调方法，也就是说一次注册一次回调；
-- 当需要再次绘制则需要重新调用到ScheduleFrame()方法，该方法的唯一重要参数regenerate_layer_tree决定在帧绘制过程是否需要重新生成layer tree，还是直接复用上一次的layer tree；
-- UI线程的绘制过程，最核心的是执行WidgetsBinding的drawFrame()方法，然后会创建layer tree视图树
-- 再交由GPU Task Runner将layer tree提供的信息转化为平台可执行的GPU指令。
-
-2）UI绘制最核心的方法是drawFrame()，包含以下几个过程：
-
-- Animate: 遍历_transientCallbacks，执行动画操作；
+- Animate: 遍历_transientCallbacks，执行动画回调方法；
 - Build: 对于dirty的元素会执行build构造，没有dirty元素则不会执行，对应于buildScope()
 - Layout: 计算渲染对象的大小和位置，对应于flushLayout()，这个过程可能会嵌套再调用build操作；
 - Compositing bits: 更新具有脏合成位的任何渲染对象， 对应于flushCompositingBits()；
@@ -1697,7 +1705,7 @@ void unmount() {
 - Compositing: 将Compositing bits发送给GPU， 对应于compositeFrame()；
 - Semantics: 编译渲染对象的语义，并将语义发送给操作系统， 对应于flushSemantics()。
 
-3）以上几个过程在Timeline中ui线程中都有体现，[如下图所示](http://gityuan.com/img/flutter_ui/timeline_ui_draw.png)：
+4）以上几个过程在Timeline中ui线程中都有体现，[如下图所示](http://gityuan.com/img/flutter_ui/timeline_ui_draw.png)：
 
 ![draw_ui](http://gityuan.com/img/flutter_ui/timeline_ui_draw.png)
 
