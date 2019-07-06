@@ -8,7 +8,7 @@ tags:
     - 组件
 ---
 
->  本文讲述的Android系统体系架构， 分析动态库的加载过程.
+>  本文讲述的Android系统体系架构中的动态库加载过程，相关源码如下：
 
     libcore/luni/src/main/java/java/lang/System.java
     libcore/luni/src/main/java/java/lang/Runtime.java
@@ -19,18 +19,34 @@ tags:
 
 ## 一. 概述
 
-动态库操作,所需要的头文件的#include<dlfcn.h>, 最为核心的方法如下:
+#### 1.1 C++动态库加载
 
-    void *dlopen(const char * pathname,int mode);  //打开动态库  
-    void *dlsym(void *handle,const char *name);  //获取动态库对象地址  
-    char *dlerror(vid);   //错误检测  
-    int dlclose(void * handle); //关闭动态库  
+所需要的头文件的#include<dlfcn.h>, 最为核心的方法如下:
 
-而对于android上层的Java代码来说,都封装好了, 只需要一行代码就即可完成动态库的加载过程,如下:
+```Java
+void *dlopen(const char * pathname,int mode);  //打开动态库  
+void *dlsym(void *handle,const char *name);  //获取动态库对象地址  
+char *dlerror(vid);   //错误检测  
+int dlclose(void * handle); //关闭动态库  
+```
 
-    System.loadLibrary("gityuan_jni");
+对于动态库加载过程先通过dlopen()打开动态库文件，再通过dlsym()获取动态库对象地址，加载完成则需要dlclose()关闭动态库。
 
-接下来,解析这行代码背后的故事.
+#### 1.2 Java动态库加载
+
+对于android上层的Java代码来说，将以上方法都做好封装，只需要一行代码就即可完成动态库的加载过程：
+
+```Java
+System.load("/data/local/tmp/libgityuan_jni.so");
+System.loadLibrary("gityuan_jni");
+```
+
+以上两个方法都用于加载动态库，两者的区别如下：
+
+- 加载的路径不同：System.load(String filename)是指定动态库的完整路径名；而System.loadLibrary(String libname)则只会从指定lib目录下查找，并加上lib前缀和.so后缀；
+- 自动加载库的依赖库的不同：System.load(String filename)不会自动加载依赖库；而System.loadLibrary(String libname)会自动加载依赖库。
+
+这两方法功能基本一致，接下来从源码视角来看看loadLibrary()的加载过程。
 
 ## 二. 动态库加载过程
 
@@ -49,80 +65,47 @@ tags:
 
     void loadLibrary(String libraryName, ClassLoader loader) {
         if (loader != null) {
-            //[见小节2.4.1]
+            //根据动态库名查看相应动态库的文件路径[见小节2.3]
             String filename = loader.findLibrary(libraryName);
             if (filename == null) {
                 throw new UnsatisfiedLinkError(...);
             }
-            //成功执行完doLoad,则返回.[见小节2.5]
+            //成功执行完doLoad,则返回 [见小节2.4]
             String error = doLoad(filename, loader);
             if (error != null) {
                 throw new UnsatisfiedLinkError(error);
             }
             return;
         }
-        //当loader为空的情况下执行[见2.3]
+
+        //当loader为空的情况下执行[见小节2.3.3]
         String filename = System.mapLibraryName(libraryName);
         List<String> candidates = new ArrayList<String>();
         String lastError = null;
 
-        //此处的mLibPaths取值 [见小节三]
+        //此处的mLibPaths取值 [见小节3.1]
         for (String directory : mLibPaths) {
             String candidate = directory + filename;
             candidates.add(candidate);
-
+            //判断目标动态库是否存在
             if (IoUtils.canOpenReadOnly(candidate)) {
+                //成功执行完doLoad,则返回 [见小节2.4]
                 String error = doLoad(candidate, loader);
                 if (error == null) {
-                    return; //成功执行完doLoad,则返回.
+                    return; 则返回.
                 }
-                lastError = error;
             }
         }
-
-        if (lastError != null) {
-            throw new UnsatisfiedLinkError(lastError);
-        }
-        throw new UnsatisfiedLinkError("Library " + libraryName + " not found; tried " + candidates);
+        ...
+        throw new UnsatisfiedLinkError(...);
     }
 
-加载库的两条路径,如下:
+该方法主要是找到目标库所在路径后调用doLoad来真正用于加载动态库，其中会根据loader是否为空中间过程略有不同，分两种情况：
 
-- 当loader不为空时, 通过该loader来findLibrary()查看目标库所在路径;
+- 当loader不为空时, 则通过loader.findLibrary()查看目标库所在路径;
 - 当loader为空时, 则从默认目录mLibPaths下来查找是否存在该动态库;
 
-不管loader是否为空, 找到目标库所在路径后,都会调用doLoad来真正用于加载动态库.
-
-
-### 2.3 loader为空的情况
-[-> System.java]
-
-    public static String mapLibraryName(String nickname) {
-        if (nickname == null) {
-            throw new NullPointerException("nickname == null");
-        }
-        return "lib" + nickname + ".so";
-    }
-
-该方法的功能是将xxx动态库的名字转换为libxxx.so.
-比如前面传递过来的nickname为gityuan_jni, 经过该方法处理后返回的名字为libgityuan_jni.so.
-
-mLibPaths取值分两种情况:
-
-- 对于64系统,则为/system/lib64和/vendor/lib64;
-- 对于32系统,则为/system/lib和/vendor/lib.
-
-假设此处为64位系统, 则会去查找/system/lib64/libgityuan_jni.so或/vendor/lib64/libgityuan_jni.so库是否存在.
-
-绝大多数的动态库都在/system/lib64或/system/lib路径下.通过canOpenReadOnly方法来判定目标动态库是否存在,
-找到则直接返回,否则抛出UnsatisfiedLinkError异常.
-
-### 2.4 loader不为空的情况
-
-ClassLoader一般来说都是PathClassLoader, 这就不再解释. 从该对象的findLibrary说起. 由于PathClassLoader继承于
-BaseDexClassLoader对象, 并且没有覆写该方法, 故调用其父类所对应的方法.
-
-#### 2.4.1 findLibrary
+### 2.3 BaseDexClassLoader.findLibrary
 [-> BaseDexClassLoader.java]
 
     public class BaseDexClassLoader extends ClassLoader {
@@ -131,16 +114,20 @@ BaseDexClassLoader对象, 并且没有覆写该方法, 故调用其父类所对�
         public BaseDexClassLoader(String dexPath, File optimizedDirectory,
                 String libraryPath, ClassLoader parent) {
             super(parent);
-            //dexPath一般是指apk所在路径【小节2.4.2】
+            //dexPath一般是指apk所在路径【小节2.3.1】
             this.pathList = new DexPathList(this, dexPath, libraryPath, optimizedDirectory);
         }
 
         public String findLibrary(String name) {
-            return pathList.findLibrary(name); //[见小节2.4.3]
+            return pathList.findLibrary(name); //[见小节2.4.2]
         }
     }
 
-#### 2.4.2 DexPathList
+
+ClassLoader一般来说都是PathClassLoader，从该对象的findLibrary说起. 由于PathClassLoader继承于
+BaseDexClassLoader对象, 并且没有覆写该方法, 故调用其父类所对应的方法.
+
+#### 2.3.1 DexPathList初始化
 [-> DexPathList.java]
 
     public DexPathList(ClassLoader definingContext, String dexPath,
@@ -171,14 +158,14 @@ DexPathList初始化过程,主要功能是收集以下两个变量信息:
 
 接下来便是从pathList中查询目标动态库.
 
-#### 2.4.3 findLibrary
+#### 2.3.2 DexPathList.findLibrary
 [-> DexPathList.java]
 
     public String findLibrary(String libraryName) {
+        //[见小节2.3.3]
         String fileName = System.mapLibraryName(libraryName);
-
         for (Element element : nativeLibraryPathElements) {
-            //[见小节2.4.4]
+            //[见小节2.3.4]
             String path = element.findNativeLibrary(fileName);
             if (path != null) {
                 return path;
@@ -187,16 +174,26 @@ DexPathList初始化过程,主要功能是收集以下两个变量信息:
         return null;
     }
 
-gityuan_jni同样也是经过mapLibraryName(), 处理后得到的名字为libgityuan_jni.so.
-接下来,从所有的动态库nativeLibraryPathElements(包含两个系统路径)查询是否存在匹配的.
-这里举例说明, 一般地会在以下两个路径查找(以64位为例):
 
-- /data/app/com.gityuan.blog-1/lib/arm64
+从所有的动态库nativeLibraryPathElements(包含两个系统路径)查询是否存在匹配的。一般地，64位系统的nativeLibraryPathElements取值:
+
+- /data/app/[packagename]-1/lib/arm64
 - /vendor/lib64
 - /system/lib64
 
+#### 2.3.3 System.mapLibraryName
+[-> System.java]
 
-#### 2.4.4 findNativeLibrary
+    public static String mapLibraryName(String nickname) {
+        if (nickname == null) {
+            throw new NullPointerException("nickname == null");
+        }
+        return "lib" + nickname + ".so";
+    }
+
+该方法的功能是将xxx动态库的名字转换为libxxx.so，比如前面传递过来的nickname为gityuan_jni, 经过该方法处理后返回的名字为libgityuan_jni.so.
+
+#### 2.3.4 Element.findNativeLibrary
 [-> DexPathList.java  ::Element]
 
     final class DexPathList {
@@ -224,7 +221,7 @@ gityuan_jni同样也是经过mapLibraryName(), 处理后得到的名字为libgit
 接下来, 再回到[小节2.2]来看看动态库的加载doLoad:
 
 
-### 2.5 Runtime.doLoad
+### 2.4 Runtime.doLoad
 [-> Runtime.java]
 
     private String doLoad(String name, ClassLoader loader) {
@@ -237,19 +234,17 @@ gityuan_jni同样也是经过mapLibraryName(), 处理后得到的名字为libgit
             ldLibraryPath = dexClassLoader.getLdLibraryPath();
         }
         synchronized (this) {
-            //[见小节2.5.1]
+            //[见小节2.4.1]
             return nativeLoad(name, loader, ldLibraryPath);
         }
     }
 
 此处ldLibraryPath有两种情况：
 
-- 当loader为空，　则ldLibraryPath为系统目录下的Ｎative库；
-- 当lodder不为空，　则ldLibraryPath为ａpp目录下的Ｎative库；
+- 当loader为空，则ldLibraryPath为系统目录下的Ｎative库；
+- 当lodder不为空，则ldLibraryPath为app目录下的native库；
 
-接下来, 继续看看nativeLoad.
-
-#### 2.5.1 nativeLoad
+#### 2.4.1 nativeLoad
 [-> java_lang_Runtime.cc]
 
     static jstring Runtime_nativeLoad(JNIEnv* env, jclass, jstring javaFilename, jobject javaLoader,
@@ -264,7 +259,7 @@ gityuan_jni同样也是经过mapLibraryName(), 处理后得到的名字为libgit
       std::string error_msg;
       {
         JavaVMExt* vm = Runtime::Current()->GetJavaVM();
-        //[见小节2.5.2]
+        //[见小节2.5]
         bool success = vm->LoadNativeLibrary(env, filename.c_str(), javaLoader, &error_msg);
         if (success) {
           return nullptr;
@@ -275,107 +270,110 @@ gityuan_jni同样也是经过mapLibraryName(), 处理后得到的名字为libgit
       return env->NewStringUTF(error_msg.c_str());
     }
 
-nativeLoad方法经过jni,进入该方法执行.
+nativeLoad方法经过jni所对应的方法是Runtime_nativeLoad()。
 
-#### 2.5.2 LoadNativeLibrary
+### 2.5 LoadNativeLibrary
 [-> java_vm_ext.cc]
 
-    bool JavaVMExt::LoadNativeLibrary(JNIEnv* env, const std::string& path, jobject class_loader,
-                                      std::string* error_msg) {
-      error_msg->clear();
+```Java
+bool JavaVMExt::LoadNativeLibrary(JNIEnv* env, const std::string& path, jobject class_loader,
+                                  std::string* error_msg) {
+  error_msg->clear();
 
-      SharedLibrary* library;
-      Thread* self = Thread::Current();
-      {
-        MutexLock mu(self, *Locks::jni_libraries_lock_);
-        library = libraries_->Get(path); //检查该动态库是否已加载
-      }
-      if (library != nullptr) {
-        if (env->IsSameObject(library->GetClassLoader(), class_loader) == JNI_FALSE) {
-          //不能加载同一个采用多个不同的ClassLoader
-          return false;
-        }
-        ...
-        return true;
-      }
-
-      const char* path_str = path.empty() ? nullptr : path.c_str();
-      //通过dlopen打开动态共享库.该库不会立刻被卸载直到引用技术为空.
-      void* handle = dlopen(path_str, RTLD_NOW);
-      bool needs_native_bridge = false;
-      if (handle == nullptr) {
-        if (android::NativeBridgeIsSupported(path_str)) {
-          handle = android::NativeBridgeLoadLibrary(path_str, RTLD_NOW);
-          needs_native_bridge = true;
-        }
-      }
-
-      if (handle == nullptr) {
-        *error_msg = dlerror(); //打开失败
-        VLOG(jni) << "dlopen(\"" << path << "\", RTLD_NOW) failed: " << *error_msg;
-        return false;
-      }
-
-
-      bool created_library = false;
-      {
-        std::unique_ptr<SharedLibrary> new_library(
-            new SharedLibrary(env, self, path, handle, class_loader));
-        MutexLock mu(self, *Locks::jni_libraries_lock_);
-        library = libraries_->Get(path);
-        if (library == nullptr) {
-          library = new_library.release();
-          //创建共享库,并添加到列表
-          libraries_->Put(path, library);
-          created_library = true;
-        }
-      }
-      ...
-
-      bool was_successful = false;
-      void* sym;
-      //查询JNI_OnLoad符号所对应的方法
-      if (needs_native_bridge) {
-        library->SetNeedsNativeBridge();
-        sym = library->FindSymbolWithNativeBridge("JNI_OnLoad", nullptr);
-      } else {
-        sym = dlsym(handle, "JNI_OnLoad");
-      }
-
-      if (sym == nullptr) {
-        was_successful = true;
-      } else {
-        //需要先覆盖当前ClassLoader.
-        ScopedLocalRef<jobject> old_class_loader(env, env->NewLocalRef(self->GetClassLoaderOverride()));
-        self->SetClassLoaderOverride(class_loader);
-
-        typedef int (*JNI_OnLoadFn)(JavaVM*, void*);
-        JNI_OnLoadFn jni_on_load = reinterpret_cast<JNI_OnLoadFn>(sym);
-        // 真正调用JNI_OnLoad()方法的过程
-        int version = (*jni_on_load)(this, nullptr);
-
-        if (runtime_->GetTargetSdkVersion() != 0 && runtime_->GetTargetSdkVersion() <= 21) {
-          fault_manager.EnsureArtActionInFrontOfSignalChain();
-        }
-        //执行完成后, 需要恢复到原来的ClassLoader
-        self->SetClassLoaderOverride(old_class_loader.get());
-        ...
-      }
-
-      library->SetResult(was_successful);
-      return was_successful;
+  SharedLibrary* library;
+  Thread* self = Thread::Current();
+  {
+    MutexLock mu(self, *Locks::jni_libraries_lock_);
+    library = libraries_->Get(path); //检查该动态库是否已加载
+  }
+  if (library != nullptr) {
+    if (env->IsSameObject(library->GetClassLoader(), class_loader) == JNI_FALSE) {
+      //不能加载同一个采用多个不同的ClassLoader
+      return false;
     }
+    ...
+    return true;
+  }
 
-该过程简单总结:
+  const char* path_str = path.empty() ? nullptr : path.c_str();
+  //通过dlopen打开动态共享库.该库不会立刻被卸载直到引用技术为空.
+  void* handle = dlopen(path_str, RTLD_NOW);
+  bool needs_native_bridge = false;
+  if (handle == nullptr) {
+    if (android::NativeBridgeIsSupported(path_str)) {
+      handle = android::NativeBridgeLoadLibrary(path_str, RTLD_NOW);
+      needs_native_bridge = true;
+    }
+  }
+
+  if (handle == nullptr) {
+    *error_msg = dlerror(); //打开失败
+    VLOG(jni) << "dlopen(\"" << path << "\", RTLD_NOW) failed: " << *error_msg;
+    return false;
+  }
+
+
+  bool created_library = false;
+  {
+    std::unique_ptr<SharedLibrary> new_library(
+        new SharedLibrary(env, self, path, handle, class_loader));
+    MutexLock mu(self, *Locks::jni_libraries_lock_);
+    library = libraries_->Get(path);
+    if (library == nullptr) {
+      library = new_library.release();
+      //创建共享库,并添加到列表
+      libraries_->Put(path, library);
+      created_library = true;
+    }
+  }
+  ...
+
+  bool was_successful = false;
+  void* sym;
+  //查询JNI_OnLoad符号所对应的方法
+  if (needs_native_bridge) {
+    library->SetNeedsNativeBridge();
+    sym = library->FindSymbolWithNativeBridge("JNI_OnLoad", nullptr);
+  } else {
+    sym = dlsym(handle, "JNI_OnLoad");
+  }
+
+  if (sym == nullptr) {
+    was_successful = true;
+  } else {
+    //需要先覆盖当前ClassLoader.
+    ScopedLocalRef<jobject> old_class_loader(env, env->NewLocalRef(self->GetClassLoaderOverride()));
+    self->SetClassLoaderOverride(class_loader);
+
+    typedef int (*JNI_OnLoadFn)(JavaVM*, void*);
+    JNI_OnLoadFn jni_on_load = reinterpret_cast<JNI_OnLoadFn>(sym);
+    // 真正调用JNI_OnLoad()方法的过程
+    int version = (*jni_on_load)(this, nullptr);
+
+    if (runtime_->GetTargetSdkVersion() != 0 && runtime_->GetTargetSdkVersion() <= 21) {
+      fault_manager.EnsureArtActionInFrontOfSignalChain();
+    }
+    //执行完成后, 需要恢复到原来的ClassLoader
+    self->SetClassLoaderOverride(old_class_loader.get());
+    ...
+  }
+
+  library->SetResult(was_successful);
+  return was_successful;
+}
+```
+
+该方法的主要工作过程:
 
 1. 检查该动态库是否已加载;
 2. 通过dlopen打开动态共享库;
 3. 创建SharedLibrary共享库,并添加到libraries_列表;
-4. 找到JNI_OnLoad符号所对应的方法, 并调用该方法.
+4. 通过dlsym获取JNI_OnLoad符号所对应的方法, 并调用该方法.
 
 ## 三. mLibPaths初始化
 
-mLibPaths的初始化过程, 要从libcore/luni/src/main/java/java/lang/System.java类的静态代码块初始化开始说起.
+
+再来看看小节2.2中的mLibPaths的初始化过程, 要从libcore/luni/src/main/java/java/lang/System.java类的静态代码块初始化开始说起.
 对于类的静态代码块,编译过程会将所有的静态代码块和静态成员变量的赋值过程都收集整合到clinit方法, 即类的初始化方法.如下:
 
 
@@ -407,21 +405,23 @@ mLibPaths的初始化过程, 要从libcore/luni/src/main/java/java/lang/System.j
 
 这个过程会将大量的key-value对保存到Properties对象, 这种重点看specialProperties
 
-#### 3.1.1 parsePropertyAssignments
+### 3.2 parsePropertyAssignments
 [-> System.java]
 
-    private static void parsePropertyAssignments(Properties p, String[] assignments) {
-        for (String assignment : assignments) {
-            int split = assignment.indexOf('=');
-            String key = assignment.substring(0, split);
-            String value = assignment.substring(split + 1);
-            p.put(key, value);
-        }
+```Java
+private static void parsePropertyAssignments(Properties p, String[] assignments) {
+    for (String assignment : assignments) {
+        int split = assignment.indexOf('=');
+        String key = assignment.substring(0, split);
+        String value = assignment.substring(split + 1);
+        p.put(key, value);
     }
+}
+```
 
-将assignments数据解析后保存到Properties对象.
+将assignments数据解析后保存到Properties对象，而此处的assignments来源于specialProperties()方法，如下所示。
 
-### 3.2 specialProperties
+#### 3.2.1 specialProperties
 [-> java_lang_System.cpp]
 
     static jobjectArray System_specialProperties(JNIEnv* env, jclass) {
@@ -445,13 +445,15 @@ mLibPaths的初始化过程, 要从libcore/luni/src/main/java/java/lang/System.j
 ### 3.3 do_android_get_LD_LIBRARY_PATH
 [-> linker.cpp]
 
-    void do_android_get_LD_LIBRARY_PATH(char* buffer, size_t buffer_size) {
-      //[见小节3.4]
-      size_t required_len = strlen(kDefaultLdPaths[0]) + strlen(kDefaultLdPaths[1]) + 2;
-      char* end = stpcpy(buffer, kDefaultLdPaths[0]);
-      *end = ':';
-      strcpy(end + 1, kDefaultLdPaths[1]);
-    }
+```
+void do_android_get_LD_LIBRARY_PATH(char* buffer, size_t buffer_size) {
+  //[见小节3.4]
+  size_t required_len = strlen(kDefaultLdPaths[0]) + strlen(kDefaultLdPaths[1]) + 2;
+  char* end = stpcpy(buffer, kDefaultLdPaths[0]);
+  *end = ':';
+  strcpy(end + 1, kDefaultLdPaths[1]);
+}
+```
 
 可见赋值过程还得看kDefaultLdPaths数组.
 
@@ -459,20 +461,43 @@ mLibPaths的初始化过程, 要从libcore/luni/src/main/java/java/lang/System.j
 ### 3.4 kDefaultLdPaths
 [-> linker.cpp]
 
-    static const char* const kDefaultLdPaths[] = {
-    #if defined(__LP64__)
-      "/vendor/lib64",
-      "/system/lib64",
-    #else
-      "/vendor/lib",
-      "/system/lib",
-    #endif
-      nullptr
-    };
+```CC
+static const char* const kDefaultLdPaths[] = {
+#if defined(__LP64__)
+  "/vendor/lib64",
+  "/system/lib64",
+#else
+  "/vendor/lib",
+  "/system/lib",
+#endif
+  nullptr
+};
+```
 
-对于linux 64位操作系统则定义__LP64__宏, 可知mLibPaths取值分两种情况:
+mLibPaths值可通过System.getProperty("java.library.path")来查询，对于linux 64位操作系统, mLibPaths取值分两种情况:
 
 - 对于64系统,则为/system/lib64和/vendor/lib64;
 - 对于32系统,则为/system/lib和/vendor/lib.
 
-也可以通过System.getProperty("java.library.path")来获取该值.
+假设是64位系统, 则会去查找/system/lib64/libgityuan_jni.so或/vendor/lib64/libgityuan_jni.so库是否存在.另外，大多数的动态库都在/system/lib64或/system/lib目录下。
+
+## 四、小结
+
+动态库加载程，调用栈如下：
+
+```Java
+System.loadLibrary()
+  Runtime.loadLibrary()
+    Runtime.doLoad()
+      Runtime_nativeLoad()
+          LoadNativeLibrary()
+              dlopen()
+              dlsym()
+              JNI_OnLoad()
+```
+
+System.loadLibrary()和System.load()都用于加载动态库，loadLibrary()可以方便自动加载依赖库，load()可以方便地指定具体路径的动态库。对于loadLibrary()会将将xxx动态库的名字转换为libxxx.so，再从/data/app/[packagename]-1/lib/arm64，/vendor/lib64，/system/lib64等路径中查询对应的动态库。无论哪种方式，最终都会调用到LoadNativeLibrary()方法，该方法主要操作：
+
+- 通过dlopen打开动态共享库;
+- 通过dlsym获取JNI_OnLoad符号所对应的方法；
+- 执行JNI_OnLoad()方法。

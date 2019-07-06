@@ -56,7 +56,7 @@ doFrame()经过多层调用后通过PostTask将任务异步post到UI TaskRunner�
 
 其中window.cc中的一个BeginFrame()方法，会调用到window.dart中的onBeginFrame()和onDrawFrame()两个方法。
 
-#### 1.4 相关类图
+#### 1.4 类关系图
 
 **[类关系图](http://gityuan.com/img/flutter_ui/ClassEngine.jpg)**
 
@@ -170,6 +170,7 @@ void VsyncWaiter::AsyncWaitForVsync(Callback callback) {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     callback_ = std::move(callback);
   }
+  TRACE_EVENT0("flutter", "AsyncWaitForVsync");
   AwaitVSync(); // [见小节2.5]
 }
 ```
@@ -227,7 +228,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 首次加载共享库时虚拟机会调用此方法。
 
 
-#### 2.5.2 PlatformViewAndroid::Register
+#### 2.5.2 Register
 [-> flutter/shell/platform/android/platform_view_android_jni.cc]
 
 ```Java
@@ -284,7 +285,7 @@ bool PlatformViewAndroid::Register(JNIEnv* env) {
 - 记录和注册类FlutterCallbackInformation、FlutterJNI以及SurfaceTexture类的相关方法，用于Java和C++层方法的相互调用。
 
 
-#### 2.5.3 VsyncWaiterAndroid::Register
+#### 2.5.3 Register
 [-> flutter/shell/platform/android/vsync_waiter_android.cc]
 
 ```Java
@@ -505,6 +506,7 @@ void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
   TRACE_EVENT0("flutter", "VsyncFireCallback");
   task_runners_.GetUITaskRunner()->PostTaskForTime(
     [callback, flow_identifier, frame_start_time, frame_target_time]() {
+      //开始执行vync
       FML_TRACE_EVENT("flutter", kVsyncTraceName, "StartTime",
                       frame_start_time, "TargetTime", frame_target_time);
       fml::tracing::TraceEventAsyncComplete(
@@ -647,6 +649,7 @@ void Animator::BeginFrame(fml::TimePoint frame_start_time,
 
 ```Java
 ProducerContinuation Produce() {
+  //当管道不为空，则不允许再次向管道加入数据
   if (!empty_.TryWait()) {
     return {};
   }
@@ -658,6 +661,8 @@ ProducerContinuation Produce() {
       GetNextPipelineTraceID()};  
 }
 ```
+
+通过信号量empty_的初始值为depth(默认等于2)，来保证同一个管道的任务最多不超过depth个，每次UI线程执行Produce()会减1，当GPU线程执行完成Consume()方法后才会执行加1操作。
 
 #### 3.6.2 ProducerContinuation初始化
 [-> flutter/synchronization/pipeline.h]
@@ -1691,11 +1696,14 @@ void unmount() {
 
 ## 五、总结
 
-1）Vsync单注册模式：Animator中的信号量pending_frame_semaphore_用于控制不能连续频繁地调用Vsync请求，一次只能存在Vsync注册。
+1）Vsync单注册模式：保证在一帧的时间窗口里UI线程只会生成一个layer tree发送给GPU线程，原理如下：
+
+Animator中的信号量pending_frame_semaphore_用于控制不能连续频繁地调用Vsync请求，一次只能存在Vsync注册。
 pending_frame_semaphore_初始值为1，在Animator::RequestFrame()消费信号会减1，当而后再次调用则会失败直接返回；
 Animator的BeginFrame()或者DrawLastLayerTree()方法会执行信号加1操作。
 
-3）UI绘制最核心的方法是drawFrame()，包含以下几个过程：
+
+2）UI绘制最核心的方法是drawFrame()，包含以下几个过程：
 
 - Animate: 遍历_transientCallbacks，执行动画回调方法；
 - Build: 对于dirty的元素会执行build构造，没有dirty元素则不会执行，对应于buildScope()
@@ -1705,7 +1713,8 @@ Animator的BeginFrame()或者DrawLastLayerTree()方法会执行信号加1操作�
 - Compositing: 将Compositing bits发送给GPU， 对应于compositeFrame()；
 - Semantics: 编译渲染对象的语义，并将语义发送给操作系统， 对应于flushSemantics()。
 
-4）以上几个过程在Timeline中ui线程中都有体现，[如下图所示](http://gityuan.com/img/flutter_ui/timeline_ui_draw.png)：
+
+3）以上几个过程在Timeline中ui线程中都有体现，[如下图所示](http://gityuan.com/img/flutter_ui/timeline_ui_draw.png)：
 
 ![draw_ui](http://gityuan.com/img/flutter_ui/timeline_ui_draw.png)
 
