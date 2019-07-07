@@ -195,7 +195,7 @@ public class Binder implements IBinder {
 
 ### 2.3 小结
 
-JNI作为连接Java世界和C/C++世界的桥梁，很有必要掌握。看完本文，至少能掌握在分析Android源码过程中如何查找native方法。首先要明白native方法名和文件名的命名规律，其次要懂得该如何去搜索代码。 
+JNI作为连接Java世界和C/C++世界的桥梁，很有必要掌握。看完本文，至少能掌握在分析Android源码过程中如何查找native方法。首先要明白native方法名和文件名的命名规律，其次要懂得该如何去搜索代码。
 
 JNI注册的两种时机：
 
@@ -206,7 +206,7 @@ JNI注册的两种时机：
 ## 三、 JNI原理分析
 
 再进一步来分析，Java层与Native层方法是如何注册并映射的，以MediaPlayer为例。
-文件MediaPlayer.java中调用System.loadLibrary("media_jni")，把libmedia_jni.so动态库加载到内存。接下来，以loadLibrary为起点展开JNI注册流程的过程分析。
+文件MediaPlayer.java中调用System.loadLibrary("media_jni")，把libmedia_jni.so动态库加载到内存。以loadLibrary为起点展开JNI注册流程的过程分析。
 
 ### 3.1 loadLibrary
 [System.java]
@@ -219,11 +219,9 @@ JNI注册的两种时机：
 [Runtime.java]
 
     void loadLibrary(String libraryName, ClassLoader loader) {
-        //loader不会空，则进入该分支
         if (loader != null) {
-            //查找库所在路径
             String filename = loader.findLibrary(libraryName);
-            //加载库，见小节【3.2】
+            //加载库【见小节3.2】
             String error = doLoad(filename, loader);
             if (error != null) {
                 throw new UnsatisfiedLinkError(error);
@@ -234,26 +232,21 @@ JNI注册的两种时机：
         //loader为空，则会进入该分支
         String filename = System.mapLibraryName(libraryName);
         List<String> candidates = new ArrayList<String>();
-        String lastError = null;
         for (String directory : mLibPaths) {
             String candidate = directory + filename;
             candidates.add(candidate);
             if (IoUtils.canOpenReadOnly(candidate)) {
-                 //加载库，见小节【3.2】
+                 //加载库【见小节3.2】
                 String error = doLoad(candidate, loader);
                 if (error == null) {
-                    return;//加载成功
+                    return; //加载成功
                 }
-                lastError = error;
             }
         }
-        if (lastError != null) {
-            throw new UnsatisfiedLinkError(lastError);
-        }
-        throw new UnsatisfiedLinkError("Library " + libraryName + " not found; tried " + candidates);
+        ...
     }
 
-真正加载的工作是由doLoad()
+真正加载的工作是由doLoad()，更多详情见[loadLibrary动态库加载过程分析](http://gityuan.com/2017/03/26/load_library/)。
 
 ### 3.2 doLoad
 
@@ -266,7 +259,7 @@ JNI注册的两种时机：
         }
     }
 
-nativeLoad()这是一个native方法，再进入ART虚拟机的java_lang_Runtime.cc，再细讲就要深入剖析虚拟机内部，这里就不再往下深入了，这里直接说结论：
+nativeLoad()这是一个native方法，再进入ART虚拟机的java_lang_Runtime.cc，最终的核心功能工作：
 
 - 调用`dlopen`函数，打开一个so文件并创建一个handle；
 - 调用`dlsym()`函数，查看相应so文件的`JNI_OnLoad()`函数指针，并执行相应函数。
@@ -365,10 +358,12 @@ struct _JNIEnv {
 
 functions是指向`JNINativeInterface`结构体指针，也就是将调用下面方法：
 
-    struct JNINativeInterface {
-        jint (*RegisterNatives)(JNIEnv*, jclass, const JNINativeMethod*,jint);
-        ...
-    }
+```C
+struct JNINativeInterface {
+    jint (*RegisterNatives)(JNIEnv*, jclass, const JNINativeMethod*,jint);
+    ...
+}
+```
 
 再往下深入就到了虚拟机内部吧，这里就不再往下深入了。
 总之，这个过程完成了`gMethods`数组中的方法的映射关系，比如java层的native_init()方法，映射到native层的android_media_MediaPlayer_native_init()方法。
@@ -453,10 +448,10 @@ Java层出现异常，虚拟机会直接抛出异常，这是需要try..catch或
 
 ## 总结
 
-本文主要通过实例，基于Android 6.0源码来分析JNI原理，讲述JNI核心功能：
+本文主要通过实例，在源码视角分析JNI原理，讲述JNI核心功能：
 
-- 介绍了如何查找JNI方法，让大家明白如何从Java层跳转到Native层；
-- 分析了JNI函数注册流程，进一步加深对JNI的理解；
+- 介绍如何查找JNI方法，明白如何从Java层跳转到Native层；
+- 分析JNI函数注册流程，核心是通过JNIEnv的RegisterNatives()方法来完成注册；
 - 列举Java与native以及函数签名方式。
 
 

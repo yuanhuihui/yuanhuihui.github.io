@@ -500,4 +500,4 @@ System.loadLibrary()和System.load()都用于加载动态库，loadLibrary()可�
 
 - 通过dlopen打开动态共享库;
 - 通过dlsym获取JNI_OnLoad符号所对应的方法；
-- 执行JNI_OnLoad()方法。
+- 调用该加载库中的JNI_OnLoad()方法。
