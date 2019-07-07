@@ -11,7 +11,7 @@ tags:
 > 基于Flutter 1.5，从源码视角来深入剖析flutter启动流程，相关源码目录见文末附录
 
 
-## 一、概览
+## 一、概述
 
 Flutter作为一款跨平台的框架，可以运行在Android、iOS等平台，这里以Android为例讲解Flutter是如何做在原生Android跑起来的。
 
