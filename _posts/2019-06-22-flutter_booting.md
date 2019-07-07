@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "深入理解Flutter启动过程"
+title:  "深入理解Flutter引擎启动"
 date:   2019-06-22 23:15:40
 catalog:  true
 tags:
@@ -14,6 +14,7 @@ tags:
 ## 一、概述
 
 Flutter作为一款跨平台的框架，可以运行在Android、iOS等平台，这里以Android为例讲解Flutter是如何做在原生Android跑起来的。
+本文讲解Flutter是如何从Android应用启动流程中衔接过来，将底层指挥权由Native交接给Flutter引擎来做渲染等相关工作的。
 
 #### 1.1 Flutter启动流程图
 
