@@ -13,51 +13,39 @@ tags:
 
 ## 一、概述
 
-Flutter作为一款跨平台的框架，可以运行在Android、iOS等平台，这里以Android为例讲解Flutter是如何做在原生Android跑起来的。
-本文讲解Flutter是如何从Android应用启动流程中衔接过来，将底层指挥权由Native交接给Flutter引擎来做渲染等相关工作的。
+Flutter作为一款跨平台的框架，可以运行在Android、iOS等平台，Android为例讲解如何从Android应用启动流程中衔接到Flutter流程，以及Flutter引擎的启动流程。
 
-#### 1.1 Flutter启动流程图
+熟悉Android的开发者，应该都了解应用的启动会会执行Application和Activity的初始化，调用其onCreate()方法，接下来分别从这个两个方法开始讲起。
 
-**1) [FlutterApplication启动流程图](/img/flutter_boot/FlutterApplication_create.jpg)**
+### 1.1 Flutter启动概览
+
+#### 1.1.1 FlutterApplication启动
+
+**[FlutterApplication启动流程图](/img/flutter_boot/FlutterApplication_create.jpg)**
 
 ![FlutterApplication_create](/img/flutter_boot/FlutterApplication_create.jpg)
 
-**2) [FlutterActivity启动流程图](/img/flutter_boot/FlutterActivity_create.jpg)**
+#### 1.1.2 FlutterActivity启动
+
+**[FlutterActivity启动流程图](/img/flutter_boot/FlutterActivity_create.jpg)**
 
 ![FlutterActivity_create](/img/flutter_boot/FlutterActivity_create.jpg)
 
-**3) [Flutter引擎启动图](/img/flutter_boot/FlutterEngine_create.jpg)**
+#### 1.1.3 Flutter引擎启动图
+FlutterActivity启动过程执行到AttachJNI()后开始触发Flutter引擎的启动初始化，而引擎初始化之前会进行TaskRunners的初始化。
+
+**1) [Flutter引擎启动图](/img/flutter_boot/FlutterEngine_create.jpg)**
 
 ![FlutterEngine_create](/img/flutter_boot/FlutterEngine_create.jpg)
 
-FlutterActivity启动过程执行到AttachJNI()后开始触发Flutter引擎的启动初始化
+**2) [TaskRunners启动图](/img/flutter_boot/ThreadHost_create.jpg)**
 
-#### 1.2 类关系图
+![ThreadHost_create](/img/flutter_boot/ThreadHost_create.jpg)
 
-1) flutter/shell/platform/android/io/flutter
+### 1.2 类关系图
+**2) [引擎核心类](/img/flutter_boot/ClassEngine.jpg)**
 
-- FlutterApplication
-- FlutterActivity
-- FlutterActivityDelegate
-- FlutterMain
-- FlutterView
-- FlutterNativeView
-- FlutterJNI
-
-
-2) flutter/shell/platform/android/platform_view_android_jni.cc
-
-- AndroidShellHolder
-- Shell
-- RuntimeController
-- Window
-- Engine
-- Animator
-- PlatformViewAndroid
-- VsyncWaiterAndroid
-
-
-【待整理】
+![ClassEngine](/img/flutter_boot/ClassEngine.jpg)
 
 ## 二、FlutterApplication启动流程
 
@@ -999,7 +987,7 @@ MessageLoop::MessageLoop()
 创建MessageLoopAndroid对象和TaskRunner对象，并保持在当前的MessageLoop对象的成员变量。
 
 
-#### 4.2.4 MessageLoopImpl初始化
+#### 4.2.4 MessageLoopImpl::Create
 [-> flutter/fml/message_loop_impl.cc]
 
 ```Java
@@ -2055,9 +2043,6 @@ static Dart_Isolate CreateIsolate(const char* script_uri,
     Thread* T = Thread::Current();
     StackZone zone(T);
     HANDLESCOPE(T);
-    // We enter an API scope here as InitializeIsolate could compile some
-    // bootstrap library files which call out to a tag handler that may create
-    // Api Handles when an error is encountered.
     T->EnterApiScope();
     const Error& error_obj = Error::Handle(
         Z,
@@ -2069,13 +2054,8 @@ static Dart_Isolate CreateIsolate(const char* script_uri,
       if (FLAG_check_function_fingerprints && kernel_buffer == NULL) {
         Library::CheckFunctionFingerprints();
       }
-#endif  // defined(DART_NO_SNAPSHOT) && !defined(PRODUCT).
-      // We exit the API scope entered above.
+#endif  
       T->ExitApiScope();
-      // A Thread structure has been associated to the thread, we do the
-      // safepoint transition explicitly here instead of using the
-      // TransitionXXX scope objects as the reverse transition happens
-      // outside this scope in Dart_ShutdownIsolate/Dart_ExitIsolate.
       T->set_execution_state(Thread::kThreadInNative);
       T->EnterSafepoint();
       if (error != NULL) {
@@ -2086,7 +2066,6 @@ static Dart_Isolate CreateIsolate(const char* script_uri,
     if (error != NULL) {
       *error = strdup(error_obj.ToErrorCString());
     }
-    // We exit the API scope entered above.
     T->ExitApiScope();
   }
   Dart::ShutdownIsolate();
@@ -2441,6 +2420,7 @@ static bool InvokeMainEntrypoint(Dart_Handle user_entrypoint_function) {
       tonic::DartInvokeField(Dart_LookupLibrary(tonic::ToDart("dart:isolate")),
                              "_getStartMainIsolateFunction", {});
 
+  //[见小节5.12]
   if (tonic::LogIfError(tonic::DartInvokeField(
           Dart_LookupLibrary(tonic::ToDart("dart:ui")), "_runMainZoned",
           {start_main_isolate_function, user_entrypoint_function}))) {
@@ -2450,17 +2430,66 @@ static bool InvokeMainEntrypoint(Dart_Handle user_entrypoint_function) {
 }
 ```
 
-接下来，开始执行整个Dart业务代码。
+经过Dart虚拟机，最终会调用的Dart层的_runMainZoned()方法。
+
+### 5.12 \_runMainZoned
+[-> flutter/lib/ui/hooks.dart]
+
+```Java
+void _runMainZoned(Function startMainIsolateFunction, Function userMainFunction) {
+  startMainIsolateFunction((){
+    runZoned<Future<void>>(() {
+      const List<String> empty_args = <String>[];
+      if (userMainFunction is _BinaryFunction) {
+        (userMainFunction as dynamic)(empty_args, '');
+      } else if (userMainFunction is _UnaryFunction) {
+        (userMainFunction as dynamic)(empty_args);
+      } else {
+        userMainFunction();  //[见小节5.13]
+      }
+    }, onError: (Object error, StackTrace stackTrace) {
+      _reportUnhandledException(error.toString(), stackTrace.toString());
+    });
+  }, null);
+}
+```
+
+runZoned()经过一系列调用，然后执行到userMainFunction()，也就是main.dart文件中的main()方法，这便开启执行整个Dart业务代码。
 
 ## 六、总结
 
-- FlutterApplication.onCreate的过程：初始化配置，获取是否预编译模式，提取资源文件；加载libflutter.so库，并记录启动时间戳；
+Flutter引擎启动过程分为以下几个阶段：
 
-【待总结】
+- FlutterApplication启动：执行其onCreate()方法，初始化配置，获取是否预编译模式，提取资源文件；加载libflutter.so库，并记录启动时间戳；
+- FlutterActivity启动：执行其onCreate()方法，创建FlutterActivityDelegate、FlutterView、FlutterNativeView、FlutterMain、FlutterJNI等对象，也会初始化以下这些引擎核心类：
+  - AndroidShellHolder
+  - DartVM
+  - Shell
+  - PlatformViewAndroid
+  - VsyncWaiterAndroid
+  - ShellIOManager
+  - Rasterizer
+  - Animator
+  - Engine
+  - RuntimeController
+  - Window
+  - DartIsolate
+
+更多总结内容，后续再整理。
 
 ## 附录
+本文涉及到相关源码文件
 
 ```Java
-flutter/shell/platform/android/io/flutter/app/
-  - FlutterApplication.java
+platform/android/io/flutter/
+
+flutter/shell/common/
+    - shell.cc
+    - rasterizer.cc
+    - surface.cc
+    - platform_view.h
+
+flutter/shell/platform/android/
+...
+
 ```
