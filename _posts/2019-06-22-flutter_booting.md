@@ -43,7 +43,7 @@ FlutterActivity启动过程执行到AttachJNI()后开始触发Flutter引擎的�
 ![ThreadHost_create](/img/flutter_boot/ThreadHost_create.jpg)
 
 ### 1.2 类关系图
-**2) [引擎核心类](/img/flutter_boot/ClassEngine.jpg)**
+** [Flutter引擎核心类](/img/flutter_boot/ClassEngine.jpg)**
 
 ![ClassEngine](/img/flutter_boot/ClassEngine.jpg)
 
@@ -428,7 +428,7 @@ bool VsyncWaiterAndroid::Register(JNIEnv* env) {
 
 
 ### 2.7 nativeRecordStartTimestamp
-[-> platform/android/flutter_main.cc]
+[-> flutter/shell/platform/android/flutter_main.cc]
 
 ```Java
 static void RecordStartTimestamp(JNIEnv* env,
@@ -716,7 +716,7 @@ public class FlutterView extends SurfaceView implements BinaryMessenger, Texture
       androidKeyProcessor = new AndroidKeyProcessor(keyEventChannel, mTextInputPlugin);
       androidTouchProcessor = new AndroidTouchProcessor(flutterRenderer);
 
-      //发送初始化台的消息发送给Dart
+      //发送初始化平台台的消息发送给Dart
       sendLocalesToDart(getResources().getConfiguration());
       sendUserPlatformSettingsToDart();
   }
@@ -2456,6 +2456,91 @@ void _runMainZoned(Function startMainIsolateFunction, Function userMainFunction)
 
 runZoned()经过一系列调用，然后执行到userMainFunction()，也就是main.dart文件中的main()方法，这便开启执行整个Dart业务代码。
 
+### 5.12
+
+```Java
+void _startMainIsolate(Function entryPoint, List<String> args) {
+  _startIsolate(
+      null, // no parent port
+      entryPoint,
+      args,
+      null, // no message
+      true, // isSpawnUri
+      null, // no control port
+      null); // no capabilities
+}
+
+/**
+ * Returns the _startMainIsolate function. This closurization allows embedders
+ * to setup trampolines to the main function. This workaround can be removed
+ * once support for @pragma("vm:entry_point", "get") as documented in
+ * https://github.com/dart-lang/sdk/issues/35720 lands.
+ */
+@pragma("vm:entry-point", "call")
+Function _getStartMainIsolateFunction() {
+  return _startMainIsolate;
+}
+
+/**
+ * Takes the real entry point as argument and invokes it with the initial
+ * message.
+ */
+@pragma("vm:entry-point", "call")
+void _startIsolate(
+    SendPort parentPort,
+    Function entryPoint,
+    List<String> args,
+    var message,
+    bool isSpawnUri,
+    RawReceivePort controlPort,
+    List capabilities) {
+  // The control port (aka the main isolate port) does not handle any messages.
+  if (controlPort != null) {
+    controlPort.handler = (_) {}; // Nobody home on the control port.
+  }
+
+  if (parentPort != null) {
+    // Build a message to our parent isolate providing access to the
+    // current isolate's control port and capabilities.
+    //
+    // TODO(floitsch): Send an error message if we can't find the entry point.
+    var readyMessage = new List(2);
+    readyMessage[0] = controlPort.sendPort;
+    readyMessage[1] = capabilities;
+
+    // Out of an excess of paranoia we clear the capabilities from the
+    // stack.  Not really necessary.
+    capabilities = null;
+    parentPort.send(readyMessage);
+  }
+  assert(capabilities == null);
+
+  // Delay all user code handling to the next run of the message loop. This
+  // allows us to intercept certain conditions in the event dispatch, such as
+  // starting in paused state.
+  RawReceivePort port = new RawReceivePort();
+  port.handler = (_) {
+    port.close();
+
+    if (isSpawnUri) {
+      if (entryPoint is _BinaryFunction) {
+        (entryPoint as dynamic)(args, message);
+      } else if (entryPoint is _UnaryFunction) {
+        (entryPoint as dynamic)(args);
+      } else {
+        entryPoint();
+      }
+    } else {
+      entryPoint(message);
+    }
+  };
+  // Make sure the message handler is triggered.
+  port.sendPort.send(null);
+}
+```
+
+![runzoned](/img/flutter_boot/runzoned.png)
+
 ## 六、总结
 
 Flutter引擎启动过程分为以下几个阶段：
@@ -2475,21 +2560,66 @@ Flutter引擎启动过程分为以下几个阶段：
   - Window
   - DartIsolate
 
-更多总结内容，后续再整理。
+
+- FlutterJNI：
 
 ## 附录
 本文涉及到相关源码文件
 
 ```Java
-platform/android/io/flutter/
+platform/android/io/flutter/app/
+  - FlutterApplication.java
+  - FlutterActivity.java
+  - FlutterActivityDelegate.java
+
+platform/android/io/flutter/view/
+  - FlutterMain.java
+  - FlutterView.java
+  - FlutterNativeView.java
+  - VsyncWaiter.java
+
+platform/android/io/flutter/view/
+  - embedding/engine/FlutterJNI.java
+
+flutter/shell/platform/android/
+  - android_surface.cc
+  - android_surface_gl.cc
+  - android_shell_holder.cc
+  - platform_view_android_jni.cc
+  - platform_view_android.cc
+  - flutter_main.cc
+  - library_loader.cc
+
+flutter/fml/
+  - thread.cc
+  - task_runner.cc
+  - message_loop.cc
+  - message_loop_impl.cc
+  - platform/android/message_loop_android.cc
+  - platform/android/jni_util.cc
+
+flutter/lib/ui/
+  - hooks.dart
+  - dart_ui.cc
+  - window/window.cc
 
 flutter/shell/common/
     - shell.cc
     - rasterizer.cc
     - surface.cc
-    - platform_view.h
+    - thread_host.cc
+    - animator.cc
+    - engine.cc
+    - shell_io_manager.cc
 
-flutter/shell/platform/android/
-...
+flutter/runtime/
+  - dart_vm_lifecycle.cc
+  - dart_vm.cc
+  - dart_isolate.cc
+  - runtime_controller.cc
 
+third_party/dart/runtime/
+  - vm/dart_api_impl.cc
+  - vm/dart.cc
+  - lib/isolate_patch.dart
 ```
