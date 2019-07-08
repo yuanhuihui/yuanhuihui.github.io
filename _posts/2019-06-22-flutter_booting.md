@@ -2149,6 +2149,8 @@ private void runBundle(String appBundlePath) {
 }
 ```
 
+参数中的entrypoint等于"main"，是指最终回调执行的主函数名。
+
 ### 5.2  runFromBundle
 [-> platform/android/io/flutter/view/FlutterView.java]
 
@@ -2166,13 +2168,7 @@ public void runFromBundle(FlutterRunArguments args) {
 ```Java
 public void runFromBundle(FlutterRunArguments args) {
     boolean hasBundlePaths = args.bundlePaths != null && args.bundlePaths.length != 0;
-    if (args.bundlePath == null && !hasBundlePaths) {
-        throw new AssertionError("Either bundlePath or bundlePaths must be specified");
-    } else if ((args.bundlePath != null || args.defaultPath != null) && hasBundlePaths) {
-        throw new AssertionError("Can't specify both bundlePath and bundlePaths");
-    } else if (args.entrypoint == null) {
-        throw new AssertionError("An entrypoint must be specified");
-    }
+    ...
     if (hasBundlePaths) {
          //[见小节5.4]
         runFromBundleInternal(args.bundlePaths, args.entrypoint, args.libraryPath);
@@ -2182,6 +2178,8 @@ public void runFromBundle(FlutterRunArguments args) {
     }
 }
 ```
+
+这里args的entrypoint和libraryPath分别代表主函数入口的函数名和所对应库的路径。
 
 ### 5.4 runFromBundleInternal
 [-> platform/android/io/flutter/view/FlutterNativeView.java]
@@ -2302,11 +2300,8 @@ void AndroidShellHolder::Launch(RunConfiguration config) {
                          config = std::move(config)     //
   ]() mutable {
         //[见小节5.8]
-        if (!engine || engine->Run(std::move(config)) == Engine::RunStatus::Failure) {
-          FML_LOG(ERROR) << "Could not launch engine in configuration.";
-        } else {
-          FML_LOG(INFO) << "Isolate for engine configuration successfully "
-                           "started and run.";
+        if (engine) {
+          engine->Run(std::move(config);
         }
       }));
 }
@@ -2385,6 +2380,9 @@ Engine::RunStatus Engine::PrepareAndLaunchIsolate(
 }
 ```
 
+从configuration中获取主函数入口，RunConfiguration有一个成员变量entrypoint_值等于“main”，
+还有一个成员变量entrypoint_library_，这两个变量的赋值过程是在前面的小节[5.1]。
+
 ### 5.10 DartIsolate::Run
 [-> flutter/runtime/dart_isolate.cc]
 
@@ -2394,7 +2392,7 @@ bool DartIsolate::Run(const std::string& entrypoint_name, fml::closure on_run) {
   ...
 
   tonic::DartState::Scope scope(this);
-
+  //获取用户入口函数，也就是主函数main()
   auto user_entrypoint_function =
       Dart_GetField(Dart_RootLibrary(), tonic::ToDart(entrypoint_name.c_str()));
   //[见小节5.11]
@@ -2415,7 +2413,7 @@ bool DartIsolate::Run(const std::string& entrypoint_name, fml::closure on_run) {
 
 ```Java
 static bool InvokeMainEntrypoint(Dart_Handle user_entrypoint_function) {
-
+  //start_main_isolate_function等于_startIsolate  [见小节5.11.1]
   Dart_Handle start_main_isolate_function =
       tonic::DartInvokeField(Dart_LookupLibrary(tonic::ToDart("dart:isolate")),
                              "_getStartMainIsolateFunction", {});
@@ -2432,11 +2430,23 @@ static bool InvokeMainEntrypoint(Dart_Handle user_entrypoint_function) {
 
 经过Dart虚拟机，最终会调用的Dart层的_runMainZoned()方法。
 
+#### 5.11.1 \_getStartMainIsolateFunction
+[-> third_party/dart/runtime/lib/isolate_patch.dart]
+
+```Java
+@pragma("vm:entry-point", "call")
+Function _getStartMainIsolateFunction() {
+  return _startMainIsolate;
+}
+```
+
+
 ### 5.12 \_runMainZoned
 [-> flutter/lib/ui/hooks.dart]
 
 ```Java
 void _runMainZoned(Function startMainIsolateFunction, Function userMainFunction) {
+   //[见小节5.12.1]
   startMainIsolateFunction((){
     runZoned<Future<void>>(() {
       const List<String> empty_args = <String>[];
@@ -2445,7 +2455,7 @@ void _runMainZoned(Function startMainIsolateFunction, Function userMainFunction)
       } else if (userMainFunction is _UnaryFunction) {
         (userMainFunction as dynamic)(empty_args);
       } else {
-        userMainFunction();  //[见小节5.13]
+        userMainFunction();  //[见小节5.12.2]
       }
     }, onError: (Object error, StackTrace stackTrace) {
       _reportUnhandledException(error.toString(), stackTrace.toString());
@@ -2454,9 +2464,10 @@ void _runMainZoned(Function startMainIsolateFunction, Function userMainFunction)
 }
 ```
 
-runZoned()经过一系列调用，然后执行到userMainFunction()，也就是main.dart文件中的main()方法，这便开启执行整个Dart业务代码。
+\_runMainZoned()经过一系列调用，然后执行到userMainFunction()，也就是main.dart文件中的main()方法，这便开启执行整个Dart业务代码。
 
-### 5.12
+#### 5.12.1 \_startIsolate
+[-> third_party/dart/runtime/lib/isolate_patch.dart]
 
 ```Java
 void _startMainIsolate(Function entryPoint, List<String> args) {
@@ -2470,21 +2481,6 @@ void _startMainIsolate(Function entryPoint, List<String> args) {
       null); // no capabilities
 }
 
-/**
- * Returns the _startMainIsolate function. This closurization allows embedders
- * to setup trampolines to the main function. This workaround can be removed
- * once support for @pragma("vm:entry_point", "get") as documented in
- * https://github.com/dart-lang/sdk/issues/35720 lands.
- */
-@pragma("vm:entry-point", "call")
-Function _getStartMainIsolateFunction() {
-  return _startMainIsolate;
-}
-
-/**
- * Takes the real entry point as argument and invokes it with the initial
- * message.
- */
 @pragma("vm:entry-point", "call")
 void _startIsolate(
     SendPort parentPort,
@@ -2494,30 +2490,13 @@ void _startIsolate(
     bool isSpawnUri,
     RawReceivePort controlPort,
     List capabilities) {
-  // The control port (aka the main isolate port) does not handle any messages.
+  //控制端口(也称主isolate端口)不处理任何消息
   if (controlPort != null) {
-    controlPort.handler = (_) {}; // Nobody home on the control port.
+    controlPort.handler = (_) {};
   }
+  ...
 
-  if (parentPort != null) {
-    // Build a message to our parent isolate providing access to the
-    // current isolate's control port and capabilities.
-    //
-    // TODO(floitsch): Send an error message if we can't find the entry point.
-    var readyMessage = new List(2);
-    readyMessage[0] = controlPort.sendPort;
-    readyMessage[1] = capabilities;
-
-    // Out of an excess of paranoia we clear the capabilities from the
-    // stack.  Not really necessary.
-    capabilities = null;
-    parentPort.send(readyMessage);
-  }
-  assert(capabilities == null);
-
-  // Delay all user code handling to the next run of the message loop. This
-  // allows us to intercept certain conditions in the event dispatch, such as
-  // starting in paused state.
+  // 将所有用户代码处理延迟到下一次消息循环运行。 这允许拦截事件调度中的某些条件，例如在暂停状态下开始。
   RawReceivePort port = new RawReceivePort();
   port.handler = (_) {
     port.close();
@@ -2528,18 +2507,29 @@ void _startIsolate(
       } else if (entryPoint is _UnaryFunction) {
         (entryPoint as dynamic)(args);
       } else {
-        entryPoint();
+        entryPoint(); //[见小节5.12.2]
       }
     } else {
       entryPoint(message);
     }
   };
-  // Make sure the message handler is triggered.
+  //确保消息handler已触发
   port.sendPort.send(null);
 }
 ```
 
+此处entryPoint便是runZoned，然后几次调用后，回到\_runMainZoned()方法的userMainFunction，而userMainFunction
+
+#### 5.12.2  main
+[-> lib/main.dart]
+
+```
+void main() => runApp(Widget app);
+```
+
 ![runzoned](/img/flutter_boot/runzoned.png)
+
+也就是说FlutterActivity.onCreate()方法，经过层层调用后开始执行dart层的main()方法，执行runApp()的过程。
 
 ## 六、总结
 
@@ -2561,7 +2551,6 @@ Flutter引擎启动过程分为以下几个阶段：
   - DartIsolate
 
 
-- FlutterJNI：
 
 ## 附录
 本文涉及到相关源码文件
