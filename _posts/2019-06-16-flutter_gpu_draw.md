@@ -45,8 +45,8 @@ Flutter渲染机制在UI线程执行到compositeFrame()过程经过多层调用�
 
 LayerTree的root_layer来源于SceneBuilder过程初始化，第一个调用PushLayer()的layer便成为root_layer_，后面的调用会形成一个树状结构。从上图，可知ContainerLayer共有9个子类，由这些子类组合成为了一个layer tree，具体的组合方式取决于业务使用方，在LayerTree的Prepoll和Paint过程便会调用这些layer的方法，下面来看看这9个类：
 
-1. ClipRectLayer：圆角矩形裁剪层，可指定矩形和裁剪行为参数，其中裁剪行为有Clip.none，hardEdge，antiAlias，antiAliasWithSaveLayer四种行为；
-2. ClipRRectLayer：矩形裁剪层，可指定圆角矩形和裁剪行为参数，同上四种行为；
+1. ClipRectLayer：矩形裁剪层，可指定矩形和裁剪行为参数，其中裁剪行为有Clip.none，hardEdge，antiAlias，antiAliasWithSaveLayer四种行为；
+2. ClipRRectLayer：圆角矩形裁剪层，可指定圆角矩形和裁剪行为参数，同上四种行为；
 3. ClipPathLayer：路径裁剪层，可指定路径和裁剪行为参数，同上四种行为；
 4. OpacityLayer：透明层，可指定透明度和偏移量参数，其中偏移量是指从画布坐标系原点到调用者坐标系原点的偏移量；
 5. ShaderMaskLayer：着色层，可指定着色器、矩阵和混合模式参数；

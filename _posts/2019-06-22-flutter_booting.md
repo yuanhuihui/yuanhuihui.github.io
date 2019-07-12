@@ -8,7 +8,7 @@ tags:
 
 ---
 
-> 基于Flutter 1.5，从源码视角来深入剖析flutter启动流程，相关源码目录见文末附录
+> 基于Flutter 1.5，从源码视角来深入剖析flutter引擎的启动流程，相关源码目录见文末附录
 
 
 ## 一、概述
@@ -43,7 +43,7 @@ FlutterActivity启动过程执行到AttachJNI()后开始触发Flutter引擎的�
 ![ThreadHost_create](/img/flutter_boot/ThreadHost_create.jpg)
 
 ### 1.2 类关系图
-** [Flutter引擎核心类](/img/flutter_boot/ClassEngine.jpg)**
+**[Flutter引擎核心类](/img/flutter_boot/ClassEngine.jpg)**
 
 ![ClassEngine](/img/flutter_boot/ClassEngine.jpg)
 
@@ -2529,7 +2529,7 @@ void main() => runApp(Widget app);
 
 ![runzoned](/img/flutter_boot/runzoned.png)
 
-也就是说FlutterActivity.onCreate()方法，经过层层调用后开始执行dart层的main()方法，执行runApp()的过程。
+也就是说FlutterActivity.onCreate()方法，经过层层调用后开始执行dart层的main()方法，执行runApp()的过程，这便开启执行整个Dart业务代码。
 
 ## 六、总结
 
