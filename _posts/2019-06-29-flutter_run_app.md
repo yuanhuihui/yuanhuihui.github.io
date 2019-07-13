@@ -44,30 +44,14 @@ class MyApp extends StatelessWidget {
 ![RunApp](/img/flutter_runapp/RunApp.jpg)
 
 
-### 1.3 类图
+### 1.3 相关类图
 
+**1) [Widget/Element/RenderObject类图](http://gityuan.com/img/flutter_runapp/ClassTree.jpg)**
 
 ![ClassTree](http://gityuan.com/img/flutter_runapp/ClassTree.jpg)
 
-![ClassTreeDet](http://gityuan.com/img/flutter_runapp/ClassTreeDet.jpg)
-
-![ClassNode](http://gityuan.com/img/flutter_runapp/ClassNode.jpg)
-
-AbstractNode有三个子类Layer、RenderObject以及SemanticsNode，如下所示：
-
-- SemanticsNode类：表示某些语义数据，该类没有子类
-- RenderObject的常见子类
-  - RenderBox：该类有很多子类，比如RenderStack，RenderFlex，RenderTable等；
-  - RenderView
-  - RenderSector
-  - RenderAbstractViewport
-  - RenderSliver
-- Layer的常见子类
-  - ContainerLayer：该类有很多子类，比如OpacityLayer，ClipPathLayer，ShaderMaskLayer等；
-  - PictureLayer
-  - PlatformViewLayer
-  - TextureLayer
-
+Flutter中有3个比较重要的树Widget/Element/RenderObject，可以看出Widget/Element继承于共同的父类DiagnosticableTree，RenderObject继承于AbstractNode父类。
+这3颗树之间是什么关系，如何相互关联，接下来会详细展开，并在文末会有更详细的类关系图。
 
 ## 二、应用启动流程
 
@@ -587,4 +571,10 @@ runApp(MyApp)是flutter应用开始真正执行业务逻辑代码的起点，整
 - attachRootWidget：遍历挂载整个视图树，并建立Widget、Element、RenderObject之间的连接与关系，此处Element的具体类型为RenderObjectToWidgetElement；
 - scheduleWarmUpFrame：调度预热帧，执行帧绘制方法handleBeginFrame和handleDrawFrame。
 
+**) [Widget/Element/RenderObject类图](http://gityuan.com/img/flutter_runapp/ClassTreeDet.jpg)**
+
+![ClassTreeDet](http://gityuan.com/img/flutter_runapp/ClassTreeDet.jpg)
+
 从WidgetsFlutterBinding是单例模式，从小节[2.4]得WidgetsBinding的renderViewElement记录着唯一的RenderObjectToWidgetElement对象，从小节[2.3.2]可知RendererBinding的renderView记录着唯一的RenderView对象；也就是说每个flutter应用创建的Root Widget跟Element、RenderObject一一对应，且单例唯一。
+
+MyApp是用户定义的根Widget，为了建立三棵树的关系，RenderObjectToWidgetAdapter起到重要的桥接功能，该类的createElement方法创建RenderObjectToWidgetElement对象，createRenderObject()方法获取的是RenderView。
