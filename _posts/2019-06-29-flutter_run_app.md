@@ -82,7 +82,7 @@ class WidgetsFlutterBinding extends BindingBase with GestureBinding, ServicesBin
 
 WidgetsFlutterBinding这是一个单例模式，负责创建WidgetsFlutterBinding对象，WidgetsFlutterBinding继承抽象类BindingBase，并且附带7个mixin，对于mixin语法来说顺序是很重要，相同的方法会由后面的mixin覆盖前面的mixin方法，类关系图如下：
 
-![ClassBinding](/img/flutter_runapp/ClassBinding.jpg)
+![ClassBinding](/img/flutter_runapp/class_widget_flutter_binding.jpg)
 
 图解：
 
