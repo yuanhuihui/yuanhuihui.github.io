@@ -109,7 +109,7 @@ void Shell::OnAnimatorDraw(
       [rasterizer = rasterizer_->GetWeakPtr(),
        pipeline = std::move(pipeline)]() {
         if (rasterizer) {
-          rasterizer->Draw(pipeline); //[见小节2.1.1]
+          rasterizer->Draw(pipeline); //[见小节2.2]
         }
       });
 }

@@ -571,7 +571,7 @@ runApp(MyApp)是flutter应用开始真正执行业务逻辑代码的起点，整
 - attachRootWidget：遍历挂载整个视图树，并建立Widget、Element、RenderObject之间的连接与关系，此处Element的具体类型为RenderObjectToWidgetElement；
 - scheduleWarmUpFrame：调度预热帧，执行帧绘制方法handleBeginFrame和handleDrawFrame。
 
-**) [Widget/Element/RenderObject类图](http://gityuan.com/img/flutter_runapp/ClassTreeDet.jpg)**
+**[Widget/Element/RenderObject类图](http://gityuan.com/img/flutter_runapp/ClassTreeDet.jpg)**
 
 ![ClassTreeDet](http://gityuan.com/img/flutter_runapp/ClassTreeDet.jpg)
 
