@@ -490,4 +490,6 @@ void notifyStatusListeners(AnimationStatus status) {
 
 ## 三、总结
 
-待续...
+#### 3.1 动画流程图
+
+![](/img/animation/animation.jpg)
