@@ -78,10 +78,10 @@ animationController.forward();
             Ticker.scheduleTick()
               SchedulerBinding.scheduleFrameCallback()
                 SchedulerBinding.scheduleFrame()
-
-    Ticker.\_tick
-      AnimationController.\_tick
-      scheduleTick  ==> 这个过程调用，形成循环
+                  ...
+                    Ticker.\_tick
+                      AnimationController.\_tick
+                      Ticker.scheduleTick
 
 ## 二、原理分析
 
@@ -99,7 +99,7 @@ AnimationController({
   @required TickerProvider vsync,
 }) : _direction = _AnimationDirection.forward {
   _ticker = vsync.createTicker(_tick);  //[见小节2.1.1]
-  _internalSetValue(value ?? lowerBound); //[见小节2.1.4]
+  _internalSetValue(value ?? lowerBound); //[见小节2.1.3]
 }
 ```
 
@@ -140,28 +140,7 @@ class Ticker {
 
 将AnimationControllerd对象中的_tick()方法，赋值给Ticker对象的_onTick成员变量，再来看看该_tick方法。
 
-#### 2.1.3 AnimationController.\_tick
-[-> lib/src/animation/animation_controller.dart ::AnimationController]
-
-```Java
-void _tick(Duration elapsed) {
-  _lastElapsedDuration = elapsed;
-  final double elapsedInSeconds = elapsed.inMicroseconds.toDouble() / Duration.microsecondsPerSecond;
-  _value = _simulation.x(elapsedInSeconds).clamp(lowerBound, upperBound);
-  if (_simulation.isDone(elapsedInSeconds)) {
-    _status = (_direction == _AnimationDirection.forward) ?
-      AnimationStatus.completed :
-      AnimationStatus.dismissed;
-    stop(canceled: false);
-  }
-  notifyListeners();
-  _checkStatusChanged();
-}
-```
-
-再回到小节2.1，接下来开始执行\_internalSetValue()方法。
-
-#### 2.1.4 \_internalSetValue
+#### 2.1.3 \_internalSetValue
 [-> lib/src/animation/animation_controller.dart ::AnimationController]
 
 ```Java
@@ -367,7 +346,7 @@ void scheduleTick({ bool rescheduling = false }) {
 }
 ```
 
-此处的_tick会在下一次vysnc触发时回调执行，见小节2.9。
+此处的_tick会在下一次vysnc触发时回调执行，见小节2.10。
 
 
 ### 2.7 scheduleFrameCallback
@@ -375,6 +354,7 @@ void scheduleTick({ bool rescheduling = false }) {
 
 ```Java
 int scheduleFrameCallback(FrameCallback callback, { bool rescheduling = false }) {
+    //[见小节2.8]
   scheduleFrame();
   _nextFrameCallbackId += 1;
   _transientCallbacks[_nextFrameCallbackId] = _FrameCallbackEntry(callback, rescheduling: rescheduling);
@@ -382,6 +362,7 @@ int scheduleFrameCallback(FrameCallback callback, { bool rescheduling = false })
 }
 ```
 
+将前面传递过来的Ticker._tick()方法保存在_FrameCallbackEntry的callback中，然后将_FrameCallbackEntry记录在Map类型的_transientCallbacks，
 
 ### 2.8 scheduleFrame
 [-> lib/src/scheduler/binding.dart]
@@ -395,22 +376,117 @@ void scheduleFrame() {
 }
 ```
 
-从文章[Flutter之setState更新机制](http://gityuan.com/2019/07/06/flutter_set_state/)，可知此处调用的ui.window.scheduleFrame()，会注册vsync监听。当当下一次vsync信号的到来时会执行handleBeginFrame()和handleDrawFrame()，该方法最终会执行_tick方法。
+从文章[Flutter之setState更新机制](http://gityuan.com/2019/07/06/flutter_set_state/)，可知此处调用的ui.window.scheduleFrame()，会注册vsync监听。当当下一次vsync信号的到来时会执行handleBeginFrame()。
 
+### 2.9 handleBeginFrame
+[-> lib/src/scheduler/binding.dart:: SchedulerBinding]
 
-### 2.9 Ticker.\_tick
+```Java
+void handleBeginFrame(Duration rawTimeStamp) {
+  Timeline.startSync('Frame', arguments: timelineWhitelistArguments);
+  _firstRawTimeStampInEpoch ??= rawTimeStamp;
+  _currentFrameTimeStamp = _adjustForEpoch(rawTimeStamp ?? _lastRawTimeStamp);
+  if (rawTimeStamp != null)
+    _lastRawTimeStamp = rawTimeStamp;
+  ...
+
+  //此时阶段等于SchedulerPhase.idle;
+  _hasScheduledFrame = false;
+  try {
+    Timeline.startSync('Animate', arguments: timelineWhitelistArguments);
+    _schedulerPhase = SchedulerPhase.transientCallbacks;
+    //执行动画的回调方法
+    final Map<int, _FrameCallbackEntry> callbacks = _transientCallbacks;
+    _transientCallbacks = <int, _FrameCallbackEntry>{};
+    callbacks.forEach((int id, _FrameCallbackEntry callbackEntry) {
+      if (!_removedIds.contains(id))
+        _invokeFrameCallback(callbackEntry.callback, _currentFrameTimeStamp, callbackEntry.debugStack);
+    });
+    _removedIds.clear();
+  } finally {
+    _schedulerPhase = SchedulerPhase.midFrameMicrotasks;
+  }
+}
+```
+
+该方法主要功能是遍历\_transientCallbacks，从前面小节[2.7]，可知该过程会执行Ticker._tick()方法。
+
+### 2.10 Ticker.\_tick
 [-> lib/src/scheduler/ticker.dart]
 
 ```Java
 void _tick(Duration timeStamp) {
   _animationId = null;
   _startTime ??= timeStamp;
+  //[见小节2.11]
   _onTick(timeStamp - _startTime);
-
+  //根据活跃状态来决定是否再次调度
   if (shouldScheduleTick)
     scheduleTick(rescheduling: true);
 }
 ```
+
+该方法主要功能：
+
+- 小节[2.1.2]的Ticker初始化中，可知此处_onTick便是AnimationController的\_tick()方法；
+- 小节[2.5]已介绍当仍处于活跃状态，则会再次调度，回到小节[2.6]的scheduleTick()，从而形成动画的连续绘制过程。
+
+### 2.11 AnimationController.\_tick
+[-> lib/src/animation/animation_controller.dart]
+
+```Java
+void _tick(Duration elapsed) {
+  _lastElapsedDuration = elapsed;
+  //获取已过去的时长
+  final double elapsedInSeconds = elapsed.inMicroseconds.toDouble() / Duration.microsecondsPerSecond;
+  _value = _simulation.x(elapsedInSeconds).clamp(lowerBound, upperBound);
+  if (_simulation.isDone(elapsedInSeconds)) {
+    _status = (_direction == _AnimationDirection.forward) ?
+      AnimationStatus.completed :
+      AnimationStatus.dismissed;
+    stop(canceled: false); //当动画已完成，则停止
+  }
+  notifyListeners();   //通知监听器[见小节2.11.1]
+  _checkStatusChanged(); //通知状态监听器[见小节2.11.2]
+}
+```
+
+#### 2.11.1 notifyListeners
+[-> lib/src/animation/listener_helpers.dart  ::AnimationLocalListenersMixin]
+
+```Java
+void notifyListeners() {
+  final List<VoidCallback> localListeners = List<VoidCallback>.from(_listeners);
+  for (VoidCallback listener in localListeners) {
+    try {
+      if (_listeners.contains(listener))
+        listener();
+    } catch (exception, stack) {
+      ...
+    }
+  }
+}
+```
+AnimationLocalListenersMixin的addListener()会向_listeners中添加监听器
+
+#### 2.11.2 _checkStatusChanged
+[-> lib/src/animation/listener_helpers.dart  ::AnimationLocalStatusListenersMixin]
+
+```Java
+void notifyStatusListeners(AnimationStatus status) {
+  final List<AnimationStatusListener> localListeners = List<AnimationStatusListener>.from(_statusListeners);
+  for (AnimationStatusListener listener in localListeners) {
+    try {
+      if (_statusListeners.contains(listener))
+        listener(status);
+    } catch (exception, stack) {
+      ...
+    }
+  }
+}
+```
+
+从前面的小节[2.4.1]可知，当状态改变时会调用notifyStatusListeners方法。AnimationLocalStatusListenersMixin的addStatusListener()会向_statusListeners添加状态监听器。
 
 ## 三、总结
 
