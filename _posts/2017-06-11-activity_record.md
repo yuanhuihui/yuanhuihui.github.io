@@ -21,7 +21,7 @@ appToken：system_server进程通过调用scheduleLaunchActivity()将appToken传
 ServiceRecord本身继承于Binder对象，传递到客户端的代理：
   - 调用Service.attach()，保存到Service.mToken；
   - 用途：stopSelf,startForeground, stopForeground
-  
+
 ## 二. ActivityRecord结构体
 
 先以一幅图来展示AMS管理Activity所涉及的相关数据结构：
@@ -133,21 +133,21 @@ Activity栈结构体的组成关系，[点击查看大图](http://www.gityuan.co
 - 一般地，对于没有分屏功能以及虚拟屏的情况下，ActivityStackSupervisor与ActivityDisplay都是系统唯一；
 - ActivityDisplay主要有Home Stack和App Stack这两个栈；
 - 每个ActivityStack中可以有若干个TaskRecord对象；
-- 每个TaskRecord包含如果个ActivityRecord对象；
+- 每个TaskRecord包含如果若干个ActivityRecord对象；
 - 每个ActivityRecord记录一个Activity信息。
 
 (1)正向关系链表：
 
-    ActivityStackSupervisor.mActivityDisplays 
-    -> ActivityDisplay.mStacks 
-    -> ActivityStack.mTaskHistory 
-    -> TaskRecord.mActivities 
+    ActivityStackSupervisor.mActivityDisplays
+    -> ActivityDisplay.mStacks
+    -> ActivityStack.mTaskHistory
+    -> TaskRecord.mActivities
     -> ActivityRecord
 
 (2)反向关系链表：
 
-    ActivityRecord.task 
-    -> TaskRecord.stack 
+    ActivityRecord.task
+    -> TaskRecord.stack
     -> ActivityStack.mStackSupervisor
     -> ActivityStackSupervisor
 
@@ -160,7 +160,7 @@ Activity启动与停止流程，[点击查看大图](http://www.gityuan.com/imag
 
 ![Seq_activity](/images/ams/activity/Seq_activity.jpg)
 
-Activity的pause情况： 
+Activity的pause情况：
 
 - 当Activity A启动到Activity B，则需要pause掉Activity A;
 - 当系统需要进入休眠状态或许shutdown的过程；

@@ -6,7 +6,7 @@ catalog:  true
 tags:
     - android
     - 组件系列
-    
+
 ---
 
 > 本文基于Android 6.0的源代码，来分析四大组件的管理者AMS
@@ -14,7 +14,7 @@ tags:
     frameworks/base/services/core/java/com/android/server/am/
       - ActivityManagerService.java
       - ProcessRecord
-      - ActivityStackSupervisor.java 
+      - ActivityStackSupervisor.java
       - ActivityStack.java
       - ActiveServices
       - BroadcastQueue
@@ -34,7 +34,7 @@ Android中，对于进程的概念被弱化，通过抽象后的四大组件。�
 
 Android系统中用于描述进程的数据结构是ProcessRecord对象，AMS便是管理进程的核心模块。四大组件
 （Activity,Service, BroadcastReceiver, ContentProvider）定义在AndroidManifest.xml文件，
-每一项都可以用属性android:process指定所运行的进程。同一个app可以运行在通过一个进程，也可以运行在多个进程，
+每一项都可以用属性android:process指定所运行的进程。同一个app可以运行在同一个进程，也可以运行在多个进程，
 甚至多个app可以共享同一个进程。例如：AndroidManifest.xml中定义Service：
 
     <service android:name =".GityuanService"  android:process =":remote" >  
@@ -226,13 +226,13 @@ AS对象
         BroadcastQueue mBgBroadcastQueue;
         //广播队列数组，也就是前台和后台广播队列
         final BroadcastQueue[] mBroadcastQueues = new BroadcastQueue[2];
-        
+
         //粘性广播，[userId，action，ArrayList<Intent>]
         final SparseArray<ArrayMap<String, ArrayList<Intent>>> mStickyBroadcasts;
-        
+
         //动态注册的广播接收者，其中key为客户端InnerReceiver的Bp端，value为ReceiverList
         final HashMap<IBinder, ReceiverList> mRegisteredReceivers = new HashMap<>();
-        
+
         //从广播intent到已注册接收者的解析器
         final IntentResolver<BroadcastFilter, BroadcastFilter> mReceiverResolver；
     }
@@ -244,7 +244,7 @@ AS对象
         final ArrayList<BroadcastRecord> mParallelBroadcasts = new ArrayList<>();
         //串行广播列表
         final ArrayList<BroadcastRecord> mOrderedBroadcasts = new ArrayList<>();
-        
+
         //即将要处理的串行广播，等待目标进程创建完成。每个广播队列只有一个，其他必须等待该广播完成。
         BroadcastRecord mPendingBroadcast = null;
     }
@@ -256,7 +256,7 @@ AS对象
     public final class ActivityManagerService extends ...{
         //记录系统所有的provider信息
         final ProviderMap mProviderMap;
-        
+
         //记录有client正在等待的provider列表，当provider发布完成则从该队列移除
         final ArrayList<ContentProviderRecord> mLaunchingProviders;
     }
@@ -268,7 +268,7 @@ AS对象
         private final HashMap<String, ContentProviderRecord> mSingletonByName;
         //以provider组件名(ComponentName)为key的方式所记录的provider信息
         private final HashMap<ComponentName, ContentProviderRecord> mSingletonByClass;
-        
+
         //记录不同UserId下的，以auth为key的方式所记录的provider信息
         private final SparseArray<HashMap<String, ContentProviderRecord>> mProvidersByNamePerUser;
         //记录不同UserId下的，以ComponentName为key的方式所记录的provider信息

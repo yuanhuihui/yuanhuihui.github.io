@@ -106,7 +106,7 @@ input的超时检测机制跟service、broadcast、provider截然不同，为了
     - outBoundQueue用于记录即将分发给目标应用窗口的输入事件；
     - waitQueue用于记录已分发给目标应用，且应用尚未处理完成的输入事件；
 
-input的超时机制并非时间到了一定就会爆炸，而是处理后续上报事件的过程才会去检测是否该爆炸，所以更相信是扫雷的过程，具体如下图所示。
+input的超时机制并非时间到了一定就会爆炸，而是处理后续上报事件的过程才会去检测是否该爆炸，所以更像是扫雷的过程，具体如下图所示。
 
 ![input_anr](/images/android-anr/input_anr.jpg)
 
