@@ -24,7 +24,7 @@ linkedin_username:  gityuan
 # from 2016, 'pygments' is unsupported on GitHub Pages. Use 'rouge' for highlighting instead.
 highlighter: rouge
 permalink: /:year/:month/:day/:title/
-paginate: 8
+paginate: 15
 paginate_path: "page:num"
 
 exclude: ["less","node_modules","Gruntfile.js","package.json","README.md","README.zh.md"]
