@@ -87,7 +87,7 @@ void MessageLoopImpl::RunExpiredTasks() {
   }
 
   for (const auto& invocation : invocations) {
-    invocation();  // [见小节3.6]
+    invocation();  // [见小节2.2]
     for (const auto& observer : task_observers_) {
       observer.second();
     }

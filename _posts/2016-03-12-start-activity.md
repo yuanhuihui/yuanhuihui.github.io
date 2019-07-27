@@ -22,11 +22,11 @@ tags:
       - IActivityManager.java
       - ActivityManagerNative.java (内含AMP)
       - ActivityManager.java
-      
+
       - IApplicationThread.java
       - ApplicationThreadNative.java (内含ATP)
       - ActivityThread.java (内含ApplicationThread)
-      
+
       - ContextImpl.java
 
 ## 一. 概述
@@ -1032,25 +1032,18 @@ ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并
 找到或创建新的Activit所属于的Task对象，之后调用AS.startActivityLocked
 
 #### 2.9.1 Launch Mode
-先来说说在ActivityInfo.java中定义了4类Launch Mode：
+简单说说ActivityInfo.java中定义了4类Launch Mode：
 
-- LAUNCH_MULTIPLE(standard)：最常见的情形，每次启动Activity都是创建新的Activity;
-- LAUNCH_SINGLE_TOP: 当Task顶部存在同一个Activity则不再重新创建；其余情况同上；
-- LAUNCH_SINGLE_TASK：当Task栈存在同一个Activity(不在task顶部)，则不重新创建，而移除该Activity上面其他的Activity；其余情况同上；
-- LAUNCH_SINGLE_INSTANCE：每个Task只有一个Activity.
+- LAUNCH_MULTIPLE(standard)：每次启动新Activity，都会创建新的Activity，这是最常见标准情形；
+- LAUNCH_SINGLE_TOP: 当启动新Acitity，在栈顶存在相同Activity，则不会创建新Activity；其余情况同上；
+- LAUNCH_SINGLE_TASK：当启动新Acitity，在栈中存在相同Activity(可以是不在栈顶)，则不会创建新Activity，而是移除该Activity之上的所有Activity；其余情况同上；
+- LAUNCH_SINGLE_INSTANCE：每个Task栈只有一个Activity，其余情况同上。
 
 再来说说几个常见的flag含义：
 
 - FLAG_ACTIVITY_NEW_TASK：将Activity放入一个新启动的Task；
 - FLAG_ACTIVITY_CLEAR_TASK：启动Activity时，将目标Activity关联的Task清除，再启动新Task，将该Activity放入该Task。该flags跟FLAG_ACTIVITY_NEW_TASK配合使用。
 - FLAG_ACTIVITY_CLEAR_TOP：启动非栈顶Activity时，先清除该Activity之上的Activity。例如Task已有A、B、C3个Activity，启动A，则清除B，C。类似于SingleTop。
-
-最后再说说：设置`FLAG_ACTIVITY_NEW_TASK`的几个情况：
-
-- 调用者并不是Activity context；
-- 调用者activity带有single instance；
-- 目标activity带有single instance或者single task；
-- 调用者处于finishing状态；
 
 ### 2.10 AS.startActivityLocked
 [-> ActivityStack.java]
@@ -1554,7 +1547,7 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
       }
       ...
       final ActivityRecord next = mStackSupervisor.topRunningActivityLocked();
-      
+
       if (prev.app != null && prev.app.thread != null) {
           EventLog.writeEvent(EventLogTags.AM_PAUSE_ACTIVITY,
                   prev.userId, System.identityHashCode(prev),
@@ -1574,10 +1567,10 @@ inResumeTopActivity用于保证每次只有一个Activity执行resumeTopActivity
       if (mPausingActivity != null) {
           if (!uiSleeping) {
               prev.pauseKeyDispatchingLocked();
-          } 
+          }
 
           if (dontWait) {
-              completePauseLocked(false); 
+              completePauseLocked(false);
               return false;
           } else {
               Message msg = mHandler.obtainMessage(PAUSE_TIMEOUT_MSG);

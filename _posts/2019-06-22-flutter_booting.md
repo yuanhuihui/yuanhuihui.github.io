@@ -31,16 +31,12 @@ Flutter作为一款跨平台的框架，可以运行在Android、iOS等平台，
 
 ![FlutterActivity_create](/img/flutter_boot/FlutterActivity_create.jpg)
 
-#### 1.1.3 Flutter引擎启动图
 FlutterActivity启动过程执行到AttachJNI()后开始触发Flutter引擎的启动初始化，而引擎初始化之前会进行TaskRunners的初始化。
 
-**1) [Flutter引擎启动图](/img/flutter_boot/FlutterEngine_create.jpg)**
+**[Flutter引擎启动图](/img/flutter_boot/FlutterEngine_create.jpg)**
 
 ![FlutterEngine_create](/img/flutter_boot/FlutterEngine_create.jpg)
 
-**2) [TaskRunners启动图](/img/flutter_boot/ThreadHost_create.jpg)**
-
-![ThreadHost_create](/img/flutter_boot/ThreadHost_create.jpg)
 
 ### 1.2 类关系图
 **[Flutter引擎核心类](/img/flutter_boot/ClassEngine.jpg)**
