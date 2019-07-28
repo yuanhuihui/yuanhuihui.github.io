@@ -1,10 +1,10 @@
 # Site settings
 title: Gityuan
-SEOTitle: Gityuan博客 | 袁辉辉的Android博客
+SEOTitle: Gityuan博客 | 袁辉辉的技术博客
 #header-img: img/nav-home.jpg
 email: gityuan@gmail.com
-description: "Android架构,Gityuan,Android博客,Android源码,袁辉辉"
-keyword: "Android,Gityuan,Android博客,Android源码,袁辉辉"
+description: "袁辉辉, Gityuan, Android架构,Android博客,Android源码, Flutter"
+keyword: "袁辉辉, Gityuan, Android, Android博客,Android源码, Flutter"
 url: "http://gityuan.com"              # your host, for absolute URL
 baseurl: ""                             # for example, '/blog' if your blog hosted on 'host/blog'
 
