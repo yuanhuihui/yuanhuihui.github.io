@@ -75,7 +75,7 @@ layout: default
                 <section class="visible-md visible-lg">
                     <hr>
                     <h5><a target="_blank" href="{{'/archive/' | prepend: site.baseurl }}">博客导航</a></h5>
-                    
+
                     <div class="short-about">
                         {% if site.sidebar-avatar %}
                             <img src="{{site.sidebar-avatar}}" />
@@ -83,9 +83,9 @@ layout: default
                         {% if site.sidebar-about-description %}
                             <p>{{site.sidebar-about-description}}</p>
                         {% endif %}
-                        
+
                         <!-- SNS Link -->
-                        <ul class="list-inline">                                                    
+                        <ul class="list-inline">
                             {% if site.weibo_username %}
                             <li>
                                 <a target="_blank" href="http://weibo.com/{{ site.weibo_username }}">
@@ -155,11 +155,11 @@ layout: default
                                     </span>
                                 </a>
                             </li>
-                            {% endif %}    
+                            {% endif %}
                         </ul>
                     </div>
                 </section>
-                <!-- 站内搜索 -->            
+                <!-- 站内搜索 -->
                 <!--<gcse:search></gcse:search>-->
                 <!-- 站内搜索 -->
                 <!-- 标签 -->
@@ -179,11 +179,11 @@ layout: default
                 </section>
                 {% endif %}
 
-                <!-- 打赏支持 -->
+                <!-- 打赏支持 --><!--
                 <div class="short-about">
-                <hr>               
+                <hr>
                 <h5>打赏支持</h5>
-                <ul class="list-inline">                   
+                <ul class="list-inline">
                     {% if site.money-alipay %}
                       <a target="_blank" href="{{site.money-alipay | prepend: site.baseurl}}">
                             <img src="{{site.money-alipay}}" />
@@ -202,10 +202,10 @@ layout: default
                         </p>
                     {% endif %}
                 </ul>
-                 </div>
-                 
+                 </div>-->
+
                  <!-- 热门文章 -->
-                 <hr>               
+                 <hr>
                  <h5>热门文章</h5>
                  <ul class="list-inline">
                      {% for page in site.hotpages %}
@@ -214,7 +214,7 @@ layout: default
                          </li>
                      {% endfor %}
                  </ul>
-                
+
         </div>
         {% endif %}
   </div>

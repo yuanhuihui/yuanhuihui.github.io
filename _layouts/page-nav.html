@@ -26,10 +26,10 @@ layout: default
             <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 postlist-container">
                 {{ content }}
 								<hr>
-                
+
             </div>
-            
-            
+
+
     <!-- Sidebar Container -->
             <div class="
                 col-lg-8 col-lg-offset-2
@@ -65,9 +65,9 @@ layout: default
                 postlist-container
             ">
     			{{ content }}
-    			
+
 					  <hr>
-					
+
     		</div>
     <!-- Sidebar Container -->
             <div class="
@@ -89,7 +89,7 @@ layout: default
                             <p>{{site.sidebar-about-description}}</p>
                         {% endif %}
                         <!-- SNS Link -->
-                        <ul class="list-inline">                                                    
+                        <ul class="list-inline">
                             {% if site.weibo_username %}
                             <li>
                                 <a target="_blank" href="http://weibo.com/{{ site.weibo_username }}">
@@ -169,13 +169,13 @@ layout: default
                                     </span>
                                 </a>
                             </li>
-                            {% endif %}    
+                            {% endif %}
                         </ul>
                     </div>
                 </section>
-                
+
     						<!-- 热门文章 -->
-                <hr>               
+                <hr>
                 <h5>热门文章</h5>
                 <ul class="list-inline">
                     {% for page in site.hotpages %}
@@ -184,20 +184,20 @@ layout: default
                         </li>
                     {% endfor %}
                 </ul>
-                
+
                 <!-- 订阅支持 -->
-                <hr>               
+                <hr>
                 <h5>订阅支持</h5>
                 <ul class="list-inline">
                     <li>
                       <a target="_blank" href="https://xiaozhuanlan.com/gityuan">《解读Android系统架构》</a>
                     </li>
                 </ul>
-								<!-- 打赏支持 -->
+								<!-- 打赏支持 --><!--
 								<div class="short-about">
-                <hr>               
+                <hr>
                 <h5>打赏支持</h5>
-                <ul class="list-inline">                   
+                <ul class="list-inline">
                     {% if site.money-alipay %}
                     	<a target="_blank" href="{{site.money-alipay | prepend: site.baseurl}}">
                             <img src="{{site.money-alipay}}" />
@@ -216,8 +216,8 @@ layout: default
                         </p>
                     {% endif %}
                 </ul>
- 								</div>
-                
+ 								</div> -->
+
                 <!-- 标签 -->
                 {% if site.featured-tags %}
                 <section>
@@ -234,7 +234,7 @@ layout: default
                     </div>
                 </section>
                 {% endif %}
-                
+
     		</div>
         {% endif %}
 	</div>
