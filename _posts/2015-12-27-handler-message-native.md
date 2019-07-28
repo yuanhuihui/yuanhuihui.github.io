@@ -69,7 +69,7 @@ framework/native/include/android/looper.h
 
     static jlong android_os_MessageQueue_nativeInit(JNIEnv* env, jclass clazz) {
         //初始化native消息队列 【3】
-        NativeMessageQueue* nativeMessageQueue = new NativeMessageQueue(); 
+        NativeMessageQueue* nativeMessageQueue = new NativeMessageQueue();
         nativeMessageQueue->incStrong(env); //增加引用计数
         return reinterpret_cast<jlong>(nativeMessageQueue);
     }
@@ -80,9 +80,9 @@ framework/native/include/android/looper.h
 
 ==> android_os_MessageQueue.cpp
 
-    NativeMessageQueue::NativeMessageQueue() 
+    NativeMessageQueue::NativeMessageQueue()
                 : mPollEnv(NULL), mPollObj(NULL), mExceptionObj(NULL) {
-                
+
         mLooper = Looper::getForThread(); //获取TLS中的Looper对象
         if (mLooper == NULL) {
             mLooper = new Looper(false); //创建native层的Looper 【4】
@@ -541,7 +541,7 @@ sendMessage(),sendMessageDelayed() 都是调用sendMessageAtTime()来完成消�
   - 调用RefBase::decStrong()来减少对象的引用计数
   - 当引用计数为0时，则删除NativeMessageQueue对象
 - nativePollOnce()方法
-  - 调用Looper::pollOnce()来完成，空闲时停留在epoll_wait()方法，用于等待事件发生火灾超时
+  - 调用Looper::pollOnce()来完成，空闲时停留在epoll_wait()方法，用于等待事件发生或者超时
 - nativeWake()方法
   - 调用Looper::wake()来完成，向管道mWakeEventfd写入字符；
 

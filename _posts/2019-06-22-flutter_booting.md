@@ -1971,7 +1971,7 @@ DartIsolate::CreateDartVMAndEmbedderObjectPair(
   if (!(*embedder_isolate)->Initialize(isolate, is_root_isolate)) {
     return {nullptr, {}};
   }
-
+  //加载库
   if (!(*embedder_isolate)->LoadLibraries(is_root_isolate)) {
     return {nullptr, {}};
   }

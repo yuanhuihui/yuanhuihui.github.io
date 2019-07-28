@@ -65,3 +65,7 @@ description: "职位内推"
 字节跳动有着浓厚的技术氛围，扁平化的管理，开放透明，机制灵活，和优秀的人做有挑战的事，在北京/深圳/上海等地大量职位招聘，无限潜力和想象空间，高竞争力的待遇，期待你的加入。
 
 ---
+
+<span id="/job/" class="leancloud-visitors" data-flag-title="job">
+    <i class="leancloud-visitors-count"></i>
+</span>
