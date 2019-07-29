@@ -17,47 +17,27 @@ tags:
 
 #### 1.1 消息流程图
 
-**[MessageLoop启动流程图](/img/flutter_message/MessageLoop_create.jpg)**
+**[MessageLoop启动流程图](http://gityuan.com/img/flutter_message/MessageLoop_create.jpg)**
 
-![MessageLoop_create](/img/flutter_message/MessageLoop_create.jpg)
+![MessageLoop_create](http://gityuan.com/img/flutter_message/MessageLoop_create.jpg)
 
 
 该过程主要工作：创建线程，并给每个线程中创建相应的MessageLoop，对于Android平台创建的是MessageLoopAndroid，同时还会创建TaskRunner，之后便进入到相应MessageLoop的run()方法。
 
-**[ScheduleMicrotask流程图](/img/flutter_message/ScheduleMicrotask.jpg)**
+**[ScheduleMicrotask流程图](http://gityuan.com/img/flutter_message/ScheduleMicrotask.jpg)**
 
-![ScheduleMicrotask](/img/flutter_message/ScheduleMicrotask.jpg)
+![ScheduleMicrotask](http://gityuan.com/img/flutter_message/ScheduleMicrotask.jpg)
 
 #### 1.2 MessageLoop类图
 
-**[MessageLoop类图](/img/flutter_message/MessageModel.jpg)**
+**[MessageLoop类图](http://gityuan.com/img/flutter_message/MessageModel.jpg)**
 
-![MessageModel](/img/flutter_message/MessageModel.jpg)
+![MessageModel](http://gityuan.com/img/flutter_message/MessageModel.jpg)
 
 图解：
 
 - Thread和MessageLoop类都有成员变量记录着TaskRunner类；
 - MessageLoopImpl类在Android系统的实现子类为MessageLoopAndroid；
-
-#### 1.3 MessageLoop初始化
-
-    MessageLoop::MessageLoop()
-      MessageLoopImpl::Create
-        MessageLoopAndroid()
-          MessageLoopAndroid::OnEventFired
-              MessageLoop::RunExpiredTasksNow
-                MessageLoopImpl::RunExpiredTasksNow
-                  MessageLoopImpl::FlushTasks
-
-    MessageLoop::Run
-      MessageLoopImpl::DoRun
-        MessageLoopImpl::RunExpiredTasksNow
-          MessageLoopImpl::FlushTasks
-
-    MessageLoop::RunExpiredTasks
-      Dart_HandleMessage
-        HandleOOBMessage
-
 
 ## 二、MessageLoop启动
 
@@ -718,7 +698,7 @@ void UIDartState::FlushMicrotasksNow() {
 ```
 
 ### 5.4 RunMicrotasks
-[-> ]
+[-> third_party/tonic/dart_microtask_queue.cc]
 
 ```Java
 void DartMicrotaskQueue::RunMicrotasks() {
@@ -784,7 +764,7 @@ void _microtaskLoop() {
 
 Flutter引擎启动过程，会创建UI/GPU/IO这3个线程，并且会为每个线程依次创建MessageLoop对象，启动后处于epoll_wait等待状态。对于Flutter的消息机制跟Android原生的消息机制有很多相似之处，都有消息(或者任务)、消息队列以及Looper，有一点不同的是Android有一个Handler类，用于发送消息以及执行回调方法，相对应Flutter中有着相近功能的便是TaskRunner。
 
-消息机制采用的是生产者-消费者模型，此处介绍了两类任务：引擎层的Task和Dart层的Microtask，如下所示：
+消息机制采用的是生产者-消费者模型，本文介绍了两类任务：引擎层的Task和Dart层的Microtask，当然还有Future和DartVM中的消息处理，会在下一篇文章讲解。
 
 - C++引擎层的Task
   - MessageLoopImpl::RegisterTask()：生产Task
@@ -795,3 +775,44 @@ Flutter引擎启动过程，会创建UI/GPU/IO这3个线程，并且会为每个
   - MessageLoopImpl::FlushTasks()：消费Microtask
 
 在引擎中每次消费任务时调用FlushTasks()方法，遍历整个延迟任务队列delayed_tasks_，将时间已到期的任务加入invocations，紧接着会遍历执行FlushMicrotasksNow()来消费所有的微任务。
+
+## 附录
+本文涉及到相关源码文件
+
+```Java
+flutter/shell/common/thread_host.cc
+flutter/shell/platform/android/flutter_main.cc
+
+flutter/fml/
+  - thread.cc
+  - task_runner.cc
+  - message_loop.cc
+  - message_loop_impl.cc
+  - platform/android/message_loop_android.cc
+  - platform/linux/timerfd.cc
+
+
+flutter/lib/ui/
+  - dart_runtime_hooks.cc
+  - natives.dart
+  - ui_dart_state.cc
+
+third_party/dart/sdk/lib/async/schedule_microtask.dart
+third_party/dart/sdk/lib/async/zone.dart
+third_party/dart/runtime/lib/schedule_microtask_patch.dart
+third_party/tonic/dart_microtask_queue.cc
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
