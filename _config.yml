@@ -57,8 +57,8 @@ duoshuo_share: false                     # set to false if you want to use Comme
 
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
-#sidebar-about-description: "Android达摩院"
-sidebar-avatar: /images/about-me/damoyuan.jpg
+#sidebar-about-description: "Gityuan"
+sidebar-avatar: /images/about-me/gityuan_weixin_logo_raw.jpg
 
 
 
@@ -89,6 +89,6 @@ hotpages: [
 
 #money settings
 
-#money-alipay: /images/about-me/alipay.jpg
-#money-weixin: /images/about-me/weixin.jpg
+#money-alipay: /images/about-me/
+#money-weixin: /images/about-me/
 money-description: 如果博客对您有所帮助，请打赏支持或者分享给更多朋友，您的支持与认可将鼓励我坚持不懈的创作，谢谢您！

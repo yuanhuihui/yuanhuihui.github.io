@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- saved from url=(0053)http://127.0.0.1:4000/2018/05/19/android-process-adj/ -->
 <html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    
+
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="author" content="gityuan">
@@ -25,12 +25,12 @@
     <!-- Custom Fonts -->
     <!-- change font-awesome CDN to qiniu -->
     <link href="./解读Android进程优先级ADJ算法 - Gityuan博客 _ 袁辉辉博客_files/font-awesome.min.css" rel="stylesheet" type="text/css">
-    
+
     <!-- add highlight -->
     <link rel="stylesheet" href="./解读Android进程优先级ADJ算法 - Gityuan博客 _ 袁辉辉博客_files/androidstudio.css">
 		<script src="./解读Android进程优先级ADJ算法 - Gityuan博客 _ 袁辉辉博客_files/jquery.nav.js"></script><script src="./解读Android进程优先级ADJ算法 - Gityuan博客 _ 袁辉辉博客_files/fastclick.min.js"></script><script src="./解读Android进程优先级ADJ算法 - Gityuan博客 _ 袁辉辉博客_files/anchor.min.js"></script><script type="text/javascript" src="./解读Android进程优先级ADJ算法 - Gityuan博客 _ 袁辉辉博客_files/highlight.pack.js"></script>
 		<script>hljs.initHighlightingOnLoad();</script>
-		
+
 </head>
 
 
@@ -106,11 +106,11 @@
     /**
      * Since Fastclick is used to delegate 'touchstart' globally
      * to hack 300ms delay in iOS by performing a fake 'click',
-     * Using 'e.stopPropagation' to stop 'touchstart' event from 
+     * Using 'e.stopPropagation' to stop 'touchstart' event from
      * $toggle/$collapse will break global delegation.
-     * 
+     *
      * Instead, we use a 'e.target' filter to prevent handler
-     * added to document close HuxNav.  
+     * added to document close HuxNav.
      *
      * Also, we use 'click' instead of 'touchstart' as compromise
      */
@@ -133,7 +133,7 @@
         background-image: url('/img/nav-home.jpg')
     }
 
-    
+
 </style>
 <header class="intro-header">
     <div class="header-mask"></div>
@@ -142,15 +142,15 @@
             <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
                 <div class="post-heading">
                     <div class="tags">
-                        
+
                         <a target="_blank" class="tag" href="http://127.0.0.1:4000/tags/#android" title="android">android</a>
-                        
+
                     </div>
                     <h1 id="androidadj">解读Android进程优先级ADJ算法</h1>
-                    
-                    
+
+
                     <h2 class="subheading" id=""></h2>
-                    
+
                     <span class="meta">Posted by Gityuan on May 19, 2018</span>
                 </div>
             </div>
@@ -372,7 +372,7 @@ system_server进程应该也是persistent进程？</p>
         updateOomAdjLocked();
     }
     ...
-    
+
     <span class="hljs-keyword">if</span> ((info.flags &amp; PERSISTENT_MASK) == PERSISTENT_MASK) {
         app.persistent = <span class="hljs-keyword">true</span>;
         app.maxAdj = ProcessList.PERSISTENT_PROC_ADJ;
@@ -451,7 +451,7 @@ AMS.computeOomAdjLocked()过程：(为了简化说明，调整部分源码)</p>
         ArrayList&lt;ConnectionRecord&gt; clist = s.connections.valueAt(conni);
         <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; clist.size(); i++) {
             ConnectionRecord cr = clist.get(i);
-            
+
             <span class="hljs-keyword">if</span> (adj &gt; clientAdj) {
                 <span class="hljs-keyword">if</span> (app.hasShownUi &amp;&amp; app != mHomeProcess
                         &amp;&amp; clientAdj &gt; ProcessList.PERCEPTIBLE_APP_ADJ) {
@@ -822,7 +822,7 @@ AMS.computeOomAdjLocked()过程：(为了简化说明，调整部分源码)</p>
                 adj = ProcessList.PERCEPTIBLE_APP_ADJ;
                 app.adjType = <span class="hljs-string">"stop-activity"</span>;
             }
-            
+
             <span class="hljs-keyword">if</span> (!r.finishing) {
                 <span class="hljs-keyword">if</span> (procState &gt; ActivityManager.PROCESS_STATE_LAST_ACTIVITY) {
                     procState = ActivityManager.PROCESS_STATE_LAST_ACTIVITY;
@@ -1422,8 +1422,8 @@ SCHED用于CPU调度分配</p>
 
 								<hr>
 								<font color="#004B97"><strong>欢迎关注微信公众号:</strong></font>
-<a target="_blank" href="http://gityuan.com/images/about-me/damoyuan.jpg">
-	<font color="#f57e42"><strong>Android达摩院</strong></font>
+<a target="_blank" href="http://gityuan.com/images/about-me/gityuan_weixin_logo_raw.jpg">
+	<font color="#f57e42"><strong>Gityuan</strong></font>
 </a>
 
 <font color="#004B97"><strong>, 微博:</strong></font>
@@ -1434,27 +1434,27 @@ SCHED用于CPU调度分配</p>
 <font color="#004B97"><strong>！</strong></font>
 
                 <hr>
-								
+
 
                 <ul class="pager">
-                    
+
                     <li class="previous">
                         <a target="_blank" href="http://127.0.0.1:4000/2018/05/12/binder-driver-bug/" data-toggle="tooltip" data-placement="top" title="Binder Driver缺陷导致定屏问题分析">
                         上一篇<br>
                         <span>Binder Driver缺陷导致定屏问题分析</span>
                         </a>
                     </li>
-                    
-                    
+
+
                 </ul>
 
 
-                
 
-            </div>  
+
+            </div>
 
     <!-- Side Catalog Container -->
-        
+
             <div class="
                 col-lg-2 col-lg-offset-0
                 visible-lg-block
@@ -1468,7 +1468,7 @@ SCHED用于CPU调度分配</p>
                     <ul class="catalog-body"><li class="h2_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#section" rel="nofollow">一、概述</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#section-1" rel="nofollow">1.1 进程</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#section-2" rel="nofollow">1.2 优先级</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#adj" rel="nofollow">1.3 ADJ级别</a></li><li class="h2_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#adj-1" rel="nofollow">二、解读ADJ</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#nativeadj-1000" rel="nofollow">2.1 NATIVE_ADJ(-1000)</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#systemadj-900" rel="nofollow">2.2 SYSTEM_ADJ(-900)</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#setsystemprocess" rel="nofollow">场景1：setSystemProcess</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#persistentprocadj-800" rel="nofollow">2.3 PERSISTENT_PROC_ADJ(-800)</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#newprocessrecordlocked" rel="nofollow">场景1：newProcessRecordLocked</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#addapplocked" rel="nofollow">场景2：addAppLocked</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#persistentserviceadj-700" rel="nofollow">2.4 PERSISTENT_SERVICE_ADJ(-700)</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#newprocessrecordlocked-1" rel="nofollow">场景1：newProcessRecordLocked</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#computeoomadjlocked" rel="nofollow">场景2：computeOomAdjLocked</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#service-flags" rel="nofollow">Service flags解释</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#foregroundappadj0" rel="nofollow">2.5 FOREGROUND_APP_ADJ(0)</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#computeoomadjlocked-1" rel="nofollow">场景1：computeOomAdjLocked</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#bindservice" rel="nofollow">场景2：bindService</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#provider" rel="nofollow">场景3：provider</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#visibleappadj100" rel="nofollow">2.6 VISIBLE_APP_ADJ(100)</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#section-3" rel="nofollow">场景1</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#section-4" rel="nofollow">场景2</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#perceptibleappadj200" rel="nofollow">2.7 PERCEPTIBLE_APP_ADJ(200)</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#activity" rel="nofollow">场景1：Activity状态</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#fg-service" rel="nofollow">场景2： fg-service</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#backupappadj300" rel="nofollow">8. BACKUP_APP_ADJ(300)</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#heavyweightappadj400" rel="nofollow">9. HEAVY_WEIGHT_APP_ADJ(400)</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#serviceadj500" rel="nofollow">10. SERVICE_ADJ(500)</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#homeappadj600" rel="nofollow">11. HOME_APP_ADJ(600)</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#previousappadj700" rel="nofollow">12. PREVIOUS_APP_ADJ(700)</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#servicebadj800" rel="nofollow">13. SERVICE_B_ADJ(800)</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#adjmemfactor" rel="nofollow">ADJ_MEM_FACTOR</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#cachedappminadj900" rel="nofollow">14. CACHED_APP_MIN_ADJ(900)</a></li><li class="h2_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#section-5" rel="nofollow">三、查看进程优先级</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#cpu" rel="nofollow">3.1 CPU调度优先级</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#threadgrouptopapp" rel="nofollow">THREAD_GROUP_TOP_APP</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#threadgroupdefault" rel="nofollow">THREAD_GROUP_DEFAULT</a></li><li class="h4_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#threadgroupbgnoninteractive" rel="nofollow">THREAD_GROUP_BG_NONINTERACTIVE</a></li><li class="h3_nav"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#section-6" rel="nofollow">命令</a></li><li class="h2_nav active"><a href="http://127.0.0.1:4000/2018/05/19/android-process-adj/#section-7" rel="nofollow">三、总结</a></li></ul>
                 </div>
             </div>
-        
+
 
     <!-- Sidebar Container -->
             <div class="
@@ -1477,164 +1477,164 @@ SCHED用于CPU调度分配</p>
                 sidebar-container">
 
                 <!-- Featured Tags -->
-                
+
                 <section>
                     <hr class="hidden-sm hidden-xs">
                     <h5 id="featured-tags"><a target="_blank" href="http://127.0.0.1:4000/tags/">FEATURED TAGS</a></h5>
                     <div class="tags">
-        				
-                            
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#android" title="android" rel="136">
                                     android
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#%E7%BB%84%E4%BB%B6%E7%B3%BB%E5%88%97" title="组件系列" rel="19">
                                     组件系列
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#else" title="else" rel="3">
                                     else
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#debug" title="debug" rel="18">
                                     debug
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#%E6%9D%83%E9%99%90" title="权限" rel="2">
                                     权限
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#web" title="web" rel="2">
                                     web
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#tool" title="tool" rel="12">
                                     tool
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#java" title="java" rel="13">
                                     java
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#performance" title="performance" rel="4">
                                     performance
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#app" title="app" rel="2">
                                     app
                                 </a>
-                            
-        				
-                            
-        				
-                            
+
+
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#%E8%BF%9B%E7%A8%8B%E7%B3%BB%E5%88%97" title="进程系列" rel="13">
                                     进程系列
                                 </a>
-                            
-        				
-                            
-        				
-                            
+
+
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#memory" title="memory" rel="5">
                                     memory
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#jvm" title="jvm" rel="5">
                                     jvm
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#linux" title="linux" rel="8">
                                     linux
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#binder" title="binder" rel="19">
                                     binder
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#ipc" title="ipc" rel="3">
                                     ipc
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#handler" title="handler" rel="3">
                                     handler
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#process" title="process" rel="6">
                                     process
                                 </a>
-                            
-        				
-                            
-        				
-                            
+
+
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#%E7%B3%BB%E7%BB%9F%E5%90%AF%E5%8A%A8" title="系统启动" rel="6">
                                     系统启动
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#AMS" title="AMS" rel="2">
                                     AMS
                                 </a>
-                            
-        				
-                            
-        				
-                            
-        				
-                            
+
+
+
+
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#stability" title="stability" rel="8">
                                     stability
                                 </a>
-                            
-        				
-                            
+
+
+
                 				<a target="_blank" href="http://127.0.0.1:4000/tags/#%E7%BB%84%E4%BB%B6" title="组件" rel="3">
                                     组件
                                 </a>
-                            
-        				
-                            
-        				
-                            
-        				
+
+
+
+
+
+
         			</div>
                 </section>
-                
+
 
                 <!-- Friends Blog -->
-                <!-- 
+                <!--
                  -->
             </div>
         </div>
@@ -1688,7 +1688,7 @@ SCHED用于CPU调度分配</p>
         <div class="row">
             <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
                 <ul class="list-inline text-center">
-                    
+
                     <li>
                         <a target="_blank" href="http://weibo.com/gityuan">
                             <span class="fa-stack fa-lg">
@@ -1697,8 +1697,8 @@ SCHED用于CPU调度分配</p>
                             </span>
                         </a>
                     </li>
-                    
-                    
+
+
                     <li>
                         <a target="_blank" href="https://www.zhihu.com/people/gityuan">
                             <span class="fa-stack fa-lg">
@@ -1707,8 +1707,8 @@ SCHED用于CPU调度分配</p>
                             </span>
                         </a>
                     </li>
-                    
-										
+
+
                     <li>
                         <a target="_blank" href="https://plus.google.com/101388994961262711072">
                             <span class="fa-stack fa-lg">
@@ -1717,12 +1717,12 @@ SCHED用于CPU调度分配</p>
                             </span>
                         </a>
                     </li>
-                    
-                    
-                    
-                    
-                    
-                    
+
+
+
+
+
+
                     <li>
                         <a target="_blank" href="http://127.0.0.1:4000/feed.xml">
                             <span class="fa-stack fa-lg">
@@ -1731,7 +1731,7 @@ SCHED用于CPU调度分配</p>
                             </span>
                         </a>
                     </li>
-                    
+
                 </ul>
                 <p class="copyright text-muted">
                     Copyright © Gityuan  2018 | Powered by Jekyll with Hux Theme

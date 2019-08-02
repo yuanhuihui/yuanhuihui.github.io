@@ -926,145 +926,7 @@ ThreadHost::ThreadHost(std::string name_prefix, uint64_t mask) {
 }
 ```
 
-根据传递的参数，可知首次创建AndroidShellHolder实例的过程，会创建3个线程分别为1.ui, 1.gpu, 1.io。
-
-
-#### 4.2.1 Thread初始化
-[-> flutter/fml/thread.cc]
-
-```Java
-Thread::Thread(const std::string& name) : joined_(false) {
-  fml::AutoResetWaitableEvent latch;
-  fml::RefPtr<fml::TaskRunner> runner;
-  thread_ = std::make_unique<std::thread>([&latch, &runner, name]() -> void {
-    SetCurrentThreadName(name); //设置线程名
-    fml::MessageLoop::EnsureInitializedForCurrentThread(); //初始化 [见小节4.2.2]
-    auto& loop = MessageLoop::GetCurrent();
-    runner = loop.GetTaskRunner();
-    latch.Signal();
-    loop.Run(); //运行 [见小节4.2.7]
-  });
-  latch.Wait();
-  task_runner_ = runner;
-}
-```
-
-#### 4.2.2 EnsureInitializedForCurrentThread
-[-> flutter/fml/message_loop.cc]
-
-```Java
-FML_THREAD_LOCAL ThreadLocal tls_message_loop([](intptr_t value) {
-  delete reinterpret_cast<MessageLoop*>(value);
-});
-
-void MessageLoop::EnsureInitializedForCurrentThread() {
-  if (tls_message_loop.Get() != 0) {
-    return;  //保证只初始化一次
-  }
-  //创建MessageLoop，并保持在tls_message_loop [见小节4.2.3]
-  tls_message_loop.Set(reinterpret_cast<intptr_t>(new MessageLoop()));
-}
-```
-
-创建MessageLoop对象保存在ThreadLocal类型的tls_message_loop变量中。
-
-
-#### 4.2.3 MessageLoop初始化
-[-> flutter/fml/message_loop.cc]
-
-```Java
-MessageLoop::MessageLoop()
-    : loop_(MessageLoopImpl::Create()),  //[见小节4.2.4]
-      //[见小节4.2.6]
-      task_runner_(fml::MakeRefCounted<fml::TaskRunner>(loop_)) {
-}
-```
-
-创建MessageLoopAndroid对象和TaskRunner对象，并保持在当前的MessageLoop对象的成员变量。
-
-
-#### 4.2.4 MessageLoopImpl::Create
-[-> flutter/fml/message_loop_impl.cc]
-
-```Java
-fml::RefPtr<MessageLoopImpl> MessageLoopImpl::Create() {
-#if OS_MACOSX
-  return fml::MakeRefCounted<MessageLoopDarwin>();
-#elif OS_ANDROID
-  return fml::MakeRefCounted<MessageLoopAndroid>(); //[见小节4.2.5]
-#elif OS_LINUX
-  return fml::MakeRefCounted<MessageLoopLinux>();
-#elif OS_WIN
-  return fml::MakeRefCounted<MessageLoopWin>();
-#else
-  return nullptr;
-#endif
-}
-```
-
-针对Android平台，则MessageLoopImpl的实例为MessageLoopAndroid。
-
-#### 4.2.5 MessageLoopAndroid初始化
-[-> flutter/fml/platform/android/message_loop_android.cc]
-
-```Java
-MessageLoopAndroid::MessageLoopAndroid()
-    : looper_(AcquireLooperForThread()),
-      timer_fd_(::timerfd_create(kClockType, TFD_NONBLOCK | TFD_CLOEXEC)),
-      running_(false) {
-  static const int kWakeEvents = ALOOPER_EVENT_INPUT;
-
-  ALooper_callbackFunc read_event_fd = [](int, int events, void* data) -> int {
-    if (events & kWakeEvents) {
-      //不断受到回调
-      reinterpret_cast<MessageLoopAndroid*>(data)->OnEventFired();
-    }
-    return 1;
-  };
-
-  int add_result = ::ALooper_addFd(looper_.get(),          // looper
-                                   timer_fd_.get(),        // fd
-                                   ALOOPER_POLL_CALLBACK,  // ident
-                                   kWakeEvents,            // events
-                                   read_event_fd,          // callback
-                                   this                    // baton
-  );
-}
-```
-
-执行完MessageLoopAndroid初始化后，回到[小节4.2.3]，接着开始执行TaskRunner初始化。
-
-#### 4.2.6 TaskRunner初始化
-[-> flutter/fml/task_runner.cc]
-
-```Java
-TaskRunner::TaskRunner(fml::RefPtr<MessageLoopImpl> loop)
-    : loop_(std::move(loop)) {}
-```
-
-
-#### 4.2.7 MessageLoopAndroid::Run
-[-> flutter/fml/platform/android/message_loop_android.cc]
-
-```Java
-void MessageLoopAndroid::Run() {
-  running_ = true;
-
-  while (running_) {
-    int result = ::ALooper_pollOnce(-1,       // infinite timeout
-                                    nullptr,  // out fd,
-                                    nullptr,  // out events,
-                                    nullptr   // out data
-    );
-    if (result == ALOOPER_POLL_TIMEOUT || result == ALOOPER_POLL_ERROR) {
-      // 处理使用ALooper API终止循环的情况
-      running_ = false;
-    }
-  }
-}
-```
-
-该线程处于pollOnce轮询等待的状态。
+根据传递的参数，可知首次创建AndroidShellHolder实例的过程，会创建1.ui, 1.gpu, 1.io这3个线程。每个线程Thread初始化过程，都会创建相应的MessageLoop、TaskRunner对象，然后进入pollOnce轮询等待状态，更多详见[深入理解Flutter消息机制](http://gityuan.com/2019/07/20/flutter_message_loop/)的MessageLoop启动部分。
 
 ### 4.3 Shell::Create
 [-> flutter/shell/common/shell.cc]
@@ -1888,7 +1750,7 @@ std::weak_ptr<DartIsolate> DartIsolate::CreateRootIsolate(
 ```
 
 #### 4.12.5 DartIsolate初始化
-[-> flutter/runtime/dart_isolate.cc
+[-> flutter/runtime/dart_isolate.cc]
 
 ```Java
 DartIsolate::DartIsolate(const Settings& settings,

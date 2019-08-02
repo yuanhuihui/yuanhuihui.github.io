@@ -1221,6 +1221,8 @@ static void _runTimers(List pendingTimers) {
 
 ```Java
 class _Future<T> implements Future<T> {
+  final Zone _zone;
+  _Future() : _zone = Zone.current;
 
   void _complete(FutureOr<T> value) {
     if (value is Future<T>) {
