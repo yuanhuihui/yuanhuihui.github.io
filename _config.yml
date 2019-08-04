@@ -73,14 +73,15 @@ hotpages: [
         title: "Android系统架构开篇    ",
         href:  "http://gityuan.com/android"
     }, {
-        title: "彻底理解Android Binder通信架构",
-        href:  "http://gityuan.com/2016/09/04/binder-start-service/"
+        title: "Flutter开篇",
+        href:  "http://gityuan.com/flutter"
+
     },{
         title: "Binder系列开篇",
         href:  "http://gityuan.com/2015/10/31/binder-prepare/"
     },{
-        title: "理解Android进程创建流程",
-        href:  "http://gityuan.com/2016/03/26/app-process-create/"
+      title: "彻底理解Android Binder通信架构",
+      href:  "http://gityuan.com/2016/09/04/binder-start-service/"
     },{
         title: "如何自学 Android   ",
         href:  "http://gityuan.com/2016/04/24/how-to-study-android/"
