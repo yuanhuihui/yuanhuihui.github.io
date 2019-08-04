@@ -636,7 +636,6 @@ MessageHandler有两个消息队列，分别是用于记录普通消息的queue_
 
 可见，此处会执行pool_->Run的时机便是执行过MessageHandler::Run()方法，并且task_已经被MessageHandler::TaskCallback所消费的情况。
 
-
 #### 3.4.1 MessageQueue::Enqueue
 [-> third_party/dart/runtime/vm/message.cc]
 
