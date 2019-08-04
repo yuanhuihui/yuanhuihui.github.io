@@ -72,7 +72,7 @@ new Future(() => print("Hello Gityuan"));
 
 图解：
 
-- MessageHandlerruntime/vm/message_handler.cc
+- MessageHandler位于runtime/vm/message_handler.cc
 - IsolateMessageHandler位于runtime/vm/isolate.cc
 - DartMessageHandler位于tonic/dart_message_handler.cc
 
@@ -507,7 +507,7 @@ RawError* Object::Init(Isolate* isolate,
 - C++层的SendPort类对应于 Dart层中DartIsolate库里的\_SendPortImpl类；
 
 
-可见，\_Timer.\_notifyZeroHandler()过程会创建_RawReceivePortImpl类型的_receivePort和_SendPortImpl类型的_sendPort，然后再通过send()发送_ZERO_EVENT消息。
+可见，[小节2.8]的\_Timer.\_notifyZeroHandler()过程会创建_RawReceivePortImpl类型的_receivePort和_SendPortImpl类型的_sendPort，然后再通过send()发送_ZERO_EVENT消息。
 
 ## 三、任务发送
 
@@ -631,6 +631,12 @@ void MessageHandler::PostMessage(Message* message, bool before_events) {
 
 MessageHandler有两个消息队列，分别是用于记录普通消息的queue_队列和OOB消息oob_queue_队列；
 
+- MessageHandler的成员变量pool_赋值过程是在MessageHandler::Run()方法;
+- MessageHandler的成员变量task_赋值过程也是在MessageHandler::Run()或者PostMessage()方法；
+
+可见，此处会执行pool_->Run的时机便是执行过MessageHandler::Run()方法，并且task_已经被MessageHandler::TaskCallback所消费的情况。
+
+
 #### 3.4.1 MessageQueue::Enqueue
 [-> third_party/dart/runtime/vm/message.cc]
 
@@ -710,19 +716,59 @@ void IsolateMessageHandler::MessageNotify(Message::Priority priority) {
 }
 ```
 
-DartIsolate::Initialize()过程，经过层层调用会执行到DartMessageHandler::Initialize方法，来设置message_notify_callback。
+message_notify_callback具体是哪个callback呢？见DartIsolate::Initialize()过程
 
-#### 3.5.1 DartMessageHandler::Initialize
+#### 3.5.1 DartIsolate::Initialize
+[-> flutter/runtime/dart_isolate.cc]
+
+```Java
+bool DartIsolate::Initialize(Dart_Isolate dart_isolate, bool is_root_isolate) {
+  ...
+  auto* isolate_data = static_cast<std::shared_ptr<DartIsolate>*>(
+    Dart_IsolateData(dart_isolate));
+  //[见小节3.5.2]
+  SetMessageHandlingTaskRunner(GetTaskRunners().GetUITaskRunner(),
+                             is_root_isolate);
+  ...
+}
+```
+
+#### 3.5.2 DartIsolate::SetMessageHandlingTaskRunner
+[-> flutter/runtime/dart_isolate.cc]
+
+```Java
+void DartIsolate::SetMessageHandlingTaskRunner(
+    fml::RefPtr<fml::TaskRunner> runner, bool is_root_isolate) {
+  //只有root isolate才会执行该过程
+  if (!is_root_isolate || !runner) {
+    return;
+  }
+  message_handling_task_runner_ = runner;
+
+  //[见小节3.5.3]
+  message_handler().Initialize([runner](std::function<void()> task) { runner->PostTask(task); });
+}
+```
+
+这里需要重点注意的是，只有root isolate才会执行Initialize()过程。
+
+#### 3.5.3 DartMessageHandler::Initialize
 [-> third_party/tonic/dart_message_handler.cc]
 
 ```Java
 void DartMessageHandler::Initialize(TaskDispatcher dispatcher) {
+  //设置task_dispatcher_
   task_dispatcher_ = dispatcher;
+  //设置message_notify_callback
   Dart_SetMessageNotifyCallback(MessageNotifyCallback);
 }
 ```
 
-Dart_SetMessageNotifyCallback()会在设置message_notify_callback的值设置为MessageNotifyCallback。
+由此可见：
+
+- task_dispatcher_值等价于UITaskRunner->PostTask()，执行的是向UI线程PostTask的操作；
+- message_notify_callback值等价于DartMessageHandler::MessageNotifyCallback；
+
 
 ### 3.6 DartMessageHandler::MessageNotifyCallback
 [-> third_party/tonic/dart_message_handler.cc]
@@ -735,7 +781,22 @@ void DartMessageHandler::MessageNotifyCallback(Dart_Isolate dest_isolate) {
 }
 ```
 
-此处message_handler()所得到的是DartMessageHandler对象。
+此处message_handler()赋值过程是在DartState初始化时机，如下所示。
+
+#### 3.6.1 DartState
+[-> third_party/tonic/dart_state.cc]
+
+```Java
+DartState::DartState(int dirfd, std::function<void(Dart_Handle)> message_epilogue)
+    : isolate_(nullptr),
+      class_library_(new DartClassLibrary),
+      message_handler_(new DartMessageHandler()),
+      file_loader_(new FileLoader(dirfd)),
+      message_epilogue_(message_epilogue),
+      has_set_return_code_(false) {}
+```
+
+DartIsolate间接继承于DartState，在DartIsolate初始化过程会调用DartState的初始化。故message_handler()所对应的便是DartMessageHandler对象。
 
 ### 3.7 DartMessageHandler::OnMessage
 [-> third_party/tonic/dart_message_handler.cc]
@@ -754,50 +815,7 @@ void DartMessageHandler::OnMessage(DartState* dart_state) {
 }
 ```
 
-关于task_dispatcher_的赋值过程，见DartIsolate::Initialize()过程。
-
-#### 3.7.1 DartIsolate::Initialize
-[-> flutter/runtime/dart_isolate.cc]
-
-```Java
-bool DartIsolate::Initialize(Dart_Isolate dart_isolate, bool is_root_isolate) {
-  ...
-  auto* isolate_data = static_cast<std::shared_ptr<DartIsolate>*>(
-    Dart_IsolateData(dart_isolate));
-  //[见小节3.7.2]
-  SetMessageHandlingTaskRunner(GetTaskRunners().GetUITaskRunner(),
-                             is_root_isolate);
-  ...
-}
-```
-
-#### 3.7.2 DartIsolate::SetMessageHandlingTaskRunner
-[-> flutter/runtime/dart_isolate.cc]
-
-```Java
-void DartIsolate::SetMessageHandlingTaskRunner(
-    fml::RefPtr<fml::TaskRunner> runner, bool is_root_isolate) {
-  message_handling_task_runner_ = runner;
-
-  //[见小节3.7.3]
-  message_handler().Initialize(
-      [runner](std::function<void()> task) { runner->PostTask(task); });
-}
-```
-
-#### 3.7.3 DartMessageHandler::Initialize
-[-> third_party/tonic/dart_message_handler.cc]
-
-```Java
-void DartMessageHandler::Initialize(TaskDispatcher dispatcher) {
-  //设置task_dispatcher_
-  task_dispatcher_ = dispatcher;
-  Dart_SetMessageNotifyCallback(MessageNotifyCallback);
-}
-```
-
-可见task_dispatcher_等价于UITaskRunner->PostTask()，执行的是向UI线程PostTask的操作。
-
+关于task_dispatcher_的赋值过程，前面[小节3.5.3]已说明，等价于UITaskRunner->PostTask()。
 
 ### 3.8 TaskRunner::PostTask
 [-> flutter/fml/task_runner.cc]
@@ -808,7 +826,7 @@ void TaskRunner::PostTask(fml::closure task) {
 }
 ```
 
-从[小节3.7.1]可知，future的send过程最终是将Task放入到UI线程，再由[深入理解Flutter消息机制](http://gityuan.com/2019/07/20/flutter_message_loop/)的[小节4.1]可知最终会向delayed_tasks_中添加一个task。
+从[小节3.5.2]可知，future的send过程最终是将Task放入到UI线程，再由[深入理解Flutter消息机制](http://gityuan.com/2019/07/20/flutter_message_loop/)的[小节4.1]可知最终会向delayed_tasks_中添加一个task。
 
 
 ## 四、任务接收

@@ -2166,7 +2166,7 @@ void AndroidShellHolder::Launch(RunConfiguration config) {
 ```
 
 ### 5.8 Engine::Run
-[-> Engine::Run]
+[-> flutter/shell/common/engine.cc]
 
 ```Java
 Engine::RunStatus Engine::Run(RunConfiguration configuration) {
@@ -2203,7 +2203,7 @@ Engine::RunStatus Engine::Run(RunConfiguration configuration) {
 ```
 
 ### 5.9 Engine::PrepareAndLaunchIsolate
-[-> Engine::Run]
+[-> flutter/shell/common/engine.cc]
 
 ```Java
 Engine::RunStatus Engine::PrepareAndLaunchIsolate(
@@ -2271,7 +2271,7 @@ bool DartIsolate::Run(const std::string& entrypoint_name, fml::closure on_run) {
 
 ```Java
 static bool InvokeMainEntrypoint(Dart_Handle user_entrypoint_function) {
-  //start_main_isolate_function等于_startIsolate  [见小节5.11.1]
+  // [见小节5.11.1]
   Dart_Handle start_main_isolate_function =
       tonic::DartInvokeField(Dart_LookupLibrary(tonic::ToDart("dart:isolate")),
                              "_getStartMainIsolateFunction", {});
@@ -2286,7 +2286,7 @@ static bool InvokeMainEntrypoint(Dart_Handle user_entrypoint_function) {
 }
 ```
 
-经过Dart虚拟机，最终会调用的Dart层的_runMainZoned()方法。
+经过Dart虚拟机最终会调用的Dart层的_runMainZoned()方法，其中参数start_main_isolate_function等于_startIsolate。
 
 #### 5.11.1 \_getStartMainIsolateFunction
 [-> third_party/dart/runtime/lib/isolate_patch.dart]
@@ -2295,6 +2295,18 @@ static bool InvokeMainEntrypoint(Dart_Handle user_entrypoint_function) {
 @pragma("vm:entry-point", "call")
 Function _getStartMainIsolateFunction() {
   return _startMainIsolate;
+}
+
+@pragma("vm:entry-point", "call")
+void _startMainIsolate(Function entryPoint, List<String> args) {
+  _startIsolate(
+      null, // no parent port
+      entryPoint,
+      args,
+      null, // no message
+      true, // isSpawnUri
+      null, // no control port
+      null); // no capabilities
 }
 ```
 
@@ -2322,23 +2334,12 @@ void _runMainZoned(Function startMainIsolateFunction, Function userMainFunction)
 }
 ```
 
-\_runMainZoned()经过一系列调用，然后执行到userMainFunction()，也就是main.dart文件中的main()方法，这便开启执行整个Dart业务代码。
+该方法的startMainIsolateFunction等于_startIsolate，userMainFunction等于main.dart文件中的main()方法，也就是整个Dart业务代码。
 
 #### 5.12.1 \_startIsolate
 [-> third_party/dart/runtime/lib/isolate_patch.dart]
 
 ```Java
-void _startMainIsolate(Function entryPoint, List<String> args) {
-  _startIsolate(
-      null, // no parent port
-      entryPoint,
-      args,
-      null, // no message
-      true, // isSpawnUri
-      null, // no control port
-      null); // no capabilities
-}
-
 @pragma("vm:entry-point", "call")
 void _startIsolate(
     SendPort parentPort,
