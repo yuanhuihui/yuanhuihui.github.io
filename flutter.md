@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Fluter开篇"
+title:  "Flutter开篇"
 permalink: /flutter/
 date:   2019-06-01 22:22:22
 catalog:  true
