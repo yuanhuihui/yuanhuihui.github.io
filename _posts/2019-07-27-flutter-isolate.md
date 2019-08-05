@@ -18,9 +18,9 @@ Root isolate负责UI渲染以及用户交互操作，需要及时响应，当存
 
 
 #### 1.1 Isolate创建流程图
-**[Isolate创建流程](/img/flutter_isolate/isolate.jpg)**
+**[Isolate创建流程](/img/flutter_isolate/Isolate.jpg)**
 
-![Isolate创建流程](/img/flutter_isolate/isolate.jpg)
+![Isolate创建流程](/img/flutter_isolate/Isolate.jpg)
 
 #### 1.2 相关类图
 
