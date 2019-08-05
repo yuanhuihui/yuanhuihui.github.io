@@ -16,7 +16,6 @@ tags:
 Root isolate负责UI渲染以及用户交互操作，需要及时响应，当存在耗时操作，则必须创建新的isolate，否则UI渲染会被阻塞。
 创建isolate的方法便是Isolate.spawn()，本文将从源码角度来讲解该方法的核心工作机制。
 
-
 #### 1.1 Isolate创建流程图
 **[Isolate创建流程](/img/flutter_isolate/Isolate.jpg)**
 
@@ -34,6 +33,29 @@ Root isolate负责UI渲染以及用户交互操作，需要及时响应，当存
 - 创建Isolate对象：dart_api_impl.cc中的Dart_CreateIsolate，会调用到dart.cc的CreateIsolate()
 - 关闭Isolate对象：dart_api_impl.cc中的Dart_ShutdownIsolate，会调用到dart.cc的ShutdownIsolate()
 
+
+#### 1.3 实例
+
+```Java
+void main() async {
+  ReceivePort receivePort = ReceivePort();
+  //创建新的isolate
+  isolate = await Isolate.spawn(entryPoint, receivePort.sendPort, debugName: 'gyIsolate');
+
+  receivePort.listen((message) {
+    debugPrint('receive $message');
+  });
+}
+
+entryPoint(SendPort sendPort) {
+  //该过程运行在新的isolate
+  Timer.periodic(Duration(seconds: 5), (Timer timer) {
+    sendPort.send("hello gityuan");
+  });
+}
+```
+
+接下来，看看Isolate.spawn()的工作流程。
 
 ## 二、原理分析
 
