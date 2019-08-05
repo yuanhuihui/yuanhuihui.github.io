@@ -289,7 +289,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
   - [Input系统—进程交互](http://gityuan.com/2016/12/31/input-ipc/)
   - [Input系统—ANR原理分析](http://gityuan.com/2017/01/01/input-anr/)
 - PKMS服务
-  - [PackageManager启动篇](http://gityuan.com/2016/11/06/packagemanagerservice)
+  - [PackageManager启动篇](http://gityuan.com/2016/11/06/packagemanager)
   - [Installd守护进程](http://gityuan.com/2016/11/13/android-installd)
 - Alarm服务
   - [理解AlarmManager机制](http://gityuan.com/2017/03/12/alarm_manager_service/)

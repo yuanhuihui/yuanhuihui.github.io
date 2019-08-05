@@ -781,7 +781,7 @@ static jlong AttachJNI(JNIEnv* env,
                        jobject flutterJNI,
                        jboolean is_background_view) {
   fml::jni::JavaObjectWeakGlobalRef java_object(env, flutterJNI);
-   //[见小节3.4.4]
+   //[见小节4.1]
   auto shell_holder = std::make_unique<AndroidShellHolder>(
       FlutterMain::Get().GetSettings(), java_object, is_background_view);
   if (shell_holder->IsValid()) {
