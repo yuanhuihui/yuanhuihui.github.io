@@ -689,7 +689,7 @@ private int postSyncBarrier(long when) {
                 p = p.next;
             }
         }
-        if (prev != null) { // invariant: p == prev.next
+        if (prev != null) {
             msg.next = p;
             prev.next = msg;
         } else {
@@ -704,34 +704,32 @@ private int postSyncBarrier(long when) {
 前面小节[4.3]已说明每一个普通Message必须有一个target，对于特殊的message是没有target，即同步barrier token。
 这个消息的价值就是用于拦截同步消息，所以并不会唤醒Looper.
 
-    public void removeSyncBarrier(int token) {
-         synchronized (this) {
-             Message prev = null;
-             Message p = mMessages;
-             //从消息队列找到 target为空,并且token相等的Message
-             while (p != null && (p.target != null || p.arg1 != token)) {
-                 prev = p;
-                 p = p.next;
-             }
-             if (p == null) {
-                 throw new IllegalStateException("The specified message queue synchronization "
-                         + " barrier token has not been posted or has already been removed.");
-             }
-             final boolean needWake;
-             if (prev != null) {
-                 prev.next = p.next;
-                 needWake = false;
-             } else {
-                 mMessages = p.next;
-                 needWake = mMessages == null || mMessages.target != null;
-             }
-             p.recycleUnchecked();
+```Java
+public void removeSyncBarrier(int token) {
+     synchronized (this) {
+         Message prev = null;
+         Message p = mMessages;
+         //从消息队列找到 target为空,并且token相等的Message
+         while (p != null && (p.target != null || p.arg1 != token)) {
+             prev = p;
+             p = p.next;
+         }
+         final boolean needWake;
+         if (prev != null) {
+             prev.next = p.next;
+             needWake = false;
+         } else {
+             mMessages = p.next;
+             needWake = mMessages == null || mMessages.target != null;
+         }
+         p.recycleUnchecked();
 
-             if (needWake && !mQuitting) {
-                 nativeWake(mPtr);
-             }
+         if (needWake && !mQuitting) {
+             nativeWake(mPtr);
          }
      }
+ }
+```
 
 postSyncBarrier只对同步消息产生影响，对于异步消息没有任何差别。
 
