@@ -6,7 +6,7 @@ catalog:    true
 tags:
     - android
     - debug
-    - stability
+    - NativeDebug
 
 ---
 
@@ -92,16 +92,16 @@ tags:
     void foo() {
         Trace.beginSection("app:foo");
         ...
-        Trace.endSection(); 
+        Trace.endSection();
     }
-    
+
 **2) Java Framework**
 
     import android.os.Trace;
     void foo() {
         Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "fw:foo");
         ...
-        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER); 
+        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
     }
 
 **3） Native Framework**
@@ -201,7 +201,7 @@ addr2line命令参数：
       -C --demangle[=style]  Demangle function names
       -h --help              Display this information
       -v --version           Display the program's version
-  
+
 #### 3.1 Native地址转换
 
 **Step 1: 获取symbols表**
@@ -225,7 +225,7 @@ addr2line命令参数：
 #### 3.2 kernel地址转换
 
 addr2line也适用于调试分析Linux Kernel的问题。例如，查询如下命令所对应的代码行号
-    
+
     [<0000000000000000>] binder_thread_read+0x2a0/0x324
 
 
