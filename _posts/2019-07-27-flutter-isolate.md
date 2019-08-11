@@ -57,7 +57,7 @@ entryPoint(SendPort sendPort) {
 
 接下来，看看Isolate.spawn()的工作流程。
 
-## 二、原理分析
+## 二、创建Worker线程
 
 ### 2.1 Isolate.spawn
 [-> third_party/dart/sdk/lib/isolate/isolate.dart]
@@ -111,7 +111,7 @@ class Isolate {
           null, packageConfig,
           debugName);
 
-      return await _spawnCommon(readyPort); // [见小节2.20]
+      return await _spawnCommon(readyPort); // [见小节4.9]
     } catch (e, st) {
       if (readyPort != null) {
         readyPort.close();
@@ -329,7 +329,7 @@ bool ThreadPool::Run(Task* task) {
   {
     MutexLocker ml(&mutex_);
     if (idle_workers_ == NULL) {
-      //[见小节2.4.1]
+      //[见小节2.5]
       worker = new Worker(this);
       new_worker = true;
       count_started_++;
@@ -349,10 +349,10 @@ bool ThreadPool::Run(Task* task) {
     }
   }
 
-  //设置任务，并唤醒worker[2.4.2]
+  //设置任务，并唤醒worker[2.6]
   worker->SetTask(task);
   if (new_worker) {
-    //当首次创建Worker则启动线程池 [见小节2.4.3]
+    //当首次创建Worker则启动线程池 [见小节2.7]
     worker->StartThread();
   }
   return true;
@@ -361,7 +361,7 @@ bool ThreadPool::Run(Task* task) {
 
 根据前面，可知此处的task参数的实例为SpawnIsolateTask。
 
-#### 2.4.1 Worker初始化
+### 2.5 Worker初始化
 [-> third_party/dart/runtime/vm/thread_pool.cc]
 
 ```Java
@@ -376,7 +376,7 @@ ThreadPool::Worker::Worker(ThreadPool* pool)
       shutdown_next_(NULL) {}
 ```
 
-#### 2.4.2 Worker::SetTask
+### 2.6 Worker::SetTask
 [-> third_party/dart/runtime/vm/thread_pool.cc]
 
 ```Java
@@ -387,12 +387,12 @@ void ThreadPool::Worker::SetTask(Task* task) {
 }
 ```
 
-#### 2.4.3 Worker::StartThread
+### 2.7 Worker::StartThread
 [-> third_party/dart/runtime/vm/thread_pool.cc]
 
 ```Java
 void ThreadPool::Worker::StartThread() {
-  //[见小节2.4.3]
+  //[见小节2.71]
   int result = OSThread::Start("Dart ThreadPool Worker", &Worker::Main,
                                reinterpret_cast<uword>(this));
 }
@@ -400,7 +400,7 @@ void ThreadPool::Worker::StartThread() {
 
 创建名为"Dart ThreadPool Worker"的线程，入口函数为Worker::Main()
 
-#### 2.4.3 OSThread::Start
+#### 2.7.1 OSThread::Start
 [-> third_party/dart/runtime/vm/os_thread_android.cc]
 
 ```Java
@@ -421,9 +421,9 @@ int OSThread::Start(const char* name,
 }
 ```
 
-线程创建后则执行入口函数Worker::Main，这是由小节[2.4.2]中设置的函数方法。
+线程创建后则执行入口函数Worker::Main，这是由小节[2.7]中设置的函数方法。
 
-### 2.5 Worker::Main
+### 2.8 Worker::Main
 [-> third_party/dart/runtime/vm/thread_pool.cc]
 
 ```Java
@@ -441,7 +441,7 @@ void ThreadPool::Worker::Main(uword args) {
     worker->id_ = id;
     pool = worker->pool_;
   }
-  //[见小节2.5.1]
+  //[见小节2.9]
   bool released = worker->Loop();
 
   if (!released) {
@@ -469,7 +469,7 @@ void ThreadPool::Worker::Main(uword args) {
 }
 ```
 
-#### 2.5.1 Worker::Loop
+### 2.9 Worker::Loop
 [-> third_party/dart/runtime/vm/thread_pool.cc]
 
 ```Java
@@ -481,7 +481,7 @@ bool ThreadPool::Worker::Loop() {
     task_ = NULL;
 
     ml.Exit();
-    task->Run();  //[见小节2.6]
+    task->Run();  //[见小节3.1]
     delete task;
     ml.Enter();
 
@@ -509,8 +509,9 @@ bool ThreadPool::Worker::Loop() {
 }
 ```
 
+## 三、创建Isolate对象
 
-### 2.6 SpawnIsolateTask.Run
+### 3.1  SpawnIsolateTask.Run
 [-> third_party/dart/runtime/lib/isolate.cc]
 
 ```Java
@@ -518,14 +519,14 @@ class SpawnIsolateTask : public ThreadPool::Task {
 
   virtual void Run() {
     char* error = NULL;
-    //[见小节2.6.1]
+    //[见小节3.1.1]
     Dart_IsolateCreateCallback callback = Isolate::CreateCallback();
     ...
 
     Dart_IsolateFlags api_flags = *(state_->isolate_flags());
     const char* name = (state_->debug_name() == NULL) ? state_->function_name()
                                                       : state_->debug_name();
-    // 创建Isolate对象 [见小节2.7]
+    // 创建Isolate对象 [见小节3.2]
     Isolate* isolate = reinterpret_cast<Isolate*>((callback)(
         state_->script_url(), name, state_->package_root(),
         state_->package_config(), &api_flags, state_->init_data(), &error));
@@ -540,15 +541,15 @@ class SpawnIsolateTask : public ThreadPool::Task {
     isolate->set_spawn_state(state_);
     state_ = NULL;
     if (isolate->is_runnable()) {
-      isolate->Run(); //[见小节2.13]
+      isolate->Run(); //[见小节4.1]
     }
   }
 };
 ```
 
-该方法中经过层层调用最终是指[小节2.10.1]中的Isolate对象，先来看看Dart_IsolateCreateCallback的赋值过程，这要从DartVM初始化说起。
+先来看看Dart_IsolateCreateCallback的赋值过程，这要从DartVM初始化说起。
 
-#### 2.6.1 DartVM初始化
+#### 3.1.1 DartVM初始化
 [-> flutter/runtime/dart_vm.cc]
 
 ```Java
@@ -565,7 +566,7 @@ DartVM::DartVM(std::shared_ptr<const DartVMData> vm_data,
 
 Dart_Initialize()方法会调用Dart::Init()，层层调用到Isolate对象的SetCreateCallback()方法，从而得到create_callback_等于DartIsolateCreateCallback。
 
-### 2.7 DartIsolate::DartIsolateCreateCallback
+### 3.2 DartIsolate::DartIsolateCreateCallback
 [-> flutter/runtime/dart_isolate.cc]
 
 ```Java
@@ -578,7 +579,7 @@ Dart_Isolate DartIsolate::DartIsolateCreateCallback(
     std::shared_ptr<DartIsolate>* parent_embedder_isolate,
     char** error) {
   ...
-  //[见小节2.8]
+  //[见小节3.3]
   return CreateDartVMAndEmbedderObjectPair(
              advisory_script_uri,         
              advisory_script_entrypoint,
@@ -592,7 +593,7 @@ Dart_Isolate DartIsolate::DartIsolateCreateCallback(
 }
 ```
 
-### 2.8 CreateDartVMAndEmbedderObjectPair
+### 3.3 CreateDartVMAndEmbedderObjectPair
 [-> flutter/runtime/dart_isolate.cc]
 
 ```Java
@@ -614,7 +615,7 @@ std::pair<Dart_Isolate, std::weak_ptr<DartIsolate>> DartIsolate::CreateDartVMAnd
     auto* raw_embedder_isolate = embedder_isolate.release();
     TaskRunners null_task_runners(advisory_script_uri, nullptr, nullptr,
                                   nullptr, nullptr);
-    //创建DartIsolate [见小节2.8.1]
+    //创建DartIsolate [见小节3.3.1]
     embedder_isolate = std::make_unique<std::shared_ptr<DartIsolate>>(
         std::make_shared<DartIsolate>(
             (*raw_embedder_isolate)->GetSettings(),         
@@ -628,7 +629,7 @@ std::pair<Dart_Isolate, std::weak_ptr<DartIsolate>> DartIsolate::CreateDartVMAnd
             (*raw_embedder_isolate)->child_isolate_preparer_));
   }
 
-  //创建DartVM isolate [见小节2.9]
+  //创建DartVM isolate [见小节3.4]
   Dart_Isolate isolate = Dart_CreateIsolate(
       advisory_script_uri,         
       advisory_script_entrypoint,  
@@ -654,7 +655,7 @@ std::pair<Dart_Isolate, std::weak_ptr<DartIsolate>> DartIsolate::CreateDartVMAnd
 }
 ```
 
-#### 2.8.1 DartIsolate初始化
+#### 3.3.1 DartIsolate初始化
 [-> flutter/runtime/dart_isolate.cc]
 
 ```Java
@@ -667,7 +668,7 @@ DartIsolate::DartIsolate(const Settings& settings,
                          std::string advisory_script_uri,
                          std::string advisory_script_entrypoint,
                          ChildIsolatePreparer child_isolate_preparer)
-    //[见小节2.8.2]
+    //[见小节3.3.2]
     : UIDartState(std::move(task_runners),
                   settings.task_observer_add,
                   settings.task_observer_remove,
@@ -686,7 +687,7 @@ DartIsolate::DartIsolate(const Settings& settings,
 }
 ```
 
-#### 2.8.2 UIDartState初始化
+#### 3.3.2 UIDartState初始化
 [-> flutter/lib/ui/ui_dart_state.cc]
 
 ```Java
@@ -715,7 +716,7 @@ UIDartState::UIDartState(
 }
 ```
 
-### 2.9 Dart_CreateIsolate
+### 3.4 Dart_CreateIsolate
 [-> third_party/dart/runtime/vm/dart_api_impl.cc]
 
 ```Java
@@ -728,14 +729,14 @@ Dart_CreateIsolate(const char* script_uri,
                    Dart_IsolateFlags* flags,
                    void* callback_data,
                    char** error) {
-  //[见小节2.10]
+  //[见小节3.5]
   return CreateIsolate(script_uri, name, snapshot_data, snapshot_instructions,
                        shared_data, shared_instructions, NULL, 0, flags,
                        callback_data, error);
 }
 ```
 
-### 2.10 CreateIsolate
+### 3.5 CreateIsolate
 [-> third_party/dart/runtime/vm/dart_api_impl.cc]
 
 ```Java
@@ -755,7 +756,7 @@ static Dart_Isolate CreateIsolate(const char* script_uri,
     Isolate::FlagsInitialize(&api_flags); //设置默认flags
     flags = &api_flags;
   }
-  // [见小节2.11]
+  // [见小节3.6]
   Isolate* I = Dart::CreateIsolate((name == NULL) ? "isolate" : name, *flags);
   ...
   {
@@ -763,7 +764,7 @@ static Dart_Isolate CreateIsolate(const char* script_uri,
     StackZone zone(T);
     HANDLESCOPE(T);
     T->EnterApiScope();
-    //初始化 [见小节2.12]
+    //初始化 [见小节3.7]
     const Error& error_obj = Error::Handle(Z,
                   Dart::InitializeIsolate(snapshot_data, snapshot_instructions,
                                 shared_data, shared_instructions, kernel_buffer,
@@ -788,13 +789,13 @@ static Dart_Isolate CreateIsolate(const char* script_uri,
 - 调用Dart::CreateIsolate()来创建isolate对象；
 - 调用Dart::InitializeIsolate来初始化isolate相关信息；
 
-### 2.11 Dart::CreateIsolate
+### 3.6 Dart::CreateIsolate
 [-> third_party/dart/runtime/vm/dart.cc]
 
 ```Java
 Isolate* Dart::CreateIsolate(const char* name_prefix,
                              const Dart_IsolateFlags& api_flags) {
-  //初始化isolae [见小节2.10.1]
+  //初始化isolae [见小节3.6.1]
   Isolate* isolate = Isolate::InitIsolate(name_prefix, api_flags);
   return isolate;
 }
@@ -802,7 +803,7 @@ Isolate* Dart::CreateIsolate(const char* name_prefix,
 
 创建真正的Isolate对象。
 
-#### 2.10.1 Isolate::InitIsolate
+#### 3.6.1 Isolate::InitIsolate
 [-> third_party/dart/runtime/vm/isolate.cc]
 
 ```Java
@@ -822,12 +823,12 @@ Isolate* Isolate::InitIsolate(const char* name_prefix,
     is_service_or_kernel_isolate = true;
   }
 #endif
-  //初始化堆[见小节2.10.2]
+  //初始化堆[见小节3.6.2]
   Heap::Init(result,
              is_vm_isolate ? 0 : FLAG_new_gen_semi_max_size * MBInWords,
              (is_service_or_kernel_isolate ? kDefaultMaxOldGenHeapSize
                                            : FLAG_old_gen_heap_size) * MBInWords);
-  // [见小节2.10.3]
+  // [见小节3.6.3]
   if (!Thread::EnterIsolate(result)) {
     ... //当进入isolate失败，则关闭并删除isolate，并直接返回
     return NULL;
@@ -846,7 +847,7 @@ Isolate* Isolate::InitIsolate(const char* name_prefix,
   result->set_terminate_capability(result->random()->NextUInt64());
   result->BuildName(name_prefix);
 
-  //添加到isolate列表 [见小节2.10.4]
+  //添加到isolate列表 [见小节3.6.4]
   if (!AddIsolateToList(result)) {
     //当添加失败，则关闭并删除isolate，并直接返回
     ...
@@ -857,11 +858,11 @@ Isolate* Isolate::InitIsolate(const char* name_prefix,
 
 该方法主要功能：
 
-- 创建isolate对象；可见[小节2.6]中的Isolate真正的便是该方法所创建的Isolate对象。
+- 创建isolate对象；可见[小节3.1]中的Isolate真正的便是该方法所创建的Isolate对象。
 - 创建Heap，IsolateMessageHandler，ApiState对象，都保存到该isolate对象的成员变量；
 - 如果整个过程执行成功，则将新创建的isolate添加到isolates_list_head_链表；如果失败，则会关闭并删除isolate对象。
 
-#### 2.10.2 Heap::Init
+#### 3.6.2 Heap::Init
 [-> third_party/dart/runtime/vm/heap/heap.cc]
 
 ```Java
@@ -874,7 +875,7 @@ void Heap::Init(Isolate* isolate,
 }
 ```
 
-#### 2.10.3 Thread::EnterIsolate
+#### 3.6.3 Thread::EnterIsolate
 [-> third_party/dart/runtime/vm/thread.cc]
 
 ```Java
@@ -894,7 +895,7 @@ bool Thread::EnterIsolate(Isolate* isolate) {
 }
 ```
 
-#### 2.10.4 Isolate::AddIsolateToList
+#### 3.6.4 Isolate::AddIsolateToList
 [-> third_party/dart/runtime/vm/isolate.cc]
 
 ```Java
@@ -909,7 +910,7 @@ bool Isolate::AddIsolateToList(Isolate* isolate) {
 }
 ```
 
-### 2.12 Dart::InitializeIsolate
+### 3.7 Dart::InitializeIsolate
 [-> third_party/dart/runtime/vm/dart.cc]
 
 ```Java
@@ -932,10 +933,7 @@ RawError* Dart::InitializeIsolate(const uint8_t* snapshot_data,
   if ((snapshot_data != NULL) && kernel_buffer == NULL) {
     //读取snapshot，并初始化状态
     const Snapshot* snapshot = Snapshot::SetupFromBuffer(snapshot_data);
-
-    if (!IsSnapshotCompatible(vm_snapshot_kind_, snapshot->kind())) {
-        ...
-    }
+    ...
     FullSnapshotReader reader(snapshot, snapshot_instructions, shared_data,
                               shared_instructions, T);
     //读取isolate的Snapshot
@@ -970,19 +968,21 @@ RawError* Dart::InitializeIsolate(const uint8_t* snapshot_data,
 到这里Isolate的创建过程便真正完成，接下来回到[小节2.6]，便开始执行run()方法。
 
 
-### 2.13 Isolate::Run
+## 四、运行Isolate
+
+### 4.1 Isolate::Run
 [-> third_party/dart/runtime/vm/isolate.cc]
 
 ```Java
 void Isolate::Run() {
-  //[见小节2.14]
+  //[见小节4.2]
   message_handler()->Run(Dart::thread_pool(), RunIsolate, ShutdownIsolate,
                          reinterpret_cast<uword>(this));
 }
 ```
 
 
-### 2.14 MessageHandler::Run
+### 4.2 MessageHandler::Run
 [-> third_party/dart/runtime/vm/message_handler.cc]
 
 ```Java
@@ -998,7 +998,7 @@ void MessageHandler::Run(ThreadPool* pool,
   callback_data_ = data;
   //创建MessageHandlerTask对象
   task_ = new MessageHandlerTask(this);
-  //[见小节2.15]
+  //[见小节4.3]
   task_running = pool_->Run(task_);
 }
 ```
@@ -1007,7 +1007,7 @@ void MessageHandler::Run(ThreadPool* pool,
 
 此处的ThreadPool::Run()方法跟[小节2.4]是一致的，唯一不同的此处的参数为MessageHandlerTask对象，该对象跟SpawnIsolateTask类似，都是继承于ThreadPool::Task类，接下来看看MessageHandlerTask的Run方法。
 
-### 2.15 MessageHandlerTask.Run
+### 4.3 MessageHandlerTask.Run
 [-> third_party/dart/runtime/vm/message_handler.cc]
 
 ```Java
@@ -1017,7 +1017,7 @@ class MessageHandlerTask : public ThreadPool::Task {
   }
 
   virtual void Run() {
-    handler_->TaskCallback(); //[见小节2.16]
+    handler_->TaskCallback(); //[见小节4.4]
   }
 
  private:
@@ -1025,7 +1025,7 @@ class MessageHandlerTask : public ThreadPool::Task {
 };
 ```
 
-### 2.16 MessageHandler::TaskCallback
+### 4.4 MessageHandler::TaskCallback
 [-> third_party/dart/runtime/vm/message_handler.cc]
 
 ```Java
@@ -1040,7 +1040,7 @@ void MessageHandler::TaskCallback() {
     if (status == kOK) {
       if (start_callback_) {
         ml.Exit();
-        //[见小节2.17]
+        //[见小节4.5]
         status = start_callback_(callback_data_);
         start_callback_ = NULL;
         ml.Enter();
@@ -1051,12 +1051,12 @@ void MessageHandler::TaskCallback() {
         handle_messages = false;
 
         if (status != kShutdown) {
-          //回调待处理消息 [见小节2.18]
+          //回调待处理消息 [见小节4.6]
           status = HandleMessages(&ml, (status == kOK), true);
         }
 
         if (status == kOK && HasLivePorts()) {
-          // [见小节2.19]
+          // [见小节4.7]
           handle_messages = CheckIfIdleLocked(&ml);
         }
       }
@@ -1075,7 +1075,7 @@ void MessageHandler::TaskCallback() {
 }
 ```
 
-### 2.17 RunIsolate
+### 4.5 RunIsolate
 [-> third_party/dart/runtime/vm/isolate.cc]
 
 ```Java
@@ -1124,7 +1124,7 @@ static MessageHandler::MessageStatus RunIsolate(uword parameter) {
     const Library& lib = Library::Handle(Library::IsolateLibrary());
     const String& entry_name = String::Handle(String::New("_startIsolate"));
     const Function& entry_point = Function::Handle(lib.LookupLocalFunction(entry_name));
-    //执行_startIsolate方法[2.17.1]
+    //执行_startIsolate方法[4.5.1]
     result = DartEntry::InvokeFunction(entry_point, args);
     ...
   }
@@ -1133,7 +1133,7 @@ static MessageHandler::MessageStatus RunIsolate(uword parameter) {
 
 ```
 
-#### 2.17.1 \_startIsolate
+#### 4.5.1 \_startIsolate
 [-> third_party/dart/runtime/lib/isolate_patch.dart]
 
 ```Java
@@ -1163,7 +1163,7 @@ void _startIsolate(
 
 历经千山万水，终于开始最开始[小节2.1]中指定的方法entryPoint(message)。
 
-### 2.18 MessageHandler::HandleMessages
+### 4.6 HandleMessages
 [-> third_party/dart/runtime/vm/message_handler.cc]
 
 ```Java
@@ -1213,7 +1213,7 @@ MessageHandler::MessageStatus MessageHandler::HandleMessages(
 
 更多关于HandleMessages()的细节，见文章[深入理解Flutter异步Future机制](http://gityuan.com/2019/07/21/flutter_future/)中的[小节4.3]
 
-### 2.19 MessageHandler::CheckIfIdleLocked
+### 4.7 CheckIfIdleLocked
 [-> third_party/dart/runtime/vm/message_handler.cc]
 
 ```Java
@@ -1232,13 +1232,13 @@ bool MessageHandler::CheckIfIdleLocked(MonitorLocker* ml) {
     paused_for_messages_ = false;
     return true;
   }
-  // 立刻执行idle任务 [见小节2.19.1]
+  // 立刻执行idle任务 [见小节4.8]
   RunIdleTaskLocked(ml);
   return true;
 }
 ```
 
-#### 2.19.1 MessageHandler::RunIdleTaskLocked
+### 4.8 RunIdleTaskLocked
 [-> third_party/dart/runtime/vm/message_handler.cc]
 
 ```Java
@@ -1258,7 +1258,7 @@ void MessageHandler::RunIdleTaskLocked(MonitorLocker* ml) {
 
 对堆内存进行GC操作。 接下来再回到最开始的[小节2.2]执行\_spawnCommon()操作。
 
-### 2.20 \_spawnCommon
+### 4.9 \_spawnCommon
 [-> third_party/dart/runtime/lib/isolate_patch.dart]
 
 ```Java
@@ -1284,7 +1284,7 @@ static Future<Isolate> _spawnCommon(RawReceivePort readyPort) {
 }
 ```
 
-## 三、总结
+## 五、总结
 
 Flutter的dart代码默认运行在root isolate，即便是创建的异步future方法也不例外，而对于耗时方法势必会导致UI线程阻塞，从而导致卡顿。如何解决这个问题呢，那就是针对耗时的操作，需要创建新的isolate，isolate采用的是同一进程内的多线程间内存不共享的设计方案。dart语言之所以这样设计isolate，是为了避免线程竞争出现。正因为isolate之间无法共享内存数据，为此同时设计了套SendPort/ReceivePort的Port端口通信机制，让各isolate间彼此独立，但又可以相互的通信。对于port通信的实现原理其实还是异步消息机制。Dart的Isolate是由Dart VM管理的，对于Flutter引擎也无法直接访问。
 
