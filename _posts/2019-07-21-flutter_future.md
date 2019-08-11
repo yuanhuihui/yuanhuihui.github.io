@@ -1231,7 +1231,7 @@ static void _runTimers(List pendingTimers) {
 }
 ```
 
-经过复杂的调用，终于执行最初的[小节2.1]的回调方法_complete()。
+经过复杂的调用，callback所对应的是[小节2.1]的回调方法_complete()。
 
 ### 4.8 \_Future.\_complete
 [-> third_party/dart/sdk/lib/async/future_impl.dart]
@@ -1251,7 +1251,7 @@ class _Future<T> implements Future<T> {
     } else {
       _FutureListener listeners = _removeListeners();
       _setValue(value);
-      _propagateToListeners(this, listeners);
+      _propagateToListeners(this, listeners); //处理相应方法
     }
   }
 }
@@ -1278,7 +1278,7 @@ Future的整个执行过程主要工作：
   - 再从ZeroTimer链表中添加所有时间已过期的消息以及无延迟的消息；
   - 然后回调执行真正的future中定义的业务逻辑代码。
 
-这里有一个主要注意的地方，那就是Future操作只是异步执行，不会阻塞本次在UI线程的执行，但是其执行关键点还是通过TaskRunner::PostTask()将Task放入UI线程，那么意味着如果Future内存在耗时操作依然是影响UI线程的后续渲染绘制流畅度，所以说对于开发者不能在Future中做耗时操作。如果要做耗时操作，为保证应用的及时响应，应该将任务放到独立线程的isolate或者worker。
+这里有一个主要注意的地方，那就是Future操作只是异步执行，不会阻塞本次在UI线程的执行，但是其执行关键点[小节3.7]中通过TaskRunner::PostTask()将Task放入UI线程，那么意味着如果Future内存在耗时操作依然是影响UI线程的后续渲染绘制流畅度，所以说对于开发者不能在Future中做耗时操作。如果要做耗时操作，为保证应用的及时响应，应该将任务放到独立线程的isolate或者worker。
 
 
 ## 附录
