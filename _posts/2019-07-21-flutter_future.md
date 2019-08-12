@@ -615,7 +615,7 @@ void MessageHandler::PostMessage(Message* message, bool before_events) {
       queue_->Enqueue(message, before_events);
     }
     if (paused_for_messages_) {
-      ml.Notify();
+      ml.Notify(); //当work处于CheckIfIdleLocked检测后处于wait状态，则唤醒
     }
     message = NULL;
 

@@ -28,7 +28,7 @@ tags:
 ## 二、Widget更新流程
 
 ### 2.1 setState
-[-> framework.dart:: StatelessWidget]
+[-> framework.dart:: State]
 
 ```Java
 abstract class State<T extends StatefulWidget> extends Diagnosticable {
