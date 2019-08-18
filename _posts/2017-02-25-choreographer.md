@@ -468,11 +468,13 @@ private static final class CallbackRecord {
 
 #### 4.1.1 创建WMS
 
-    private WindowManagerService(
-        ...
-        mAnimator = new WindowAnimator(this); //【见小节4.1.2】
-        ...
-    }
+```Java
+private WindowManagerService(
+    ...
+    mAnimator = new WindowAnimator(this); //【见小节4.1.2】
+    ...
+}
+```
 
 #### 4.1.2 创建WindowAnimator
 [-> WindowAnimator.java]
