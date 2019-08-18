@@ -1015,16 +1015,10 @@ DartVMRef DartVMRef::Create(Settings settings,
   if (auto vm = gVM.lock()) {
     return DartVMRef{std::move(vm)};
   }
-
-  std::lock_guard<std::mutex> dependents_lock(gVMDependentsMutex);
-  //数据重置
-  gVMData.reset();
-  gVMServiceProtocol.reset();
-  gVMIsolateNameServer.reset();
-  gVM.reset();
+  ...
 
   auto isolate_name_server = std::make_shared<IsolateNameServer>();
-  //创建虚拟机[见小节4.4.1]
+  //创建虚拟机
   auto vm = DartVM::Create(std::move(settings),          
                            std::move(vm_snapshot),       
                            std::move(isolate_snapshot),  
@@ -1040,216 +1034,11 @@ DartVMRef DartVMRef::Create(Settings settings,
   if (settings.leak_vm) {
     gVMLeak = new std::shared_ptr<DartVM>(vm);
   }
-
   return DartVMRef{std::move(vm)};
 }
 ```
 
-#### 4.4.1 DartVM::Create
-[-> flutter/runtime/dart_vm.cc]
-
-```Java
-std::shared_ptr<DartVM> DartVM::Create(
-    Settings settings,
-    fml::RefPtr<DartSnapshot> vm_snapshot,
-    fml::RefPtr<DartSnapshot> isolate_snapshot,
-    fml::RefPtr<DartSnapshot> shared_snapshot,
-    std::shared_ptr<IsolateNameServer> isolate_name_server) {
-  auto vm_data = DartVMData::Create(settings,                     //
-                                    std::move(vm_snapshot),       //
-                                    std::move(isolate_snapshot),  //
-                                    std::move(shared_snapshot)    //
-  );
-  ...
-  //[见小节4.4.2]
-  return std::shared_ptr<DartVM>(
-      new DartVM(std::move(vm_data), std::move(isolate_name_server)));
-}
-```
-
-#### 4.4.2 DartVM初始化
-[-> flutter/runtime/dart_vm.cc]
-
-```Java
-DartVM::DartVM(std::shared_ptr<const DartVMData> vm_data,
-               std::shared_ptr<IsolateNameServer> isolate_name_server)
-    : settings_(vm_data->GetSettings()),
-      vm_data_(vm_data),
-      isolate_name_server_(std::move(isolate_name_server)),
-      service_protocol_(std::make_shared<ServiceProtocol>()) {
-  TRACE_EVENT0("flutter", "DartVMInitializer");
-  gVMLaunchCount++;
-  {
-    TRACE_EVENT0("flutter", "dart::bin::BootstrapDartIo");
-    dart::bin::BootstrapDartIo();
-    if (!settings_.temp_directory_path.empty()) {
-      dart::bin::SetSystemTempDirectory(settings_.temp_directory_path.c_str());
-    }
-  }
-
-  std::vector<const char*> args;
-  //忽略无法识别的flags参数
-  args.push_back("--ignore-unrecognized-flags");
-
-  for (auto* const profiler_flag :
-       ProfilingFlags(settings_.enable_dart_profiling)) {
-    args.push_back(profiler_flag);
-  }
-
-  PushBackAll(&args, kDartLanguageArgs, arraysize(kDartLanguageArgs));
-
-  if (IsRunningPrecompiledCode()) {
-    PushBackAll(&args, kDartPrecompilationArgs,
-                arraysize(kDartPrecompilationArgs));
-  }
-  //当处于非预编译模式，则开启Dart断言
-  bool enable_asserts = !settings_.disable_dart_asserts;
-
-#if FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DYNAMIC_PROFILE || \
-    FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DYNAMIC_RELEASE
-  enable_asserts = false;
-#endif
-
-#if !OS_FUCHSIA
-  if (IsRunningPrecompiledCode()) {
-    enable_asserts = false;
-  }
-#endif
-
-#if FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DEBUG
-  //调试模式使用JIT，禁用代码页写保护，以避免每次编译前后的内存页保护更改
-  PushBackAll(&args, kDartWriteProtectCodeArgs,
-              arraysize(kDartWriteProtectCodeArgs));
-#endif
-
-  if (enable_asserts) {
-    PushBackAll(&args, kDartAssertArgs, arraysize(kDartAssertArgs));
-  }
-
-  if (settings_.start_paused) {
-    PushBackAll(&args, kDartStartPausedArgs, arraysize(kDartStartPausedArgs));
-  }
-
-  if (settings_.disable_service_auth_codes) {
-    PushBackAll(&args, kDartDisableServiceAuthCodesArgs,
-                arraysize(kDartDisableServiceAuthCodesArgs));
-  }
-
-  if (settings_.endless_trace_buffer || settings_.trace_startup) {
-    //跟踪启动过程，则会开启无限大小的buffer，保证信息不被丢失
-    PushBackAll(&args, kDartEndlessTraceBufferArgs,
-                arraysize(kDartEndlessTraceBufferArgs));
-  }
-
-  if (settings_.trace_systrace) {
-    PushBackAll(&args, kDartSystraceTraceBufferArgs,
-                arraysize(kDartSystraceTraceBufferArgs));
-    PushBackAll(&args, kDartTraceStreamsArgs, arraysize(kDartTraceStreamsArgs));
-  }
-
-  if (settings_.trace_startup) {
-    PushBackAll(&args, kDartTraceStartupArgs, arraysize(kDartTraceStartupArgs));
-  }
-
-  for (size_t i = 0; i < settings_.dart_flags.size(); i++)
-    args.push_back(settings_.dart_flags[i].c_str());
-
-  char* flags_error = Dart_SetVMFlags(args.size(), args.data());
-  ...
-
-  DartUI::InitForGlobal();  //[见小节4.4.5]
-
-  {
-    TRACE_EVENT0("flutter", "Dart_Initialize");
-    Dart_InitializeParams params = {};
-    params.version = DART_INITIALIZE_PARAMS_CURRENT_VERSION;
-    params.vm_snapshot_data =
-        vm_data_->GetVMSnapshot().GetData()->GetSnapshotPointer();
-    params.vm_snapshot_instructions =
-        vm_data_->GetVMSnapshot().GetInstructionsIfPresent();
-    params.create = reinterpret_cast<decltype(params.create)>(
-        DartIsolate::DartIsolateCreateCallback);
-    params.shutdown = reinterpret_cast<decltype(params.shutdown)>(
-        DartIsolate::DartIsolateShutdownCallback);
-    params.cleanup = reinterpret_cast<decltype(params.cleanup)>(
-        DartIsolate::DartIsolateCleanupCallback);
-    params.thread_exit = ThreadExitCallback;
-    params.get_service_assets = GetVMServiceAssetsArchiveCallback;
-    params.entropy_source = dart::bin::GetEntropy;
-    char* init_error = Dart_Initialize(&params);
-
-    //应用生命周期中最早的可记录时间戳发送到timeline，跟渲染第一帧时间差值，可帮忙分析Flutter的启动时间
-    if (engine_main_enter_ts != 0) {
-      Dart_TimelineEvent("FlutterEngineMainEnter",  // label
-                         engine_main_enter_ts,      // timestamp0
-                         engine_main_enter_ts,      // timestamp1_or_async_id
-                         Dart_Timeline_Event_Duration,  // event type
-                         0,                             // argument_count
-                         nullptr,                       // argument_names
-                         nullptr                        // argument_values
-      );
-    }
-  }
-
-  Dart_SetFileModifiedCallback(&DartFileModifiedCallback);
-
-  //允许Dart vm输出端stdout和stderr
-  Dart_SetServiceStreamCallbacks(&ServiceStreamListenCallback,
-                                 &ServiceStreamCancelCallback);
-
-  Dart_SetEmbedderInformationCallback(&EmbedderInformationCallback);
-
-  if (settings_.dart_library_sources_kernel != nullptr) {
-    std::unique_ptr<fml::Mapping> dart_library_sources =
-        settings_.dart_library_sources_kernel();
-    //设置dart：*库的源代码以进行调试。
-    Dart_SetDartLibrarySourcesKernel(dart_library_sources->GetMapping(),
-                                     dart_library_sources->GetSize());
-  }
-}
-```
-
-#### 4.4.3 DartUI::InitForGlobal
-[-> flutter/lib/ui/dart_ui.cc]
-
-```Java
-void DartUI::InitForGlobal() {
-  if (!g_natives) {
-    g_natives = new tonic::DartLibraryNatives();
-    Canvas::RegisterNatives(g_natives);
-    CanvasGradient::RegisterNatives(g_natives);
-    CanvasImage::RegisterNatives(g_natives);
-    CanvasPath::RegisterNatives(g_natives);
-    CanvasPathMeasure::RegisterNatives(g_natives);
-    Codec::RegisterNatives(g_natives);
-    DartRuntimeHooks::RegisterNatives(g_natives);
-    EngineLayer::RegisterNatives(g_natives);
-    FontCollection::RegisterNatives(g_natives);
-    FrameInfo::RegisterNatives(g_natives);
-    ImageFilter::RegisterNatives(g_natives);
-    ImageShader::RegisterNatives(g_natives);
-    IsolateNameServerNatives::RegisterNatives(g_natives);
-    Paragraph::RegisterNatives(g_natives);
-    ParagraphBuilder::RegisterNatives(g_natives);
-    Picture::RegisterNatives(g_natives);
-    PictureRecorder::RegisterNatives(g_natives);
-    Scene::RegisterNatives(g_natives);
-    SceneBuilder::RegisterNatives(g_natives);
-    SceneHost::RegisterNatives(g_natives);
-    SemanticsUpdate::RegisterNatives(g_natives);
-    SemanticsUpdateBuilder::RegisterNatives(g_natives);
-    Vertices::RegisterNatives(g_natives);
-    Window::RegisterNatives(g_natives);
-
-    // 第二个isolates不提供UI相关的APIs
-    g_natives_secondary = new tonic::DartLibraryNatives();
-    DartRuntimeHooks::RegisterNatives(g_natives_secondary);
-    IsolateNameServerNatives::RegisterNatives(g_natives_secondary);
-  }
-}
-```
-
-DartLibraryNatives的Register()方法注册各种dart的native方法，用于Dart调用C++代码。
+更多关于虚拟机创建过程，详见[深入理解Dart虚拟机启动](http://gityuan.com/2019/06/23/dart-vm/)的[小节2.1]部分。
 
 ### 4.5 Shell::Create
 [-> flutter/shell/common/shell.cc]
@@ -1712,32 +1501,19 @@ std::weak_ptr<DartIsolate> DartIsolate::CreateRootIsolate(
   Dart_Isolate vm_isolate = nullptr;
   std::weak_ptr<DartIsolate> embedder_isolate;
 
-  //由于是root isolate，这里伪造一个父embedder对象。此处不能使用unique_ptr，因为构造函数是私有的。
-  // isolate生命周期完全由VM管理  [见小节4.12.5]
+  //创建DartIsolate
   auto root_embedder_data = std::make_unique<std::shared_ptr<DartIsolate>>(
       std::make_shared<DartIsolate>(
-          settings,                      
-          std::move(isolate_snapshot),  
-          std::move(shared_snapshot),    
-          task_runners,                 
-          std::move(snapshot_delegate),  
-          std::move(io_manager),        
-          advisory_script_uri,           
-          advisory_script_entrypoint,    
-          nullptr  //当isolate准备运行的时候，会设置子isolate preparer
-          ));
-  //[见小节4.12.6]
+          settings, std::move(isolate_snapshot),
+          std::move(shared_snapshot), task_runners,                 
+          std::move(snapshot_delegate), std::move(io_manager),        
+          advisory_script_uri, advisory_script_entrypoint,    
+          nullptr));
+  //创建Isolate
   std::tie(vm_isolate, embedder_isolate) = CreateDartVMAndEmbedderObjectPair(
-      advisory_script_uri.c_str(),         
-      advisory_script_entrypoint.c_str(),  
-      nullptr,                             // package root
-      nullptr,                             // package config
-      flags,                               
-      root_embedder_data.get(),            //父类embedder数据
-      true,                                //是否root isolate
-      &error                               
-  );
-
+      advisory_script_uri.c_str(), advisory_script_entrypoint.c_str(),  
+      nullptr, nullptr, flags,                               
+      root_embedder_data.get(), true, &error);
 
   std::shared_ptr<DartIsolate> shared_embedder_isolate = embedder_isolate.lock();
   if (shared_embedder_isolate) {
@@ -1749,199 +1525,7 @@ std::weak_ptr<DartIsolate> DartIsolate::CreateRootIsolate(
 }
 ```
 
-#### 4.12.5 DartIsolate初始化
-[-> flutter/runtime/dart_isolate.cc]
-
-```Java
-DartIsolate::DartIsolate(const Settings& settings,
-                         fml::RefPtr<const DartSnapshot> isolate_snapshot,
-                         fml::RefPtr<const DartSnapshot> shared_snapshot,
-                         TaskRunners task_runners,
-                         fml::WeakPtr<SnapshotDelegate> snapshot_delegate,
-                         fml::WeakPtr<IOManager> io_manager,
-                         std::string advisory_script_uri,
-                         std::string advisory_script_entrypoint,
-                         ChildIsolatePreparer child_isolate_preparer)
-    : UIDartState(std::move(task_runners),
-                  settings.task_observer_add,
-                  settings.task_observer_remove,
-                  std::move(snapshot_delegate),
-                  std::move(io_manager),
-                  advisory_script_uri,
-                  advisory_script_entrypoint,
-                  settings.log_tag,
-                  settings.unhandled_exception_callback,
-                  DartVMRef::GetIsolateNameServer()),
-      settings_(settings),
-      isolate_snapshot_(std::move(isolate_snapshot)),
-      shared_snapshot_(std::move(shared_snapshot)),
-      child_isolate_preparer_(std::move(child_isolate_preparer)) {
-  phase_ = Phase::Uninitialized;
-}
-```
-
-#### 4.12.6 CreateDartVMAndEmbedderObjectPair
-[-> flutter/runtime/dart_isolate.cc
-
-```Java
-DartIsolate::CreateDartVMAndEmbedderObjectPair(
-    const char* advisory_script_uri,
-    const char* advisory_script_entrypoint,
-    const char* package_root,
-    const char* package_config,
-    Dart_IsolateFlags* flags,
-    std::shared_ptr<DartIsolate>* p_parent_embedder_isolate,
-    bool is_root_isolate,
-    char** error) {
-  TRACE_EVENT0("flutter", "DartIsolate::CreateDartVMAndEmbedderObjectPair");
-
-  std::unique_ptr<std::shared_ptr<DartIsolate>> embedder_isolate(p_parent_embedder_isolate);
-
-  if (!is_root_isolate) {
-    auto* raw_embedder_isolate = embedder_isolate.release();
-
-    TaskRunners null_task_runners(advisory_script_uri, nullptr, nullptr,
-                                  nullptr, nullptr);
-
-    embedder_isolate = std::make_unique<std::shared_ptr<DartIsolate>>(
-        std::make_shared<DartIsolate>(
-            (*raw_embedder_isolate)->GetSettings(),        
-            (*raw_embedder_isolate)->GetIsolateSnapshot(),
-            (*raw_embedder_isolate)->GetSharedSnapshot(),   
-            null_task_runners,                             
-            fml::WeakPtr<SnapshotDelegate>{},              
-            fml::WeakPtr<IOManager>{},                     
-            advisory_script_uri,         
-            advisory_script_entrypoint,  
-            (*raw_embedder_isolate)->child_isolate_preparer_));
-  }
-
-  // [见小节4.12.7]
-  Dart_Isolate isolate = Dart_CreateIsolate(
-      advisory_script_uri,         
-      advisory_script_entrypoint,  
-      (*embedder_isolate)
-          ->GetIsolateSnapshot()
-          ->GetData()
-          ->GetSnapshotPointer(),
-      (*embedder_isolate)->GetIsolateSnapshot()->GetInstructionsIfPresent(),
-      (*embedder_isolate)->GetSharedSnapshot()->GetDataIfPresent(),
-      (*embedder_isolate)->GetSharedSnapshot()->GetInstructionsIfPresent(),
-      flags, embedder_isolate.get(), error);
-  ...
-
-  if (!(*embedder_isolate)->Initialize(isolate, is_root_isolate)) {
-    return {nullptr, {}};
-  }
-  //加载库
-  if (!(*embedder_isolate)->LoadLibraries(is_root_isolate)) {
-    return {nullptr, {}};
-  }
-  auto weak_embedder_isolate = (*embedder_isolate)->GetWeakIsolatePtr();
-
-  //Root isolates是由引擎启动，secondary isolates当被标记为可运行则会在虚拟机中运行
-  if (!is_root_isolate) {
-    if (!(*embedder_isolate)->child_isolate_preparer_((*embedder_isolate).get())) {
-      return {nullptr, {}};
-    }
-  }
-
-  //embedder的所有权由Dart VM控制，因此返回给调用者的是弱引用
-  embedder_isolate.release();
-  return {isolate, weak_embedder_isolate};
-}
-```
-
-#### 4.12.7 Dart_CreateIsolate
-[-> third_party/dart/runtime/vm/dart_api_impl.cc]
-
-```Java
-DART_EXPORT Dart_Isolate
-Dart_CreateIsolate(const char* script_uri,
-                   const char* name,
-                   const uint8_t* snapshot_data,
-                   const uint8_t* snapshot_instructions,
-                   const uint8_t* shared_data,
-                   const uint8_t* shared_instructions,
-                   Dart_IsolateFlags* flags,
-                   void* callback_data,
-                   char** error) {
-  API_TIMELINE_DURATION(Thread::Current());
-  //[见小节4.12.8]
-  return CreateIsolate(script_uri, name, snapshot_data, snapshot_instructions,
-                       shared_data, shared_instructions, NULL, 0, flags,
-                       callback_data, error);
-}
-```
-
-#### 4.12.8 CreateIsolate
-[-> third_party/dart/runtime/vm/dart_api_impl.cc]
-
-```Java
-static Dart_Isolate CreateIsolate(const char* script_uri,
-                                  const char* name,
-                                  const uint8_t* snapshot_data,
-                                  const uint8_t* snapshot_instructions,
-                                  const uint8_t* shared_data,
-                                  const uint8_t* shared_instructions,
-                                  const uint8_t* kernel_buffer,
-                                  intptr_t kernel_buffer_size,
-                                  Dart_IsolateFlags* flags,
-                                  void* callback_data,
-                                  char** error) {
-  Dart_IsolateFlags api_flags;
-  if (flags == NULL) {
-    Isolate::FlagsInitialize(&api_flags);
-    flags = &api_flags;
-  }
-  // [见小节4.12.9]
-  Isolate* I = Dart::CreateIsolate((name == NULL) ? "isolate" : name, *flags);
-  ...
-  {
-    Thread* T = Thread::Current();
-    StackZone zone(T);
-    HANDLESCOPE(T);
-    T->EnterApiScope();
-    const Error& error_obj = Error::Handle(
-        Z,
-        Dart::InitializeIsolate(snapshot_data, snapshot_instructions,
-                                shared_data, shared_instructions, kernel_buffer,
-                                kernel_buffer_size, callback_data));
-    if (error_obj.IsNull()) {
-#if defined(DART_NO_SNAPSHOT) && !defined(PRODUCT)
-      if (FLAG_check_function_fingerprints && kernel_buffer == NULL) {
-        Library::CheckFunctionFingerprints();
-      }
-#endif  
-      T->ExitApiScope();
-      T->set_execution_state(Thread::kThreadInNative);
-      T->EnterSafepoint();
-      if (error != NULL) {
-        *error = NULL;
-      }
-      return Api::CastIsolate(I);
-    }
-    if (error != NULL) {
-      *error = strdup(error_obj.ToErrorCString());
-    }
-    T->ExitApiScope();
-  }
-  Dart::ShutdownIsolate();
-  return reinterpret_cast<Dart_Isolate>(NULL);
-}
-```
-
-#### 4.12.9 Dart::CreateIsolate
-[-> third_party/dart/runtime/vm/dart.cc]
-
-```Java
-Isolate* Dart::CreateIsolate(const char* name_prefix,
-                             const Dart_IsolateFlags& api_flags) {
-  //创建Isolate
-  Isolate* isolate = Isolate::InitIsolate(name_prefix, api_flags);
-  return isolate;
-}
-```
+更多关于RootIsolate创建过程，详见[深入理解Dart虚拟机启动](http://gityuan.com/2019/06/23/dart-vm/)的[小节3.1]部分。
 
 ### 4.13 Shell::Setup
 [-> flutter/shell/common/shell.cc]
