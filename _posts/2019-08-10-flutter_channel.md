@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "深入理解Flutter的Platform Channel机制"
-date:   2019-08-03 23:15:40
+date:   2019-08-10 23:15:40
 catalog:  true
 tags:
     - flutter

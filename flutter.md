@@ -30,6 +30,7 @@ Flutter作为一款高性能的跨平台框架，官方提供的架构图。接�
 #### 通信篇
 
 - [深入理解Flutter消息机制](http://gityuan.com/2019/07/20/flutter_message_loop/)
+- [深入理解Flutter的Platform Channel机制](http://gityuan.com/2019/08/10/flutter_channel/)
 - [深入理解Flutter异步Future机制](http://gityuan.com/2019/07/21/flutter_future/)
 - [深入理解Flutter的Isolate创建过程](http://gityuan.com/2019/07/27/flutter-isolate/)
 
