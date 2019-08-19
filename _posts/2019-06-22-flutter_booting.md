@@ -591,7 +591,7 @@ public static void ensureInitializationComplete(Context applicationContext, Stri
 - 拼接所有相关的shellArgs，包括intent中的参数；
 - 执行nativeInit来初始化native相关信息；
 
-#### 3.3.1 nativeInit
+#### 3.3.1 FlutterMain::Init
 [-> flutter/shell/platform/android/flutter_main.cc]
 
 ```Java
@@ -636,12 +636,20 @@ void FlutterMain::Init(JNIEnv* env,
   settings.task_observer_remove = [](intptr_t key) {
     fml::MessageLoop::GetCurrent().RemoveTaskObserver(key);
   };
-
+  //[见小节3.3.2]
   g_flutter_main.reset(new FlutterMain(std::move(settings)));
 }
 ```
 
 小节2.6.2注册了nativeInit所对应的方法FlutterMain::Init()，该方法主要功能args以及各种资源文件路径细信息都保存在Settings结构体，记录在FlutterMain中，最后记录在g_flutter_main静态变量。
+
+#### 3.3.2 FlutterMain初始化
+[-> flutter/shell/platform/android/flutter_main.cc]
+
+```Java
+FlutterMain::FlutterMain(flutter::Settings settings)
+    : settings_(std::move(settings)) {}
+```
 
 ### 3.4 FlutterView初始化
 [-> platform/android/io/flutter/view/FlutterView.java]
@@ -792,7 +800,7 @@ static jlong AttachJNI(JNIEnv* env,
 }
 ```
 
-该方法主要是为了在引擎层初始化AndroidShellHolder对象。
+该方法主要是为了在引擎层初始化AndroidShellHolder对象，详见[小节4.1]。
 
 
 ## 四、Flutter引擎启动
