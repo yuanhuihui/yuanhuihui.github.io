@@ -47,7 +47,7 @@ layout: default
 
 <!-- Post Content -->
 <article>
-    <div class="container">
+    <div class="container" style="overflow:hidden">
         <div class="row">
 
     <!-- Post Container -->
@@ -60,7 +60,7 @@ layout: default
 								<hr>
 								{% include article_bottom.html %}
                 <hr>
-								
+
 
                 <ul class="pager">
                     {% if page.previous.url %}
@@ -90,7 +90,7 @@ layout: default
                 <!-- disqus 评论框 end -->
                 {% endif %}
 
-            </div>  
+            </div>
 
     <!-- Side Catalog Container -->
         {% if page.catalog %}
@@ -127,11 +127,11 @@ layout: default
                             </a>
                       {% endfor %}
                     </div>
-                </section> 
-                {% endif %} 
+                </section>
+                {% endif %}
 
                 <!-- Friends Blog -->
-                <!-- 
+                <!--
                 {% if site.friends %}
                 <hr>
                 <h5>FRIENDS</h5>
