@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Flutter之setState更新机制"
+title:  "深入理解setState更新机制"
 date:   2019-07-06 21:15:40
 catalog:  true
 tags:

@@ -38,7 +38,7 @@ Flutter作为一款高性能的跨平台框架，官方提供的架构图。接�
 
 - [Flutter渲染机制—UI线程](http://gityuan.com/2019/06/15/flutter_ui_draw/)
 - [Flutter渲染机制—GPU线程](http://gityuan.com/2019/06/16/flutter_gpu_draw/)
-- [Flutter之setState更新机制](http://gityuan.com/2019/07/06/flutter_set_state/)
+- [深入理解setState更新机制](http://gityuan.com/2019/07/06/flutter_set_state/)
 - [深入理解Flutter动画原理](http://gityuan.com/2019/07/13/flutter_animator/)
 
 ### 三、后记
