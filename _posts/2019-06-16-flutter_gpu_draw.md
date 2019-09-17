@@ -776,18 +776,30 @@ bool AndroidContextGL::SwapBuffers() {
 
 ## 三、总结
 
-1）生产者-消费者模式
+### 3.1 生产者-消费者模式
 
-- 管道Pipeline中的信号量available_，初始值为0，只有当UI线程执行一次ProducerCommit()则进行加1操作，该值大于0，从而允许GPU线程来执行Consume()方法则进行减1操作。
-- 管道Pipeline中的信号量empty_，初始值为depth(默认等于2，该值初始化在Animator.cc中LayerTreePipeline创建过程)，UI线程生产layer tree交给GPU线程光栅化操作一次则进行减1操作，当GPU线程执行完成Consume()方法后才会执行加1操作。
+1） 管道Pipeline中的信号量available_
+
+- 在Animator初始化过程会设置初始值available_ = 0
+- UI线程执行ProducerCommit()，则available_加1
+- 当available_ > 0，允许GPU线程来执行Consume()，则available_减1
+
+
+2）管道Pipeline中的信号量empty_
+
+- 在Animator初始化过程会设置初始值empty_ = 2
+- UI线程执行Produce()，生产layer tree交给GPU线程光栅化操作一次，则执行empty_.TryWait()，也就是empty_减1
+- GPU线程执行完成Consume()，则执行empty_.Signal()，也就是empty_加1；
+
 
 也就是说：
 
-- 当管道中待处理的光栅化任务等于depth个的时候（池子满了），则UI线程无法执行Animator::BeginFrame()，而是等于下一次Vsync信号再尝试执行；
+- 当管道中待处理的光栅化任务等于2个的时候（池子满了），则UI线程无法执行Animator::BeginFrame()，而是等于下一次Vsync信号再尝试执行；
 - 当管道中没有待处理的光栅化任务的时候（池子空了），则GPU线程无法执行Rasterizer::Draw()，而是直接返回，等待UI线程向其添加任务。
 
 
-2）gpu线程的主要工作是将layer tree进行光栅化再发送给GPU，其中最为核心方法ScopedFrame::Raster()，其主要工作如下所示：
+### 3.2 gpu核心工作
+gpu线程的主要工作是将layer tree进行光栅化再发送给GPU，其中最为核心方法ScopedFrame::Raster()，其主要工作如下所示：
 
 - LayerTree::Preroll: 绘制前的一些准备工作
 - LayerTree::Paint: 此处会嵌套调用各个不同的layer的绘制方法

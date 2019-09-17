@@ -280,12 +280,12 @@ AMP经过binder IPC,进入ActivityManagerNative(简称AMN)。接下来程序进�
 
 [-> ActivityStackSupervisor.java]
 
-    final int startActivityMayWait(IApplicationThread caller, int callingUid,
-            String callingPackage, Intent intent, String resolvedType,
-            IVoiceInteractionSession voiceSession, IVoiceInteractor voiceInteractor,
-            IBinder resultTo, String resultWho, int requestCode, int startFlags,
-            ProfilerInfo profilerInfo, WaitResult outResult, Configuration config,
-            Bundle options, boolean ignoreTargetSecurity, int userId,
+    final int startActivityMayWait(IApplicationThread caller, int callingUid,    
+            String callingPackage, Intent intent, String resolvedType,    
+            IVoiceInteractionSession voiceSession, IVoiceInteractor voiceInteractor,    
+            IBinder resultTo, String resultWho, int requestCode, int startFlags,    
+            ProfilerInfo profilerInfo, WaitResult outResult, Configuration config,    
+            Bundle options, boolean ignoreTargetSecurity, int userId,    
             IActivityContainer iContainer, TaskRecord inTask) {
         ...
         boolean componentSpecified = intent.getComponent() != null;
@@ -437,12 +437,13 @@ ASS.resolveActivity()方法的核心功能是找到相应的Activity组件，并
 [-> ActivityStackSupervisor.java]
 
     final int startActivityLocked(IApplicationThread caller,
-            Intent intent, String resolvedType, ActivityInfo aInfo,
-            IVoiceInteractionSession voiceSession, IVoiceInteractor voiceInteractor,
-            IBinder resultTo, String resultWho, int requestCode,
-            int callingPid, int callingUid, String callingPackage,
-            int realCallingPid, int realCallingUid, int startFlags, Bundle options,
-            boolean ignoreTargetSecurity, boolean componentSpecified, ActivityRecord[] outActivity,
+
+Intent intent, String resolvedType, ActivityInfo aInfo,    
+            IVoiceInteractionSession voiceSession, IVoiceInteractor voiceInteractor,    
+            IBinder resultTo, String resultWho, int requestCode,    
+            int callingPid, int callingUid, String callingPackage,    
+            int realCallingPid, int realCallingUid, int startFlags, Bundle options,    
+            boolean ignoreTargetSecurity, boolean componentSpecified, ActivityRecord[] outActivity,    
             ActivityContainer container, TaskRecord inTask) {
         int err = ActivityManager.START_SUCCESS;
 

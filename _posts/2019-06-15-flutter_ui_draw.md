@@ -584,7 +584,7 @@ void MessageLoopImpl::RunExpiredTasks() {
 ```
 
 对于ui线程处于消息loop状态，一旦有时间到达的任务则开始执行，否则处于空闲等等状态。前面[小节3.4] VsyncWaiter::FireCallback过程已经向该ui线程postTask。
-对于不可服用layer tree的情况则调用Animator::BeginFrame()方法。
+对于不可复用layer tree的情况则调用Animator::BeginFrame()方法。
 
 ### 3.6 Animator::BeginFrame
 [-> flutter/shell/common/animator.cc]
@@ -601,7 +601,7 @@ void Animator::BeginFrame(fml::TimePoint frame_start_time,
   pending_frame_semaphore_.Signal(); //信号量加1，可以再注册vsync信号
 
   if (!producer_continuation_) {
-    //[小节3.6.1]
+    //[小节3.6.1] [小节3.6.2]
     producer_continuation_ = layer_tree_pipeline_->Produce();
 
     if (!producer_continuation_) {
@@ -644,7 +644,35 @@ void Animator::BeginFrame(fml::TimePoint frame_start_time,
 - layer_tree_pipeline_是在Animator对象初始化的过程中创建的LayerTreePipeline，其类型为Pipeline<LayerTree>
 - 此处kNotifyIdleTaskWaitTime等于51ms，等于3帧的时间+1ms，之所以这样设计是由于在某些工作负载下（比如父视图调整大小，通过viewport metrics事件传达给子视图）实际上还没有schedule帧，尽管在下一个vsync会生成一帧(将在收到viewport事件后schedule)，因此推迟调用OnAnimatorNotifyIdle一点点，从而避免可能垃圾回收在不希望的时间触发。
 
-#### 3.6.1 Pipeline::Produce
+#### 3.6.1 LayerTreePipeline初始化
+[-> flutter/shell/common/animator.cc]
+
+```Java
+Animator::Animator(Delegate& delegate,
+                   TaskRunners task_runners,
+                   std::unique_ptr<VsyncWaiter> waiter)
+    : delegate_(delegate),
+      task_runners_(std::move(task_runners)),
+      waiter_(std::move(waiter)),
+      last_begin_frame_time_(),
+      dart_frame_deadline_(0),
+      layer_tree_pipeline_(fml::MakeRefCounted<LayerTreePipeline>(2)),
+      ... {}
+```
+
+此处LayerTreePipeline的初始化过程如下：
+
+```Java
+using LayerTreePipeline = Pipeline<flutter::LayerTree>;
+```
+
+在pipeline.h的过程会初始化Pipeline，可见初始值empty_ = 2，available_ = 0；
+
+```Java
+Pipeline(uint32_t depth) : empty_(depth), available_(0) {}
+```
+
+#### 3.6.2 Pipeline::Produce
 [-> flutter/synchronization/pipeline.h]
 
 ```Java
@@ -654,7 +682,7 @@ ProducerContinuation Produce() {
     return {};
   }
 
-  //[见小节3.6.2]
+  //[见小节3.6.3]
   return ProducerContinuation{
       std::bind(&Pipeline::ProducerCommit, this, std::placeholders::_1,
                 std::placeholders::_2),  // continuation
@@ -664,7 +692,7 @@ ProducerContinuation Produce() {
 
 通过信号量empty_的初始值为depth(默认等于2)，来保证同一个管道的任务最多不超过depth个，每次UI线程执行Produce()会减1，当GPU线程执行完成Consume()方法后才会执行加1操作。
 
-#### 3.6.2 ProducerContinuation初始化
+#### 3.6.3 ProducerContinuation初始化
 [-> flutter/synchronization/pipeline.h]
 
 ```Java
@@ -672,6 +700,20 @@ ProducerContinuation(Continuation continuation, size_t trace_id)
     : continuation_(continuation), trace_id_(trace_id) {
   TRACE_FLOW_BEGIN("flutter", "PipelineItem", trace_id_);
   TRACE_EVENT_ASYNC_BEGIN0("flutter", "PipelineProduce", trace_id_);
+}
+```
+
+#### 3.6.3 Pipeline.ProducerCommit
+[-> flutter/synchronization/pipeline.h]
+
+```Java
+void ProducerCommit(ResourcePtr resource, size_t trace_id) {
+  {
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+    queue_.emplace(std::move(resource), trace_id);
+  }
+
+  available_.Signal();
 }
 ```
 
