@@ -92,7 +92,7 @@ System.loadLibrary("gityuan_jni");
                 //成功执行完doLoad,则返回 [见小节2.4]
                 String error = doLoad(candidate, loader);
                 if (error == null) {
-                    return; 则返回.
+                    return; //则返回
                 }
             }
         }
@@ -119,7 +119,7 @@ System.loadLibrary("gityuan_jni");
         }
 
         public String findLibrary(String name) {
-            return pathList.findLibrary(name); //[见小节2.4.2]
+            return pathList.findLibrary(name); //[见小节2.3.2]
         }
     }
 

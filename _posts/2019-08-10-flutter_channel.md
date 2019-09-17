@@ -82,7 +82,7 @@ class _HomePageState extends State<HomePage> {
 }
 ```
 
-Android端代码： [见小节4.1]
+Android端代码：
 
 ```Java
 public class MainActivity extends FlutterActivity {
@@ -510,6 +510,7 @@ public final class MethodChannel {
     private final MethodCodec codec;
 
     public MethodChannel(BinaryMessenger messenger, String name) {
+        //创建MethodChannel
         this(messenger, name, StandardMethodCodec.INSTANCE);
     }
 
@@ -521,6 +522,43 @@ public final class MethodChannel {
 }
 ```
 
+再来看看MethodChannel的成员变量messenger，是一个BinaryMessenger类型的接口，由前面[1.3]是通过getFlutterView()方法所获取的。
+
+#### 4.1.1 FlutterActivity.getFlutterView
+[-> io/flutter/app/FlutterActivity.java]
+
+```Java
+public class FlutterActivity extends Activity implements FlutterView.Provider, PluginRegistry, ViewFactory {
+    private final FlutterActivityDelegate delegate = new FlutterActivityDelegate(this, this);
+    private final FlutterView.Provider viewProvider = delegate;
+
+    public FlutterView getFlutterView() {
+        return viewProvider.getFlutterView(); //[见小节4.1.2]
+    }
+}
+```
+
+#### 4.1.2 FlutterActivityDelegate.getFlutterView
+[-> io/flutter/app/FlutterActivityDelegate.java]
+
+```Java
+public final class FlutterActivityDelegate
+        implements FlutterActivityEvents, FlutterView.Provider, PluginRegistry {
+    public FlutterView getFlutterView() {
+        return flutterView;
+    }
+}
+```
+
+此处的flutterView的赋值过程是在FlutterActivityDelegate的onCreate()过程，如下所示。
+
+```Java
+public void onCreate(Bundle savedInstanceState) {
+    ...
+    FlutterNativeView nativeView = viewFactory.createFlutterNativeView();
+    flutterView = new FlutterView(activity, null, nativeView);
+}
+```
 
 ### 4.2 MethodChannel.setMethodCallHandler
 [-> io/flutter/plugin/common/MethodChannel.java]
@@ -587,7 +625,9 @@ class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
 }
 ```
 
-messageHandlers记录着每一个channel所对应的handler方法，由[小节4.2]可知此处handler为IncomingMethodCallHandler。
+messageHandlers记录着每一个channel所对应的handler方法。
+
+再回到[小节4.2]，可知此处handler为IncomingMethodCallHandler，初始化过程见[小节4.2.5]。
 
 #### 4.2.5 IncomingMethodCallHandler初始化
 [-> io/flutter/plugin/common/MethodChannel.java]
