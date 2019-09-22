@@ -12,7 +12,7 @@ tags:
 
 #### 1.1 准备
 
-- OS：只有MacOS同时支持Android和iOS的交叉编译功能，Linux只支持Android产物的交差编译；
+- OS：MacOS同时支持Android和iOS的交叉编译功能，Linux只支持Android产物的交叉编译；
 - git：用于源码的版本控制;
 - ssh client：用于Github的认证;
 - IDE: [带有Flutter插件的Android Studio](https://flutter.dev/docs/development/tools/android-studio)，这是官方推荐的旗舰IDE;
@@ -160,7 +160,7 @@ flutter run --local-engine-src-path /path/to/engine/src --local-engine=android_p
 
 **修改Dart文件**
 
-此外，如果引擎中修改了Dart源代码，则需要在pubspec.yaml中添加dependency_overrides部分，指定新的sky_engine和sky_services路径，以用于使用自定义引擎的flutter应用程序。
+当引擎中修改了Dart源代码，则需要在pubspec.yaml中添加dependency_overrides部分，指定新的sky_engine和sky_services路径，以用于使用自定义引擎的flutter应用程序。
 
 ```Java
 dependency_overrides:
