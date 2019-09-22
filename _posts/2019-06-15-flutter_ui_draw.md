@@ -1772,7 +1772,6 @@ Animator的BeginFrame()或者DrawLastLayerTree()方法会执行信号加1操作�
 本文涉及到相关源码文件
 
 ```Java
-//Engine
 flutter/shell/common/
     - vsync_waiter.cc
     - engine.cc
@@ -1793,11 +1792,11 @@ flutter/lib/ui/window/window.cc
 flutter/lib/ui/window.dart
 flutter/lib/ui/hooks.dart
 
-//Framework
 lib/src/widgets/framework.dart
 lib/src/widgets/binding.dart
 lib/src/scheduler/binding.dart
 lib/src/semantics/semantics.dart
+
 lib/src/rendering/
     - binding.dart
     - object.dart
