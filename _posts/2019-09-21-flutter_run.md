@@ -23,11 +23,11 @@ flutter run执行过程的日志可大致知道该过程至少包括gradle构建
 - [小节六] flutter build bundle 命令对应 BuildBundleCommand
 
 
-## 三、flutter run命令
+## 二、flutter run命令
 
-根据[小节2.10]可知，对于flutter run命令，那么对应执行的便是RunCommand类，根据[小节2.7]可知，接下来便是执行RunCommand.runCommand()
+根据文章[Flutter tools](http://gityuan.com/2019/09/14/flutter_tool/)可知，对于flutter run命令，那么对应执行的便是RunCommand.runCommand()。
 
-### 3.1 RunCommand.runCommand
+### 2.1 RunCommand.runCommand
 [-> lib/src/commands/run.dart]
 
 ```Java
@@ -84,7 +84,7 @@ Future<FlutterCommandResult> runCommand() async {
   }
   ...
 
-  // [见小节3.2]
+  // [见小节2.2]
   final int result = await runner.run(
     appStartedCompleter: appStartedTimeRecorder,
     route: route,
@@ -96,7 +96,7 @@ Future<FlutterCommandResult> runCommand() async {
 
 这里以hot reload为例来接着往下说。
 
-### 3.2 HotRunner.run
+### 2.2 HotRunner.run
 [-> lib/src/run_hot.dart]
 
 ```Java
@@ -111,7 +111,7 @@ class HotRunner extends ResidentRunner {
     firstBuildTime = DateTime.now();
 
     for (FlutterDevice device in flutterDevices) {
-      //[见小节3.3]
+      //[见小节2.3]
       final int result = await device.runHot(
         hotRunner: this,
         route: route,
@@ -128,7 +128,7 @@ class HotRunner extends ResidentRunner {
 ```
 
 
-### 3.3 FlutterDevice.runHot
+### 2.3 FlutterDevice.runHot
 [-> lib/src/resident_runner.dart]
 
 ```Java
@@ -143,7 +143,7 @@ class FlutterDevice {
         targetPlatform, applicationBinary: hotRunner.applicationBinary,
     );
     ...
-    //[见小节3.4/3.5] 启动应用
+    //[见小节2.4/2.5] 启动应用
     final Future<LaunchResult> futureResult = device.startApp(
       package,
       mainPath: hotRunner.mainPath,
@@ -161,9 +161,9 @@ class FlutterDevice {
 }
 ```
 
-应用启动过程，这里小节3.4介绍Android，小节3.5是介绍iOS的启动过程。
+应用启动过程，这里小节2.4介绍Android，小节2.5是介绍iOS的启动过程。
 
-### 3.4 AndroidDevice.startApp
+### 2.4 AndroidDevice.startApp
 [-> lib/src/android/android_device.dart]
 
 ```Java
@@ -185,7 +185,7 @@ class AndroidDevice extends Device {
 
     if (!prebuiltApplication || androidSdk.licensesAvailable && androidSdk.latestVersion == null) {
       final FlutterProject project = await FlutterProject.current();
-      //通过gradle来构建APK [小节4.2]
+      //通过gradle来构建APK [小节3.2]
       await buildApk(project: project, target: mainPath, buildInfo: buildInfo,);
       //APK已构建，则从中获取应用id(包名)和activity名
       package = await AndroidApk.fromAndroidProject(project.android);
@@ -193,7 +193,7 @@ class AndroidDevice extends Device {
     //通过adb am force-stop来强杀该应用
     await stopApp(package);
 
-    //该方法会installApp()安装APK [小节7.2]
+    //该方法会installApp()安装APK [小节6.2]
     if (!await _installLatestApp(package))
       return LaunchResult.failed();
     ...
@@ -279,7 +279,7 @@ class AndroidDevice extends Device {
 4. 通过adb am start来启动应用
 5. 对于debug或者profile模式，等待开启observatory服务
 
-### 3.5 IOSDevice.startApp
+### 2.5 IOSDevice.startApp
 [-> lib/src/ios/devices.dart]
 
 ```Java
@@ -401,7 +401,7 @@ class IOSDevice extends Device {
 关于运行时参数跟Android基本一致。
 
 
-### 3.6 flutter run参数小结
+### 2.6 flutter run参数小结
 flutter run最核心的功能是：
 
 - 通过gradle来构建APK
@@ -437,17 +437,17 @@ adb shell am start -a android.intent.action.RUN -f 0x20000000
     com.gityuan.flutterdemo/.MainActivity
 ```
 
-## 四、flutter build apk命令
+## 三、flutter build apk命令
 
 根据[小节2.10]可知，对于flutter build apk命令，那么对应执行的便是BuildApkCommand类，那么接下来便是执行BuildApkCommand.runCommand()。
 
-### 4.1 BuildApkCommand.runCommand
+### 3.1 BuildApkCommand.runCommand
 [-> lib/src/commands/build_apk.dart]
 
 ```Java
 class BuildApkCommand extends BuildSubCommand {
   Future<FlutterCommandResult> runCommand() async {
-    // [见小节4.2]
+    // [见小节3.2]
     await buildApk(
       project: await FlutterProject.current(),
       target: targetFile,
@@ -458,7 +458,7 @@ class BuildApkCommand extends BuildSubCommand {
 }
 ```
 
-### 4.2 buildApk
+### 3.2 buildApk
 [-> lib/src/android/apk.dart]
 
 ```Java
@@ -467,7 +467,7 @@ Future<void> buildApk({
   @required String target,
   BuildInfo buildInfo = BuildInfo.debug,
 }) async {
-  // [见小节4.3]
+  // [见小节3.3]
   await buildGradleProject(
     project: project,
     buildInfo: buildInfo,
@@ -478,7 +478,7 @@ Future<void> buildApk({
 }
 ```
 
-### 4.3 buildGradleProject
+### 3.3 buildGradleProject
 [-> lib/src/android/gradle.dart]
 
 ```Java
@@ -490,7 +490,7 @@ Future<void> buildGradleProject({
 }) async {
 
   updateLocalProperties(project: project, buildInfo: buildInfo);
-  // [见小节4.3.1] 获取gradle命令
+  // [见小节3.3.1] 获取gradle命令
   final String gradle = await _ensureGradle(project);
 
   switch (getFlutterPluginVersion(project.android)) {
@@ -499,7 +499,7 @@ Future<void> buildGradleProject({
       return _buildGradleProjectV1(project, gradle);
     case FlutterPluginVersion.managed:
     case FlutterPluginVersion.v2:
-      // [见小节4.4]
+      // [见小节3.4]
       return _buildGradleProjectV2(project, gradle, buildInfo, target, isBuildingBundle);
   }
 }
@@ -507,7 +507,7 @@ Future<void> buildGradleProject({
 
 更新local.properties文件的构建模式、版本名和版本号。 FlutterPlugin v1读取local.properties以确定构建模式， 插件v2使用标准的Android方法来确定要构建的内容。版本名称和版本号由pubspec.yaml文件提供并可以用flutter build命令覆盖。默认的Gradle脚本读取版本名称和编号从local.properties文件中。
 
-#### 4.3.1 \_ensureGradle
+#### 3.3.1 \_ensureGradle
 [-> lib/src/android/gradle.dart]
 
 ```Java
@@ -519,7 +519,7 @@ Future<String> _ensureGradle(FlutterProject project) async {
 Future<String> _initializeGradle(FlutterProject project) async {
   final Directory android = project.android.hostAppGradleRoot;
   final Status status = logger.startProgress('Initializing gradle...', timeout: timeoutConfiguration.slowOperation);
-  // [见小节4.3.2]
+  // [见小节3.3.2]
   String gradle = _locateGradlewExecutable(android);
   if (gradle == null) {
     injectGradleWrapper(android);
@@ -532,7 +532,7 @@ Future<String> _initializeGradle(FlutterProject project) async {
 }
 ```
 
-#### 4.3.2 \_locateGradlewExecutable
+#### 3.3.2 \_locateGradlewExecutable
 [-> lib/src/android/gradle.dart]
 
 ```Java
@@ -555,7 +555,7 @@ String _locateGradlewExecutable(Directory directory) {
 - 对于window环境，则是gradlew.bat；
 - 其他环境，则是gradlew；
 
-### 4.4 \_buildGradleProjectV2
+### 3.4 \_buildGradleProjectV2
 [-> lib/src/android/gradle.dart]
 
 ```Java
@@ -636,7 +636,7 @@ Future<void> _buildGradleProjectV2(
 
 gradlew -q -Ptarget=lib/main.dart -Ptrack-widget-creation=false -Ptarget-platform=android-arm assembleRelease
 
-#### 4.4.1 gradle参数说明
+#### 3.4.1 gradle参数说明
 
 |参数|说明|
 |---|---|
@@ -652,7 +652,7 @@ gradlew -q -Ptarget=lib/main.dart -Ptrack-widget-creation=false -Ptarget-platfor
 |Pbuild-shared-library|是否采取共享库|
 |Ptarget-platform|目标平台|
 
-### 4.5 flutter的gradle构建
+### 3.5 flutter的gradle构建
 
 gradlew assembleRelease这便是Anroid平台比较常见的编译命令。 会执行build.gradle文件，里面有一行重要的语句，如下所示。
 
@@ -660,7 +660,7 @@ gradlew assembleRelease这便是Anroid平台比较常见的编译命令。 会�
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 ```
 
-#### 4.5.1 flutter.gradle
+#### 3.5.1 flutter.gradle
 [-> gradle/flutter.gradle]
 
 ```
@@ -686,7 +686,7 @@ CopySpec getAssets() {
 
 可知flutter产物可以是app.so或者是xxx_snapshot_xxx。
 
-#### 4.5.2 buildBundle
+#### 3.5.2 buildBundle
 [-> gradle/flutter.gradle]
 
 ```Java
@@ -800,9 +800,9 @@ void buildBundle() {
 - flutter build aot：针对profile或者release模式
 - flutter build bundle
 
-### 4.6 build apk等价命令
+### 3.6 build apk等价命令
 
-build apk的过程主要分为以下两个过程，也就是[小节4.4.2]的buildBundle中过程展开后的如下两个命令：
+build apk的过程主要分为以下两个过程，也就是[小节3.4.2]的buildBundle中过程展开后的如下两个命令：
 
 
 ```Java
@@ -831,9 +831,9 @@ flutter build bundle
   --release
 ```
 
-## 五、 flutter build aot命令
+## 四、 flutter build aot命令
 
-### 5.1 BuildAotCommand.runCommand
+### 4.1 BuildAotCommand.runCommand
 [-> lib/src/commands/build_aot.dart]
 
 ```Java
@@ -855,7 +855,7 @@ class BuildAotCommand extends BuildSubCommand with TargetPlatformBasedDevelopmen
       String mainPath = findMainDartFile(targetFile);
       final AOTSnapshotter snapshotter = AOTSnapshotter(reportTimings: reportTimings);
 
-      //编译到内核 [见小节5.2]
+      //编译到内核 [见小节4.2]
       mainPath = await snapshotter.compileKernel(
         platform: platform,
         buildMode: buildMode,
@@ -876,7 +876,7 @@ class BuildAotCommand extends BuildSubCommand with TargetPlatformBasedDevelopmen
 
         final Map<IOSArch, Future<int>> exitCodes = <IOSArch, Future<int>>{};
         iosBuilds.forEach((IOSArch iosArch, String outputPath) {
-          //生成AOT快照 并编译为特定架构的App.framework [见小节5.4]
+          //生成AOT快照 并编译为特定架构的App.framework [见小节4.4]
           exitCodes[iosArch] = snapshotter.build(
             platform: platform,
             iosArch: iosArch,
@@ -907,7 +907,7 @@ class BuildAotCommand extends BuildSubCommand with TargetPlatformBasedDevelopmen
           });
         }
       } else {
-        // Android AOT快照 [见小节5.4]
+        // Android AOT快照 [见小节4.4]
         final int snapshotExitCode = await snapshotter.build(
           platform: platform,
           buildMode: buildMode,
@@ -932,7 +932,7 @@ class BuildAotCommand extends BuildSubCommand with TargetPlatformBasedDevelopmen
 - 生成kernel文件， 这是dart定义的一种特殊数据格式，由dart虚拟机解释模式执行；
 - 生成AOT可执行文件，根据kernel来生成的一种二进制机器码，执行速度更快；release模式打进apk的便是机器码；
 
-#### 5.2.1 参数说明
+#### 4.2.1 build aot参数说明
 该过程参数说明：
 
 - -output-dir：指定aot产物输出路径，缺省默认等于“build/aot”；
@@ -946,7 +946,7 @@ class BuildAotCommand extends BuildSubCommand with TargetPlatformBasedDevelopmen
 
 也就是说执行flutter build aot必须指定的参数是target-platform和release参数。
 
-### 5.2 compileKernel
+### 4.2 compileKernel
 [-> lib/src/base/build.dart]
 
 ```Java
@@ -968,7 +968,7 @@ class AOTSnapshotter {
     final String depfilePath = fs.path.join(outputPath, 'kernel_compile.d');
     final KernelCompiler kernelCompiler = await kernelCompilerFactory.create(flutterProject);
     final CompilerOutput compilerOutput = await _timedStep('frontend',
-      //[见小节5.3]
+      //[见小节4.3]
       () => kernelCompiler.compile(
       sdkRoot: artifacts.getArtifactPath(Artifact.flutterPatchedSdkPath, mode: buildMode),
       mainPath: mainPath,
@@ -994,7 +994,7 @@ class AOTSnapshotter {
 ```
 
 
-### 5.3 KernelCompiler.compile
+### 4.3 KernelCompiler.compile
 [-> lib/src/compile.dart]
 
 ```Java
@@ -1096,7 +1096,7 @@ class KernelCompiler {
 
     command.add(mainUri?.toString() ?? mainPath);
     ...
-    //执行命令 [见小节5.3.1]
+    //执行命令 [见小节4.3.1]
     await processManager.start(command);
     await fingerprinter.writeFingerprint();
     ...
@@ -1105,7 +1105,7 @@ class KernelCompiler {
 ```
 
 
-#### 5.3.1 frontend_server命令
+#### 4.3.1 frontend_server命令
 KernelCompiler.compile()过程等价于如下命令：
 
 ```Java
@@ -1127,9 +1127,9 @@ flutter/frontend_server/bin/starter.dart。
 
 关于这个过程的kernel编译以及文件的生成过程，将在下一篇文章将进一步展开说明。
 
-再回到[小节5.1]，接下来执行AOTSnapshotter.build()方法。
+再回到[小节4.1]，接下来执行AOTSnapshotter.build()方法。
 
-### 5.4 AOTSnapshotter.build
+### 4.4 AOTSnapshotter.build
 [-> lib/src/base/build.dart]
 
 ```Java
@@ -1226,7 +1226,7 @@ class AOTSnapshotter {
     }
 
     final SnapshotType snapshotType = SnapshotType(platform, buildMode);
-    //[见小节5.5]
+    //[见小节4.5]
     final int genSnapshotExitCode = await _timedStep('gen_snapshot',
       () => genSnapshot.run(
         snapshotType: snapshotType,
@@ -1252,7 +1252,7 @@ class AOTSnapshotter {
 }
 ```
 
-### 5.5 GenSnapshot.run
+### 4.5 GenSnapshot.run
 [-> lib/src/base/build.dart]
 
 ```Java
@@ -1282,7 +1282,7 @@ class GenSnapshot {
 
 runCommandAndStreamOutput便会执行如下这一串命令：
 
-#### 5.5.1 GenSnapshot命令
+#### 4.5.1 GenSnapshot命令
 
 GenSnapshot.run具体命令根据前面的封装，最终等价于：
 
@@ -1304,9 +1304,9 @@ flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
 此处gen_snapshot是一个二进制可执行文件，所对应的执行方法源码为third_party/dart/runtime/bin/gen_snapshot.cc，将在下一篇文章将进一步展开说明。
 
 
-## 六、flutter build bundle命令
+## 五、flutter build bundle命令
 
-### 6.1 BuildBundleCommand.runCommand
+### 5.1 BuildBundleCommand.runCommand
 [-> lib/src/commands/build_bundle.dart]
 
 ```Java
@@ -1317,7 +1317,7 @@ class BuildBundleCommand extends BuildSubCommand {
     final BuildMode buildMode = getBuildMode();
 
     final String buildNumber = argResults['build-number'] != null ? argResults['build-number'] : null;
-    //[见小节6.2]
+    //[见小节5.2]
     await build(
       platform: platform,
       buildMode: buildMode,
@@ -1343,7 +1343,7 @@ class BuildBundleCommand extends BuildSubCommand {
 }
 ```
 
-### 6.2 build
+### 5.2 build
 [-> lib/src/bundle.dart]
 
 ```Java
@@ -1360,7 +1360,7 @@ Future<void> build(...) async {
     ... //relase模式，参数中会带上--precompiled，则不会编译kernel文件
   }
 
-  //[见小节6.3]
+  //[见小节5.3]
   await assemble(
     buildMode: buildMode,
     assetBundle: assets,
@@ -1374,7 +1374,7 @@ Future<void> build(...) async {
 
 
 
-### 6.3 assemble
+### 5.3 assemble
 [-> lib/src/bundle.dart]
 
 ```Java
@@ -1407,12 +1407,12 @@ Future<void> assemble({
     }
   }
   ensureDirectoryExists(assetDirPath);
-  //[见小节6.4]
+  //[见小节5.4]
   await writeBundle(fs.directory(assetDirPath), assetEntries);
 }
 ```
 
-### 6.4 writeBundle
+### 5.4 writeBundle
 [-> lib/src/bundle.dart]
 
 ```Java
@@ -1442,9 +1442,9 @@ Future<void> writeBundle(
 - packages/cupertino_icons/assets/CupertinoIcons.ttf
 
 
-## 七、flutter install命令
+## 六、flutter install命令
 
-### 7.1 InstallCommand.runCommand
+### 6.1 InstallCommand.runCommand
 [-> lib/src/commands/install.dart]
 
 ```Java
@@ -1453,7 +1453,7 @@ class InstallCommand extends FlutterCommand with DeviceBasedDevelopmentArtifacts
     final ApplicationPackage package = await applicationPackages.getPackageForPlatform(await device.targetPlatform);
 
     Cache.releaseLockEarly();
-    //[见小节7.2]
+    //[见小节6.2]
     if (!await installApp(device, package))
       throwToolExit('Install failed');
 
@@ -1462,7 +1462,7 @@ class InstallCommand extends FlutterCommand with DeviceBasedDevelopmentArtifacts
 }
 ```
 
-### 7.2 installApp
+### 6.2 installApp
 [-> lib/src/commands/install.dart]
 
 ```Java
@@ -1477,7 +1477,7 @@ Future<bool> installApp(Device device, ApplicationPackage package, { bool uninst
 }
 ```
 
-### 7.3 AndroidDevice.installApp
+### 6.3 AndroidDevice.installApp
 [-> lib/src/android/android_device.dart]
 
 ```Java
@@ -1496,9 +1496,9 @@ Future<bool> installApp(ApplicationPackage app) async {
 执行的命令是adb install -t -r [apk_path]来安装APK
 
 
-## 八、总结
+## 七、总结
 
-#### 8.1 flutter run架构图
+#### 7.1 flutter run架构图
 
 ![flutterRun](/img/flutter_command/flutterRun.jpg)
 
@@ -1512,14 +1512,36 @@ flutter命令的整个过程位于目录flutter/packages/flutter_tools/，对于
 - 通过adb install来安装APK
 - 通过adb am start来启动应用
 
+这个过程涉及多个flutter命令，其包含关系如下所示：
 
-#### 8.2 小技巧
+![flutterRun](/img/flutter_command/flutter_run_3.jpg)
+
+#### 7.2 小技巧
 
 对于flutter 1.5及以上的版本，抓取timeline报错的情况下，可采用以下两个方案之一：
 
 方案1：flutter run --disable-service-auth-codes
 
-根据前面的知识，可知该方案每次都要重新build，install，然后再am start应用，对于手机中已经安装的应用，其实可以有更快的命令来快速启动应用，并抓取timeline，命令如下所示：
+根据前面的知识，可知该方案每次都要重新build，install，然后再am start应用，对于手机中已经安装的应用可直接通过am start来快速启动应用，关于am start过程有很多debuggingOptions可选的调试参数，如下所示：
+
+|flags|含义|
+|---|---|
+|trace-startup|跟踪启动|
+|route||
+|enable-software-rendering|开启软件渲染|
+|skia-deterministic-rendering||
+|trace-skia|跟踪skia|
+|trace-systrace|跟进systrace|
+|dump-skp-on-shader-compilation||
+|enable-checked-mode||
+|verify-entry-points||
+|start-paused|应用启动后暂停|
+|disable-service-auth-codes|关闭observatory服务鉴权|
+|use-test-fonts|使用测试字体|
+|verbose-logging|输出verbose日志|
+
+由此可见，如果你希望运行某个已经安装过的flutter应用，可以跳过安装等环节，可以直接执行应用启动，如下命令：
+
 
 方案2：adb shell am start -a android.intent.action.RUN -f 0x20000000 --ez enable-background-compilation true --ez enable-dart-profiling true --ez disable-service-auth-codes true --ez trace-skia true com.gityuan.flutterdemo/.MainActivity
 
@@ -1529,3 +1551,14 @@ flutter命令的整个过程位于目录flutter/packages/flutter_tools/，对于
 adb shell dumpsys SurfaceFlinger --list  //方式一
 adb shell dumpsys activity a -p io.flutter.demo.gallery //方式二
 ```
+
+另外，build aot过程参数说明：
+
+- -output-dir：指定aot产物输出路径，缺省默认等于“build/aot”；
+- -target：指定应用的主函数，缺省默认等于“lib/main.dart”；
+- -target-platform：指定目标平台，可取值有android-arm，android-arm64，android-x64, android-x86，ios， darwin-linux_x64， linux-x64，web；
+- -ios-arch：指定ios架构类型，可取值有arm64，armv7，仅用于iOS；
+- -build-shared-library：指定是否构建共享库，仅用于Android；iOS强制为false；
+- -release：指定编译模式，可取值有debug, profile, release, dynamicProfile, dynamicRelease；
+- -extra-front-end-options：指定用于编译kernel的可选参数
+- –extra-gen-snapshot-options：指定用于构建AOT快照的可选参数
