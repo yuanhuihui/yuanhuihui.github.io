@@ -15,13 +15,12 @@ flutter run执行过程的日志可大致知道该过程至少包括gradle构建
 
 ![flutter_run_cmd](/img/flutter_command/flutter_run_cmd.png)
 
-相信有不少人会好奇flutter命令背后的原理，这里就以flutter run命令为起点展开，过程涉及到以下5个小节：
+相信有不少人会好奇flutter命令背后的原理，这里就以[小节二]中flutter run命令为起点展开，flutter run 命令对应 RunCommand，该命令执行过程中包括以下4个部分组成：
 
-- [小节三] flutter run 命令对应 RunCommand
-- [小节四] flutter build apk 命令对应 BuildApkCommand
-- [小节五] flutter build aot 命令对应 BuildAotCommand
-- [小节六] flutter build bundle 命令对应 BuildBundleCommand
-
+- [小节三] flutter build apk 命令对应 BuildApkCommand
+- [小节四] flutter build aot 命令对应 BuildAotCommand
+- [小节五] flutter build bundle 命令对应 BuildBundleCommand
+- [小节六] flutter install 命令对应 InstallCommand
 
 ## 二、flutter run命令
 
@@ -1500,6 +1499,8 @@ Future<bool> installApp(ApplicationPackage app) async {
 
 #### 7.1 flutter run架构图
 
+[点击查看大图](/img/flutter_command/flutterRun.jpg)
+
 ![flutterRun](/img/flutter_command/flutterRun.jpg)
 
 图解：
@@ -1516,7 +1517,7 @@ flutter命令的整个过程位于目录flutter/packages/flutter_tools/，对于
 
 ![flutterRun](/img/flutter_command/flutter_run_3.jpg)
 
-#### 7.2 小技巧
+#### 7.2 flutter run参数
 
 对于flutter 1.5及以上的版本，抓取timeline报错的情况下，可采用以下两个方案之一：
 
@@ -1552,7 +1553,24 @@ adb shell dumpsys SurfaceFlinger --list  //方式一
 adb shell dumpsys activity a -p io.flutter.demo.gallery //方式二
 ```
 
-另外，build aot过程参数说明：
+
+#### 7.3 gradle参数说明
+
+|参数|说明|
+|---|---|
+|PlocalEngineOut|引擎产物|
+|Ptarget|取值lib/main.dart|
+|Ptrack-widget-creation|默认为false|
+|Pcompilation-trace-file||
+|Ppatch||
+|Pextra-front-end-options||
+|Pextra-gen-snapshot-options||
+|Pfilesystem-roots||
+|Pfilesystem-scheme||
+|Pbuild-shared-library|是否采取共享库|
+|Ptarget-platform|目标平台|
+
+gradle参数说明会传递到build aot过程，其对应参数说明：
 
 - -output-dir：指定aot产物输出路径，缺省默认等于“build/aot”；
 - -target：指定应用的主函数，缺省默认等于“lib/main.dart”；
