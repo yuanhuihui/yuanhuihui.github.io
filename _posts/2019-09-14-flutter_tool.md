@@ -268,8 +268,8 @@ Future<FlutterCommandResult> verifyThenRunCommand(String commandPath) async {
 
 可见由前面[小节2.3]展示了Flutter用命令以及对应类，这里列举场景的flutter命令以及说明。
 
-|名称|对应类|说明
-|---|---|
+|名称|对应类|说明|
+|---|---|---|
 |create   |   CreateCommand|                 创建新的Flutter项目
 |build    |    BuildCommand|                Flutter构建命令
 |install  |  InstallCommand|               安装Flutter应用到已连接设备
@@ -291,7 +291,7 @@ Future<FlutterCommandResult> verifyThenRunCommand(String commandPath) async {
 
 另外，对于flutter build有子命令，其子命令的对应类及说明如下：
 
-|命令|对应类||
+|命令|对应类|说明|
 |---|---|---|
 |build aot|BuildAotCommand|构建AOT编译产物|
 |build apk|BuildApkCommand|构建Android APK|

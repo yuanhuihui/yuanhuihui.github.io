@@ -109,12 +109,14 @@ Binder通信采用c/s架构，从组件视角来说，包含Client、Server、Se
 
 **Binder驱动篇:**
 
+|序号|文章名|概述|
 |---|---|---|
 |1|[Binder系列1—Binder Driver初探](http://gityuan.com/2015/11/01/binder-driver/)|驱动open/mmap/ioctl，以及binder结构体|
 |2|[Binder系列2—Binder Driver再探](http://gityuan.com/2015/11/02/binder-driver-2/)|Binder通信协议，内存机制|
 
 **Binder使用篇:**
 
+|序号|文章名|概述|
 |---|---|---|
 |1|[Binder系列8—如何使用Binder](http://gityuan.com/2015/11/22/binder-use/)|Native层、Framwrok层自定义Binder服务|
 |2|[Binder系列9—如何使用AIDL](http://gityuan.com/2015/11/23/binder-aidl/)|App层自定义Binder服务|
@@ -221,7 +223,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |10|[进程优先级](http://gityuan.com/2015/10/01/process-priority/)|进程nice,thread priority以及scheduler|
 |11|[Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)|updateOomAdjLocked过程|
 |12|[Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)|整理系统的所有进程/线程|
-|13|[解读Android进程优先级ADJ算法]|(http://gityuan.com/2018/05/19/android-process-adj/)|
+|13|[解读Android进程优先级ADJ算法](http://gityuan.com/2018/05/19/android-process-adj/)|Android进程ADJ优先级|
 
 #### 4.4 四大组件系列
 对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，接下分别展开介绍：
@@ -289,7 +291,6 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 - UserManagerService
   - [多用户管理UserManager](http://gityuan.com/2016/11/20/user_manager/)
 - 更多系统服务
-  - 敬请期待
 
 #### 4.7 内存&&存储篇
 
@@ -300,8 +301,6 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 - 存储篇
     - [Android存储系统之源码篇](http://gityuan.com/2016/07/17/android-io/)
     - [Android存储系统之架构篇](http://gityuan.com/2016/07/23/android-io-arch)
-- Linux驱动篇
-    - 敬请期待
 - dalvik/art
     - [解读Java进程的Trace文件](http://gityuan.com/2016/11/26/art-trace/)
 

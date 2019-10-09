@@ -235,7 +235,7 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 |10|[进程优先级](http://gityuan.com/2015/10/01/process-priority/)|进程nice,thread priority以及scheduler|
 |11|[Android进程调度之adj算法](http://gityuan.com/2016/08/07/android-adj/)|updateOomAdjLocked过程|
 |12|[Android进程整理](http://gityuan.com/2015/12/19/android-process-category/)|整理系统的所有进程/线程|
-|13|[解读Android进程优先级ADJ算法]|(http://gityuan.com/2018/05/19/android-process-adj/)|
+|13|[解读Android进程优先级ADJ算法](http://gityuan.com/2018/05/19/android-process-adj/)|Android进程ADJ优先级|
 
 #### 4.4 四大组件系列
 对于App来说，Android应用的四大组件Activity，Service，Broadcast Receiver， Content Provider最为核心，接下分别展开介绍：
@@ -303,7 +303,6 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
 - UserManagerService
   - [多用户管理UserManager](http://gityuan.com/2016/11/20/user_manager/)
 - 更多系统服务
-  - 敬请期待
 
 #### 4.7 内存&&存储篇
 
@@ -315,7 +314,6 @@ Android系统中极其重要进程：init, zygote, system_server, servicemanager
     - [Android存储系统之源码篇](http://gityuan.com/2016/07/17/android-io/)
     - [Android存储系统之架构篇](http://gityuan.com/2016/07/23/android-io-arch)
 - Linux驱动篇
-    - 敬请期待
 - dalvik/art
     - [解读Java进程的Trace文件](http://gityuan.com/2016/11/26/art-trace/)
 
