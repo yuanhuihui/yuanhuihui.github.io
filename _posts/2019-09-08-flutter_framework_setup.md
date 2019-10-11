@@ -21,7 +21,7 @@ tags:
 
 ## 二、安装环境
 
-- 确保adb可用，可通过which adb命令检测命令是否可用。
+- 确保adb可用，可通过which adb检测命令是否可用。
 - Fork一份Flutter Framework代码，https://github.com/flutter/flutter
 - 将flutter的bin添加到PATH
 - 设置环境变量：添加export PATH=`your_flutter_path`/bin:$PATH

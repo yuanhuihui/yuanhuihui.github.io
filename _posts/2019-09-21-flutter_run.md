@@ -22,6 +22,8 @@ flutter run执行过程的日志可大致知道该过程至少包括gradle构建
 - [小节五] flutter build bundle 命令对应 BuildBundleCommand
 - [小节六] flutter install 命令对应 InstallCommand
 
+说明以下过程都位于工程flutter/packages/flutter_tools/目录。
+
 ## 二、flutter run命令
 
 根据文章[Flutter tools](http://gityuan.com/2019/09/14/flutter_tool/)可知，对于flutter run命令，那么对应执行的便是RunCommand.runCommand()。
@@ -1251,6 +1253,14 @@ class AOTSnapshotter {
 }
 ```
 
+该方法说明：
+
+- 对于iOS或者采用共享库方式的Android，则产物类型snapshot_kind为app-aot-assembly
+  - 对于Android，则生成app.so
+- 对于非共享库方式的Android，则产物类型snapshot_kind为app-aot-blobs
+  - 生成vmSnapshotData，isolateSnapshotData，vmSnapshotInstructions，isolateSnapshotInstructions这四个产物
+
+
 ### 4.5 GenSnapshot.run
 [-> lib/src/base/build.dart]
 
@@ -1507,8 +1517,10 @@ Future<bool> installApp(ApplicationPackage app) async {
 
 flutter命令的整个过程位于目录flutter/packages/flutter_tools/，对于flutter run命令核心功能包括以下几部分：
 
-- 通过gradle来构建APK，即flutter build apk，可划分为以下两个子部分
-  - flutter build aot，最终会进入frontend_server前端编译器生成kernel文件，由gen_snapshot来编译成AOT产物，该过程详见下一篇文章；
+- 通过gradle来构建APK，即等价于flutter build apk，由以下两部分组成：
+  - flutter build aot，分为如下两个核心过程，该过程详情见下一篇文章
+    - frontend_server前端编译器生成kernel文件
+    - gen_snapshot来编译成AOT产物
   - flutter build bundle，将相关文件放入flutter_assets目录
 - 通过adb install来安装APK
 - 通过adb am start来启动应用
@@ -1580,3 +1592,25 @@ gradle参数说明会传递到build aot过程，其对应参数说明：
 - -release：指定编译模式，可取值有debug, profile, release, dynamicProfile, dynamicRelease；
 - -extra-front-end-options：指定用于编译kernel的可选参数
 - –extra-gen-snapshot-options：指定用于构建AOT快照的可选参数
+
+## 附录
+flutter/packages/flutter_tools/
+
+```Java
+lib/src/commands/run.dart
+lib/src/commands/build_apk.dart
+lib/src/commands/build_aot.dart
+lib/src/commands/build_bundle.dart
+lib/src/commands/install.dart
+
+lib/src/ios/devices.dart
+lib/src/android/android_device.dart
+lib/src/android/apk.dart
+lib/src/android/gradle.dart
+
+lib/src/base/build.dart
+lib/src/bundle.dart
+lib/src/compile.dart
+lib/src/run_hot.dart
+lib/src/resident_runner.dart
+```

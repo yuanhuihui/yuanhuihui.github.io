@@ -170,6 +170,14 @@ dependency_overrides:
     path: /path/to/flutter/engine/out/host_profile/gen/dart-pkg/sky_services
 ```
 
+#### 3.4 IDE配置
+
+推荐用Clion，查看C++代码比较方便。
+
+- 先使用./flutter/tools/gn编译引擎后，会在src/out目录下生成compile_commands.json 文件，Clion通过该文件可完成C++源码的方法跳转功能
+- 进入src/flutter目录，将 compile_commands.json 软连接到 flutter 目录，或者直接拷贝到该目录；
+- 使用Clion打开 src/flutter 目录，则能识别到compile_commands.json，可以开始阅读源码了；
+
 ## 参考文档
 
 - https://github.com/flutter/flutter/wiki/Setting-up-the-Engine-development-environment
