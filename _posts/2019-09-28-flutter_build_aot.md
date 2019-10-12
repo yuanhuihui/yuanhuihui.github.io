@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "源码解读Flutter AOT产物生成"
-date:   2019-09-22 21:15:40
+date:   2019-09-28 21:15:40
 catalog:  true
 tags:
     - flutter
@@ -13,8 +13,8 @@ tags:
 
 书接上文[源码解读Flutter run机制](http://gityuan.com/2019/09/21/flutter_run/)的第四节 flutter build aot命令将dart源码编译成AOT产物，其主要工作为如下两个过程：
 
-- [小节4.3.1] frontend_server命令，前端编译器生成kernel文件
-- [小节4.5.1] GenSnapshot命令，编译成AOT二进制产物
+- 上文[小节4.3.1]中 frontend_server命令，前端编译器生成kernel文件
+- 上文[小节4.5.1]中 GenSnapshot命令，编译成AOT二进制产物
 
 
 ```Java
@@ -1473,7 +1473,7 @@ frontend_server前端编译器将dart代码转换为AST，并生成app.dill文�
 
 ![SeqCodeGen](/img/flutter_compile/SeqCodeGen.jpg)
 
-gen_snapshot将
+gen_snapshot将dart代码生成AOT二进制机器码，其中重点在文中的[小节3.6]。
 
 （3）[点击查看大图](/img/flutter_compile/FlutterComplile.jpg)
 
