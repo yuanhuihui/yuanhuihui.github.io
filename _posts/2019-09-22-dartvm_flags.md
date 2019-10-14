@@ -25,6 +25,7 @@ Product、Release、Precompile、Debug这四类可控参数，可使用的范围
 用法：PRODUCT_FLAG_MARCO（名称，类型，默认值，注解）
 
 |名称|默认值|注解|
+|---|---|---|
 |collect_dynamic_function_names | true | 收集所有动态函数名称以标识唯一目标|
 |enable_kernel_expression_compilation | true |启用内核前端来编译表达式|
 |enable_mirrors | true | 允许导入dart:mirrors|

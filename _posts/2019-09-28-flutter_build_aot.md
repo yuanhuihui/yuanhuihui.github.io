@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "源码解读Flutter AOT产物生成"
+title:  "源码解读Flutter AOT产物编译原理"
 date:   2019-09-28 21:15:40
 catalog:  true
 tags:
@@ -140,21 +140,8 @@ Future<int> starter(
 |sdk-root| SDK根目录的路径| ../../out/android_debug/flutter_patched_sdk|
 |target| 确定哪些核心库可用，可取值vm、flutter、flutter_runner、dart_runner| vm|
 
-
---sdk-root flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk/
- --strong
- --target=flutter
- --aot --tfa
- -Ddart.vm.product=true
- --packages .packages
- --output-dill /build/app/intermediates/flutter/release/app.dill
- --depfile     /build/app/intermediates/flutter/release/kernel_compile.d
- /lib/main.dart
-
-TODO:
-
-- 增量模式运行编译器应该能加快编译速度？
-- track-widget-creation、aot、tfa参数的使用场景？
+- 增量模式运行编译器应该能加快编译速度
+- track-widget-creation、aot、tfa参数的使用场景
 
 ### 2.3 \_FlutterFrontendCompiler.compile
 [-> flutter/frontend_server/lib/server.dart]
@@ -1070,8 +1057,8 @@ static int CreateIsolateAndSnapshot(const CommandLineOptions& inputs) {
 |类型|名称|
 |---|---|
 |kCore|core|
-|kCoreJIT|core-jit|
 |kApp|app|
+|kCoreJIT|core-jit|
 |kAppJIT|app-jit|
 |kAppAOTBlobs|app-aot-blobs|
 |kAppAOTAssembly|app-aot-assembly|
@@ -1093,6 +1080,7 @@ static void CreateAndWritePrecompiledSnapshot() {
     // kAppAOTAssembly模式
     File* file = OpenFile(assembly_filename);
     RefCntReleaseScope<File> rs(file);
+    //iOS采用该方式 [见小节]
     result = Dart_CreateAppAOTSnapshotAsAssembly(StreamingWriteCallback, file);
   } else {
     // kAppAOTBlobs模式
@@ -1482,7 +1470,6 @@ gen_snapshot将dart代码生成AOT二进制机器码，其中重点在文中的[
 Component的成员变量:
 
 - uriToSource的类型为Map<Uri, Source> ，用于从源文件URI映射到行开始表和源代码。给定一个源文件URI和该文件中的偏移量，就可以转换为该文件中line：column的位置。
-
 
 ## 附录
 

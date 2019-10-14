@@ -58,6 +58,7 @@ Future<FlutterCommandResult> runCommand() async {
     runner = HotRunner(
       flutterDevices,
       target: targetFile,
+      //创建调试flag的开关
       debuggingOptions: _createDebuggingOptions(),
       benchmarkMode: argResults['benchmark'],
       applicationBinary: applicationBinaryPath == null
@@ -440,7 +441,7 @@ adb shell am start -a android.intent.action.RUN -f 0x20000000
 
 ## 三、flutter build apk命令
 
-根据[小节2.10]可知，对于flutter build apk命令，那么对应执行的便是BuildApkCommand类，那么接下来便是执行BuildApkCommand.runCommand()。
+对于flutter build apk命令，那么对应执行的便是BuildApkCommand类，那么接下来便是执行BuildApkCommand.runCommand()。
 
 ### 3.1 BuildApkCommand.runCommand
 [-> lib/src/commands/build_apk.dart]
@@ -633,11 +634,14 @@ Future<void> _buildGradleProjectV2(
 }
 ```
 
-构建过程主要是调用gradle命令，如下所示：
+构建过程主要是调用gradle命令，如下所示
 
-gradlew -q -Ptarget=lib/main.dart -Ptrack-widget-creation=false -Ptarget-platform=android-arm assembleRelease
+#### 3.4.1 gradle命令与参数说明
 
-#### 3.4.1 gradle参数说明
+gradlew命令：
+
+gradlew -Ptarget=lib/main.dart -Ptrack-widget-creation=false -Ptarget-platform=android-arm assembleRelease
+
 
 |参数|说明|
 |---|---|
@@ -805,7 +809,6 @@ void buildBundle() {
 
 build apk的过程主要分为以下两个过程，也就是[小节3.4.2]的buildBundle中过程展开后的如下两个命令：
 
-
 ```Java
 flutter build aot
   --suppress-analytics
@@ -815,7 +818,6 @@ flutter build aot
   --target-platform android-arm
   --extra-front-end-options
   --extra-gen-snapshot-options
-  --build-shared-library
   --release
 ```
 
@@ -1112,15 +1114,15 @@ KernelCompiler.compile()过程等价于如下命令：
 ```Java
 flutter/bin/cache/dart-sdk/bin/dart
   flutter/bin/cache/artifacts/engine/darwin-x64/frontend_server.dart.snapshot
-  --sdk-root flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk/
+  --sdk-root flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk_product/
   --strong
   --target=flutter
   --aot --tfa
   -Ddart.vm.product=true
   --packages .packages
-  --output-dill /build/app/intermediates/flutter/release/app.dill
-  --depfile     /build/app/intermediates/flutter/release/kernel_compile.d
-  --package /lib/main.dart
+  --output-dill build/app/intermediates/flutter/release/app.dill
+  --depfile     build/app/intermediates/flutter/release/kernel_compile.d
+  package:flutter_app/main.dart
 ```
 
 可见，通过dart虚拟机启动frontend_server.dart.snapshot，将dart代码编程成app.dill形式的kernel文件。frontend_server.dart.snapshot的入口位于Flutter引擎中的
@@ -1296,18 +1298,28 @@ runCommandAndStreamOutput便会执行如下这一串命令：
 GenSnapshot.run具体命令根据前面的封装，最终等价于：
 
 ```Java
+// 这是针对Android的genSnapshot命令
 flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
---causal_async_stacks
---packages=.packages
---deterministic
---snapshot_kind=app-aot-blobs
---vm_snapshot_data=/path-to-project/flutter_hello/build/app/intermediates/flutter/release/vm_snapshot_data
---isolate_snapshot_data=/path-to-project/flutter_hello/build/app/intermediates/flutter/release/isolate_snapshot_data
---vm_snapshot_instructions=/path-to-project/flutter_hello/build/app/intermediates/flutter/release/vm_snapshot_instr
---isolate_snapshot_instructions=/path-to-project/flutter_hello/build/app/intermediates/flutter/release/isolate_snapshot_instr
---no-sim-use-hardfp
---no-use-integer-division
-/path-to-project/flutter_hello/build/app/intermediates/flutter/release/app.dill
+  --causal_async_stacks
+  --deterministic
+  --snapshot_kind=app-aot-blobs
+  --vm_snapshot_data=build/app/intermediates/flutter/release/vm_snapshot_data
+  --isolate_snapshot_data=build/app/intermediates/flutter/release/isolate_snapshot_data
+  --vm_snapshot_instructions=build/app/intermediates/flutter/release/vm_snapshot_instr
+  --isolate_snapshot_instructions=build/app/intermediates/flutter/release/isolate_snapshot_instr
+  --no-sim-use-hardfp
+  --no-use-integer-division
+  build/aot/app.dill
+```
+
+```Java
+//这是针对iOS的genSnapshot命令
+/usr/bin/arch -x86_64 flutter/bin/cache/artifacts/engine/ios-release/gen_snapshot
+  --causal_async_stacks
+  --deterministic
+  --snapshot_kind=app-aot-assembly
+  --assembly=build/aot/arm64/snapshot_assembly.S
+  build/aot/app.dill
 ```
 
 此处gen_snapshot是一个二进制可执行文件，所对应的执行方法源码为third_party/dart/runtime/bin/gen_snapshot.cc，将在下一篇文章将进一步展开说明。
@@ -1529,6 +1541,7 @@ flutter命令的整个过程位于目录flutter/packages/flutter_tools/，对于
 
 ![flutterRun](/img/flutter_command/flutter_run_3.jpg)
 
+
 #### 7.2 flutter run参数
 
 对于flutter 1.5及以上的版本，抓取timeline报错的情况下，可采用以下两个方案之一：
@@ -1565,7 +1578,6 @@ adb shell dumpsys SurfaceFlinger --list  //方式一
 adb shell dumpsys activity a -p io.flutter.demo.gallery //方式二
 ```
 
-
 #### 7.3 gradle参数说明
 
 |参数|说明|
@@ -1592,6 +1604,95 @@ gradle参数说明会传递到build aot过程，其对应参数说明：
 - -release：指定编译模式，可取值有debug, profile, release, dynamicProfile, dynamicRelease；
 - -extra-front-end-options：指定用于编译kernel的可选参数
 - –extra-gen-snapshot-options：指定用于构建AOT快照的可选参数
+
+#### 7.4 Android AOT产物生成命令
+
+```Java
+// build aot命令
+flutter/bin/flutter build aot
+  --suppress-analytics
+  --quiet
+  --target lib/main.dart
+  --output-dir /build/app/intermediates/flutter/release/
+  --target-platform android-arm
+  --extra-front-end-options
+  --extra-gen-snapshot-options
+  --release
+```
+
+```Java
+//frontend_server命令
+flutter/bin/cache/dart-sdk/bin/dart
+  flutter/bin/cache/artifacts/engine/darwin-x64/frontend_server.dart.snapshot
+  --sdk-root flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk_product/
+  --strong
+  --target=flutter
+  --aot --tfa
+  -Ddart.vm.product=true
+  --packages .packages
+  --output-dill build/app/intermediates/flutter/release/app.dill
+  --depfile     build/app/intermediates/flutter/release/kernel_compile.d
+  package:flutter_app/main.dart
+```
+
+```Java
+//gen_snapshot命令
+flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
+  --causal_async_stacks
+  --deterministic
+  --snapshot_kind=app-aot-blobs
+  --vm_snapshot_data=build/app/intermediates/flutter/release/vm_snapshot_data
+  --isolate_snapshot_data=build/app/intermediates/flutter/release/isolate_snapshot_data
+  --vm_snapshot_instructions=build/app/intermediates/flutter/release/vm_snapshot_instr
+  --isolate_snapshot_instructions=build/app/intermediates/flutter/release/isolate_snapshot_instr
+  --no-sim-use-hardfp
+  --no-use-integer-division
+  build/aot/app.dill
+```
+
+可见Android的AOT产物都位于/build/app/intermediates/flutter/release/目录。
+
+#### 7.4  iOS AOT产物生成命令
+
+```Java
+// build aot命令
+flutter/bin/flutter build aot
+  --suppress-analytics
+  --target=lib/main.dart
+  --output-dir=build/aot
+  --target-platform=ios
+  --ios-arch=armv7,arm64
+  --release
+```
+
+
+```Java
+//frontend_server命令
+flutter/bin/cache/dart-sdk/bin/dart
+  flutter/bin/cache/artifacts/engine/darwin-x64/frontend_server.dart.snapshot
+  --sdk-root flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk_product/
+  --strong
+  --target=flutter
+  --aot --tfa
+  -Ddart.vm.product=true
+  --packages .packages
+  --output-dill build/aot/app.dill
+  --depfile     build/aot/kernel_compile.d
+  package:flutter_app/main.dart
+```
+
+
+```Java
+//gen_snapshot命令
+/usr/bin/arch -x86_64 flutter/bin/cache/artifacts/engine/ios-release/gen_snapshot
+  --causal_async_stacks
+  --deterministic
+  --snapshot_kind=app-aot-assembly
+  --assembly=build/aot/arm64/snapshot_assembly.S
+  build/aot/app.dill
+```
+
+可见，iOS的产物都位于build/aot目录
 
 ## 附录
 flutter/packages/flutter_tools/
