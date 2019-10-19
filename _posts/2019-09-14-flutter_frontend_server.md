@@ -33,8 +33,31 @@ flutter/bin/cache/dart-sdk/bin/dart
 可见，通过dart虚拟机启动frontend_server.dart.snapshot，将dart代码转换成app.dill形式的kernel文件。frontend_server.dart.snapshot入口位于Flutter引擎中的
 flutter/frontend_server/bin/starter.dart。
 
+### 1.2 frontend参数表
+前端编译器的可选参数：
 
-### 1.2 frontend_server执行流程图
+|参数|说明|默认值|
+|---|---|---|
+|aot| 在AOT模式下运行编译器（启用整个程序转换）|false|
+|tfa| 在AOT模式下启用全局类型流分析和相关转换| false|
+|train| 通过示例命令行运行以生成快照| false|
+|incremental| 以增量模式运行编译器| flase|
+|link-platform| 批处理模式，平台kernel文件链接到结果的内核文件| true|
+|embed-source-text| 源码加入到生成的dill文件，便于得到用于调试的堆栈信息| true|
+|track-widget-creation| 运行内核转换器来跟踪widgets创建的位置| false|
+|strong| 已过时flags| true|
+|import-dill| 从已存在的dill文件中引入库| null|
+|output-dill| 将生成的dill文件输出路径| null|
+|output-incremental-dill| 将生成的增量dill文件输出路径| null|
+|depfile| | 仅用于批量，输出Ninja的depfile| |
+|packages| 用于编译的.packages文件| null|
+|sdk-root| SDK根目录的路径| ../../out/android_debug/flutter_patched_sdk|
+|target| 确定哪些核心库可用，可取值vm、flutter、flutter_runner、dart_runner| vm|
+
+- 增量模式运行编译器应该能加快编译速度
+- track-widget-creation、aot、tfa参数的使用场景
+
+### 1.3 frontend_server执行流程图
 
 （1）[点击查看大图](/img/flutter_compile/SeqAST.jpg)
 
@@ -98,33 +121,9 @@ Future<int> starter(
 
 该方法主要工作：
 
-- 解析KernelCompiler.compile()方法中传递过来的参数；
+- 解析KernelCompiler.compile()方法中传递过来的参数，参数表小节[1.2]
 - 创建前端编译器实例对象_FlutterFrontendCompiler；
 - 执行编译操作；
-
-#### 2.2.1 frontend参数解析
-前端编译器的可选参数：
-
-|参数|说明|默认值|
-|---|---|---|
-|aot| 在AOT模式下运行编译器（启用整个程序转换）|false|
-|tfa| 在AOT模式下启用全局类型流分析和相关转换| false|
-|train| 通过示例命令行运行以生成快照| false|
-|incremental| 以增量模式运行编译器| flase|
-|link-platform| 批处理模式，平台kernel文件链接到结果的内核文件| true|
-|embed-source-text| 源码加入到生成的dill文件，便于得到用于调试的堆栈信息| true|
-|track-widget-creation| 运行内核转换器来跟踪widgets创建的位置| false|
-|strong| 已过时flags| true|
-|import-dill| 从已存在的dill文件中引入库| null|
-|output-dill| 将生成的dill文件输出路径| null|
-|output-incremental-dill| 将生成的增量dill文件输出路径| null|
-|depfile| | 仅用于批量，输出Ninja的depfile| |
-|packages| 用于编译的.packages文件| null|
-|sdk-root| SDK根目录的路径| ../../out/android_debug/flutter_patched_sdk|
-|target| 确定哪些核心库可用，可取值vm、flutter、flutter_runner、dart_runner| vm|
-
-- 增量模式运行编译器应该能加快编译速度
-- track-widget-creation、aot、tfa参数的使用场景
 
 ### 2.3 \_FlutterFrontendCompiler.compile
 [-> flutter/frontend_server/lib/server.dart]
@@ -848,25 +847,19 @@ flutter/frontend_server/
   - bin/starter.dart
   - lib/server.dart
 
-third_party/dart/pkg/vm/lib/
-  - frontend_server.dart
-  - kernel_front_end.dart
-  - bytecode/gen_bytecode.dart
-  - bytecode/assembler.dart
-
-third_party/dart/pkg/front_end/lib/
-  - src/api_prototype/kernel_generator.dart
-  - src/kernel_generator_impl.dart
-  - src/fasta/kernel/kernel_target.dart
-  - src/fasta/loader.dart
-  - src/fasta/source/source_loader.dart
-
-third_party/dart/pkg/kernel/lib/
-  - ast.dart
-  - binary/ast_to_binary.dart
-
-third_party/dart/runtime/
-  - bin/gen_snapshot.cc
-  - vm/dart_api_impl.cc
-  - vm/compiler/aot/precompiler.cc
+third_party/dart/pkg/
+  - vm/lib/
+    - frontend_server.dart
+    - kernel_front_end.dart
+    - bytecode/gen_bytecode.dart
+    - bytecode/assembler.dart
+  - front_end/lib/
+    - src/api_prototype/kernel_generator.dart
+    - src/kernel_generator_impl.dart
+    - src/fasta/kernel/kernel_target.dart
+    - src/fasta/loader.dart
+    - src/fasta/source/source_loader.dart
+  - kernel/lib/
+    - ast.dart
+    - binary/ast_to_binary.dart
 ```

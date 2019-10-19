@@ -99,8 +99,9 @@ flutter run构建应用的过程，对于Android用到了gradle，下面列举gr
 |Pfilesystem-roots||
 |Pfilesystem-scheme||
 |Pbuild-shared-library|是否采取共享库|
-|Ptarget-platform|目标平台|
+|Ptarget-platform|目标平台|=
 
+#### 1.2.3 build aot参数说明
 gradle参数说明会传递到build aot过程，其对应参数说明：
 
 - -output-dir：指定aot产物输出路径，缺省默认等于“build/aot”；
@@ -111,6 +112,8 @@ gradle参数说明会传递到build aot过程，其对应参数说明：
 - -release：指定编译模式，可取值有debug, profile, release, dynamicProfile, dynamicRelease；
 - -extra-front-end-options：指定用于编译kernel的可选参数
 - –extra-gen-snapshot-options：指定用于构建AOT快照的可选参数
+
+也就是说执行flutter build aot必须指定的参数是target-platform和release参数。
 
 ### 1.3 AOT产物命令
 
@@ -1089,22 +1092,9 @@ class BuildAotCommand extends BuildSubCommand with TargetPlatformBasedDevelopmen
 
 该方法主要功能：
 
+- build aot的参数解读，见小节[1.2.3];
 - 生成kernel文件， 这是dart定义的一种特殊数据格式，由dart虚拟机解释模式执行；
 - 生成AOT可执行文件，根据kernel来生成的一种二进制机器码，执行速度更快；release模式打进apk的便是机器码；
-
-#### 4.2.1 build aot参数说明
-该过程参数说明：
-
-- -output-dir：指定aot产物输出路径，缺省默认等于“build/aot”；
-- -target：指定应用的主函数，缺省默认等于“lib/main.dart”；
-- -target-platform：指定目标平台，可取值有android-arm，android-arm64，android-x64, android-x86，ios， darwin-linux_x64， linux-x64，web；
-- -ios-arch：指定ios架构类型，可取值有arm64，armv7，仅用于iOS；
-- -build-shared-library：指定是否构建共享库，仅用于Android；iOS强制为false；
-- -release：指定编译模式，可取值有debug, profile, release, dynamicProfile, dynamicRelease；
-- -extra-front-end-options：指定用于编译kernel的可选参数
-- –extra-gen-snapshot-options：指定用于构建AOT快照的可选参数
-
-也就是说执行flutter build aot必须指定的参数是target-platform和release参数。
 
 ### 4.2 compileKernel
 [-> lib/src/base/build.dart]

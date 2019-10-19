@@ -54,7 +54,7 @@ flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
 此处gen_snapshot是一个二进制可执行文件，所对应的执行方法源码为third_party/dart/runtime/bin/gen_snapshot.cc，gen_snapshot将dart代码生成AOT二进制机器码，其中重点过程在precompiler.cc中的DoCompileAll()。
 
 
-##  二、源码解读gen_snapshot命令
+##  二、源码解读GenSnapshot命令
 
 ```
 BuildAotCommand.runCommand
@@ -63,7 +63,7 @@ BuildAotCommand.runCommand
       gen_snapshot命令
 ```
 
-### 3.1 gen_snapshot.main
+### 2.1 gen_snapshot.main
 [-> third_party/dart/runtime/bin/gen_snapshot.cc]
 
 ```Java
@@ -140,9 +140,9 @@ int main(int argc, char** argv) {
         MapFile(load_isolate_snapshot_instructions_filename, File::kReadExecute,
                 &isolate_snapshot_instructions);
   }
-  // 初始化Dart虚拟机 [见小节3.1.1]
+  // 初始化Dart虚拟机 [见小节2.1.1]
   error = Dart_Initialize(&init_params);
-  //[见小节3.2]
+  //[见小节2.2]
   int result = CreateIsolateAndSnapshot(inputs);
   // 回收Dart虚拟机
   error = Dart_Cleanup();
@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
 - CreateIsolateAndSnapshot
 
 
-#### 3.1.1 Dart_Initialize
+#### 2.1.1 Dart_Initialize
 [-> third_party/dart/runtime/vm/dart_api_impl.cc]
 
 ```Java
@@ -174,7 +174,7 @@ DART_EXPORT char* Dart_Initialize(Dart_InitializeParams* params) {
 
 [深入理解Dart虚拟机启动](http://gityuan.com/2019/06/23/dart-vm/)的[小节2.10]记录了Dart虚拟机的初始化过程。
 
-### 3.2 CreateIsolateAndSnapshot
+### 2.2 CreateIsolateAndSnapshot
 [-> third_party/dart/runtime/bin/gen_snapshot.cc]
 
 ```Java
@@ -229,7 +229,7 @@ static int CreateIsolateAndSnapshot(const CommandLineOptions& inputs) {
       break;
     case kAppAOTBlobs:
     case kAppAOTAssembly:
-      //[见小节3.3]
+      //[见小节2.3]
       CreateAndWritePrecompiledSnapshot();
       break;
     case kVMAOTAssembly: {
@@ -250,7 +250,7 @@ static int CreateIsolateAndSnapshot(const CommandLineOptions& inputs) {
 
 ```
 
-#### 3.2.1 snapshot的类型
+#### 2.2.1 snapshot的类型
 
 |类型|名称|
 |---|---|
@@ -262,14 +262,14 @@ static int CreateIsolateAndSnapshot(const CommandLineOptions& inputs) {
 |kAppAOTAssembly|app-aot-assembly|
 |kVMAOTAssembly|vm-aot-assembly|
 
-### 3.3 CreateAndWritePrecompiledSnapshot
+### 2.3 CreateAndWritePrecompiledSnapshot
 [-> third_party/dart/runtime/bin/gen_snapshot.cc]
 
 ```Java
 static void CreateAndWritePrecompiledSnapshot() {
   Dart_Handle result;
 
-  //使用指定的嵌入程序入口点进行预编译 [见小节3.4]
+  //使用指定的嵌入程序入口点进行预编译 [见小节2.4]
   result = Dart_Precompile();
 
   //创建一个预编译的snapshot
@@ -278,7 +278,7 @@ static void CreateAndWritePrecompiledSnapshot() {
     // kAppAOTAssembly模式
     File* file = OpenFile(assembly_filename);
     RefCntReleaseScope<File> rs(file);
-    //iOS采用该方式 [见小节4.1]
+    //iOS采用该方式 [见小节3.1]
     result = Dart_CreateAppAOTSnapshotAsAssembly(StreamingWriteCallback, file);
   } else {
     // kAppAOTBlobs模式
@@ -304,7 +304,7 @@ static void CreateAndWritePrecompiledSnapshot() {
       }
     }
     ...
-    //将snapshot写入buffer缓存 [见小节3.7]
+    //将snapshot写入buffer缓存 [见小节3.2]
     result = Dart_CreateAppAOTSnapshotAsBlobs(
         &vm_snapshot_data_buffer, &vm_snapshot_data_size,
         &vm_snapshot_instructions_buffer, &vm_snapshot_instructions_size,
@@ -350,7 +350,7 @@ static void CreateAndWritePrecompiledSnapshot() {
 
 该方法最终将Dart代码彻底编译为二进制可执行的机器码文件
 
-### 3.4 Dart_Precompile
+### 2.4 Dart_Precompile
 [-> third_party/dart/runtime/vm/dart_api_impl.cc]
 
 ```Java
@@ -367,14 +367,14 @@ DART_EXPORT Dart_Handle Dart_Precompile() {
     return result;
   }
   CHECK_CALLBACK_STATE(T);
-  //[见小节3.5]
+  //[见小节2.5]
   CHECK_ERROR_HANDLE(Precompiler::CompileAll());
   return Api::Success();
 #endif
 }
 ```
 
-### 3.5 CompileAll
+### 2.5 CompileAll
 [-> third_party/dart/runtime/vm/compiler/aot/precompiler.cc]
 
 ```Java
@@ -383,7 +383,7 @@ RawError* Precompiler::CompileAll() {
   if (setjmp(*jump.Set()) == 0) {
     //创建Precompiler对象
     Precompiler precompiler(Thread::Current());
-    //[见小节3.6]
+    //[见小节2.6]
     precompiler.DoCompileAll();
     return Error::null();
   } else {
@@ -394,7 +394,7 @@ RawError* Precompiler::CompileAll() {
 
 在Dart Runtime中生成FlowGraph对象，接着进行一系列执行流的优化，最后把优化后的FlowGraph对象转换为具体相应系统架构（arm/arm64等）的二进制指令
 
-### 3.6 DoCompileAll
+### 2.6 DoCompileAll
 [-> third_party/dart/runtime/vm/compiler/aot/precompiler.cc]
 
 ```Java
@@ -583,7 +583,13 @@ void Precompiler::DoCompileAll() {
 - ProgramVisitor::Dedup()：清理各数据段的重复数据，比如CodeSourceMaps、StackMaps等；
 - Symbols::Compact(): 执行完整的垃圾回收，整理后压缩symbols；
 
-### 3.7 Dart_CreateAppAOTSnapshotAsBlobs
+到此，把Dart_Precompile()过程执行完成。再回到[小节2.3]，再来分别看看Android和iOS产物生成的过程。
+
+## 三、源码解读iOS编译
+
+### 3.1 Android产物
+
+#### 3.1.1 Dart_CreateAppAOTSnapshotAsBlobs
 [-> third_party/dart/runtime/vm/dart_api_impl.cc]
 
 ```Java
@@ -645,9 +651,9 @@ Dart_CreateAppAOTSnapshotAsBlobs(uint8_t** vm_snapshot_data_buffer,
 
 再下一步将这些数据写入文件。
 
-## 四、ios编译
+### 3.2 iOS产物
 
-### 4.1 Dart_CreateAppAOTSnapshotAsAssembly
+#### 3.2.1 Dart_CreateAppAOTSnapshotAsAssembly
 
 ```Java
 DART_EXPORT Dart_Handle
@@ -670,7 +676,7 @@ Dart_CreateAppAOTSnapshotAsAssembly(Dart_StreamingWriteCallback callback,
 }
 ```
 
-### 4.2 WriteFullSnapshot
+#### 3.2.2 WriteFullSnapshot
 [-> third_party/dart/runtime/vm/clustered_snapshot.cc]
 
 ```Java
@@ -695,60 +701,11 @@ FullSnapshotWriter的成员变量
 - mapped_data_size_ ：数据
 - mapped_text_size_ ：指令
 
-### 4.
-[-> ]
-
-```Java
-
-```
-
-### 4.
-[-> ]
-
-```Java
-
-```
-
-### 4.
-[-> ]
-
-```Java
-
-```
-
-### 4.
-[-> ]
-
-```Java
-
-```
-
 ## 附录
 
 本文相关源码flutter engine
 
 ```Java
-flutter/frontend_server/
-  - bin/starter.dart
-  - lib/server.dart
-
-third_party/dart/pkg/vm/lib/
-  - frontend_server.dart
-  - kernel_front_end.dart
-  - bytecode/gen_bytecode.dart
-  - bytecode/assembler.dart
-
-third_party/dart/pkg/front_end/lib/
-  - src/api_prototype/kernel_generator.dart
-  - src/kernel_generator_impl.dart
-  - src/fasta/kernel/kernel_target.dart
-  - src/fasta/loader.dart
-  - src/fasta/source/source_loader.dart
-
-third_party/dart/pkg/kernel/lib/
-  - ast.dart
-  - binary/ast_to_binary.dart
-
 third_party/dart/runtime/
   - bin/gen_snapshot.cc
   - vm/dart_api_impl.cc
