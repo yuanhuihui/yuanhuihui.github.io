@@ -1,21 +1,177 @@
 ---
 layout: post
 title:  "源码解读Flutter run机制"
-date:   2019-09-21 21:15:40
+date:   2019-09-07 21:13:40
 catalog:  true
 tags:
     - flutter
 
 ---
 
-## 一、概述
+## 一、解读flutter run命令
+
+### 1.1 初识flutter run
+
+#### 1.1.1 IDE运行
+编写完flutter代码后，一定离不开运行flutter应用。比如Android Studio可点击如下按钮来执行
+
+![ide_flutter_run](/img/flutter_command/ide_flutter_run.png)
+
+该命令默认是采用debug模式，如果需要运行release模式，可以在IDE选择中的Run->Configurations的Additional arguments里面加上--release参数
+
+![ide_run_config](/img/flutter_command/ide_run_config.png)
+
+#### 1.1.2 命令行运行
+既然运行应用是通过调用flutter run命令该命令对Android或者iOS设备是通用的，那么下面直接用命令方式来运行。
+
+1）flutter run命令用于编译打包生成APP，然后安装到已连接设备上，并启动运行该APP的过程。
+
+![flutter_demo_debug](/img/flutter_command/flutter_demo_debug.png)
+
+以Android为例，利用gradle来编译打包，最终apk产物位于/build/app/outputs/apk/debug/app-debug.apk。当flutter run命令后面不带任何参数默认采用的是debug模式，从上图可以看到APP右上角会带有DEBUG标识，对于非DEBUG模式则右上角不会有任何标识。当需要运行release模式，可运行命令：flutter run --release。
+
+2）当调试性能(需要用到timeline)，且修改本地Flutter引擎代码，则采用profile模式，运行命令：
+
+```
+flutter run --profile --disable-service-auth-codes --local-engine-src-path=<FLUTTER_ROOT>/engine/src --local-engine android_profile
+```
+
+![flutter_run_profile_log](/img/flutter_command/flutter_run_profile_log.png)
+
+从上图可以看出这是运行在Android设备上的profile模式，利用Gradle来构建APK，位于工程根目录下/build/app/outputs/apk/profile/app-profile.apk，安装到手机后并通过am start来启动该应用。对于Profile模式，启动Observatory调试器，可通过127.0.0.1:xxx地址，打开网页版性能分析工具Observatory，其中包含有timeline工具，类似于Android的systrace。
+
+### 1.2 解读flutter run参数
+#### 1.2.1 参数表
+
+通过前面会发现，flutter run后面可以跟不同的参数[arguments]，具体有哪些参数如下所示：
+
+|arguments|说明|
+|---|---|
+|--debug |调试版本，这是默认模式 |
+|--profile |profile版本|
+|--release |发布版本 |
+|--target-platform |指定app运行的目标平台，比如android-arm/android-arm64，iOS平台不可用|
+|--target=<path> | 主入口，默认值lib/main.dart|
+|--observatory-port|指定observatory端口，默认为0（随机生成可用端口）|
+|--disable-service-auth-codes|关闭observatory服务鉴权|
+|--trace-startup|跟踪应用启动/退出，并保存trace到文件|
+|--trace-skia|跟踪skia，用于调试GPU线程|
+|--trace-systrace|转为systrace，适用于Android/Fuchsia|
+|--dump-skp-on-shader-compilation|转储触发着色器编译的skp，默认关闭|
+|--verbose-system-logs  |包括来自flutter引擎的详细日志记录|
+|--enable-software-rendering|开启软件渲染，默认采用OpenGL或者Vulkan|
+|--skia-deterministic-rendering|确定性采用skia渲染|
+|--no-hot  |可关闭热重载，默认是开启|
+|--start-paused|应用启动后暂停|
+|--local-engine-src-path|指定本地引擎源码路径，比如xxx/engine/src|
+|--local-engine|指定本地引擎类型，比如android_profile|
 
 
-flutter run执行过程的日志可大致知道该过程至少包括gradle构建APK以及安装APK的流程。
+对于flutter 1.5及以上的版本，抓取timeline报错的情况下，可采用以下两个方案之一：
 
-![flutter_run_cmd](/img/flutter_command/flutter_run_cmd.png)
+```Java
+//方案1：关闭鉴权
+flutter run --disable-service-auth-codes
+//方案2：对于已安装应用，直接运行
+adb shell am start -a android.intent.action.RUN -f 0x20000000 --ez enable-background-compilation true --ez enable-dart-profiling true --ez disable-service-auth-codes true --ez trace-skia true com.gityuan.flutterdemo/.MainActivity
+```
 
-相信有不少人会好奇flutter命令背后的原理，这里就以[小节二]中flutter run命令为起点展开，flutter run 命令对应 RunCommand，该命令执行过程中包括以下4个部分组成：
+如果不确定该应用的activity名，可以通过以下命令获取：
+
+```
+adb shell dumpsys SurfaceFlinger --list  //方式一
+adb shell dumpsys activity a -p io.flutter.demo.gallery //方式二
+```
+
+#### 1.2.2 gradle参数说明
+
+flutter run构建应用的过程，对于Android用到了gradle，下面列举gradle的参数。
+
+|参数|说明|
+|---|---|
+|PlocalEngineOut|引擎产物|
+|Ptarget|取值lib/main.dart|
+|Ptrack-widget-creation|默认为false|
+|Pcompilation-trace-file||
+|Ppatch||
+|Pextra-front-end-options||
+|Pextra-gen-snapshot-options||
+|Pfilesystem-roots||
+|Pfilesystem-scheme||
+|Pbuild-shared-library|是否采取共享库|
+|Ptarget-platform|目标平台|
+
+gradle参数说明会传递到build aot过程，其对应参数说明：
+
+- -output-dir：指定aot产物输出路径，缺省默认等于“build/aot”；
+- -target：指定应用的主函数，缺省默认等于“lib/main.dart”；
+- -target-platform：指定目标平台，可取值有android-arm，android-arm64，android-x64, android-x86，ios， darwin-linux_x64， linux-x64，web；
+- -ios-arch：指定ios架构类型，可取值有arm64，armv7，仅用于iOS；
+- -build-shared-library：指定是否构建共享库，仅用于Android；iOS强制为false；
+- -release：指定编译模式，可取值有debug, profile, release, dynamicProfile, dynamicRelease；
+- -extra-front-end-options：指定用于编译kernel的可选参数
+- –extra-gen-snapshot-options：指定用于构建AOT快照的可选参数
+
+### 1.3 AOT产物命令
+
+产物生成分为Android和iOS产物
+
+- Android AOT产物/build/app/intermediates/flutter/release/目录，最终安装到Android手机的是/build/app/outputs/release/app-release.apk
+- iOS AOT产物位于build/aot目录，最终安装到iOS手机是build/ios/iphoneos/Runner.app
+
+#### 1.3.1 Android AOT产物生成命令
+
+```Java
+// build aot命令
+flutter build aot
+  --suppress-analytics
+  --quiet
+  --target lib/main.dart
+  --output-dir /build/app/intermediates/flutter/release/
+  --target-platform android-arm
+  --extra-front-end-options
+  --extra-gen-snapshot-options
+  --release
+```
+
+#### 1.3.2 iOS AOT产物生成命令
+
+```Java
+// build aot命令
+flutter build aot
+  --suppress-analytics
+  --target=lib/main.dart
+  --output-dir=build/aot
+  --target-platform=ios
+  --ios-arch=armv7,arm64
+  --release
+```
+
+### 1.4 flutter run原理说明
+flutter run过程涉及多个flutter相关命令，其包含关系如下所示：
+
+![flutter_run_arch](/img/flutter_command/flutter_run_arch.jpg)
+
+图解：
+
+flutter命令的整个过程位于目录flutter/packages/flutter_tools/，对于flutter run命令核心功能包括以下几部分：
+
+1. flutter build apk：通过gradle来构建APK，由以下两部分组成：
+  - flutter build aot，分为如下两个核心过程，该过程详情见下一篇文章
+    - frontend_server前端编译器生成kernel文件
+    - gen_snapshot来编译成AOT产物
+  - flutter build bundle，将相关文件放入flutter_assets目录
+2. 通过adb install来安装APK
+3. 通过adb am start来启动应用
+
+
+整个flutter run的执行流程图，[点击查看大图](/img/flutter_command/flutter_run_interaction.jpg)
+
+![flutter_run_interaction](/img/flutter_command/flutter_run_interaction.jpg)
+
+## 二、源码解读flutter run命令
+
+相信有不少人会好奇flutter命令背后的原理，根据文章[Flutter tools](http://gityuan.com/2019/09/01/flutter_tool/)可知，对于flutter run命令，那么对应执行的便是RunCommand.runCommand()。这里就以[小节二]中flutter run命令为起点展开，flutter run 命令对应 RunCommand，该命令执行过程中包括以下4个部分组成：
 
 - [小节三] flutter build apk 命令对应 BuildApkCommand
 - [小节四] flutter build aot 命令对应 BuildAotCommand
@@ -23,10 +179,6 @@ flutter run执行过程的日志可大致知道该过程至少包括gradle构建
 - [小节六] flutter install 命令对应 InstallCommand
 
 说明以下过程都位于工程flutter/packages/flutter_tools/目录。
-
-## 二、flutter run命令
-
-根据文章[Flutter tools](http://gityuan.com/2019/09/14/flutter_tool/)可知，对于flutter run命令，那么对应执行的便是RunCommand.runCommand()。
 
 ### 2.1 RunCommand.runCommand
 [-> lib/src/commands/run.dart]
@@ -96,7 +248,12 @@ Future<FlutterCommandResult> runCommand() async {
 }
 ```
 
-这里以hot reload为例来接着往下说。
+该方法主要功能说明：
+
+- debug模式会默认开启热加载模式，如果不需要则添加参数--no-hot
+- 遍历所有已连接设备，发现所有已连接设备
+- 通过\_createDebuggingOptions来解析flutter run方法传递过来的命令参数
+- 根据启动方式是否为热重载来调用相应ResidentRunner的run()来执行，接下来以hot reload为例展开说明。
 
 ### 2.2 HotRunner.run
 [-> lib/src/run_hot.dart]
@@ -1515,184 +1672,6 @@ Future<bool> installApp(ApplicationPackage app) async {
 ```
 
 执行的命令是adb install -t -r [apk_path]来安装APK
-
-
-## 七、总结
-
-#### 7.1 flutter run架构图
-
-[点击查看大图](/img/flutter_command/flutterRun.jpg)
-
-![flutterRun](/img/flutter_command/flutterRun.jpg)
-
-图解：
-
-flutter命令的整个过程位于目录flutter/packages/flutter_tools/，对于flutter run命令核心功能包括以下几部分：
-
-- 通过gradle来构建APK，即等价于flutter build apk，由以下两部分组成：
-  - flutter build aot，分为如下两个核心过程，该过程详情见下一篇文章
-    - frontend_server前端编译器生成kernel文件
-    - gen_snapshot来编译成AOT产物
-  - flutter build bundle，将相关文件放入flutter_assets目录
-- 通过adb install来安装APK
-- 通过adb am start来启动应用
-
-这个过程涉及多个flutter命令，其包含关系如下所示：
-
-![flutterRun](/img/flutter_command/flutter_run_3.jpg)
-
-
-#### 7.2 flutter run参数
-
-对于flutter 1.5及以上的版本，抓取timeline报错的情况下，可采用以下两个方案之一：
-
-方案1：flutter run --disable-service-auth-codes
-
-根据前面的知识，可知该方案每次都要重新build，install，然后再am start应用，对于手机中已经安装的应用可直接通过am start来快速启动应用，关于am start过程有很多debuggingOptions可选的调试参数，如下所示：
-
-|flags|含义|
-|---|---|
-|trace-startup|跟踪启动|
-|route||
-|enable-software-rendering|开启软件渲染|
-|skia-deterministic-rendering||
-|trace-skia|跟踪skia|
-|trace-systrace|跟进systrace|
-|dump-skp-on-shader-compilation||
-|enable-checked-mode||
-|verify-entry-points||
-|start-paused|应用启动后暂停|
-|disable-service-auth-codes|关闭observatory服务鉴权|
-|use-test-fonts|使用测试字体|
-|verbose-logging|输出verbose日志|
-
-由此可见，如果你希望运行某个已经安装过的flutter应用，可以跳过安装等环节，可以直接执行应用启动，如下命令：
-
-
-方案2：adb shell am start -a android.intent.action.RUN -f 0x20000000 --ez enable-background-compilation true --ez enable-dart-profiling true --ez disable-service-auth-codes true --ez trace-skia true com.gityuan.flutterdemo/.MainActivity
-
-如果不确定该应用的activity名，可以通过以下命令获取：
-
-```
-adb shell dumpsys SurfaceFlinger --list  //方式一
-adb shell dumpsys activity a -p io.flutter.demo.gallery //方式二
-```
-
-#### 7.3 gradle参数说明
-
-|参数|说明|
-|---|---|
-|PlocalEngineOut|引擎产物|
-|Ptarget|取值lib/main.dart|
-|Ptrack-widget-creation|默认为false|
-|Pcompilation-trace-file||
-|Ppatch||
-|Pextra-front-end-options||
-|Pextra-gen-snapshot-options||
-|Pfilesystem-roots||
-|Pfilesystem-scheme||
-|Pbuild-shared-library|是否采取共享库|
-|Ptarget-platform|目标平台|
-
-gradle参数说明会传递到build aot过程，其对应参数说明：
-
-- -output-dir：指定aot产物输出路径，缺省默认等于“build/aot”；
-- -target：指定应用的主函数，缺省默认等于“lib/main.dart”；
-- -target-platform：指定目标平台，可取值有android-arm，android-arm64，android-x64, android-x86，ios， darwin-linux_x64， linux-x64，web；
-- -ios-arch：指定ios架构类型，可取值有arm64，armv7，仅用于iOS；
-- -build-shared-library：指定是否构建共享库，仅用于Android；iOS强制为false；
-- -release：指定编译模式，可取值有debug, profile, release, dynamicProfile, dynamicRelease；
-- -extra-front-end-options：指定用于编译kernel的可选参数
-- –extra-gen-snapshot-options：指定用于构建AOT快照的可选参数
-
-#### 7.4 Android AOT产物生成命令
-
-```Java
-// build aot命令
-flutter/bin/flutter build aot
-  --suppress-analytics
-  --quiet
-  --target lib/main.dart
-  --output-dir /build/app/intermediates/flutter/release/
-  --target-platform android-arm
-  --extra-front-end-options
-  --extra-gen-snapshot-options
-  --release
-```
-
-```Java
-//frontend_server命令
-flutter/bin/cache/dart-sdk/bin/dart
-  flutter/bin/cache/artifacts/engine/darwin-x64/frontend_server.dart.snapshot
-  --sdk-root flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk_product/
-  --strong
-  --target=flutter
-  --aot --tfa
-  -Ddart.vm.product=true
-  --packages .packages
-  --output-dill build/app/intermediates/flutter/release/app.dill
-  --depfile     build/app/intermediates/flutter/release/kernel_compile.d
-  package:flutter_app/main.dart
-```
-
-```Java
-//gen_snapshot命令
-flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
-  --causal_async_stacks
-  --deterministic
-  --snapshot_kind=app-aot-blobs
-  --vm_snapshot_data=build/app/intermediates/flutter/release/vm_snapshot_data
-  --isolate_snapshot_data=build/app/intermediates/flutter/release/isolate_snapshot_data
-  --vm_snapshot_instructions=build/app/intermediates/flutter/release/vm_snapshot_instr
-  --isolate_snapshot_instructions=build/app/intermediates/flutter/release/isolate_snapshot_instr
-  --no-sim-use-hardfp
-  --no-use-integer-division
-  build/aot/app.dill
-```
-
-可见Android的AOT产物都位于/build/app/intermediates/flutter/release/目录。
-
-#### 7.4  iOS AOT产物生成命令
-
-```Java
-// build aot命令
-flutter/bin/flutter build aot
-  --suppress-analytics
-  --target=lib/main.dart
-  --output-dir=build/aot
-  --target-platform=ios
-  --ios-arch=armv7,arm64
-  --release
-```
-
-
-```Java
-//frontend_server命令
-flutter/bin/cache/dart-sdk/bin/dart
-  flutter/bin/cache/artifacts/engine/darwin-x64/frontend_server.dart.snapshot
-  --sdk-root flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk_product/
-  --strong
-  --target=flutter
-  --aot --tfa
-  -Ddart.vm.product=true
-  --packages .packages
-  --output-dill build/aot/app.dill
-  --depfile     build/aot/kernel_compile.d
-  package:flutter_app/main.dart
-```
-
-
-```Java
-//gen_snapshot命令
-/usr/bin/arch -x86_64 flutter/bin/cache/artifacts/engine/ios-release/gen_snapshot
-  --causal_async_stacks
-  --deterministic
-  --snapshot_kind=app-aot-assembly
-  --assembly=build/aot/arm64/snapshot_assembly.S
-  build/aot/app.dill
-```
-
-可见，iOS的产物都位于build/aot目录
 
 ## 附录
 flutter/packages/flutter_tools/

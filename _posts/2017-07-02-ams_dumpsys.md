@@ -95,8 +95,8 @@ tags:
 
 主要输出的对象：
 
-- ReceiverList, BroadcastFilter, 
-- IntentResolver, 
+- ReceiverList, BroadcastFilter,
+- IntentResolver,
 - BroadcastQueue, BroadcastRecord
 - Handler, Looper
 
@@ -119,9 +119,9 @@ tags:
 
     //标志性开头，dumpPermissionsLocked
     ACTIVITY MANAGER URI PERMISSIONS (dumpsys activity permissions)
-    
+
 主要输出的对象：
-  
+
 - UriPermission
 
 ### 2.5 Service
@@ -131,7 +131,7 @@ tags:
 
 主要输出的对象：
 
-- ActiveServices, 
+- ActiveServices,
 - ServiceRecord, ConnectionRecord,ProcessRecord
 
 ### 2.6 recents
@@ -152,11 +152,11 @@ tags:
             Task id #[n]
               * Hist #[m]:
           Stack #1:
-            
-          
+
+
 主要输出的对象：
 
-- ActivityStackSupervisor, ActivityStack, 
+- ActivityStackSupervisor, ActivityStack,
 - TaskRecord, ActivityRecord
 - ActivityThread, Activity
 - ViewRootImpl

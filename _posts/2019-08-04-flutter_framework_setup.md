@@ -35,7 +35,7 @@ tags:
 - 通过AS的File -> Open加载已下载的flutter项目
     - 这里需要注意，打开的目录是flutter/packages/flutter，否则可能代码间跳转会有些问题
 - 执行flutter doctor
-- 执行flutter pub upgrade
+- 执行flutter packages upgrade
 - 执行flutter packages get
 
 这便完成了flutter framework的源码环境。
