@@ -27,7 +27,7 @@ tags:
 #### 3. 移动端技术选型
 作为移动端的跨端技术方案，所关注无外乎以下这4个方面：研发效率、动态性、多端一致性、性能体验。
 
-![](/img/flutter-arch/1.png)
+![](http://gityuan.com/img/flutter-arch/1.png)
 
 1. 研发效率：最大化代码复用，减少多端差异的适配工作量，降低开发成本，专注业务开发，实现“write once，run everywhere”的终极目标。效率提升是贯穿整个业务的生命周期线，即便业务上线后，可持续降低后续的维护成本，加快新feature的迭代速度，这是一个持续的效率收益。当然，这里不得不说，任何一门新技术在开发启动学习阶段会有一些成本，但上手后的收益是长期的。
 2. 动态化：突破渠道的更新频率，可快速迭代新功能，这一点不仅是跨平台技术的诉求，也是Native技术必备的杀手锏，这也是评估跨端技术的一个重要考核点。
@@ -38,7 +38,7 @@ tags:
 #### 4. 跨平台技术划分
 对研发效率和体验的不断追逐，移动端的跨平台技术方框架层出不穷，然则天下武功众多，万变不离其宗，从其核心本质来划分，可大致分为以下三大类：
 
-![](/img/flutter-arch/2.png)
+![](http://gityuan.com/img/flutter-arch/2.png)
 
 1. Web技术：主要依赖于WebView的技术，功能支持受限，性能体验很差，比如PhoneGap、Cordova、小程序。
 2. 原生渲染：使用JavaScript作为编程语言，通过中间层转化为原生控件来渲染UI界面，比如React Native、Weex。
@@ -47,8 +47,7 @@ tags:
 #### 5. 跨平台技术演进
 跨平台技术，一直以来是每一个有追求的开发者所追逐的梦想，同时也是守旧者的噩梦，跨平台的多端一体化方案势必颠覆现有的原生各端独立开发模式，接下来列举众多的跨平台技术中最为关键的几个技术方案的演进阶段。
 
-![](/img/flutter-arch/3.png)
-
+![](http://gityuan.com/img/flutter-arch/3.png)
 
 从上图可以看出，技术演进过程大致分以下三个阶段：
 第一阶段，采用WebView技术绘制界面的Hybrid混合开发技术，通过JS Bridge 将系统部分能力暴露给 JS 调用，其缺点是性能较差，功能受限，扩展性差，不适合交互复杂的场景，比如Cordova。
@@ -70,17 +69,17 @@ Flutter是彻底的跨平台方案，既没有采用webView，也没有采用JS�
 
 对于Flutter优势，回到前面讲到移动端技术选型的4要素，研发效率、动态性、多端一致性、性能体验，分别对应下面这一组词语。
 
-![](/img/flutter-arch/4.png)
+![](http://gityuan.com/img/flutter-arch/4.png)
 
 1. 高效率：采用dart语言编写代码，虽然刚开始上手需要点时间，但熟练后效率比较高。一套代码适用多个平台(Android、iOS、Web)，以及高效的Hot Reload能快速辅助调试；
 2. 动态化：2017年3月苹果下发警告邮件，禁止JSPatch等 iOS App热更新方案，从此iOS动态化成为一个不宜公开讨论的话题。同样地，Flutter引擎在某一个官方版本对动态化做过一些尝试，但后续基于风险考虑移除，当然并没有阻碍大家对技术的探索，这里不方便展开讨论；
 3. 高一致性：实现UI像素级的控制，Flutter渲染引擎依靠跨平台Skia图形库来实现，仅依赖系统图形绘制相关的接口，比如未来Android会支持vulkan，iOS会支持metal，这些都是通过skia封装调用。可最大程度上保证不同平台的体验一致性，见下图所示。
 
-![](/img/flutter-arch/5.png)
+![](http://gityuan.com/img/flutter-arch/5.png)
 
 4. 高性能：渲染性能优于现有的各种跨平台框架，可媲美原生性能的跨平台技术方案，Dart代码执行效率比JS高，通过AOT编译成平台原生代码，渲染采用自渲染skia方案，既不需要JS Bridge桥接，也不需要Art虚拟机参与。再从渲染原理来看看Flutter的高性能的底气在哪里。
 
-![](/img/flutter-arch/6_flutter_compare.png)
+![](http://gityuan.com/img/flutter-arch/6_flutter_compare.png)
 
 图解：
 - Android原生框架，通过调用Java Framework层，再调用到skia来渲染界面；
@@ -92,16 +91,16 @@ Flutter是彻底的跨平台方案，既没有采用webView，也没有采用JS�
 #### 7. 业界发展近况
 2017年5月Google I/O大会正式对外公布Flutter，到2018年12月发布Flutter1.0，引发全球大量的开发者和企业开始研究Flutter。StackOverflow 2019年的全球开发者文件调查中，Flutter被评选为最受开发者欢迎的框架之一，超过了TensorFlow和Node.js。
 
-![](/img/flutter-arch/7_flutter_rank.png)
+![](http://gityuan.com/img/flutter-arch/7_flutter_rank.png)
 
 到目前，全球越来越多的公司已经在大家耳熟能详的知名APP中使用Flutter技术并落地，尤其国内知名互联网公司对Flutter投入度很大，社区也是非常活跃。
 
-![](/img/flutter-arch/8_flutter_company.png)
+![](http://gityuan.com/img/flutter-arch/8_flutter_company.png)
 
 #### 8. Flutter未来趋势
 目前Flutter主要在移动端Android/iOS双端跨端，Flutter 的愿景是成为一个多端运行的 UI 框架，能够支持不仅仅是移动端，还包括Web、桌面、甚至嵌入式设备。在2019 Google I/O 开发者大会上推出的使用 Flutter 开发 Web 应用的框架，同年9月发布Flutter 1.9，并将Flutter web合入Flutter主仓库。
 
-![](/img/flutter-arch/9_flutter_multi_arch.png)
+![](http://gityuan.com/img/flutter-arch/9_flutter_multi_arch.png)
 
 从架构图看，Flutter采用同一个Dart Framework层来统一Flutter C++引擎和Web引擎，最终可以运行在Android，iOS，Browser上，从Flutter引擎代码不难看出Flutter也是支持Fuchsia操作系统。
 
@@ -109,7 +108,7 @@ Fuchsia是Google内部正在开发的一款新的操作系统，采用Flutter作
 
 从Fuchsia技术架构来看，内核层zircon的基础LK是专为嵌入式应用中小型系统设计的内核，代码简洁，适合嵌入式设备和高性能设备，比如IOT、移动可穿戴设备等，目前这些领域还没有标准化级别的垄断者。以及在框架层中有着语音交互、云端以及智能化等模块，由此笔者揣测未来Fuchsia率先应用在音控等智能嵌入式设备。
 
-![](/img/flutter-arch/10_fuchsia.png)
+![](http://gityuan.com/img/flutter-arch/10_fuchsia.png)
 
 目前大家普遍比较看好的未来两个技术就是5G和IoT时代。对于5G的需求，很大程度上是因为移动互联网发展到“IoT时代”的阶段。这个发展阶段，全球上网设备的数量可能会达到500亿个。随着5G+IOT时代的到来，现在大家比较关注的Flutter包大小也同样不再是一个问题，或许Flutter技术的生命期比客户端更长，或许Fuchsia正在驰骋IOT疆场，你所掌握的Flutter技术栈可以无缝迁移，一次弯道超车的机会。
 
@@ -120,7 +119,7 @@ Fuchsia是Google内部正在开发的一款新的操作系统，采用Flutter作
 #### 1. Flutter技术架构
 先来看看Flutter整体的技术架构，分为四层，从上之下依次是Dart APP，Dart Framework， C++ Engine，Platform。
 
-![](/img/flutter-arch/11_flutter_arch.png)
+![](http://gityuan.com/img/flutter-arch/11_flutter_arch.png)
 
 Flutter架构最核心的便是Framework（框架）和Engine（引擎）：
 - Flutter Framework层：用Dart编写，封装整个Flutter架构的核心功能，包括Widget、动画、绘制、手势等功能，有Material（Android风格UI）和Cupertino（iOS风格）的UI界面， 可构建Widget控件以及实现UI布局。
@@ -129,7 +128,7 @@ Flutter架构最核心的便是Framework（框架）和Engine（引擎）：
 #### 2. Flutter编译产物
 看完Flutter内部架构，或许你好奇，Flutter不用Android/iOS的本地语言技术开发，Dart编写完的代码如何让不同系统可以识别，最终编译后得到的产物是什么呢？
 
-![](/img/flutter-arch/12_flutter_artifact.png)
+![](http://gityuan.com/img/flutter-arch/12_flutter_artifact.png)
 
 Flutter产物分为Dart业务代码和Engine代码各自生成的产物，图中的Dart Code包含开发者编写的业务代码，Engine Code是引擎代码，如果并没有定制化引擎，则无需重新编译引擎代码。
 
@@ -140,7 +139,7 @@ Flutter产物分为Dart业务代码和Engine代码各自生成的产物，图中
 #### 3. Flutter引擎启动
 既然了解了Flutter的编译产物，那你或许又好奇，Flutter这台引擎如何发动的，怎么跟Native衔接呢？
 
-![](/img/flutter-arch/13_flutter_engine_startup.png)
+![](http://gityuan.com/img/flutter-arch/13_flutter_engine_startup.png)
 
 这里以Android为例，熟悉Android的开发者，应该都了解APP启动过程，会执行Application和Activity的onCreate()方法，FlutterApplication和FlutterActivity的onCreate()方法正是连接Native和Flutter的枢纽。
 
@@ -152,7 +151,7 @@ Flutter引擎启动中会创建有4个TaskRunner以及创建虚拟机，分别�
 #### 4. TaskRunner工作原理
 Flutter引擎启动过程，会创建UI/GPU/IO这3个线程，会为这些线程依次创建MessageLoop对象，启动后处于epoll_wait等待状态。对于Flutter的消息机制跟Android原生的消息机制有很多相似之处，都有消息(或者任务)、消息队列(或任务队列)以及Looper；有一点不同的是Android有一个Handler类，用于发送消息以及执行回调方法，相对应Flutter中有着相近功能的便是TaskRunner。
 
-![](/img/flutter-arch/14_task_loop.png)
+![](http://gityuan.com/img/flutter-arch/14_task_loop.png)
 
 上图是从源码中提炼而来的任务处理流程，比官方流程图更容易理解一些复杂流程的时序问题，后续会专门讲解个中原由。Flutter的任务队列处理机制跟Android的消息队列处理相通，只不过Flutter分为Task和MicroTask两种类型，引擎和Dart虚拟机的事件以及Future都属于Task，Dart层执行scheduleMicrotask()所产生的属于Microtask。
 
@@ -173,7 +172,7 @@ Flutter引擎启动会创建Dart虚拟机以及Root Isolate。DartVM自身也拥
 
 何为Isolate，从字面上理解是“隔离”，isolate之间是逻辑隔离的。Isolate中的代码也是按顺序执行，因为Dart没有共享内存的并发，没有竞争的可能性，故不需要加锁，也没有死锁风险。对于Dart程序的并发则需要依赖多个isolate来实现。
 
-![](/img/flutter-arch/15_isolate_heap.png)
+![](http://gityuan.com/img/flutter-arch/15_isolate_heap.png)
 
 图解：
 - isolate堆是运该isolate中代码分配的所有对象的GC管理的内存存储；
@@ -186,7 +185,7 @@ Flutter引擎启动会创建Dart虚拟机以及Root Isolate。DartVM自身也拥
 #### 6. Widget架构概览
 Flutter引擎启动后执行Dart业务，是通过runApp(Widget app)方法，那Widget又是什么呢？
 
-![](/img/flutter-arch/16_widget_arch.png)
+![](http://gityuan.com/img/flutter-arch/16_widget_arch.png)
 
 Widget是所有Flutter应用程序的基石，Widget可以是一个按钮，一种字体或者颜色，一个布局属性等，在Flutter的UI世界可谓是“万物皆Widget”。常见的Widget子类为StatelessWidget(无状态)和StatefulWidget(有状态)；
 - StatelessWidget：内部没有保存状态，UI界面创建后不会发生改变；
@@ -194,7 +193,7 @@ Widget是所有Flutter应用程序的基石，Widget可以是一个按钮，一�
 
 **三棵树**
 
-![](/img/flutter-arch/17_three_tree.png)
+![](http://gityuan.com/img/flutter-arch/17_three_tree.png)
 
 图解：
 - Widget是为Element描述需要的配置， 负责创建Element，决定Element是否需要更新。Flutter Framework通过差分算法比对Widget树前后的变化，决定Element的State是否改变。当重建Widget树后并未发生改变， 则Element不会触发重绘，则就是Widget树的重建并不一定会触发Element树的重建。
@@ -206,7 +205,7 @@ Widget是所有Flutter应用程序的基石，Widget可以是一个按钮，一�
 #### 7. 渲染原理
 Dart的UI采用Widget来实现，最终转换为RenderObject，那界面又是如何渲染的呢？
 
-![](/img/flutter-arch/18_gpu_pipeline.png)
+![](http://gityuan.com/img/flutter-arch/18_gpu_pipeline.png)
 
 渲染过程，UI线程完成布局、绘制操作，生成Layer Tree；GPU线程执行合成并光栅化后交给GPU来处理，其中几个关键步骤：
 - Animate: 遍历_transientCallbacks，执行动画回调方法；
@@ -221,7 +220,7 @@ GPU线程通过skia向GPU硬件绘制一帧的数据，GPU将帧信息保存到F
 #### 8. Platform Channels
 Flutter框架提供了UI的控件支持，对于APP除了UI还有其他依赖于Native平台的支持，比如调用Camera的功能，该怎么办呢？为此，Flutter通过提供Platform Channel的功能，使得Dart代码具备与Native交互的能力。
 
-![](/img/flutter-arch/19_platform_channels.png)
+![](http://gityuan.com/img/flutter-arch/19_platform_channels.png)
 
 Platform Channel用于Flutter与Native之间的消息传递，整个过程的消息与响应是异步执行，不会阻塞用户界面。Flutter引擎框架已完成桥接的通道，这样开发者只需在Native层编写定制的Android/iOS代码，即可在Dart代码中直接调用，这也就是Flutter Plugin插件的一种形式。
 
@@ -238,7 +237,8 @@ Platform Channel用于Flutter与Native之间的消息传递，整个过程的消
 - Flutter如何通过plugin支持移动设备提供的服务？
 
 这些疑问在前面都逐一简要解答，如果仅仅是用Flutter做业务开发，并不需要掌握这么深度技术，不过，知其然知其所以然，能让你游刃有余。
-接下来，笔者(Gityuan)持续学习与梳理Flutter内部机制的文章。另外，创建了一个微信群，想加入Gityuan的Flutter交流群，可添加微信Gityuan，备注flutter即可，如发现文章有任何问题可直接向我反馈。
+
+本文同步在我的公号[《跨平台技术演进及Flutter未来》](https://mp.weixin.qq.com/s/UZQU-PWM5JEb3dYtZKT6Cw)，另外为大家创建了Flutter微信交流群，想加入可添加Gityuan微信好友，备注flutter即可，如发现任何文章有问题欢迎大家直接跟我反馈。
 
 #### 启动篇
 
@@ -260,6 +260,7 @@ Platform Channel用于Flutter与Native之间的消息传递，整个过程的消
 - [深入理解setState更新机制](http://gityuan.com/2019/07/06/flutter_set_state/)
 - [深入理解Flutter动画原理](http://gityuan.com/2019/07/13/flutter_animator/)
 
+后续笔者将持续研究与梳理Flutter内部机制的文章。
 
 ## 四、结束语
 
