@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Android系统架构开篇"
+title:  "Android 操作系统架构开篇"
 permalink: /android/
 date:   2016-04-01 11:49:40
 catalog:  true

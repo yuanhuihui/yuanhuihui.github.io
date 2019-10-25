@@ -70,10 +70,10 @@ featured-condition-size: 0              # A tag will be featured if the size of 
 # hotpages
 hotpages: [
     {
-        title: "Android系统架构开篇    ",
+        title: "Android 操作系统架构开篇    ",
         href:  "http://gityuan.com/android"
     }, {
-        title: "Flutter跨平台演进及架构开篇",
+        title: "Flutter 跨平台演进及架构开篇",
         href:  "http://gityuan.com/flutter"
 
     },{
