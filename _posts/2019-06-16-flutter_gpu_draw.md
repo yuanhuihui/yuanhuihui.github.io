@@ -10,21 +10,58 @@ tags:
 
 > 基于Flutter 1.5，从源码视角来深入剖析flutter渲染机制，相关源码目录见文末附录
 
-## 一、概述
+## 一、GPU线程渲染
 
 看Flutter的渲染绘制过程的核心过程包括在ui线程和gpu线程，上一篇文章[Flutter渲染机制—UI线程](http://gityuan.com/2019/06/15/flutter_ui_draw/)已经详细介绍了UI线程的工作原理，
 本文则介绍GPU线程的工作原理，这里需要注意的是，gpu线程是指运行着GPU Task Runner的名叫gpu的线程，其实依然是是在CPU上执行，用于将ui线程传递过来的layer tree转换为GPU命令并方法送到GPU，但这个执行过程会等待GPU的执行结果。
 
-#### 1.1 GPU线程的绘制流程图
+### 1.1 GPU渲染原理
+#### 1.1.1 GPU渲染概览
+gpu线程的主要工作是将layer tree进行光栅化再发送给GPU，其中最为核心方法ScopedFrame::Raster()，其主要工作如下所示：
 
-**1) [GPU线程处理流程图](http://gityuan.com/img/flutter_gpu/GPUDraw.jpg)**
+- LayerTree::Preroll: 绘制前的一些准备工作
+- LayerTree::Paint: 此处会嵌套调用各个不同的layer的绘制方法
+- SkCanvas::Flush: 将数据flush到GPU，需要注意的是saveLayer的耗时；
+- AndroidContextGL::SwapBuffers: 缓存交换操作
+
+#### 1.1.2 生产者-消费者模式
+
+- 当管道中待处理的光栅化任务等于2个的时候（池子满了），则UI线程无法执行Animator::BeginFrame()，而是等于下一次Vsync信号再尝试执行；
+- 当管道中没有待处理的光栅化任务的时候（池子空了），则GPU线程无法执行Rasterizer::Draw()，而是直接返回，等待UI线程向其添加任务。
+
+1） 管道Pipeline中的信号量available_
+
+- 在Animator初始化过程会设置初始值available_ = 0
+- UI线程执行ProducerCommit()，则available_加1
+- 当available_ > 0，允许GPU线程来执行Consume()，则available_减1
+
+
+2）管道Pipeline中的信号量empty_
+
+- 在Animator初始化过程会设置初始值empty_ = 2
+- UI线程执行Produce()，生产layer tree交给GPU线程光栅化操作一次，则执行empty_.TryWait()，也就是empty_减1
+- GPU线程执行完成Consume()，则执行empty_.Signal()，也就是empty_加1；
+
+#### 1.1.3 Timeline说明
+
+这几个过程是Timeline中ui线程的标签项，[如图所示](http://gityuan.com/img/flutter_ui/timeline_gpu_draw.png)：
+
+![timeline_gpu_draw](http://gityuan.com/img/flutter_ui/timeline_gpu_draw.png)
+
+UI线程是”PipelineProduce“，相对应的GPU线程则是”PipelineConsume“，贯穿整个Rasterizer::DoDraw()过程。
+
+
+### 1.2 GPU线程绘制流程
+
+**[GPU线程处理流程图](http://gityuan.com/img/flutter_gpu/GPUDraw.jpg)**
 
 ![GPUDraw](http://gityuan.com/img/flutter_gpu/GPUDraw.jpg)
 
 Flutter渲染机制在UI线程执行到compositeFrame()过程经过多层调用，将栅格化的任务Post到GPU线程来执行。GPU线程一旦空闲则会执行Rasterizer的draw()操作。图中LayerTree::Paint()过程是一个比较重要的操作，会嵌套调用不同layer的Paint过程，比如TransformLayer，PhysicalShapeLayer，ClipRectLayer，PictureLayer等都执行完成会执行flush()将数据发送给GPU。
 
 
-#### 1.2 Surface类图
+### 1.3 核心类图
+#### 1.3.1 Surface类图
 
 **[Surface类关系图](http://gityuan.com/img/flutter_gpu/ClassSurface.jpg)**
 
@@ -37,7 +74,7 @@ Flutter渲染机制在UI线程执行到compositeFrame()过程经过多层调用�
 - 使用软件模拟的VSYNC方式，则采用AndroidSurfaceSoftware;
 
 
-#### 1.3 Layer类图
+#### 1.3.2 Layer类图
 
 [Layer类关系图](http://gityuan.com/img/flutter_gpu/ClassLayer.jpg)
 
@@ -55,7 +92,7 @@ LayerTree的root_layer来源于SceneBuilder过程初始化，第一个调用Push
 8. BackdropFilterLayer：背景过滤层，可指定背景图参数；
 9. PhysicalShapeLayer：物理形状层，可指定颜色等八个参数。
 
-## 二、GPU线程渲染过程
+## 二、源码解读GPU线程渲染
 
 ### 2.1 MessageLoopImpl::RunExpiredTasks
 [-> flutter/fml/message_loop_impl.cc]
@@ -773,45 +810,6 @@ bool AndroidContextGL::SwapBuffers() {
   return eglSwapBuffers(environment_->Display(), surface_);
 }
 ```
-
-## 三、总结
-
-### 3.1 生产者-消费者模式
-
-1） 管道Pipeline中的信号量available_
-
-- 在Animator初始化过程会设置初始值available_ = 0
-- UI线程执行ProducerCommit()，则available_加1
-- 当available_ > 0，允许GPU线程来执行Consume()，则available_减1
-
-
-2）管道Pipeline中的信号量empty_
-
-- 在Animator初始化过程会设置初始值empty_ = 2
-- UI线程执行Produce()，生产layer tree交给GPU线程光栅化操作一次，则执行empty_.TryWait()，也就是empty_减1
-- GPU线程执行完成Consume()，则执行empty_.Signal()，也就是empty_加1；
-
-
-也就是说：
-
-- 当管道中待处理的光栅化任务等于2个的时候（池子满了），则UI线程无法执行Animator::BeginFrame()，而是等于下一次Vsync信号再尝试执行；
-- 当管道中没有待处理的光栅化任务的时候（池子空了），则GPU线程无法执行Rasterizer::Draw()，而是直接返回，等待UI线程向其添加任务。
-
-
-### 3.2 gpu核心工作
-gpu线程的主要工作是将layer tree进行光栅化再发送给GPU，其中最为核心方法ScopedFrame::Raster()，其主要工作如下所示：
-
-- LayerTree::Preroll: 绘制前的一些准备工作
-- LayerTree::Paint: 此处会嵌套调用各个不同的layer的绘制方法
-- SkCanvas::Flush: 将数据flush到GPU，需要注意的是saveLayer的耗时；
-- AndroidContextGL::SwapBuffers: 缓存交换操作
-
-这几个过程是Timeline中ui线程的标签项，[如图所示](http://gityuan.com/img/flutter_ui/timeline_gpu_draw.png)：
-
-![timeline_gpu_draw](http://gityuan.com/img/flutter_ui/timeline_gpu_draw.png)
-
-UI线程是”PipelineProduce“，相对应的GPU线程则是”PipelineConsume“，贯穿整个Rasterizer::DoDraw()过程。
-
 
 ## 附录
 本文涉及到相关源码文件

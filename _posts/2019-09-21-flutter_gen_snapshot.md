@@ -583,11 +583,13 @@ void Precompiler::DoCompileAll() {
 - ProgramVisitor::Dedup()：清理各数据段的重复数据，比如CodeSourceMaps、StackMaps等；
 - Symbols::Compact(): 执行完整的垃圾回收，整理后压缩symbols；
 
-到此，把Dart_Precompile()过程执行完成。再回到[小节2.3]，再来分别看看Android和iOS产物生成的过程。
+到此Dart_Precompile()过程执行完成。
 
 ## 三、源码解读iOS编译
 
-### 3.1 Android产物
+Dart_Precompile()执行完再回到[小节2.3]，再来分别看看Android和iOS产物生成的过程。
+
+### 3.1 Android产物生成
 
 #### 3.1.1 Dart_CreateAppAOTSnapshotAsBlobs
 [-> third_party/dart/runtime/vm/dart_api_impl.cc]
@@ -651,7 +653,7 @@ Dart_CreateAppAOTSnapshotAsBlobs(uint8_t** vm_snapshot_data_buffer,
 
 再下一步将这些数据写入文件。
 
-### 3.2 iOS产物
+### 3.2 iOS产物生成
 
 #### 3.2.1 Dart_CreateAppAOTSnapshotAsAssembly
 
@@ -702,8 +704,6 @@ FullSnapshotWriter的成员变量
 - mapped_text_size_ ：指令
 
 ## 附录
-
-本文相关源码flutter engine
 
 ```Java
 third_party/dart/runtime/

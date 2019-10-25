@@ -11,37 +11,99 @@ tags:
 > 基于Flutter 1.5，从源码视角来深入剖析flutter引擎的启动流程，相关源码目录见文末附录
 
 
-## 一、概述
-
-Flutter作为一款跨平台的框架，可以运行在Android、iOS等平台，Android为例讲解如何从Android应用启动流程中衔接到Flutter流程，以及Flutter引擎的启动流程。
-
-熟悉Android的开发者，应该都了解应用的启动会会执行Application和Activity的初始化，调用其onCreate()方法，接下来分别从这个两个方法开始讲起。
+## 一、Flutter引擎启动工作
 
 ### 1.1 Flutter启动概览
 
-#### 1.1.1 FlutterApplication启动
+Flutter作为一款跨平台的框架，可以运行在Android、iOS等平台，Android为例讲解如何从Android应用启动流程中衔接到Flutter框架，如何启动Flutter引擎的启动流程。
+熟悉Android的开发者，应该都了解APP启动过程，会执行Application和Activity的初始化，并调用它们的onCreate()方法。那么FlutterApplication和FlutterActivity的onCreate()方法是连接Native和Flutter的枢纽。
 
-**[FlutterApplication启动流程图](/img/flutter_boot/FlutterApplication_create.jpg)**
+- FlutterApplication.java的onCreate过程：初始化配置文件/加载libflutter.so/注册JNI方法；
+- FlutterActivity.java的onCreate过程：创建FlutterView、Dart虚拟机、Engine、Isolate、taskRunner等对象，最终执行执行到Dart的main()方法，处理整个Dart业务代码。
+
+### 1.2 引擎启动工作
+
+#### 1.2.1 FlutterApplication启动
+**[FlutterApplication启动过程](/img/flutter_boot/FlutterApplication_create.jpg)**
 
 ![FlutterApplication_create](/img/flutter_boot/FlutterApplication_create.jpg)
 
-#### 1.1.2 FlutterActivity启动
 
-**[FlutterActivity启动流程图](/img/flutter_boot/FlutterActivity_create.jpg)**
+图解：在AndrodManifest.xml定义的FlutterApplication，Android应用在启动时候会执行FlutterApplication.onCreate()，然后再执行FlutterMain.startInitialization()方法，其主要工作：
+
+1. 确保该方法必须运行在主线程，否则抛出异常；
+2. 初始化配置参数，vm_snapshot_data、vm_snapshot_instr、isolate_snapshot_data、isolate_snapshot_instr、flutter_assets的值
+3. 获取应用根目录下的所有assets资源路径，提取产物资源，加载到内存；
+4. 加载libflutter.so库，调用JNI_OnLoad()；
+  - Android进程自身会创建JavaVM，此处将当前进程的JavaVM实例保存在静态变量g_jvm，再将当前线程和JavaVM建立关联
+  - 注册FlutterMain的JNI方法，nativeInit()和nativeRecordStartTimestamp()
+  - 注册PlatformViewAndroid的一系列方法，完成Java和C++的一些方法互调；
+  - 注册VSyncWaiter的nativeOnVsync()用于Java调用C++，asyncWaitForVsync()用于C++调用Java；
+5. 最终将FlutterApplication的启动耗时记录，通过engine_main_enter_ts变量；
+
+#### 1.2.2 FlutterActivity启动
+
+**[FlutterActivity启动过程](/img/flutter_boot/FlutterActivity_create.jpg)**
 
 ![FlutterActivity_create](/img/flutter_boot/FlutterActivity_create.jpg)
 
-FlutterActivity启动过程执行到AttachJNI()后开始触发Flutter引擎的启动初始化，而引擎初始化之前会进行TaskRunners的初始化。
+图解：每一个FlutterActivity都会对应一个FlutterActivityDelegate代理类，FlutterActivity的工作全权委托给FlutterActivityDelegate类，包括onCreate()，onResume()等全部的生命周期回调方法。
 
-**[Flutter引擎启动图](/img/flutter_boot/FlutterEngine_create.jpg)**
+1. 确保该方法必须运行在主线程、sSettings完成初始化赋值、资源提前操作完成，否则不再往下执行；
+2. 创建FlutterMain(C++)，将拼接所有参数都封装到settings结构体，并记录在FlutterMain的成员变量settings_；
+3. 创建FlutterView对象，并在该对象初始过程中创建FlutterNativeView，PlatformChannel，PlatformPlugin等大量对象；
+4. FlutterNativeView对象初始化过程中创建FlutterJNI，FlutterPluginRegistry等对象；
+5. 在platform_view_android_jni.cc的AttachJNI过程会初始化AndroidShellHolder对象，这边进入引擎层的初始化过程[见小节1.2.3]；
+
+在Flutter引擎启动也初始化完成后，执行FlutterActivityDelegate.runBundle()加载Dart代码，其中entrypoint和libraryPath分别代表主函数入口的函数名”main”和所对应库的路径，
+经过层层调用后开始执行dart层的main()方法，执行runApp()的过程，这便开启执行整个Dart业务代码。
+
+#### 1.2.3 Flutter引擎启动
+**[Flutter引擎启动过程](/img/flutter_boot/FlutterEngine_create.jpg)**
 
 ![FlutterEngine_create](/img/flutter_boot/FlutterEngine_create.jpg)
 
+图解：在platform_view_android_jni.cc的AttachJNI过程会初始化AndroidShellHolder对象，该对象初始化过程的主要工作：
 
-### 1.2 类关系图
+1. 创建AndroidShellHolder对象，会初始化ThreadHost，并创建1.ui, 1.gpu, 1.io这3个线程。每个线程Thread初始化过程，都会创建相应的MessageLoop、TaskRunner对象，然后进入pollOnce轮询等待状态；
+2. 创建Shell对象，设置默认log只输出ERROR级别，除非在启动的时候带上参数verbose_logging，则会打印出INFO级别的日志；
+3. 当进程存在正在运行DartVM，则获取其强引用，复用该DartVM，否则新创建一个[Dart虚拟机](http://gityuan.com/2019/06/23/dart-vm/)；
+4. 在Shell::CreateShellOnPlatformThread()过程执行如下操作：
+  - 主线程中创建PlatformViewAndroid对象，AndroidSurfaceGL、GPUSurfaceGL以及VsyncWaiterAndroid对象；
+  - io线程中创建ShellIOManager对象，GrContext、SkiaUnrefQueue对象
+  - gpu线程中创建Rasterizer对象，CompositorContext对象
+  - ui线程中创建Engine、Animator对象，RuntimeController、Window对象，以及[DartIsolate、Isolate对象](http://gityuan.com/2019/06/23/dart-vm/)
+
+可见，每一个FlutterActivity都有相对应的FlutterView、AndroidShellHolder、Shell、Engine、Animator、PlatformViewAndroid、RuntimeController、Window等对象。但每一个进进程DartVM独有一份；
+
+### 1.3 相关参数
+
+#### 1.3.1 Intent参数
+
+|参数|说明|
+|trace-startup|跟踪应用程序的生命周期，自动切换到无大小限制的trace buffer|
+|start-paused|启动应用后暂停在Dart调试器，等待调试链接|
+|disable-service-auth-codes|关闭跟VM服务通信需要认证的功能|
+|use-test-fonts|在各平台的文本布局和测量都不一致，启用该选项将字体分辨率默认为所有的Ahem测试字体|
+|enable-dart-profiling|开启Dart profile，结果可通过observatory查看|
+|enable-software-rendering|开启Skia的软件渲染方式，用于在模拟器上测试Flutter。默认情况是采用OpenGL或Vulkan|
+|skia-deterministic-rendering|跳过SkGraphics::Init()的调用，从而避免某些Skia函数被swap out，保证Skia渲染的100%确定性行为|
+|trace-skia|跟踪skia调用，用于调试GPU。默认关闭，以减少跟踪事件数量|
+|trace-systrace|采用系统tracer，替代timeline，目前仅支持Android和Fuchsia|
+|dump-skp-on-shader-compilation|自动转储触发新着色器编译的skp，默认关闭|
+|verbose-logging|默认仅打开error级别的日志，此标志能开启所有严重级别日志|
+
+
+### 1.4 核心类图
 **[Flutter引擎核心类](/img/flutter_boot/ClassEngine.jpg)**
 
 ![ClassEngine](/img/flutter_boot/ClassEngine.jpg)
+
+每一个FlutterActivity都对应有一个图中所描述的对象；
+
+
+接下来，从源码角度解读Application.onCreate()和Activity.onCreate()的核心工作。
+
 
 ## 二、FlutterApplication启动流程
 
@@ -502,22 +564,8 @@ public void onCreate(Bundle savedInstanceState) {
 }
 ```
 
-getArgsFromIntent()方法会从Intent中提取的参数如下：
+getArgsFromIntent()方法会从Intent中提取的参数，参数含义见[小节1.3.1]；
 
-|参数|说明|
-|trace-startup|跟踪应用程序的生命周期，自动切换到无大小限制的trace buffer|
-|start-paused|启动应用后暂停在Dart调试器，等待调试链接|
-|disable-service-auth-codes|关闭跟VM服务通信需要认证的功能|
-|use-test-fonts|在各平台的文本布局和测量都不一致，启用该选项将字体分辨率默认为所有的Ahem测试字体|
-|enable-dart-profiling|开启Dart profile，结果可通过observatory查看|
-|enable-software-rendering|开启Skia的软件渲染方式，用于在模拟器上测试Flutter。默认情况是采用OpenGL或Vulkan|
-|skia-deterministic-rendering|跳过SkGraphics::Init()的调用，从而避免某些Skia函数被swap out，保证Skia渲染的100%确定性行为|
-|trace-skia|跟踪skia调用，用于调试GPU。默认关闭，以减少跟踪事件数量|
-|trace-systrace|采用系统tracer，替代timeline，目前仅支持Android和Fuchsia|
-|dump-skp-on-shader-compilation|自动转储触发新着色器编译的skp，默认关闭|
-|verbose-logging|默认仅打开error级别的日志，此标志能开启所有严重级别日志|
-
-这些开关都需要再一一实践和使用。
 
 ### 3.3 ensureInitializationComplete
 [-> FlutterMain.java]
@@ -1227,7 +1275,7 @@ Shell::Shell(DartVMRef vm, TaskRunners task_runners, Settings settings)
 }
 ```
 
-创建Shell对象，成员变量task_runners_、settings_以及vm_富初值
+创建Shell对象，成员变量task_runners_、settings_以及vm_赋初值
 
 ### 4.7 PlatformViewAndroid初始化
 [-> flutter/shell/platform/android/platform_view_android.cc]
@@ -1386,7 +1434,7 @@ Engine::Engine(Delegate& delegate,
       weak_factory_(this) {
   //创建RuntimeController对象[4.12.1]
   runtime_controller_ = std::make_unique<RuntimeController>(
-      *this,                                 // runtime delegate
+      *this,                              
       &vm,                                  
       std::move(isolate_snapshot),           
       std::move(shared_snapshot),            
@@ -1415,6 +1463,7 @@ RuntimeController::RuntimeController(
     std::string p_advisory_script_uri,
     std::string p_advisory_script_entrypoint,
     std::function<void(int64_t)> p_idle_notification_callback)
+    //见[小节4.12.2]
     : RuntimeController(p_client,
                         p_vm,
                         std::move(p_isolate_snapshot),
@@ -1425,7 +1474,7 @@ RuntimeController::RuntimeController(
                         std::move(p_advisory_script_uri),
                         std::move(p_advisory_script_entrypoint),
                         p_idle_notification_callback,
-                        WindowData{/* default window data */}) {}
+                        WindowData{}) {}
 ```
 
 #### 4.12.2 RuntimeController
@@ -1981,26 +2030,6 @@ void main() => runApp(Widget app);
 ![runzoned](/img/flutter_boot/runzoned.png)
 
 也就是说FlutterActivity.onCreate()方法，经过层层调用后开始执行dart层的main()方法，执行runApp()的过程，这便开启执行整个Dart业务代码。
-
-## 六、总结
-
-Flutter引擎启动过程分为以下几个阶段：
-
-- FlutterApplication启动：执行其onCreate()方法，初始化配置，获取是否预编译模式，提取资源文件；加载libflutter.so库，并记录启动时间戳；
-- FlutterActivity启动：执行其onCreate()方法，创建FlutterActivityDelegate、FlutterView、FlutterNativeView、FlutterMain、FlutterJNI等对象，也会初始化以下这些引擎核心类：
-  - AndroidShellHolder
-  - DartVM
-  - Shell
-  - PlatformViewAndroid
-  - VsyncWaiterAndroid
-  - ShellIOManager
-  - Rasterizer
-  - Animator
-  - Engine
-  - RuntimeController
-  - Window
-  - DartIsolate
-
 
 
 ## 附录
