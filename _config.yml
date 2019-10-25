@@ -73,7 +73,7 @@ hotpages: [
         title: "Android系统架构开篇    ",
         href:  "http://gityuan.com/android"
     }, {
-        title: "Flutter开篇",
+        title: "Flutter跨平台演进及架构开篇",
         href:  "http://gityuan.com/flutter"
 
     },{
