@@ -3,7 +3,7 @@ layout: page
 title: Info
 permalink: /friends/
 description: "Android官方源码、学习资料、技术博客"
-header-img: "img/nav-about.jpg"
+header-img: "img/nav/nav-about.jpg"
 ---
 
 > 跟大家分享一些常用的Android相关的网址资料

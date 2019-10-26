@@ -18,25 +18,25 @@ GenSnapshot.run具体命令根据前面的封装，针对Android和iOS平台各�
 #### 1.1.1 针对Android平台
 
 ```Java
-// 针对Android平台
 flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
---causal_async_stacks
---packages=.packages
---deterministic
---snapshot_kind=app-aot-blobs
---vm_snapshot_data=<FLUTTER_ROOT>/build/app/intermediates/flutter/release/vm_snapshot_data
---isolate_snapshot_data=<FLUTTER_ROOT>/build/app/intermediates/flutter/release/isolate_snapshot_data
---vm_snapshot_instructions=<FLUTTER_ROOT>/build/app/intermediates/flutter/release/vm_snapshot_instr
---isolate_snapshot_instructions=<FLUTTER_ROOT>/build/app/intermediates/flutter/release/isolate_snapshot_instr
---no-sim-use-hardfp
---no-use-integer-division
-<FLUTTER_ROOT>/build/app/intermediates/flutter/release/app.dill
+  --causal_async_stacks
+  --packages=.packages
+  --deterministic
+  --snapshot_kind=app-aot-blobs
+  --vm_snapshot_data=build/app/intermediates/flutter/release/vm_snapshot_data
+  --isolate_snapshot_data=build/app/intermediates/flutter/release/isolate_snapshot_data
+  --vm_snapshot_instructions=build/app/intermediates/flutter/release/vm_snapshot_instr
+  --isolate_snapshot_instructions=build/app/intermediates/flutter/release/isolate_snapshot_instr
+  --no-sim-use-hardfp
+  --no-use-integer-division
+  build/app/intermediates/flutter/release/app.dill
 ```
+
+上述命令用于Android平台将dart kernel转换为机器码。
 
 #### 1.1.2 针对iOS平台
 
 ```Java
-//针对iOS平台
 /usr/bin/arch -x86_64 flutter/bin/cache/artifacts/engine/ios-release/gen_snapshot
   --causal_async_stacks
   --deterministic
@@ -45,7 +45,9 @@ flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
   build/aot/app.dill
 ```
 
-### 1.2 GenSnapshot执行流程图
+上述命令用于iOS平台将dart kernel转换为机器码。
+
+### 1.2 机器码生成流程图
 
 [点击查看大图](/img/flutter_compile/SeqCodeGen.jpg)
 
@@ -53,14 +55,30 @@ flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
 
 此处gen_snapshot是一个二进制可执行文件，所对应的执行方法源码为third_party/dart/runtime/bin/gen_snapshot.cc，gen_snapshot将dart代码生成AOT二进制机器码，其中重点过程在precompiler.cc中的DoCompileAll()。
 
+#### 1.2.1 小结
 
-##  二、源码解读GenSnapshot命令
+先通过Dart_Initialize()来初始化Dart虚拟机环境，
+
+
+#### 1.2.2 snapshot类型
+
+|类型|名称|
+|---|---|
+|kCore|core|
+|kCoreJIT|core-jit|
+|kApp|app|
+|kAppJIT|app-jit|
+|kAppAOTBlobs|app-aot-blobs|
+|kAppAOTAssembly|app-aot-assembly|
+|kVMAOTAssembly|vm-aot-assembly|
+
+##  二、源码解读GenSnapshot
 
 ```
 BuildAotCommand.runCommand
   AOTSnapshotter.build
     GenSnapshot.run
-      gen_snapshot命令
+      gen_snapshot.main
 ```
 
 ### 2.1 gen_snapshot.main
@@ -153,7 +171,8 @@ int main(int argc, char** argv) {
 
 该方法主要功能说明：
 
-- Dart_Initialize()来初始化Dart虚拟机环境
+- 初始化参数，并将这4个产物文件mmap到内存
+- 执行Dart_Initialize()来初始化Dart虚拟机环境
 - CreateIsolateAndSnapshot
 
 
@@ -193,7 +212,7 @@ static int CreateIsolateAndSnapshot(const CommandLineOptions& inputs) {
   IsolateData* isolate_data = new IsolateData(NULL, NULL, NULL, NULL);
   Dart_Isolate isolate;
   char* error = NULL;
-  //创建isoalte
+  //创建isolate
   if (isolate_snapshot_data == NULL) {
     // 将vmservice库加入到核心snapshot，因此将其加载到main isolate
     isolate_flags.load_vmservice_library = true;
@@ -250,17 +269,18 @@ static int CreateIsolateAndSnapshot(const CommandLineOptions& inputs) {
 
 ```
 
-#### 2.2.1 snapshot的类型
+编译产物类型有7类，见[小节1.2.2]。 根据不同类型调用不同的CreateAndWriteXXXSnapshot()方法：
 
-|类型|名称|
-|---|---|
-|kCore|core|
-|kApp|app|
-|kCoreJIT|core-jit|
-|kAppJIT|app-jit|
-|kAppAOTBlobs|app-aot-blobs|
-|kAppAOTAssembly|app-aot-assembly|
-|kVMAOTAssembly|vm-aot-assembly|
+- kCore：CreateAndWriteCoreSnapshot
+- kCoreJIT：CreateAndWriteCoreJITSnapshot
+- kApp：CreateAndWriteAppSnapshot
+- kAppJIT：CreateAndWriteAppJITSnapshot
+- kAppAOTBlobs：CreateAndWritePrecompiledSnapshot
+- kAppAOTAssembly：CreateAndWritePrecompiledSnapshot
+- kVMAOTAssembly：Dart_CreateVMAOTSnapshotAsAssembly
+
+
+此处介绍AOT模式下，接下来执行CreateAndWritePrecompiledSnapshot()过程。
 
 ### 2.3 CreateAndWritePrecompiledSnapshot
 [-> third_party/dart/runtime/bin/gen_snapshot.cc]
