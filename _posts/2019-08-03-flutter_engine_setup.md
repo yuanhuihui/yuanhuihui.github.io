@@ -23,7 +23,7 @@ tags:
 
 #### 1.2 安装depot_tools
 
-1) 克隆depot_tools仓库，执行如下命令：
+1)克隆depot_tools仓库， 获取gclient命令，执行如下：
 
 ```C
 git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
@@ -145,29 +145,29 @@ ninja -C out/ios_profile -j 6
 
 #### 3.3 使用本地引擎运行Flutter应用
 
-**构建本地引擎后，使用以下命令运行Flutter应用：**
+**1) 构建本地引擎后，使用以下命令运行Flutter应用：**
 
 ```Java
-flutter run --local-engine-src-path /path/to/engine/src --local-engine=android_profile
+flutter run --local-engine-src-path <FLUTTER_ENGINE_ROOT>/engine/src --local-engine=android_profile
 ```
 
 参数说明：
 
 - local-engine-src-path：指定Flutter引擎存储库的路径，也就是src根目录的绝对路径
-- local-engine：指定使用哪个引擎版本
+- local-engine：指定使用哪个引擎版本，比如android_profile
 
 这一点非常重要：使用保存有host_xxx引擎构建版本，当使用本地引擎，因为Flutter使用host构建版本中的dart，这是flutter tools会自动在host中寻找。
 
-**修改Dart文件**
+**2) 修改Dart文件:**
 
 当引擎中修改了Dart源代码，则需要在pubspec.yaml中添加dependency_overrides部分，指定新的sky_engine和sky_services路径，以用于使用自定义引擎的flutter应用程序。
 
 ```Java
 dependency_overrides:
   sky_engine:
-    path: /path/to/flutter/engine/out/host_profile/gen/dart-pkg/sky_engine
+    path: <FLUTTER_ENGINE_ROOT>/engine/src/out/host_profile/gen/dart-pkg/sky_engine
   sky_services:
-    path: /path/to/flutter/engine/out/host_profile/gen/dart-pkg/sky_services
+    path: <FLUTTER_ENGINE_ROOT>/engine/src/out/host_profile/gen/dart-pkg/sky_services
 ```
 
 #### 3.4 IDE配置

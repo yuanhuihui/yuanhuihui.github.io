@@ -18,17 +18,17 @@ GenSnapshot.run具体命令根据前面的封装，针对Android和iOS平台各�
 #### 1.1.1 针对Android平台
 
 ```Java
-flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
-  --causal_async_stacks
-  --packages=.packages
-  --deterministic
-  --snapshot_kind=app-aot-blobs
-  --vm_snapshot_data=build/app/intermediates/flutter/release/vm_snapshot_data
-  --isolate_snapshot_data=build/app/intermediates/flutter/release/isolate_snapshot_data
-  --vm_snapshot_instructions=build/app/intermediates/flutter/release/vm_snapshot_instr
-  --isolate_snapshot_instructions=build/app/intermediates/flutter/release/isolate_snapshot_instr
-  --no-sim-use-hardfp
-  --no-use-integer-division
+flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot                   \
+  --causal_async_stacks                                                                          \
+  --packages=.packages                                                                           \
+  --deterministic                                                                                \
+  --snapshot_kind=app-aot-blobs                                                                  \
+  --vm_snapshot_data=build/app/intermediates/flutter/release/vm_snapshot_data                    \
+  --isolate_snapshot_data=build/app/intermediates/flutter/release/isolate_snapshot_data          \
+  --vm_snapshot_instructions=build/app/intermediates/flutter/release/vm_snapshot_instr           \
+  --isolate_snapshot_instructions=build/app/intermediates/flutter/release/isolate_snapshot_instr \
+  --no-sim-use-hardfp                                                                            \
+  --no-use-integer-division                                                                      \
   build/app/intermediates/flutter/release/app.dill
 ```
 
@@ -37,12 +37,12 @@ flutter/bin/cache/artifacts/engine/android-arm-release/darwin-x64/gen_snapshot
 #### 1.1.2 针对iOS平台
 
 ```Java
-/usr/bin/arch -x86_64 flutter/bin/cache/artifacts/engine/ios-release/gen_snapshot
-  --causal_async_stacks
-  --deterministic
-  --snapshot_kind=app-aot-assembly
-  --assembly=build/aot/arm64/snapshot_assembly.S
-  build/aot/app.dill
+/usr/bin/arch -x86_64 flutter/bin/cache/artifacts/engine/ios-release/gen_snapshot \
+  --causal_async_stacks                                                           \
+  --deterministic                                                                 \
+  --snapshot_kind=app-aot-assembly                                                \
+  --assembly=build/aot/arm64/snapshot_assembly.S                                  \
+  build/aot/app.dill                                                              
 ```
 
 上述命令用于iOS平台将dart kernel转换为机器码。

@@ -126,27 +126,27 @@ gradle参数说明会传递到build aot过程，其对应参数说明：
 
 ```Java
 // build aot命令
-flutter build aot
-  --suppress-analytics
-  --quiet
-  --target lib/main.dart
-  --output-dir /build/app/intermediates/flutter/release/
-  --target-platform android-arm
-  --extra-front-end-options
-  --extra-gen-snapshot-options
-  --release
+flutter build aot                                         \
+  --suppress-analytics                                    \
+  --quiet                                                 \
+  --target lib/main.dart                                  \
+  --output-dir /build/app/intermediates/flutter/release/  \
+  --target-platform android-arm                           \
+  --extra-front-end-options                               \
+  --extra-gen-snapshot-options                            \
+  --release                                               
 ```
 
 #### 1.3.2 iOS AOT产物生成命令
 
 ```Java
 // build aot命令
-flutter build aot
-  --suppress-analytics
-  --target=lib/main.dart
-  --output-dir=build/aot
-  --target-platform=ios
-  --ios-arch=armv7,arm64
+flutter build aot         \
+  --suppress-analytics    \
+  --target=lib/main.dart  \
+  --output-dir=build/aot  \
+  --target-platform=ios   \
+  --ios-arch=armv7,arm64  \
   --release
 ```
 

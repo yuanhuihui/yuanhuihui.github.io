@@ -17,16 +17,16 @@ KernelCompiler.compile()过程等价于如下命令：
 
 ```Java
 // 该frontend_server命令 同时适用于Android和iOS
-flutter/bin/cache/dart-sdk/bin/dart
-  flutter/bin/cache/artifacts/engine/darwin-x64/frontend_server.dart.snapshot
-  --sdk-root flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk/
-  --strong
-  --target=flutter
-  --aot --tfa
-  -Ddart.vm.product=true
-  --packages .packages
-  --output-dill /build/app/intermediates/flutter/release/app.dill
-  --depfile     /build/app/intermediates/flutter/release/kernel_compile.d
+flutter/bin/cache/dart-sdk/bin/dart                                            \
+  flutter/bin/cache/artifacts/engine/darwin-x64/frontend_server.dart.snapshot  \
+  --sdk-root flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk/    \
+  --strong                                                                     \
+  --target=flutter                                                             \
+  --aot --tfa                                                                  \
+  -Ddart.vm.product=true                                                       \
+  --packages .packages                                                         \
+  --output-dill /build/app/intermediates/flutter/release/app.dill              \
+  --depfile     /build/app/intermediates/flutter/release/kernel_compile.d      \
   --"package" /lib/main.dart
 ```
 
