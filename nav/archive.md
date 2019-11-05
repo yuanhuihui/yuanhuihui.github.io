@@ -13,8 +13,8 @@ permalink: /archive/
 </div>
 <hr>
 <div class="post-preview">
-    <font color="blue">[January 31, 2016]  </font>
-     <a target="_blank" href="http://gityuan.com/flutter/"><font color="#EE0000">[置顶]</font>Flutter 跨平台演进及架构开篇</a> 
+    <font color="blue">[June 1, 2019]  </font>
+     <a target="_blank" href="http://gityuan.com/flutter/"><font color="#EE0000">[置顶]</font>Flutter 跨平台演进及架构开篇</a>
 </div>
 <hr>
 {% for post in site.posts %}
