@@ -21,6 +21,61 @@ Root isolate负责UI渲染以及用户交互操作，需要及时响应，当存
 
 ![Isolate创建流程](/img/flutter_isolate/Isolate.jpg)
 
+图解：
+
+- 创建IsolateSpawnState对象，SpawnIsolateTask对象
+- dart虚拟机创建过程会初始化线程池ThreadPool，从该线程池中查找worker；
+  - 当存在处于空闲状态的worker，则调用Notify唤醒该worker处理刚创建的SpawnIsolateTask对象；
+  - 当没有空闲worker，则新建worker并创建相应的线程，该线程停留在Woerker的loop()过程。
+- 对于woker的loop过程说明：
+  - 当线程池ThreadPool关闭，则会退出该worker的Loop()过程；
+  - 当连续等待超过5秒，则释放并退出该worker的Loop()过程；
+  - 除以上两种情况外，当收到MonitorLocker的Notify过程，则会继续开始处理task，task可以是SpawnIsolateTask、MessageHandlerTask、ParallelMarkTask等Task；
+- 创建isolate对象
+- 调用worker->SetTask()向worker中添加task，worker的loop()过程取出并执行；
+
+另外，IsolateMessageHandler中有两个消息队列。
+
+创建过程的调用链，如下所示：
+
+```Java
+ThreadPool::Run(SpawnIsolateTask)
+  ↓
+  ↓ 将Task交给Worker线程
+  Worker::Loop
+    SpawnIsolateTask.Run
+      Isolate::Run
+        MessageHandler::Run
+          ThreadPool::Run(MessageHandlerTask)
+            ↓
+            ↓ 将Task交给Worker线程
+            Worker::Loop
+              MessageHandlerTask.Run
+                MessageHandler::TaskCallback
+                  RunIsolate
+                    entryPoint
+                  MessageHandler::HandleMessages
+                    IsolateMessageHandler::HandleMessage
+```
+
+
+```Java
+SendPortImpl.send
+  PortMap::PostMessage
+    MessageHandler::PostMessage
+      ThreadPool::Run(MessageHandlerTask)
+        ↓
+        ↓ 将Task交给Worker线程
+        Worker::Loop
+          MessageHandlerTask.Run
+            MessageHandler::TaskCallback
+              RunIsolate
+                entryPoint
+              MessageHandler::HandleMessages
+                IsolateMessageHandler::HandleMessage
+                  DartLibraryCalls::HandleMessage
+```
+
 #### 1.2 相关类图
 
 **[Isolate相关类图](/img/flutter_isolate/ClassIsolate.jpg)**
@@ -198,7 +253,9 @@ DEFINE_NATIVE_ENTRY(Isolate_spawnFunction, 0, 11) {
 }
 ```
 
-创建Message对象保存spawn()方法传递过来的message参数，然后将该新建Message对象再保存到SerializedObjectBuffer类型的message_buffer对象，最后再将其赋值给IsolateSpawnState对象，简而言之就是message消息记录在IsolateSpawnState对象的serialized_message_成员变量。另外，entryPoint也记录在IsolateSpawnState对象对象。
+创建Message对象保存spawn()方法传递过来的message参数，然后将该新建Message对象再保存到SerializedObjectBuffer类型的message_buffer对象，最后再将其赋值给IsolateSpawnState对象。
+
+简而言之就是message消息记录在IsolateSpawnState对象的serialized_message_成员变量。另外，entryPoint也记录在IsolateSpawnState对象。
 
 #### 2.3.1 MessageWriter::WriteMessage
 [-> third_party/dart/runtime/vm/snapshot.cc]
@@ -349,7 +406,7 @@ bool ThreadPool::Run(Task* task) {
     }
   }
 
-  //设置任务，并唤醒worker[2.6]
+  //向worker中添加任务，并唤醒worker[2.6]
   worker->SetTask(task);
   if (new_worker) {
     //当首次创建Worker则启动线程池 [见小节2.7]
@@ -359,7 +416,8 @@ bool ThreadPool::Run(Task* task) {
 }
 ```
 
-根据前面，可知此处的task参数的实例为SpawnIsolateTask。
+dart虚拟机创建过程会初始化线程池ThreadPool，可知该方法参数task为SpawnIsolateTask类的实例对象。
+
 
 ### 2.5 Worker初始化
 [-> third_party/dart/runtime/vm/thread_pool.cc]
@@ -392,7 +450,7 @@ void ThreadPool::Worker::SetTask(Task* task) {
 
 ```Java
 void ThreadPool::Worker::StartThread() {
-  //[见小节2.71]
+  //[见小节2.7.1]
   int result = OSThread::Start("Dart ThreadPool Worker", &Worker::Main,
                                reinterpret_cast<uword>(this));
 }
@@ -496,10 +554,11 @@ bool ThreadPool::Worker::Loop() {
       if (task_ != NULL) {
         break;  //还有任务则继续执行
       }
-      if (IsDone()) {  //完成，则返回false
+      //worker被关闭或者从列表移除则认为完成，则返回false
+      if (IsDone()) {  
         return false;
       }
-      //超时，则返回true
+      //等待5秒超时，则返回true
       if ((result == Monitor::kTimedOut) && pool_->ReleaseIdleWorker(this)) {
         return true;
       }
@@ -508,6 +567,12 @@ bool ThreadPool::Worker::Loop() {
   return false;
 }
 ```
+
+该方法说明：
+
+- 当线程池ThreadPool关闭，则会退出该worker的Loop()过程；
+- 当连续等待超过5秒，则释放并退出该worker的Loop()过程；
+- 除以上两种情况外，当收到MonitorLocker的Notify过程，则会继续开始处理task，执行SpawnIsolateTask.Run()。
 
 ## 三、创建Isolate对象
 
@@ -965,10 +1030,11 @@ RawError* Dart::InitializeIsolate(const uint8_t* snapshot_data,
 }
 ```
 
-到这里Isolate的创建过程便真正完成，接下来回到[小节2.6]，便开始执行run()方法。
-
+到这里Isolate的创建过程便真正完成。
 
 ## 四、运行Isolate
+
+接下来回到[小节3.1]，Isolate创建后便开始执行其run()方法。
 
 ### 4.1 Isolate::Run
 [-> third_party/dart/runtime/vm/isolate.cc]
@@ -976,8 +1042,10 @@ RawError* Dart::InitializeIsolate(const uint8_t* snapshot_data,
 ```Java
 void Isolate::Run() {
   //[见小节4.2]
-  message_handler()->Run(Dart::thread_pool(), RunIsolate, ShutdownIsolate,
-                         reinterpret_cast<uword>(this));
+  message_handler()->Run(Dart::thread_pool(),
+                        RunIsolate,
+                        ShutdownIsolate,
+                        reinterpret_cast<uword>(this));
 }
 ```
 
@@ -1074,6 +1142,12 @@ void MessageHandler::TaskCallback() {
   }
 }
 ```
+
+该方法说明：
+
+- start_callback_是指RunIsolate，callback_data_是指isolate，最终会调用自定义的entryPoint()方法
+- 调用HandleMessages()来响应消息，然后执行CheckIfIdleLocked()等待下一个消息的到来，如果超过1秒没有消息则退出
+
 
 ### 4.5 RunIsolate
 [-> third_party/dart/runtime/vm/isolate.cc]
@@ -1220,14 +1294,13 @@ MessageHandler::MessageStatus MessageHandler::HandleMessages(
 bool MessageHandler::CheckIfIdleLocked(MonitorLocker* ml) {
   if ((isolate() == NULL) || (idle_start_time_ == 0) ||
       (FLAG_idle_timeout_micros == 0)) {
-    // No idle task to schedule.
     return false; //没有待调度的空闲任务
   }
   const int64_t now = OS::GetCurrentMonotonicMicros();
   const int64_t idle_expirary = idle_start_time_ + FLAG_idle_timeout_micros;
   if (idle_expirary > now) {
     paused_for_messages_ = true;
-    //等待一段时间，直到下次新消息或者OOB消息的到来
+    //等待时间超过1秒或者message到来，则退出等待
     ml->WaitMicros(idle_expirary - now);
     paused_for_messages_ = false;
     return true;
@@ -1237,6 +1310,12 @@ bool MessageHandler::CheckIfIdleLocked(MonitorLocker* ml) {
   return true;
 }
 ```
+
+说明：
+
+- 没有待调度的空闲任务，则直接返回
+- 等待时间超过1秒或者message到来，则直接返回
+- 当有空闲任务，且等待超时，则执行gc操作
 
 ### 4.8 RunIdleTaskLocked
 [-> third_party/dart/runtime/vm/message_handler.cc]

@@ -178,6 +178,8 @@ dependency_overrides:
 - 进入src/flutter目录，将 compile_commands.json 软连接到 flutter 目录，或者直接拷贝到该目录；
 - 使用Clion打开 src/flutter 目录，则能识别到compile_commands.json，可以开始阅读源码了；
 
+如果还是没有代码跳转的能力，则用clion的open,直接选中compile_commands.json打开。
+
 ## 参考文档
 
 - https://github.com/flutter/flutter/wiki/Setting-up-the-Engine-development-environment

@@ -52,6 +52,9 @@ Animator的BeginFrame()或者DrawLastLayerTree()方法会执行信号加1操作�
 - Compositing: 将Compositing bits发送给GPU， 对应于compositeFrame()；
 - Semantics: 编译渲染对象的语义，并将语义发送给操作系统， 对应于flushSemantics()。
 
+UI线程的耗时从doFrame(frameTimeNanos)中的frameTimeNanos为起点，以小节[4.10.6]Animator::Render()方法结束为终点，
+并将结果保存到LayerTree的成员变量construction_time_，这便是UI线程的耗时时长。
+
 #### 1.1.3 Timeline说明
 3）以上几个过程在Timeline中ui线程中都有体现，[如下图所示](http://gityuan.com/img/flutter_ui/timeline_ui_draw.png)：
 
@@ -108,7 +111,7 @@ doFrame()经过多层调用后通过PostTask将任务异步post到UI TaskRunner�
 接下来带着大家从源码角度来依次讲解Vsync注册以及UI线程的绘制处理流程，下一篇文章会介绍GPU线程的绘制工作。
 
 
-## 二、 Vsync产生过程
+## 二、 VSYNC注册流程
 
 ### 2.1 Engine::ScheduleFrame
 
@@ -179,9 +182,9 @@ void Animator::AwaitVSync() {
       [self = weak_factory_.GetWeakPtr()](fml::TimePoint frame_start_time,
                                           fml::TimePoint frame_target_time) {
         if (self) {
-          //是否能重复使用上一次的layer树，取决于是否需要regenerate_layer_tree_
+          //是否能复用上次layer树，取决于regenerate_layer_tree_
           if (self->CanReuseLastLayerTree()) {
-            //直接复用layer tree，跳过ui线程生成layer tree过程，直接把任务post到gpu线程做栅格化操作
+            //复用上次layer树，直接把任务post到gpu线程做栅格化操作
             self->DrawLastLayerTree();
           } else {
             self->BeginFrame(frame_start_time, frame_target_time);
@@ -202,6 +205,7 @@ waiter_的赋值是在Animator初始化过程，取值为VsyncWaiterAndroid对�
 void VsyncWaiter::AsyncWaitForVsync(Callback callback) {
   {
     std::lock_guard<std::mutex> lock(callback_mutex_);
+    //赋值callback_
     callback_ = std::move(callback);
   }
   TRACE_EVENT0("flutter", "AsyncWaitForVsync");
@@ -348,7 +352,7 @@ bool VsyncWaiterAndroid::Register(JNIEnv* env) {
 
 可见，将调用VsyncWaiter类的asyncWaitForVsync()方法
 
-###  2.6 VsyncWaiter.asyncWaitForVsync[Java]
+### 2.6 asyncWaitForVsync[Java]
 [-> flutter/shell/platform/android/io/flutter/view/VsyncWaiter.java]
 
 ```Java
@@ -371,7 +375,7 @@ public class VsyncWaiter {
         handler.post(new Runnable() {
             @Override
             public void run() {
-                //注册帧回调方法 [见小节2.7]
+                //注册帧回调方法，见小节[2.6.1]/[2.6.2]
                 Choreographer.getInstance().postFrameCallback(new Choreographer.FrameCallback() {
                     @Override
                     public void doFrame(long frameTimeNanos) {
@@ -387,9 +391,7 @@ public class VsyncWaiter {
 
 通过Handler将工作post到FlutterVsyncThread线程，具体的工作是通过Choreographer来注册回调方法doFrame()以监听系统VSYNC信号。
 
-### 2.7 注册Vsync回调
-
-#### 2.7.1 Choreographer.getInstance
+#### 2.6.1 Choreographer.getInstance
 [-> Choreographer.java]
 
 ```Java
@@ -425,7 +427,7 @@ private Choreographer(Looper looper) {
 
 此处Choreographer的mLooper和mHandler都运行在FlutterVsyncThread线程。
 
-#### 2.7.2 postFrameCallback
+#### 2.6.2 postFrameCallback
 [-> Choreographer.java]
 
 ```Java
@@ -434,13 +436,11 @@ public void postFrameCallback(FrameCallback callback) {
 }
 
 public void postFrameCallbackDelayed(FrameCallback callback, long delayMillis) {
-    ...
     postCallbackDelayedInternal(CALLBACK_ANIMATION,
             callback, FRAME_CALLBACK_TOKEN, delayMillis);
 }
 
 private void postCallbackDelayedInternal(int callbackType, Object action, Object token, long delayMillis) {
-
     synchronized (mLock) {
         final long now = SystemClock.uptimeMillis();
         final long dueTime = now + delayMillis;
@@ -458,20 +458,30 @@ private void postCallbackDelayedInternal(int callbackType, Object action, Object
 将FrameCallback方法加入到mCallbackQueues[CALLBACK_ANIMATION]回调队列中。
 
 
-## 三、Engine层处理流程
+## 三、Engine层绘制
 
 ### 3.1 doFrame
 [-> Choreographer.java]
 
 ```Java
 public void doFrame(long frameTimeNanos) {
-    //每次当vsync信号触发，则会调用该方法[见小节3.2]
+    //Android FW每次当vsync信号触发，则会调用该方法 [见下方]
     nativeOnVsync(frameTimeNanos, frameTimeNanos + refreshPeriodNanos, cookie);
 }
 ```
 
 Vsync注册过程见[小节2.6] Choreographer.FrameCallback()。注册了Vysnc信号后，一旦底层Vsync信号触发，经过层层调用回到FrameDisplayEventReceiver的过程，然后会有一个通过handler的方式post到线程”FlutterVsyncThread”来执行操作，
-具体流程见[Choreographer原理](http://gityuan.com/2017/02/25/choreographer/)。紧接着再处理所有注册的doCallbacks方法，则会执行Choreographer.FrameCallback中的doFrame()方法。
+具体流程见[Choreographer原理](http://gityuan.com/2017/02/25/choreographer/)。紧接着再处理所有注册的doCallbacks方法，则会执行Choreographer.FrameCallback中的doFrame()方法，如下所示。
+
+```Java
+new Choreographer.FrameCallback() {
+    @Override
+    public void doFrame(long frameTimeNanos) {
+        //frameTimeNanos是VYSNC触发的时间点，也就是计划绘制的时间点 [见小节3.2]
+        nativeOnVsync(frameTimeNanos, frameTimeNanos + refreshPeriodNanos, cookie);
+    }
+}
+```
 
 ### 3.2 OnNativeVsync
 [-> flutter/shell/platform/android/io/flutter/view/VsyncWaiter.java]
@@ -480,7 +490,9 @@ Vsync注册过程见[小节2.6] Choreographer.FrameCallback()。注册了Vysnc�
 public class VsyncWaiter {
     ...
     // [见小节3.2.1]
-    private static native void nativeOnVsync(long frameTimeNanos, long frameTargetTimeNanos, long cookie);
+    private static native void nativeOnVsync(long frameTimeNanos,
+                                             long frameTargetTimeNanos,
+                                             long cookie);
     ...
 }
 ```
@@ -491,8 +503,7 @@ public class VsyncWaiter {
 [-> flutter/shell/platform/android/vsync_waiter_android.cc]
 
 ```Java
-static void OnNativeVsync(JNIEnv* env,
-                          jclass jcaller,
+static void OnNativeVsync(JNIEnv* env, jclass jcaller,
                           jlong frameTimeNanos,
                           jlong frameTargetTimeNanos,
                           jlong java_baton) {
@@ -540,15 +551,15 @@ void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
   }
 
   TRACE_EVENT0("flutter", "VsyncFireCallback");
+  //将任务放入task队列[见小节3.4.1]
   task_runners_.GetUITaskRunner()->PostTaskForTime(
     [callback, flow_identifier, frame_start_time, frame_target_time]() {
-      //开始执行vync
       FML_TRACE_EVENT("flutter", kVsyncTraceName, "StartTime",
                       frame_start_time, "TargetTime", frame_target_time);
       fml::tracing::TraceEventAsyncComplete(
           "flutter", "VsyncSchedulingOverhead", fml::TimePoint::Now(),
           frame_start_time);
-      //[见小节3.4.1]
+      //开始执行vync [见小节3.5]
       callback(frame_start_time, frame_target_time);
       TRACE_FLOW_END("flutter", kVsyncFlowName, flow_identifier);
     },
@@ -556,32 +567,9 @@ void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
 }
 ```
 
-此次的callback赋值过程位于[小节2.3]Animator::AwaitVSync()过程，callback具体对应如下方法：
+将任务闭包放入task队列，消息Loop一旦接受到消息则会读取出来。
 
-#### 3.4.1 callback
-[-> flutter/shell/common/animator.cc]
-
-
-```Java
-[self = weak_factory_.GetWeakPtr()](fml::TimePoint frame_start_time,
-                                    fml::TimePoint frame_target_time) {
-  if (self) {
-    if (self->CanReuseLastLayerTree()) {
-      self->DrawLastLayerTree();
-    } else {
-      //根据默认参数regenerate_layer_tree_为true，则执行该分支 [见小节3.6]
-      self->BeginFrame(frame_start_time, frame_target_time);
-    }
-  }
-}
-```
-
-此处参数说明：
-
-- frame_start_time：计划开始绘制时间点，来源于doFrame()方法中的参数；
-- frame_target_time：从frame_start_time加上一帧时间(16.7ms)的时间，作为本次绘制的deadline。
-
-### 3.5 MessageLoopImpl::RunExpiredTasks
+#### 3.4.1 MessageLoopImpl::RunExpiredTasks
 [-> flutter/fml/message_loop_impl.cc]
 
 ```Java
@@ -605,13 +593,12 @@ void MessageLoopImpl::RunExpiredTasks() {
       invocations.emplace_back(std::move(top.task));
       delayed_tasks_.pop();
     }
-
     WakeUp(delayed_tasks_.empty() ? fml::TimePoint::Max()
                                   : delayed_tasks_.top().target_time);
   }
 
   for (const auto& invocation : invocations) {
-    invocation();  // [见小节3.6]
+    invocation();  // [见小节3.5]
     for (const auto& observer : task_observers_) {
       observer.second();
     }
@@ -621,6 +608,29 @@ void MessageLoopImpl::RunExpiredTasks() {
 
 对于ui线程处于消息loop状态，一旦有时间到达的任务则开始执行，否则处于空闲等等状态。前面[小节3.4] VsyncWaiter::FireCallback过程已经向该ui线程postTask。
 对于不可复用layer tree的情况则调用Animator::BeginFrame()方法。
+
+### 3.5 callback
+[-> flutter/shell/common/animator.cc]
+
+```Java
+[self = weak_factory_.GetWeakPtr()](fml::TimePoint frame_start_time,
+                                    fml::TimePoint frame_target_time) {
+  if (self) {
+    if (self->CanReuseLastLayerTree()) {
+      self->DrawLastLayerTree();
+    } else {
+      //根据默认参数regenerate_layer_tree_为true，则执行该分支 [见小节3.6]
+      self->BeginFrame(frame_start_time, frame_target_time);
+    }
+  }
+}
+```
+
+此次的callback赋值过程位于[小节2.3]Animator::AwaitVSync()方法的闭包参数，相关说明：
+
+- frame_start_time：计划开始绘制时间点，来源于doFrame()方法中的参数；
+- frame_target_time：从frame_start_time加上一帧时间(16.7ms)的时间，作为本次绘制的deadline。
+
 
 ### 3.6 Animator::BeginFrame
 [-> flutter/shell/common/animator.cc]
@@ -634,21 +644,22 @@ void Animator::BeginFrame(fml::TimePoint frame_start_time,
   frame_scheduled_ = false;
   notify_idle_task_id_++;
   regenerate_layer_tree_ = false;
-  pending_frame_semaphore_.Signal(); //信号量加1，可以再注册vsync信号
+  //信号量加1，可以注册新的vsync信号，也就是能执行Animator::RequestFrame()
+  pending_frame_semaphore_.Signal();
 
   if (!producer_continuation_) {
-    //[小节3.6.1] [小节3.6.2]
+    //[小节3.6.1]/[小节3.6.2]
     producer_continuation_ = layer_tree_pipeline_->Produce();
-
+    //pipeline已满，说明GPU线程繁忙，则结束本次UI绘制，重新注册Vsync
     if (!producer_continuation_) {
-      RequestFrame();  //当没有效的continuation，则会重新请求绘制帧
+      RequestFrame();
       return;
     }
   }
 
-  // 从pipeline中获取有效的continuation，并准备为可能的frame服务
+  //从pipeline中获取有效的continuation，并准备为可能的frame服务
   last_begin_frame_time_ = frame_start_time;
-  //获取帧绘制的截止时间
+  //获取当前帧绘制截止时间，用于告知可GC的空闲时长
   dart_frame_deadline_ = FxlToDartOrEarlier(frame_target_time);
   {
     TRACE_EVENT2("flutter", "Framework Workload", "mode", "basic", "frame",
@@ -664,7 +675,7 @@ void Animator::BeginFrame(fml::TimePoint frame_start_time,
           if (!self.get()) {
             return;
           }
-          // 该任务id和当前任务id一致，则不再需要审查frame，可以通知引擎当前处于空闲状态
+          // 该任务id和当前任务id一致，则不再需要审查frame，可以通知引擎当前处于空闲状态，100ms
           if (notify_idle_task_id == self->notify_idle_task_id_) {
             self->delegate_.OnAnimatorNotifyIdle(Dart_TimelineGetMicros() +
                                                  100000);
@@ -796,14 +807,12 @@ void Window::BeginFrame(fml::TimePoint frameTime) {
   if (!dart_state)
     return;
   tonic::DartState::Scope scope(dart_state);
-
+  //注意此处的frameTime便是前面小节3.1中doFrame方法中的参数frameTimeNanos
   int64_t microseconds = (frameTime - fml::TimePoint()).ToMicroseconds();
 
   // [见小节4.2]
   DartInvokeField(library_.value(), "_beginFrame",
-                  {
-                      Dart_NewInteger(microseconds),
-                  });
+                  {Dart_NewInteger(microseconds)});
 
   //执行MicroTask
   UIDartState::Current()->FlushMicrotasksNow();
@@ -836,7 +845,7 @@ void _drawFrame() {
 ```
 
 
-## 四、Framework层处理流程
+## 四、Framework层绘制
 
 在引擎层的处理过程会调用到window.onBeginFrame()和onDrawFrame，回到framework层从这个两个方法开始说起。
 
@@ -1543,6 +1552,9 @@ void Animator::Render(std::unique_ptr<flow::LayerTree> layer_tree) {
   delegate_.OnAnimatorDraw(layer_tree_pipeline_); //[见小节4.10.8]
 }
 ```
+
+UI线程的耗时从doFrame(frameTimeNanos)中的frameTimeNanos为起点，以Animator::Render()方法结束为终点，
+并将结果保存到LayerTree的成员变量construction_time_，这便是UI线程的耗时时长。
 
 #### 4.10.7 ProducerContinuation.Complete
 [-> flutter/synchronization/pipeline.h]

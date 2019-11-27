@@ -298,7 +298,7 @@ static void CreateAndWritePrecompiledSnapshot() {
     // kAppAOTAssembly模式
     File* file = OpenFile(assembly_filename);
     RefCntReleaseScope<File> rs(file);
-    //iOS采用该方式 [见小节3.1]
+    //iOS采用该方式 [见小节三]
     result = Dart_CreateAppAOTSnapshotAsAssembly(StreamingWriteCallback, file);
   } else {
     // kAppAOTBlobs模式
@@ -324,7 +324,7 @@ static void CreateAndWritePrecompiledSnapshot() {
       }
     }
     ...
-    //将snapshot写入buffer缓存 [见小节3.2]
+    //将snapshot写入buffer缓存 [见小节四]
     result = Dart_CreateAppAOTSnapshotAsBlobs(
         &vm_snapshot_data_buffer, &vm_snapshot_data_size,
         &vm_snapshot_instructions_buffer, &vm_snapshot_instructions_size,
@@ -387,14 +387,14 @@ DART_EXPORT Dart_Handle Dart_Precompile() {
     return result;
   }
   CHECK_CALLBACK_STATE(T);
-  //[见小节2.5]
+  //[见小节2.4.1]
   CHECK_ERROR_HANDLE(Precompiler::CompileAll());
   return Api::Success();
 #endif
 }
 ```
 
-### 2.5 CompileAll
+#### 2.4.1 CompileAll
 [-> third_party/dart/runtime/vm/compiler/aot/precompiler.cc]
 
 ```Java
@@ -403,7 +403,7 @@ RawError* Precompiler::CompileAll() {
   if (setjmp(*jump.Set()) == 0) {
     //创建Precompiler对象
     Precompiler precompiler(Thread::Current());
-    //[见小节2.6]
+    //[见小节2.4.2]
     precompiler.DoCompileAll();
     return Error::null();
   } else {
@@ -414,7 +414,7 @@ RawError* Precompiler::CompileAll() {
 
 在Dart Runtime中生成FlowGraph对象，接着进行一系列执行流的优化，最后把优化后的FlowGraph对象转换为具体相应系统架构（arm/arm64等）的二进制指令
 
-### 2.6 DoCompileAll
+#### 2.4.2 DoCompileAll
 [-> third_party/dart/runtime/vm/compiler/aot/precompiler.cc]
 
 ```Java
@@ -605,13 +605,474 @@ void Precompiler::DoCompileAll() {
 
 到此Dart_Precompile()过程执行完成。
 
-## 三、源码解读iOS编译
+Dart_Precompile()执行完再回到[小节2.3]，再来分别看看产物生成的过程。
 
-Dart_Precompile()执行完再回到[小节2.3]，再来分别看看Android和iOS产物生成的过程。
+- iOS：执行Dart_CreateAppAOTSnapshotAsAssembly()方法；
+- Android：执行Dart_CreateAppAOTSnapshotAsBlobs()方法。
 
-### 3.1 Android产物生成
 
-#### 3.1.1 Dart_CreateAppAOTSnapshotAsBlobs
+## 三、 iOS快照产物生成
+### 3.1 Dart_CreateAppAOTSnapshotAsAssembly
+[-> third_party/dart/runtime/vm/dart_api_impl.cc]
+
+```Java
+DART_EXPORT Dart_Handle
+Dart_CreateAppAOTSnapshotAsAssembly(Dart_StreamingWriteCallback callback,
+                                    void* callback_data) {
+#if defined(DART_PRECOMPILER)
+  ...
+  //初始化AssemblyImageWriter对象
+  AssemblyImageWriter image_writer(T, callback, callback_data, NULL, NULL);
+  uint8_t* vm_snapshot_data_buffer = NULL;
+  uint8_t* isolate_snapshot_data_buffer = NULL;
+  FullSnapshotWriter writer(Snapshot::kFullAOT, &vm_snapshot_data_buffer,
+                            &isolate_snapshot_data_buffer, ApiReallocate,
+                            &image_writer, &image_writer);
+  //[见小节3.2]
+  writer.WriteFullSnapshot();
+  //[见小节3.7]
+  image_writer.Finalize();
+  return Api::Success();
+#endif
+}
+```
+
+创建AssemblyImageWriter对象过程，初始化其成员变量StreamingWriteStream类型的assembly_stream_和Dwarf*类型的dwarf_
+
+- assembly_stream_初始化：创建大小等于512KB的buffer_，callback_为StreamingWriteCallback，callback_为snapshot_assembly.S
+- dwarf_初始化：其成员变量stream_指向assembly_stream_；
+
+创建FullSnapshotWriter对象过程，初始化其成员变量kind_等于Snapshot::kFullAOT。vm_snapshot_data_buffer_和isolate_snapshot_data_buffer_分别指向vm_snapshot_data_buffer和isolate_snapshot_data_buffer的地址。
+
+### 3.2 WriteFullSnapshot
+[-> third_party/dart/runtime/vm/clustered_snapshot.cc]
+
+```Java
+void FullSnapshotWriter::WriteFullSnapshot() {
+  intptr_t num_base_objects;
+  if (vm_snapshot_data_buffer() != NULL) {
+    //[见小节3.3]
+    num_base_objects = WriteVMSnapshot();
+  } else {
+    num_base_objects = 0;
+  }
+
+  if (isolate_snapshot_data_buffer() != NULL) {
+    //[见小节3.6]
+    WriteIsolateSnapshot(num_base_objects);
+  }
+
+  if (FLAG_print_snapshot_sizes) {
+    OS::Print("VMIsolate(CodeSize): %" Pd "\n", clustered_vm_size_);
+    OS::Print("Isolate(CodeSize): %" Pd "\n", clustered_isolate_size_);
+    OS::Print("ReadOnlyData(CodeSize): %" Pd "\n", mapped_data_size_);
+    OS::Print("Instructions(CodeSize): %" Pd "\n", mapped_text_size_);
+    OS::Print("Total(CodeSize): %" Pd "\n",
+              clustered_vm_size_ + clustered_isolate_size_ + mapped_data_size_ +
+                  mapped_text_size_);
+  }
+}
+```
+
+产物大小的分类来自于FullSnapshotWriter的几个成员变量
+
+- clustered_vm_size_：是vm的数据段，包含符号表和stub代码
+- clustered_isolate_size_：是isolate的数据段，包含object store
+- ReadOnlyData：是由vm和isolate的只读数据段组成
+- Instructions：是由vm和isolate的代码段组成
+
+### 3.3 WriteVMSnapshot
+[-> third_party/dart/runtime/vm/clustered_snapshot.cc]
+
+```Java
+intptr_t FullSnapshotWriter::WriteVMSnapshot() {
+  Serializer serializer(thread(), kind_, vm_snapshot_data_buffer_, alloc_,
+                        kInitialSize, vm_image_writer_, /*vm=*/true,
+                        profile_writer_);
+
+  serializer.ReserveHeader();  //预留空间来记录快照buffer的大小
+  serializer.WriteVersionAndFeatures(true);
+  const Array& symbols = Array::Handle(Dart::vm_isolate()->object_store()->symbol_table());
+  //写入符号表 [见小节3.3.1]
+  intptr_t num_objects = serializer.WriteVMSnapshot(symbols);
+  serializer.FillHeader(serializer.kind());  //填充头部信息
+  clustered_vm_size_ = serializer.bytes_written();
+
+  if (Snapshot::IncludesCode(kind_)) {  //kFullAOT模式满足条件
+    vm_image_writer_->SetProfileWriter(profile_writer_);
+    //[见小节3.4]
+    vm_image_writer_->Write(serializer.stream(), true);
+    mapped_data_size_ += vm_image_writer_->data_size(); //数据段
+    mapped_text_size_ += vm_image_writer_->text_size(); //代码段
+    vm_image_writer_->ResetOffsets();
+    vm_image_writer_->ClearProfileWriter();
+  }
+
+  //集群部分+直接映射的数据部分
+  vm_isolate_snapshot_size_ = serializer.bytes_written();
+  return num_objects;
+}
+```
+
+创建Serializer对象过程，初始化其成员变量WriteStream类型的stream_。VM snapshot的根节点是符号表和stub代码(App-AOT、App-JIT、Core-JIT)
+
+
+serializer通过其成员变量stream_写入如下内容：
+
+- FillHeader：头部内容
+- WriteVersionAndFeatures：版本信息
+- WriteVMSnapshot：符号表
+
+#### 3.3.1 Serializer::WriteVMSnapshot
+[-> third_party/dart/runtime/vm/clustered_snapshot.cc]
+
+```Java
+intptr_t Serializer::WriteVMSnapshot(const Array& symbols) {
+  NoSafepointScope no_safepoint;
+  //添加虚拟机isolate的基本对象
+  AddVMIsolateBaseObjects();
+
+  //VM snapshot的根节点 入栈，也就是是符号表和stub代码
+  Push(symbols.raw());
+  if (Snapshot::IncludesCode(kind_)) {
+    for (intptr_t i = 0; i < StubCode::NumEntries(); i++) {
+      Push(StubCode::EntryAt(i).raw());
+    }
+  }
+  //写入stream_
+  Serialize();
+
+  //写入VM snapshot的根节点
+  WriteRootRef(symbols.raw());
+  if (Snapshot::IncludesCode(kind_)) {
+    for (intptr_t i = 0; i < StubCode::NumEntries(); i++) {
+      WriteRootRef(StubCode::EntryAt(i).raw());
+    }
+  }
+
+  //  虚拟机isolate快照的完整 作为isolate快照的基本对象
+  //返回对象个数
+  return next_ref_index_ - 1;
+}
+```
+
+### 3.4 ImageWriter::Write
+[-> third_party/dart/runtime/vm/image_snapshot.cc]
+
+```Java
+void ImageWriter::Write(WriteStream* clustered_stream, bool vm) {
+  Thread* thread = Thread::Current();
+  Zone* zone = thread->zone();
+  Heap* heap = thread->isolate()->heap();
+
+  //处理收集的原始指针，构建以下名称将分配在Dart堆
+  for (intptr_t i = 0; i < instructions_.length(); i++) {
+    InstructionsData& data = instructions_[i];
+    const bool is_trampoline = data.trampoline_bytes != nullptr;
+    if (is_trampoline) continue;
+
+    data.insns_ = &Instructions::Handle(zone, data.raw_insns_);
+    data.code_ = &Code::Handle(zone, data.raw_code_);
+
+    //重置isolate快照的对象id
+    heap->SetObjectId(data.insns_->raw(), 0);
+  }
+  for (intptr_t i = 0; i < objects_.length(); i++) {
+    ObjectData& data = objects_[i];
+    data.obj_ = &Object::Handle(zone, data.raw_obj_);
+  }
+
+  //在群集快照之后附加直接映射的RO数据对象
+  offset_space_ = vm ? V8SnapshotProfileWriter::kVmData
+                     : V8SnapshotProfileWriter::kIsolateData;
+  //[见小节3.4.1]
+  WriteROData(clustered_stream);
+
+  offset_space_ = vm ? V8SnapshotProfileWriter::kVmText
+                     : V8SnapshotProfileWriter::kIsolateText;
+  //[见小节3.5]
+  WriteText(clustered_stream, vm);
+}
+```
+
+此处clustered_stream的是指Serializer的成员变量stream_。
+
+#### 3.4.1 WriteROData
+[-> third_party/dart/runtime/vm/image_snapshot.cc]
+
+```Java
+void ImageWriter::WriteROData(WriteStream* stream) {
+  stream->Align(OS::kMaxPreferredCodeAlignment);  //32位对齐
+
+  //堆页面的起点
+  intptr_t section_start = stream->Position();
+  stream->WriteWord(next_data_offset_);  // Data length.
+  stream->Align(OS::kMaxPreferredCodeAlignment);
+
+  //堆页面中对象的起点
+  for (intptr_t i = 0; i < objects_.length(); i++) {
+    const Object& obj = *objects_[i].obj_;
+    AutoTraceImage(obj, section_start, stream);
+
+    NoSafepointScope no_safepoint;
+    uword start = reinterpret_cast<uword>(obj.raw()) - kHeapObjectTag;
+    uword end = start + obj.raw()->HeapSize();
+
+    //写有标记和只读位的对象标头
+    uword marked_tags = obj.raw()->ptr()->tags_;
+    marked_tags = RawObject::OldBit::update(true, marked_tags);
+    marked_tags = RawObject::OldAndNotMarkedBit::update(false, marked_tags);
+    marked_tags = RawObject::OldAndNotRememberedBit::update(true, marked_tags);
+    marked_tags = RawObject::NewBit::update(false, marked_tags);
+
+    stream->WriteWord(marked_tags);
+    start += sizeof(uword);
+    for (uword* cursor = reinterpret_cast<uword*>(start);
+         cursor < reinterpret_cast<uword*>(end); cursor++) {
+      stream->WriteWord(*cursor);
+    }
+  }
+}
+```
+
+### 3.5 AssemblyImageWriter::WriteText
+[-> ]third_party/dart/runtime/vm/image_snapshot.cc]
+
+```Java
+void AssemblyImageWriter::WriteText(WriteStream* clustered_stream, bool vm) {
+  Zone* zone = Thread::Current()->zone();
+  //写入头部
+  const char* instructions_symbol = vm ? "_kDartVmSnapshotInstructions" : "_kDartIsolateSnapshotInstructions";
+  assembly_stream_.Print(".text\n");
+  assembly_stream_.Print(".globl %s\n", instructions_symbol);
+  assembly_stream_.Print(".balign %" Pd ", 0\n", VirtualMemory::PageSize());
+  assembly_stream_.Print("%s:\n", instructions_symbol);
+
+  //写入头部空白字符，使得指令快照看起来像堆页
+  intptr_t instructions_length = next_text_offset_;
+  WriteWordLiteralText(instructions_length);
+  intptr_t header_words = Image::kHeaderSize / sizeof(uword);
+  for (intptr_t i = 1; i < header_words; i++) {
+    WriteWordLiteralText(0);
+  }
+
+  //写入序幕.cfi_xxx
+  FrameUnwindPrologue();
+
+  Object& owner = Object::Handle(zone);
+  String& str = String::Handle(zone);
+  ObjectStore* object_store = Isolate::Current()->object_store();
+
+  TypeTestingStubNamer tts;
+  intptr_t text_offset = 0;
+
+  for (intptr_t i = 0; i < instructions_.length(); i++) {
+    auto& data = instructions_[i];
+    const bool is_trampoline = data.trampoline_bytes != nullptr;
+    if (is_trampoline) {     //针对跳床函数
+      const auto start = reinterpret_cast<uword>(data.trampoline_bytes);
+      const auto end = start + data.trampline_length;
+       //写入.quad xxx字符串
+      text_offset += WriteByteSequence(start, end);
+      delete[] data.trampoline_bytes;
+      data.trampoline_bytes = nullptr;
+      continue;
+    }
+
+    const intptr_t instr_start = text_offset;
+    const Instructions& insns = *data.insns_;
+    const Code& code = *data.code_;
+    // 1. 写入 头部到入口点
+    {
+      NoSafepointScope no_safepoint;
+
+      uword beginning = reinterpret_cast<uword>(insns.raw_ptr());
+      uword entry = beginning + Instructions::HeaderSize(); //ARM64 32位对齐
+
+      //指令的只读标记
+      uword marked_tags = insns.raw_ptr()->tags_;
+      marked_tags = RawObject::OldBit::update(true, marked_tags);
+      marked_tags = RawObject::OldAndNotMarkedBit::update(false, marked_tags);
+      marked_tags = RawObject::OldAndNotRememberedBit::update(true, marked_tags);
+      marked_tags = RawObject::NewBit::update(false, marked_tags);
+      //写入标记
+      WriteWordLiteralText(marked_tags);
+      beginning += sizeof(uword);
+      text_offset += sizeof(uword);
+      text_offset += WriteByteSequence(beginning, entry);
+    }
+
+    // 2. 在入口点写入标签
+    owner = code.owner();
+    if (owner.IsNull()) {  
+      // owner为空，说明是一个常规的stub，其中stub列表定义在stub_code_list.h中的VM_STUB_CODE_LIST
+      const char* name = StubCode::NameOfStub(insns.EntryPoint());
+      if (name != nullptr) {
+        assembly_stream_.Print("Precompiled_Stub_%s:\n", name);
+      } else {
+        if (name == nullptr) {
+          // isolate专有的stub代码[见小节3.5.1]
+          name = NameOfStubIsolateSpecificStub(object_store, code);
+        }
+        assembly_stream_.Print("Precompiled__%s:\n", name);
+      }
+    } else if (owner.IsClass()) {
+      //owner为Class，说明是该类分配的stub，其中class列表定义在class_id.h中的CLASS_LIST_NO_OBJECT_NOR_STRING_NOR_ARRAY
+      str = Class::Cast(owner).Name();
+      const char* name = str.ToCString();
+      EnsureAssemblerIdentifier(const_cast<char*>(name));
+      assembly_stream_.Print("Precompiled_AllocationStub_%s_%" Pd ":\n", name,
+                             i);
+    } else if (owner.IsAbstractType()) {
+      const char* name = tts.StubNameForType(AbstractType::Cast(owner));
+      assembly_stream_.Print("Precompiled_%s:\n", name);
+    } else if (owner.IsFunction()) { //owner为Function，说明是一个常规的dart函数
+      const char* name = Function::Cast(owner).ToQualifiedCString();
+      EnsureAssemblerIdentifier(const_cast<char*>(name));
+      assembly_stream_.Print("Precompiled_%s_%" Pd ":\n", name, i);
+    } else {
+      UNREACHABLE();
+    }
+
+#ifdef DART_PRECOMPILER
+    // 创建一个标签用于DWARF
+    if (!code.IsNull()) {
+      const intptr_t dwarf_index = dwarf_->AddCode(code);
+      assembly_stream_.Print(".Lcode%" Pd ":\n", dwarf_index);
+    }
+#endif
+
+    {
+      // 3. 写入 入口点到结束
+      NoSafepointScope no_safepoint;
+      uword beginning = reinterpret_cast<uword>(insns.raw_ptr());
+      uword entry = beginning + Instructions::HeaderSize();
+      uword payload_size = insns.raw()->HeapSize() - insns.HeaderSize();
+      uword end = entry + payload_size;
+      text_offset += WriteByteSequence(entry, end);
+    }
+  }
+
+  FrameUnwindEpilogue();
+
+#if defined(TARGET_OS_LINUX) || defined(TARGET_OS_ANDROID) ||                  \
+    defined(TARGET_OS_FUCHSIA)
+  assembly_stream_.Print(".section .rodata\n");
+#elif defined(TARGET_OS_MACOS) || defined(TARGET_OS_MACOS_IOS)
+  assembly_stream_.Print(".const\n");
+#else
+  UNIMPLEMENTED();
+#endif
+  //写入数据段
+  const char* data_symbol = vm ? "_kDartVmSnapshotData" : "_kDartIsolateSnapshotData";
+  assembly_stream_.Print(".globl %s\n", data_symbol);
+  assembly_stream_.Print(".balign %" Pd ", 0\n",
+                         OS::kMaxPreferredCodeAlignment);
+  assembly_stream_.Print("%s:\n", data_symbol);
+  uword buffer = reinterpret_cast<uword>(clustered_stream->buffer());
+  intptr_t length = clustered_stream->bytes_written();
+  WriteByteSequence(buffer, buffer + length);
+}
+```
+
+#### 3.5.1 NameOfStubIsolateSpecificStub
+[[-> ]third_party/dart/runtime/vm/image_snapshot.cc]
+
+```Java
+const char* NameOfStubIsolateSpecificStub(ObjectStore* object_store,
+                                          const Code& code) {
+  if (code.raw() == object_store->build_method_extractor_code()) {
+    return "_iso_stub_BuildMethodExtractorStub";
+  } else if (code.raw() == object_store->null_error_stub_with_fpu_regs_stub()) {
+    return "_iso_stub_NullErrorSharedWithFPURegsStub";
+  } else if (code.raw() ==
+             object_store->null_error_stub_without_fpu_regs_stub()) {
+    return "_iso_stub_NullErrorSharedWithoutFPURegsStub";
+  } else if (code.raw() ==
+             object_store->stack_overflow_stub_with_fpu_regs_stub()) {
+    return "_iso_stub_StackOverflowStubWithFPURegsStub";
+  } else if (code.raw() ==
+             object_store->stack_overflow_stub_without_fpu_regs_stub()) {
+    return "_iso_stub_StackOverflowStubWithoutFPURegsStub";
+  } else if (code.raw() == object_store->write_barrier_wrappers_stub()) {
+    return "_iso_stub_WriteBarrierWrappersStub";
+  } else if (code.raw() == object_store->array_write_barrier_stub()) {
+    return "_iso_stub_ArrayWriteBarrierStub";
+  }
+  return nullptr;
+}
+```
+
+再回到[小节3.1]，执行完WriteVMSnapshot()方法，然后执行WriteIsolateSnapshot()方法。
+
+
+### 3.6 WriteIsolateSnapshot
+[-> third_party/dart/runtime/vm/clustered_snapshot.cc]
+
+```Java
+void FullSnapshotWriter::WriteIsolateSnapshot(intptr_t num_base_objects) {
+  Serializer serializer(thread(), kind_, isolate_snapshot_data_buffer_, alloc_,
+                        kInitialSize, isolate_image_writer_, /*vm=*/false,
+                        profile_writer_);
+  ObjectStore* object_store = isolate()->object_store();
+
+  serializer.ReserveHeader();
+  serializer.WriteVersionAndFeatures(false);
+
+  // Isolate快照的根为object store
+  serializer.WriteIsolateSnapshot(num_base_objects, object_store);
+  serializer.FillHeader(serializer.kind());
+  clustered_isolate_size_ = serializer.bytes_written();
+
+  if (Snapshot::IncludesCode(kind_)) {
+    isolate_image_writer_->SetProfileWriter(profile_writer_);
+    //[见小节3.4]
+    isolate_image_writer_->Write(serializer.stream(), false);
+#if defined(DART_PRECOMPILER)
+    isolate_image_writer_->DumpStatistics();
+#endif
+    mapped_data_size_ += isolate_image_writer_->data_size();
+    mapped_text_size_ += isolate_image_writer_->text_size();
+    isolate_image_writer_->ResetOffsets();
+    isolate_image_writer_->ClearProfileWriter();
+  }
+
+  // 集群部分 + 直接映射的数据部分
+  isolate_snapshot_size_ = serializer.bytes_written();
+}
+```
+
+### 3.7 AssemblyImageWriter::Finalize
+[-> third_party/dart/runtime/vm/image_snapshot.cc]
+
+```Java
+void AssemblyImageWriter::Finalize() {
+#ifdef DART_PRECOMPILER
+  dwarf_->Write();
+#endif
+}
+```
+
+#### 3.7.1 Dwarf.Write
+[-> third_party/dart/runtime/vm/dwarf.h]
+
+```Java
+class Dwarf : public ZoneAllocated {
+
+  void Write() {
+    WriteAbbreviations();
+    WriteCompilationUnit();
+    WriteLines();
+  }
+}
+```
+
+Dwarf数据采用数的形式，其节点称为DIE，每个DIE均以缩写代码开头，并且该缩写描述了该DIE的属性及其表示形式。
+
+
+## 四、 Android快照产物生成
+
+### 4.1 Dart_CreateAppAOTSnapshotAsBlobs
 [-> third_party/dart/runtime/vm/dart_api_impl.cc]
 
 ```Java
@@ -653,7 +1114,7 @@ Dart_CreateAppAOTSnapshotAsBlobs(uint8_t** vm_snapshot_data_buffer,
   FullSnapshotWriter writer(Snapshot::kFullAOT,
                 vm_snapshot_data_buffer, isolate_snapshot_data_buffer,
                 ApiReallocate, &vm_image_writer, &isolate_image_writer);
-
+  //[见小节3.1]
   writer.WriteFullSnapshot();
   *vm_snapshot_data_size = writer.VmIsolateSnapshotSize();
   *vm_snapshot_instructions_size = vm_image_writer.InstructionsBlobSize();
@@ -673,55 +1134,8 @@ Dart_CreateAppAOTSnapshotAsBlobs(uint8_t** vm_snapshot_data_buffer,
 
 再下一步将这些数据写入文件。
 
-### 3.2 iOS产物生成
 
-#### 3.2.1 Dart_CreateAppAOTSnapshotAsAssembly
 
-```Java
-DART_EXPORT Dart_Handle
-Dart_CreateAppAOTSnapshotAsAssembly(Dart_StreamingWriteCallback callback,
-                                    void* callback_data) {
-#if defined(DART_PRECOMPILER)
-  ...
-  AssemblyImageWriter image_writer(T, callback, callback_data, NULL, NULL);
-  uint8_t* vm_snapshot_data_buffer = NULL;
-  uint8_t* isolate_snapshot_data_buffer = NULL;
-  FullSnapshotWriter writer(Snapshot::kFullAOT, &vm_snapshot_data_buffer,
-                            &isolate_snapshot_data_buffer, ApiReallocate,
-                            &image_writer, &image_writer);
-
-  writer.WriteFullSnapshot();
-  image_writer.Finalize();
-
-  return Api::Success();
-#endif
-}
-```
-
-#### 3.2.2 WriteFullSnapshot
-[-> third_party/dart/runtime/vm/clustered_snapshot.cc]
-
-```Java
-void FullSnapshotWriter::WriteFullSnapshot() {
-  intptr_t num_base_objects;
-  if (vm_snapshot_data_buffer() != NULL) {
-    num_base_objects = WriteVMSnapshot();
-  } else {
-    num_base_objects = 0;
-  }
-
-  if (isolate_snapshot_data_buffer() != NULL) {
-    WriteIsolateSnapshot(num_base_objects);
-  }
-}
-```
-
-FullSnapshotWriter的成员变量
-
-- clustered_vm_size_ ： VM
-- clustered_isolate_size_ ： Isolate
-- mapped_data_size_ ：数据
-- mapped_text_size_ ：指令
 
 ## 附录
 

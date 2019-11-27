@@ -26,14 +26,19 @@ new Future(() => print("Hello Gityuan"));
 
 ![Future创建流程](http://gityuan.com/img/flutter_future/future.jpg)
 
-图解：
+Future创建过程解读：
 
-- Future创建过程：
-  - 创建Timer，并将\_Timer.\_handleMessage()放入到_handlerMap；
+- 创建Timer
+  - 创建Timer，并将timer_impl.dart中\_Timer对象的静态方法\_handleMessage()放入到isolate_patch.dart中\_RawReceivePortImpld对象的静态成员变量_handlerMap；
   - 对于无延迟的Future则会将该Timer加入到ZeroTimer链表尾部；
-  - 创建的新端口号port和回调handler一起记得到一条新的entry，再把该entry加入到map_的第port个槽位；
+- 创建ReceivePort和SendPort
+  - 创建\_RawReceivePortImpl对象过程，会通过PortMap::CreatePort()来创建的新端口号port；
+  - 通过Isolate::InitIsolate()过程，创建IsolateMessageHandler对象，并记录在isolate对象的成员变量message_handler_；
+  - 将isolate的message_handler_加入到一条新的entry，再把该entry加入到map_的第port个槽位；
+  - PortMap中的静态成员变量map_记录着所有port到IsolateMessageHandler的映射信息；
   - 创建ReceivePort和SendPort对象；
-- 位于isolate.cc中的RawReceivePortImpl_factory和RawReceivePortImpl_get_sendport都是native方法，是从Dart调用到C++的桥梁层；
+
+另外，位于isolate.cc中的RawReceivePortImpl_factory和RawReceivePortImpl_get_sendport都是native方法，是从Dart调用到C++的桥梁层；
 
 #### 1.2 Future处理流程
 **[Future发送与处理流程](http://gityuan.com/img/flutter_future/future_send.jpg)**
@@ -52,6 +57,25 @@ new Future(() => print("Hello Gityuan"));
   - 再从ZeroTimer链表中添加所有时间已过期的消息以及无延迟的消息；
   - 然后回调执行真正的future中定义的业务逻辑代码。
 - 位于dart_entry.cc中的DartLibraryCalls的LookupHandler和HandleMessage，是从C++调用到Dart的桥梁层；
+
+任务发送和接收核心流程，如下：
+
+```Java
+SendPortImpl.send
+  PortMap::PostMessage
+    MessageHandler::PostMessage
+      IsolateMessageHandler::MessageNotify
+        DartMessageHandler::MessageNotifyCallback
+          DartMessageHandler::OnMessage
+            TaskRunner::PostTask
+              ↓
+              ↓ 将Task交给ui线程
+              DartMessageHandler::OnHandleMessage
+                MessageHandler::HandleNextMessage
+                  IsolateMessageHandler::HandleMessage
+                    DartLibraryCalls::HandleMessage
+                       \_RawReceivePortImpl.\_handleMessage
+```
 
 #### 1.3 Port类图
 
@@ -379,8 +403,8 @@ Dart_Port PortMap::CreatePort(MessageHandler* handler) {
 
 map_是一个记录端口entry的HashMap，每一个entry里面有端口号，handler，以及端口状态。
 
-- 端口号port采用的是用随机数生成一个整型的端口号，
-- handler是并记录handler指针；
+- 端口号port采用的是用随机数生成一个整型的端口号
+- handler是记录message handler指针
 - 端口状态state有3种类型，包括kNewPort(新分配的端口)，kLivePort(普通端口)，kControlPort(特殊控制类的端口)
 
 创建完端口后，再回到小节[2.10.2]初始化ReceivePort。
@@ -439,7 +463,7 @@ RawSendPort* SendPort::New(Dart_Port id,
 
 再回到小节2.9来看看_sendPort的赋值过程。
 
-### 2.11 \_RawReceivePortImpl.sendPort
+### 2.11 sendPort
 [-> third_party/dart/runtime/lib/isolate_patch.dart]
 
 ```Java
@@ -479,10 +503,9 @@ class ReceivePort : public Instance {
 };
 ```
 
-再来看看SendPort方法所所对应的类，如下所示。
+再来看看SendPort方法所所对应的类，过程如下：
 
-#### 2.11.3 Object::Init
-[-> third_party/dart/runtime/vm/object.cc]
+[third_party/dart/runtime/vm/object.cc]
 
 ```Java
 RawError* Object::Init(Isolate* isolate,
@@ -501,7 +524,7 @@ RawError* Object::Init(Isolate* isolate,
 }
 ```
 
-可知：
+说明：
 
 - C++层的ReceivePort类对应于 Dart层中DartIsolate库里的\_RawReceivePortImpl类；
 - C++层的SendPort类对应于 Dart层中DartIsolate库里的\_SendPortImpl类；
@@ -510,6 +533,8 @@ RawError* Object::Init(Isolate* isolate,
 可见，[小节2.8]的\_Timer.\_notifyZeroHandler()过程会创建_RawReceivePortImpl类型的_receivePort和_SendPortImpl类型的_sendPort，然后再通过send()发送_ZERO_EVENT消息。
 
 ## 三、任务发送
+
+[小节2.8]的_Timer.\_notifyZeroHandler()执行完创建TimerHandler，然后开始发送消息。
 
 ### 3.1 \_SendPortImpl.send
 [-> third_party/dart/runtime/lib/isolate_patch.dart]
@@ -620,11 +645,12 @@ void MessageHandler::PostMessage(Message* message, bool before_events) {
     message = NULL;
 
     if ((pool_ != NULL) && (task_ == NULL)) {
+      //ui线程并没有赋值pool_，则此处不执行
       task_ = new MessageHandlerTask(this);
       task_running = pool_->Run(task_);
     }
   }
-  //调用IsolateMessageHandler对象的方法[见小节3.5]
+  //对于root isolate或者oob消息会执行相关操作，否则不做任何事 [见小节3.5]
   MessageNotify(saved_priority);
 }
 ```
@@ -709,8 +735,9 @@ void IsolateMessageHandler::MessageNotify(Message::Priority priority) {
     I->ScheduleInterrupts(Thread::kMessageInterrupt);
   }
   Dart_MessageNotifyCallback callback = I->message_notify_callback();
+  //只有是root isolate时，callback才不会空[见小节3.6]
   if (callback) {
-    (*callback)(Api::CastIsolate(I)); //[见小节3.6]
+    (*callback)(Api::CastIsolate(I));
   }
 }
 ```
@@ -763,7 +790,7 @@ void DartMessageHandler::Initialize(TaskDispatcher dispatcher) {
 }
 ```
 
-由此可见：
+由此可见，只有有root isolate才会执行如下赋值：
 
 - task_dispatcher_值等价于UITaskRunner->PostTask()，执行的是向UI线程PostTask的操作；
 - message_notify_callback值等价于DartMessageHandler::MessageNotifyCallback；
@@ -1116,16 +1143,16 @@ RawObject* DartLibraryCalls::HandleMessage(const Object& handler,
     isolate->object_store()->set_handle_message_function(function);
   }
   const Array& args = Array::Handle(zone, Array::New(kNumArguments));
-  //
+  //将_handleMessage作为第一个参数
   args.SetAt(0, handler);
   args.SetAt(1, message);
-  //调用function方法 [见小节4.5.2]
+  //调用function方法 [见小节4.5.1]
   const Object& result = Object::Handle(zone, DartEntry::InvokeFunction(function, args));
   return result.raw();
 }
 ```
 
-#### 4.5.2 \_RawReceivePortImpl.\_handleMessage
+#### 4.5.1 \_RawReceivePortImpl.\_handleMessage
 [-> third_party/dart/runtime/lib/isolate_patch.dart]
 
 ```Java

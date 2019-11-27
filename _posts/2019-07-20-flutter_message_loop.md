@@ -193,6 +193,7 @@ MessageLoopAndroid::MessageLoopAndroid()
 
 ```Java
 static ALooper* AcquireLooperForThread() {
+  //获取当前线程的loop
   ALooper* looper = ALooper_forThread();
 
   if (looper == nullptr) {
@@ -206,7 +207,12 @@ static ALooper* AcquireLooperForThread() {
 }
 ```
 
-此处是通过android中的ndk工具实现loop消息机制。
+此处是通过android中的ndk工具实现loop消息机制，对于1.ui, 1.gpu, 1.io线程会创建native的loop，对于main线程会复用Android原生的native loop。
+
+- ALooper_forThread：获取当前线程的loop，对应Looper::getForThread()，通过该线程key向TLS来查询是否存在已创建的c++层的loop
+- ALooper_prepare：创建新的loop，对应Looper::prepare()，在TLS中记录着该线程为key，loop为value的数据。
+- ALooper_acquire: 获取loop的引用，对应looper->incStrong()，也就是将引用计数加1；
+
 
 #### 2.6.2 timerfd_create
 [-> flutter/fml/platform/linux/timerfd.cc]
@@ -766,10 +772,10 @@ Flutter引擎启动过程，会创建UI/GPU/IO这3个线程，并且会为每个
 
 消息机制采用的是生产者-消费者模型，本文介绍了两类任务：引擎层的Task和Dart层的Microtask，当然还有Future和DartVM中的消息处理，会在下一篇文章讲解。
 
-- C++引擎层的Task
+- Task
   - MessageLoopImpl::RegisterTask()：生产Task
   - MessageLoopImpl::FlushTasks()：消费Task
-- Dart层的Microtask
+- Microtask
   - scheduleMicrotask()：生成Microtask
   - Window::BeginFrame()：消费Microtask
   - MessageLoopImpl::FlushTasks()：消费Microtask

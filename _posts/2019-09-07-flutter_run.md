@@ -129,12 +129,11 @@ gradle参数说明会传递到build aot过程，其对应参数说明：
 flutter build aot                                         \
   --suppress-analytics                                    \
   --quiet                                                 \
-  --target lib/main.dart                                  \
-  --output-dir /build/app/intermediates/flutter/release/  \
-  --target-platform android-arm                           \
-  --extra-front-end-options                               \
-  --extra-gen-snapshot-options                            \
-  --release                                               
+  --target=lib/main.dart                                  \
+  --output-dir=build/app/intermediates/flutter/release    \
+  --target-platform=android-arm                           \
+  --release                                               \
+  --extra-gen-snapshot-options="--print-snapshot-sizes"                                        
 ```
 
 #### 1.3.2 iOS AOT产物生成命令
@@ -146,9 +145,12 @@ flutter build aot         \
   --target=lib/main.dart  \
   --output-dir=build/aot  \
   --target-platform=ios   \
-  --ios-arch=armv7,arm64  \
-  --release
+  --ios-arch=arm64        \
+  --release               \
+  --extra-gen-snapshot-options="--print-snapshot-sizes"
 ```
+
+如果需要同时编译32位和64位，则可以设置参数--ios-arch=armv7,arm64。
 
 ### 1.4 flutter run原理说明
 flutter run过程涉及多个flutter相关命令，其包含关系如下所示：
