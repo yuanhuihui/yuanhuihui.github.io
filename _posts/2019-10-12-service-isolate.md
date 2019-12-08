@@ -3,14 +3,14 @@ layout: post
 title:  "ServiceIsolate工作原理"
 date:   2019-10-12 22:15:40
 catalog:  true
-tags:
+tags:s
     - flutter
 
 ---
 
 ## 一、概述
 
-在前面文章[深入理解Dart虚拟机启动](http://gityuan.com/2019/06/23/dart-vm/)中，有讲到Dart虚拟机中有一个比较重要的isolate，创建的isolate名为”vm-service”，运行在独立的线程，也就是ServiceIsolate，这是用于系统调试相关功能的一个isolate，提供虚拟机相关服务，比如hot reload，timeline等。这里先来看看ServiceIsolate的启动过程以及监听处理流程。
+在前面文章[深入理解Dart虚拟机启动](http://gityuan.com/2019/06/23/dart-vm/)中，有讲到Dart虚拟机中有一个比较重要的isolate，创建的isolate名为”vm-service”，运行在独立的线程，也就是ServiceIsolate，这是用于系统调试相关功能的一个isolate，提供虚拟机相关服务，  比如hot reload，timeline等。这里先来看看ServiceIsolate的启动过程以及监听处理流程。
 
 ## 二、启动ServiceIsolate
 
