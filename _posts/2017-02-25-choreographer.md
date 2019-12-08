@@ -173,8 +173,8 @@ handleEvent。
 
 ## 三、Vysnc回调流程
 
-当vysnc信号由底层HWC触发后会执行handleEvent方法。
-
+当vysnc信号由SurfaceFlinger中创建HWC触发，唤醒DispSyncThread线程，再到EventThread线程，然后再通过BitTube直接传递到目标进程所对应的目标线程，执行handleEvent方法。
+，
 ### 3.1 handleEvent
 [-> android_view_DisplayEventReceiver.cpp]
 
