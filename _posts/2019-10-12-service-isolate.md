@@ -3,7 +3,7 @@ layout: post
 title:  "ServiceIsolate工作原理"
 date:   2019-10-12 22:15:40
 catalog:  true
-tags:s
+tags:
     - flutter
 
 ---
@@ -472,7 +472,7 @@ Future _requestHandler(HttpRequest request) async {
   final String path = _checkAuthTokenAndGetPath(request.uri);
   //创建一个client对象，内有vmservice [见小节3.1.1]
   final client = new HttpRequestClient(request, _service);
-  //创建message对象，[见小节3.1.2]
+  //创建message对象，[见小节3.1.3]
   final message = new Message.fromUri(client, Uri.parse(path));
   // [见小节3.2]
   client.onRequest(message);
@@ -504,7 +504,23 @@ abstract class Client {
 }
 ```
 
-#### 3.1.2 Message.fromUri
+#### 3.1.2 VMService.\_addClient
+[-> third_party/dart/sdk/lib/vmservice/vmservice.dart]
+
+```Java
+class VMService extends MessageRouter {
+  static const serviceNamespace = 's';
+
+  final NamedLookup<Client> clients =
+      new NamedLookup<Client>(prologue: serviceNamespace);
+
+  void _addClient(Client client) {
+    clients.add(client);
+  }
+}
+```
+
+#### 3.1.3 Message.fromUri
 [-> third_party/dart/sdk/lib/vmservice/message.dart]
 
 ```Java
@@ -529,11 +545,16 @@ abstract class Client {
   final VMService service;
 
   void onRequest(Message message) {
-    //
+    // 【见小节3.3/38】
     service.routeRequest(service, message).then(post);
   }
 }
 ```
+
+这里有两个过程：
+
+- vmservice.routeRequest
+- post
 
 ### 3.3 vmservice.routeRequest
 [-> third_party/dart/sdk/lib/vmservice/vmservice.dart]
@@ -858,6 +879,34 @@ static const ServiceMethodDescriptor service_methods_[] = {
   { "_getDefaultClassesAliases", GetDefaultClassesAliases,
     get_default_classes_aliases_params },
 };
+```
+
+### 3.8 HttpRequestClient
+
+```Java
+class HttpRequestClient extends Client {
+  static ContentType jsonContentType =
+      new ContentType("application", "json", charset: "utf-8");
+  final HttpRequest request;
+
+
+  void post(Response result) {
+    HttpResponse response = request.response;
+    response.headers.add('Access-Control-Allow-Origin', '*');
+    response.headers.contentType = jsonContentType;
+    switch (result.kind) {
+      case ResponsePayloadKind.String:
+        response.write(result.payload);
+        break;
+      case ResponsePayloadKind.Utf8String:
+        response.add(result.payload);
+        break;
+      case ResponsePayloadKind.Binary:
+        throw 'Can not handle binary responses';
+    }
+    response.close();
+    close();
+  }
 ```
 
 ## 四、小结
