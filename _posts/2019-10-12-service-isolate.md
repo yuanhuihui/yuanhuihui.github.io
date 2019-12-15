@@ -28,9 +28,6 @@ char* Dart::Init(Dart_IsolateCreateCallback create,
   ...
 #if defined(SUPPORT_TIMELINE)
   Timeline::Init();
-  TimelineDurationScope tds(Timeline::GetVMStream(), "Dart::Init");
-  TimelineDurationScope tds(Timeline::GetVMStream(), "ReadVMSnapshot");
-  TimelineDurationScope tds(Timeline::GetVMStream(), "FinalizeVMIsolate");
 #endif
 
   Isolate::SetCreateCallback(create);
