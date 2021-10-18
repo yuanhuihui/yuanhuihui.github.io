@@ -25,17 +25,17 @@ description: "字节内推"
 
 **【如何加入我们】**
 
-- Android/iOS/前端/服务端等研发工程师，社招/校招/实习生不限，海量HC，赶快扫码下发二维码码，简历直达，火速安排面试。
-
-![hire](/images/tt_live_hire.png)
-
 - 加入我们，你将获得参与打造全球最大的短视频平台的研发体验，你将实现每一行代码影响数亿用户的体验，获得技术和职业能力的进一步成长。
+- Android/iOS/前端/服务端等研发工程师，社招/校招/实习生不限，上海/深圳，海量HC，赶快扫码下方内推二维码，火速安排面试。
+
+![hire](/images/about-me/tt_live_hire.png)
 
 
 
-### 1. Android（资深）开发工程师/专家
+更多JD描述如下所示：
 
-> 内推链接：https://people.bytedance.net/hire/referral/position/favorites?job_post_id=6972132667949484319
+### [Android（资深）开发工程师/专家](https://job.toutiao.com/s/dwFJX93)
+
 
 **职位描述**
 
@@ -55,9 +55,8 @@ description: "字节内推"
 
 
 
-### 2. iOS（资深）开发工程师/专家
+###  [iOS（资深）开发工程师/专家](https://job.toutiao.com/s/dwNW1uA)
 
-> 内推链接：https://people.bytedance.net/hire/referral/position/favorites?job_post_id=6972108976792701221
 
 **职位描述**
 
@@ -75,9 +74,7 @@ description: "字节内推"
 5. 对iOS性能优化或者工程架构有自己的理解，有过组件化、CICD（持续集成 持续部署）、卡顿发热优化、跨端等相关经验的加分；
 6. 其它：不要求音视频领域相关技术储备，具备直播&电商相关开发经验的加分。
 
-### 3. 前端（资深）开发工程师/专家
-
-> 内推链接：https://people.bytedance.net/hire/referral/position/favorites?job_post_id=6979603762005068046
+###  [前端（资深）开发工程师/专家](https://job.toutiao.com/s/dwNEvoL)
 
 **职位描述**
 
@@ -95,9 +92,8 @@ description: "字节内推"
 5. 参与或主导过大型项目、优秀的开源项目、有优秀的技术博文&博客优先。
 
 
-### 4. 服务端（资深）开发工程师/专家
+### [服务端（资深）开发工程师/专家](https://job.toutiao.com/s/dwFRqm4)
 
-> 内推链接：https://people.bytedance.net/hire/referral/position/favorites?job_post_id=6972132667949893919
 
 **职位描述**
 
